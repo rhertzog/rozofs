@@ -74,6 +74,8 @@ typedef struct cnxentry {
 } cnxentry_t;
 
 
+extern epp_profiler_t  gprofiler;
+
 /*
  **__________________________________________________________________
  */
@@ -1378,7 +1380,7 @@ int export_unlink(export_t * e, fid_t parent, char *name, fid_t fid,mattr_t * pa
     // Not a hardlink
     if (nlink == 1) {
 
-        if (lv2->attributes.size > 0 && S_ISREG(lv2->attributes.mode)) {
+        if (S_ISREG(lv2->attributes.mode)) {
 
             char trash_file_path[PATH_MAX];
             char trash_bucket_path[PATH_MAX];
@@ -2590,6 +2592,9 @@ out:
 #define ROZOFS_USER_XATTR_ID "user.rozofs_id"
 #define ROZOFS_ROOT_XATTR_ID "trusted.rozofs_id"
 
+#define ROZOFS_XATTR_MAX_SIZE "rozofs_maxsize"
+#define ROZOFS_USER_XATTR_MAX_SIZE "user.rozofs_maxsize"
+#define ROZOFS_ROOT_XATTR_MAX_SIZE "trusted.rozofs_maxsize"
 
 #define DISPLAY_ATTR_TITLE(name) p += sprintf(p,"%-7s : ",name);
 #define DISPLAY_ATTR_INT(name,val) p += sprintf(p,"%-7s : %d\n",name,val);
@@ -2786,6 +2791,137 @@ static inline int get_rozofs_xattr_internal_id(export_t *e, lv2_entry_t *lv2, ch
 /*
 **______________________________________________________________________________
 */
+static inline int get_rozofs_xattr_max_size(export_t *e, lv2_entry_t *lv2, char * value, int size) {
+  char    * p=value;
+  int       idx;
+  uint64_t  free=-1;
+  uint8_t   rozofs_forward = rozofs_get_rozofs_forward(e->layout);
+  uint8_t   rozofs_inverse = rozofs_get_rozofs_inverse(e->layout);
+  int       rozofs_psize;
+  volume_t * volume; 
+  epp_sstat_t * storage_stat = NULL; 
+  int        idx_stor;
+  int        found = 0;
+  int        quota=0;
+  
+
+  if (S_ISDIR(lv2->attributes.mode)) {
+    p += sprintf(p,"rozof_max_size is not applicable to a directory."); 
+    return (p-value);  
+  }
+
+  if (S_ISLNK(lv2->attributes.mode)) {
+    p += sprintf(p,"rozof_max_size is not applicable to a symbolic link."); 
+    return (p-value);
+  }  
+  
+
+  volume = e->volume;
+
+  /*
+  ** Find out the volume of this file
+  */
+  int nb_volumes = gprofiler.nb_volumes;
+  for (idx=0; idx < nb_volumes; idx++) { 
+    if (gprofiler.vstats[idx].vid == volume->vid) break;
+  }
+  if (idx == nb_volumes) {
+    p += sprintf(p,"Temporary unavailable. Please retry."); 
+    return (p-value);
+  }  
+
+
+  /*
+  ** Loop on the storages of this volume to check those
+  ** of the file distribution and get the one that has the
+  ** less free size.
+  */
+  int nb_storages = gprofiler.vstats[idx].nb_storages;  
+  storage_stat = &gprofiler.vstats[idx].sstats[0];;   
+  
+  for (idx=0; idx <  nb_storages; idx++,storage_stat++) {
+  
+    if (storage_stat->cid != lv2->attributes.cid) continue;
+
+    for(idx_stor=0; idx_stor < rozofs_forward; idx_stor++) {
+    
+      if (storage_stat->sid != lv2->attributes.sids[idx_stor]) continue;
+      
+      /*
+      ** Get the storage that has the less free space
+      */
+      if (free > storage_stat->free) free = storage_stat->free;
+      found++;
+      
+      if (found == rozofs_forward) break;
+    }
+    if (found == rozofs_forward) break;        
+  } 
+  
+  
+  if (idx == nb_storages) { 
+    p += sprintf(p,"Temporary unavailable. Please retry."); 
+    return (p-value);
+  }
+
+  /*
+  ** This is the max number of blocks that we can still write
+  ** for this distribution
+  */
+  rozofs_psize = rozofs_get_max_psize(e->layout)*sizeof (bin_t)
+               + sizeof (rozofs_stor_bins_hdr_t)
+	       // + sizeof (rozofs_stor_bins_footer_t)
+	       ;
+  
+  free /= rozofs_psize;
+        
+  /*
+  ** Respect the hard quota
+  */	
+  if (e->hquota > 0) {
+    uint64_t quota_left = (e->hquota - e->fstat.blocks);
+    if (free > quota_left) {
+      free = quota_left;
+      quota =1;
+    }
+  }
+  
+  /*
+  ** Find out the rigth unit to display the result
+  */
+  free *= ROZOFS_BSIZE;
+  
+  if (free < 1024) {
+    p += sprintf(p,"Remaining available space %llu B%s", (unsigned long long int) free, quota?" (hard quota).":"."); 
+    return (p-value);   
+  } 
+  
+  free /= 1024;
+  if (free < 1024) {
+    p += sprintf(p,"Remaining available space %llu KiB%s", (unsigned long long int) free, quota?" (hard quota).":"."); 
+    return (p-value);   
+  } 
+
+  free /= 1024;    
+  if (free < 1024) {
+    p += sprintf(p,"Remaining available space %llu MiB%s", (unsigned long long int) free, quota?" (hard quota).":"."); 
+    return (p-value);   
+  }  
+    
+  free /= 1024;
+  if (free < 1024) {
+    p += sprintf(p,"Remaining available space %llu GiB%s", (unsigned long long int) free, quota?" (hard quota).":"."); 
+    return (p-value);   
+  }
+  
+  free /= 1024;
+  p += sprintf(p,"Remaining available space %llu TiB%s", (unsigned long long int) free, quota?" (hard quota).":"."); 
+  return (p-value);    
+}  
+
+/*
+**______________________________________________________________________________
+*/
 /** retrieve an extended attribute value.
  *
  * @param e: the export managing the file or directory.
@@ -2816,7 +2952,11 @@ ssize_t export_getxattr(export_t *e, fid_t fid, const char *name, void *value, s
     if ((strcmp(name,ROZOFS_XATTR_ID)==0)||(strcmp(name,ROZOFS_USER_XATTR_ID)==0)||(strcmp(name,ROZOFS_ROOT_XATTR_ID)==0)) {
       status = get_rozofs_xattr_internal_id(e,lv2,value,size);
       goto out;
-    }  
+    } 
+    if ((strcmp(name,ROZOFS_XATTR_MAX_SIZE)==0)||(strcmp(name,ROZOFS_USER_XATTR_MAX_SIZE)==0)||(strcmp(name,ROZOFS_ROOT_XATTR_MAX_SIZE)==0)) {
+      status = get_rozofs_xattr_max_size(e,lv2,value,size);
+      goto out;
+    }      
     if ((status = export_lv2_get_xattr(lv2, name, value, size)) < 0) {
         goto out;
     }
