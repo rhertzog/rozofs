@@ -40,7 +40,7 @@ void print_cache(lv2_cache_t *cache) {
     puts("============= cache =============");
     printf("size: %d (%d)\n", cache->size, cache->max);
 
-    list_for_each_forward(p, &cache->entries) {
+    list_for_each_forward(p, &cache->lru) {
         lv2_entry_t *entry = list_entry(p, lv2_entry_t, list);
         uuid_unparse(entry->attributes.fid, str);
         printf("%s\n", str);

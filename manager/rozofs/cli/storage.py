@@ -36,6 +36,9 @@ def list(platform, args):
     for stor in configurations:
         sid_l[stor] = []
         lid_l={}
+        if configurations[stor] is None:
+            sid_l.update({stor:"not reachable"})
+            continue
         for lconfig in configurations[stor][Role.STORAGED].listens:
             lid_l = OrderedDict([
                 ('addr', lconfig.addr),
@@ -57,6 +60,9 @@ def get(platform, args):
 
             sid_l[host]=[]
             lid_l={}
+            if configuration is None:
+                sid_l.update({host:"not reachable"})
+                continue
             for lconfig in configuration[Role.STORAGED].listens:
                 lid_l = OrderedDict([
                                      ('addr', lconfig.addr),
@@ -148,5 +154,5 @@ def remove(platform, args):
 
 
 def dispatch(args):
-    p = Platform(args.exportd)
+    p = Platform(args.exportd, Role.EXPORTD | Role.STORAGED)
     globals()[args.action.replace('-', '_')](p, args)

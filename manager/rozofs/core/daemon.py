@@ -45,11 +45,11 @@ class DaemonManager(object):
                 r = False
         return r
 
-    def start(self):
+    def start(self, add_args=[]):
         '''
         Start the underlying daemon
         '''
-        cmds = [self._daemon] + self._args
+        cmds = [self._daemon] + self._args + add_args
         if self.status() is False :
             with open('/dev/null', 'w') as devnull:
                 p = subprocess.Popen(cmds, stdout=devnull,
@@ -69,13 +69,13 @@ class DaemonManager(object):
                 if p.wait() is not 0 :
                     raise Exception(p.communicate()[1])
 
-    def restart(self):
+    def restart(self, add_args=[]):
         '''
         Restart the underlying daemon
         '''
         self.stop()
         time.sleep(self._wait)
-        self.start()
+        self.start(add_args)
 
     def reload(self):
         '''

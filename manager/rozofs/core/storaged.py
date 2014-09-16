@@ -159,3 +159,6 @@ class StoragedAgent(Agent):
             self._daemon_manager.start()
         if status == ServiceStatus.STOPPED and current_status:
             self._daemon_manager.stop()
+
+    def restart_with_rebuild(self, exports_list):
+        self._daemon_manager.restart(["-r", "/".join(exports_list)])

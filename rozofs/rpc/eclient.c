@@ -56,14 +56,18 @@ int exportclt_initialize(exportclt_t * clt, const char *host, char *root,
     clt->timeout = timeout;
 
     init_rpcctl_ctx(&clt->rpcclt);    
-	
-    /* Initialize connection with export server */
-    uint16_t export_nb_port = ROZOFS_GET_EXPNB_PORT;    
+
+    /* Initialize connection to export server */
+    uint16_t export_nb_port = ROZOFS_GET_EXPNB_PORT;
     if (rpcclt_initialize
             (&clt->rpcclt, host, EXPORT_PROGRAM, EXPORT_VERSION,
             ROZOFS_RPC_BUFFER_SIZE, ROZOFS_RPC_BUFFER_SIZE, export_nb_port,
-            clt->timeout) != 0)
+            clt->timeout) != 0){
+        severe("Unable to establish connection to exportd host %s"
+                " on port %d: %s",
+                host, export_nb_port, strerror(errno));
         goto out;
+    }
 
     /* Send mount request */
     ret = ep_mount_1(&root, clt->rpcclt.client);
@@ -73,6 +77,7 @@ int exportclt_initialize(exportclt_t * clt, const char *host, char *root,
     }
     if (ret->status_gw.status == EP_FAILURE) {
         errno = ret->status_gw.ep_mount_ret_t_u.error;
+        severe("Unable to mount export %s: %s", root, strerror(errno));
         goto out;
     }
 
@@ -81,6 +86,7 @@ int exportclt_initialize(exportclt_t * clt, const char *host, char *root,
         md5pass = crypt(passwd, "$1$rozofs$");
         if (memcmp(md5pass + 10, ret->status_gw.ep_mount_ret_t_u.export.md5, ROZOFS_MD5_SIZE) != 0) {
             errno = EACCES;
+            severe("Unable to mount export %s: %s", root, strerror(errno));
             goto out;
         }
     }

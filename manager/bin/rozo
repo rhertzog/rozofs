@@ -18,7 +18,7 @@
 # <http://www.gnu.org/licenses/>.
 
 '''
-rozo -- RozoFS comand line interface
+rozo -- RozoFS command line interface
 '''
 
 import sys
@@ -27,7 +27,7 @@ import traceback
 
 from rozofs import __version__
 
-from argparse import ArgumentParser, Namespace
+from argparse import ArgumentParser, Namespace, Action
 from rozofs.core.constants import EXPORTD_MANAGER, STORAGED_MANAGER, \
     ROZOFSMOUNT_MANAGER
 from rozofs.cli.node import STR_ROLES
@@ -36,7 +36,8 @@ from rozofs.cli.node import STR_ROLES
 __all__ = []
 # __version__ = 0.1
 __date__ = '2013-09-14'
-__updated__ = '2013-09-14'
+__updated__ = '2014-09-11'
+__export_host_env_var__ = 'ROZO_EXPORT_HOSTNAME'
 
 DEBUG = 0
 TESTRUN = 0
@@ -59,6 +60,21 @@ class CLIError(Exception):
     def __unicode__(self):
         return self.msg
 
+class GetEnvValueAction(Action):
+    def __init__(self, var_name, **kwargs):
+        assert kwargs.get("required")
+
+        var_env_value = os.environ.get(var_name)
+
+        if var_env_value:
+            kwargs["required"] = False
+            kwargs["default"] = var_env_value.split(',')
+
+        Action.__init__(self, **kwargs)
+
+    def __call__(self, parser, namespace, values, option_string):
+        setattr(namespace, self.dest, values)
+
 def main(argv=None):  # IGNORE:C0111
     '''RozoFS command line interface.'''
 
@@ -73,6 +89,7 @@ def main(argv=None):  # IGNORE:C0111
     program_version_message = '%%(prog)s %s (%s)' % (program_version, program_build_date)
     # program_shortdesc = __import__('__main__').__doc__.split("\n")[1]
     program_desc = "rozo -- RozoFS comand line interface (%s - %s)" % (program_version, program_build_date)
+    export_help_msg = "running platform agent host (be sure to provide virtual ip if used)."
 
     try:
         #
@@ -95,19 +112,19 @@ def main(argv=None):  # IGNORE:C0111
         topic_agent_parser = topic_subparsers.add_parser('agent', help='agent commands', add_help=False)
 
         topic_layout_parser = topic_subparsers.add_parser('layout', help='layout commands', add_help=False)
-        topic_layout_parser.add_argument('-E', '--exportd', required=True, help='running platform agent host (be sure to provide virtual ip if used).')
+        topic_layout_parser.add_argument('-E', '--exportd', nargs='+', action = GetEnvValueAction, var_name = __export_host_env_var__, required = True, help = export_help_msg)
 
         topic_node_parser = topic_subparsers.add_parser('node', help='node commands', add_help=False)
-        topic_node_parser.add_argument('-E', '--exportd', required=True, help='running platform agent host (be sure to provide virtual ip if used).')
+        topic_node_parser.add_argument('-E', '--exportd', nargs='+', action = GetEnvValueAction, var_name = __export_host_env_var__, required = True, help = export_help_msg)
 
         topic_volume_parser = topic_subparsers.add_parser('volume', help='volume commands', add_help=False)
-        topic_volume_parser.add_argument('-E', '--exportd', required=True, help='running platform agent host (be sure to provide virtual ip if used).')
+        topic_volume_parser.add_argument('-E', '--exportd', nargs='+', action = GetEnvValueAction, var_name = __export_host_env_var__, required = True, help = export_help_msg)
 
         topic_export_parser = topic_subparsers.add_parser('export', help='export commands', add_help=False)
-        topic_export_parser.add_argument('-E', '--exportd', required=True, help='running platform agent host (be sure to provide virtual ip if used).')
+        topic_export_parser.add_argument('-E', '--exportd', nargs='+', action = GetEnvValueAction, var_name = __export_host_env_var__, required = True, help = export_help_msg)
 
         topic_storage_parser = topic_subparsers.add_parser('storage', help='storage commands', add_help=False)
-        topic_storage_parser.add_argument('-E', '--exportd', required=True, help='running platform agent host (be sure to provide virtual ip if used).')
+        topic_storage_parser.add_argument('-E', '--exportd', nargs='+', action = GetEnvValueAction, var_name = __export_host_env_var__, required = True, help = export_help_msg)
 
         #
         # Actions
@@ -162,6 +179,9 @@ def main(argv=None):  # IGNORE:C0111
         action_node_stop_parser.add_argument('-r', '--roles', nargs='+', choices=STR_ROLES.keys(), help='list of roles. If not set all roles.')
         action_node_stop_parser.add_argument('-n', '--nodes', nargs='+', help='list of nodes. If not set all nodes.')
 
+        action_node_rebuild_parser = action_node_subparsers.add_parser('rebuild', add_help=False, help='rebuild one storage node')
+        action_node_rebuild_parser.add_argument('-n', '--node', nargs=1, required=True, help='node to rebuild.')
+
         # Volume
         action_volume_parser = ArgumentParser(add_help=False, prog='rozo volume')
         action_volume_subparsers = action_volume_parser.add_subparsers(help='volume available actions', dest='action')
@@ -178,7 +198,7 @@ def main(argv=None):  # IGNORE:C0111
         action_volume_expand_parser.add_argument('hosts', nargs='+', help='list of nodes to be added.')
 
         action_volume_remove_parser = action_volume_subparsers.add_parser('remove', add_help=False, help='remove a volume')
-        action_volume_remove_parser.add_argument('-v', '--vid', nargs='+', type=int, help='vid(s) of existing volume.')
+        action_volume_remove_parser.add_argument('-v', '--vid', nargs='+', required=True, type=int, help='vid(s) of existing volume.')
 
         # Export
         action_export_parser = ArgumentParser(add_help=False, prog='rozo export')

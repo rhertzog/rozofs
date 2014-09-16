@@ -815,7 +815,8 @@ void lv2_cache_initialize(lv2_cache_t *cache) {
     cache->hit  = 0;
     cache->miss = 0;
     cache->lru_del = 0;
-    list_init(&cache->entries);
+    list_init(&cache->lru);
+    list_init(&cache->flock_list);
     htable_initialize(&cache->htable, LV2_BUKETS, lv2_hash, lv2_cmp);
     
     /* 
@@ -827,7 +828,7 @@ void lv2_cache_initialize(lv2_cache_t *cache) {
 void lv2_cache_release(lv2_cache_t *cache) {
     list_t *p, *q;
 
-    list_for_each_forward_safe(p, q, &cache->entries) {
+    list_for_each_forward_safe(p, q, &cache->lru) {
         lv2_entry_t *entry = list_entry(p, lv2_entry_t, list);
         htable_del(&cache->htable, entry->attributes.fid);
         if (S_ISDIR(entry->attributes.mode)) {
@@ -839,6 +840,18 @@ void lv2_cache_release(lv2_cache_t *cache) {
         }
 	lv2_cache_unlink(cache,entry);
     }
+    list_for_each_forward_safe(p, q, &cache->flock_list) {
+        lv2_entry_t *entry = list_entry(p, lv2_entry_t, list);
+        htable_del(&cache->htable, entry->attributes.fid);
+        if (S_ISDIR(entry->attributes.mode)) {
+            mdir_close(&entry->container.mdir);
+        } else if (S_ISREG(entry->attributes.mode)) {
+            mreg_close(&entry->container.mreg);
+        } else if (S_ISLNK(entry->attributes.mode)) {
+            mslnk_close(&entry->container.mslnk);
+        }
+	lv2_cache_unlink(cache,entry);
+    }    
 }
 
 lv2_entry_t *lv2_cache_put(lv2_cache_t *cache, fid_t fid, const char *path) {
@@ -890,20 +903,18 @@ lv2_entry_t *lv2_cache_put(lv2_cache_t *cache, fid_t fid, const char *path) {
         goto error;
     }
 
-    list_push_front(&cache->entries, &entry->list);
-    htable_put(&cache->htable, entry->attributes.fid, entry);
-    
-    if (cache->size++ >= cache->max) { // remove the lru
+
+    /*
+    ** Try to remove older entries
+    */
+    int count = 0;
+    while ((cache->size >= cache->max) && (!list_empty(&cache->lru))){ // remove the lru
         lv2_entry_t *lru;
+		
+	lru = list_entry(cache->lru.prev, lv2_entry_t, list);
 	
-        /*
-	** Do not remove entries with a file lock set
-	*/
-	while (1) {
-	  lru = list_entry(cache->entries.prev, lv2_entry_t, list);
-	  if (lru->nb_locks == 0) break; /* This guy can be removed */
-	  /* This guy should be put at the beginning of the list */
-          list_push_front(&cache->entries, &lru->list);	  
+	if (lru->nb_locks != 0) {
+	  severe("lv2 with %d locks in lru",lru->nb_locks);
 	}
 	
         if (S_ISDIR(lru->attributes.mode)) {
@@ -919,7 +930,18 @@ lv2_entry_t *lv2_cache_put(lv2_cache_t *cache, fid_t fid, const char *path) {
         htable_del(&cache->htable, lru->attributes.fid);
 	lv2_cache_unlink(cache,lru);
 	cache->lru_del++;
+	
+	count++;
+	if (count >= 3) break;
     }
+    
+    /*
+    ** Insert the new entry
+    */
+    list_init(&entry->list);
+    lv2_cache_update_lru(cache,entry);
+    htable_put(&cache->htable, entry->attributes.fid, entry);
+    cache->size++;    
 
     goto out;
 error:
@@ -945,9 +967,8 @@ lv2_entry_t *lv2_cache_get(lv2_cache_t *cache, fid_t fid) {
     START_PROFILING(lv2_cache_get);
 
     if ((entry = htable_get(&cache->htable, fid)) != 0) {
-        // push the lru
-        list_remove(&entry->list);
-        list_push_front(&cache->entries, &entry->list);
+        // Update the lru
+        lv2_cache_update_lru(cache,entry); 
 	cache->hit++;
     }
     else {

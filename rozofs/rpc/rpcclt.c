@@ -53,8 +53,8 @@ int rpcclt_initialize(rpcclt_t * client, const char *host, unsigned long prog,
     server.sin_family = AF_INET;
 
     if ((hp = gethostbyname(host)) == 0) {
-        severe("gethostbyname failed for host : %s, %s", host,
-                strerror(errno));
+        severe("gethostbyname failed for %s: %s", host, hstrerror(h_errno));
+        errno = EHOSTUNREACH;
         goto out;
     }
 

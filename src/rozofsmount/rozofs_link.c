@@ -958,7 +958,7 @@ void rozofs_ll_unlink_cbk(void *this,void *param)
     */
     if ((ie = get_ientry_by_fid(fid))) {
         // Update nlookup
-        ie->nlookup--;
+        //ie->nlookup--;
         // Invalidate attrs cache
         ie->timestamp = 0;
         // Update nlink
@@ -976,7 +976,7 @@ out:
     /*
     ** release the transaction context and the fuse context
     */
-    rozofs_trc_rsp(srv_rozofs_ll_mkdir,parent,(ie==NULL)?NULL:ie->attrs.fid,status,trc_idx);
+    rozofs_trc_rsp(srv_rozofs_ll_unlink,parent,(ie==NULL)?NULL:ie->attrs.fid,status,trc_idx);
     STOP_PROFILING_NB(param,rozofs_ll_unlink);
     rozofs_fuse_release_saved_context(param);
     if (rozofs_tx_ctx_p != NULL) rozofs_tx_free_from_ptr(rozofs_tx_ctx_p);    

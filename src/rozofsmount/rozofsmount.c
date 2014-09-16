@@ -294,8 +294,11 @@ static void rozofs_ll_init(void *userdata, struct fuse_conn_info *conn) {
 
 void rozofs_ll_forget(fuse_req_t req, fuse_ino_t ino, unsigned long nlookup) {
     ientry_t *ie;
+    int trc_idx;
 
     START_PROFILING(rozofs_ll_forget);
+    errno = 0;
+    trc_idx = rozofs_trc_req_io(srv_rozofs_ll_forget,ino,NULL,nlookup,0);    
 
     DEBUG("forget :%lu, nlookup: %lu", ino, nlookup);
     if ((ie = get_ientry_by_inode(ino))) {
@@ -309,9 +312,12 @@ void rozofs_ll_forget(fuse_req_t req, fuse_ino_t ino, unsigned long nlookup) {
                 ie->db.p = NULL;
             }
             free(ie);
+	    ie = NULL;
         }
     }
 
+    rozofs_trc_rsp(srv_rozofs_ll_forget,ino,
+                        (ie==NULL)?NULL:ie->attrs.fid,0,trc_idx);
     STOP_PROFILING(rozofs_ll_forget);
     fuse_reply_none(req);
 }
@@ -501,7 +507,140 @@ void show_flock(char * argv[], uint32_t tcpRef, void *bufRef) {
   }
   display_lock_stat(uma_dbg_get_buffer());
   uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());      
-}    
+}
+  
+/*__________________________________________________________________________
+*/  
+static char * show_ientry_help(char * pChar) {
+  pChar += sprintf(pChar,"usage:\n");
+  pChar += sprintf(pChar,"ientry count         : display ientry count\n");
+  pChar += sprintf(pChar,"ientry fid <fid>     : display ientry by FID\n");  
+  pChar += sprintf(pChar,"ientry inode <inode> : display ientry by inode\n");  
+  pChar += sprintf(pChar,"ientry nb <nb> : display ientry number <nb> in list\n");  
+  return pChar; 
+}
+void show_ientry(char * argv[], uint32_t tcpRef, void *bufRef) {
+  char *pChar = uma_dbg_get_buffer();
+  fid_t fid;
+  long long unsigned int   inode;
+  ientry_t * ie = NULL;
+  char fid_str[64];
+  
+  if (argv[1] == NULL) {
+      pChar = show_ientry_help(pChar);
+      uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   
+      return;
+  } 
+  
+  if (strcmp(argv[1],"count")==0) {
+      pChar += sprintf(pChar, "ientry counter: %llu\n", (long long unsigned int) rozofs_ientries_count);
+      uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   
+      return;
+  }
+  
+  if (argv[2] == NULL) {
+      pChar = show_ientry_help(pChar);
+      uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   
+      return;
+  } 
+  
+  if (strcmp(argv[1],"fid")==0) {
+      if (uuid_parse(argv[2],fid)==-1) {
+          pChar += sprintf(pChar, "this is not a valid FID\n");
+          uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   
+          return;	        
+      }
+      ie = get_ientry_by_fid(fid);
+      if (ie == NULL) {
+          pChar += sprintf(pChar, "No ientry for this FID\n");
+          uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   
+          return;        
+      }
+  }        
+  else if (strcmp(argv[1],"inode")==0){
+      int ret = sscanf(argv[2],"%llu",&inode);
+      if (ret != 1) {
+          pChar += sprintf(pChar, "this is not a valid inode\n");
+          uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   
+          return;	        
+      }
+      ie = get_ientry_by_inode(inode);
+      if (ie == NULL) {
+          pChar += sprintf(pChar, "No ientry for this inode\n");
+          uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   
+          return;        
+      }      
+  } 
+  else if (strcmp(argv[1],"nb")==0){
+      int ret = sscanf(argv[2],"%llu",&inode);
+      if (ret != 1) {
+          pChar += sprintf(pChar, "this is not a valid number\n");
+          uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   
+          return;	        
+      }
+      if (inode>rozofs_ientries_count) {
+          pChar += sprintf(pChar, "this is not a valid number\n");
+          uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   
+          return;	        
+      }
+      list_t * p;
+      ie = NULL;
+      list_for_each_forward(p, &inode_entries) {
+        inode--;
+	if (inode==0) {
+	  ie = list_entry(p, ientry_t, list);
+	  break;
+	}    
+      }	
+      if (ie == NULL) {
+          pChar += sprintf(pChar, "No ientry for this number\n");
+          uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   
+          return;        
+      }      
+  }   
+  else {
+      pChar += sprintf(pChar, "ientry counter: %llu\n", (long long unsigned int) rozofs_ientries_count);
+      uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   
+      return;    
+  }
+  
+  uuid_unparse(ie->fid,fid_str);
+  
+  pChar += sprintf(pChar, "%-15s : %llu\n", "inode", (long long unsigned int)ie->inode);
+  pChar += sprintf(pChar, "%-15s : %s\n", "fid", fid_str);
+  if (S_ISREG(ie->attrs.mode)) {
+    pChar += sprintf(pChar, "%-15s : %d\n", "attrs cid", ie->attrs.cid);
+    pChar += sprintf(pChar, "%-15s : ", "attrs sid");
+    {
+      int i;
+      pChar += sprintf(pChar, "%d", ie->attrs.sids[0]);
+      for (i=1;i<ROZOFS_SAFE_MAX;i++) {
+	 pChar += sprintf(pChar, "-%d", ie->attrs.sids[i]);
+      }
+      pChar += sprintf(pChar,"\n");
+    }		     
+  }
+
+  pChar += sprintf(pChar, "%-15s : %d\n", "nlookup", (int) ie->nlookup);
+  pChar += sprintf(pChar, "%-15s : %llu\n", "consistency", (long long unsigned int) ie->read_consistency);
+  pChar += sprintf(pChar, "%-15s : %llu\n", "timestamp", (long long unsigned int)ie->timestamp);
+  pChar += sprintf(pChar, "%-15s : %s\n", "write_pending", ie->write_pending?"yes":"no"); 
+  pChar += sprintf(pChar, "%-15s : %s\n", "extend_pending", ie->file_extend_pending?"yes":"no"); 
+  pChar += sprintf(pChar, "%-15s : %s\n", "extend_running", ie->file_extend_running?"yes":"no"); 
+  pChar += sprintf(pChar, "%-15s : %llu\n", "attrs ctime", (long long unsigned int)ie->attrs.ctime);  
+  pChar += sprintf(pChar, "%-15s : %llu\n", "attrs atime", (long long unsigned int)ie->attrs.atime);  
+  pChar += sprintf(pChar, "%-15s : %llu\n", "attrs mtime", (long long unsigned int)ie->attrs.mtime);
+  pChar += sprintf(pChar, "%-15s : %d\n", "attrs nlink", ie->attrs.nlink);  
+  pChar += sprintf(pChar, "%-15s : %d\n", "attrs children", ie->attrs.children);  
+  pChar += sprintf(pChar, "%-15s : 0x%x\n", "attrs mode", ie->attrs.mode);  
+  pChar += sprintf(pChar, "%-15s : %d\n", "attrs gid", ie->attrs.gid);  
+  pChar += sprintf(pChar, "%-15s : %d\n", "attrs uid", ie->attrs.uid);  
+  pChar += sprintf(pChar, "%-15s : %llu\n", "attrs size", (long long unsigned int)ie->attrs.size);
+
+  uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   
+  return;
+  
+}  
 /*__________________________________________________________________________
 */  
 #define SHOW_PROFILER_PROBE(probe) pChar += sprintf(pChar," %-12s | %15"PRIu64" | %9"PRIu64" | %18"PRIu64" | %15s |\n",\
@@ -1330,10 +1469,11 @@ int fuseloop(struct fuse_args *args, int fg) {
     for (retry_count = 15; retry_count > 0; retry_count--) {
     
         for (export_index=0; export_index < ROZOFS_HOST_LIST_MAX_HOST; export_index++) { 
-	
-	    pHost = rozofs_host_list_get_host(export_index);
-	    if (pHost == NULL) break;
-	    
+
+            pHost = rozofs_host_list_get_host(export_index);
+            if (pHost == NULL)
+                break;
+
             /* Initiate the connection to the export and get information
              * about exported filesystem */
             if (exportclt_initialize(
@@ -1346,27 +1486,45 @@ int fuseloop(struct fuse_args *args, int fg) {
                     conf.max_retry,
                     timeout_mproto) == 0) break;
         }
-	
-	/* Connected to one of the given addresses */
-	if (pHost != NULL) break;
-	
+
+        /* Connected to one of the given addresses */
+        if (pHost != NULL)
+            break;
+
         sleep(2);
-	timeout_mproto.tv_sec++;
-	
+        timeout_mproto.tv_sec++;
+    }
+
+    if (retry_count == 0) {
+        // Unable to mount the filesystem
+        int errsv = errno;
+
+        fprintf(stderr,
+                "rozofsmount failed for:\n"
+                "export directory: %s\n"
+                "export hostname(s): %s\n"
+                "local mountpoint: %s\n",
+                conf.export, conf.host, mountpoint);
+
+        // Try to identify the kind of error
+        if (errsv == ENOENT || errsv == EACCES) {
+            fprintf(stderr, "error: unable to mount export %s (%s)\n",
+                    conf.export, strerror(errno));
+        } else if (EHOSTUNREACH == errsv || ECONNREFUSED == errsv) {
+            fprintf(stderr,
+                    "error: unable to establish connection"
+                    " to export host (%s)\n",
+                    strerror(errno));
+        } else {
+            fprintf(stderr, "error: %s\n", strerror(errno));
+        }
+        fprintf(stderr, "See log for more information\n");
+
+        return 1;
     }
 
     // Check the mountpoint after success connection with the export
     if (rozofs_mountpoint_check(mountpoint) != 0) {
-        return 1;
-    }
-
-    if (retry_count == 0) {
-
-        fprintf(stderr,
-                "rozofsmount failed for:\n" "export directory: %s\n"
-                "export hostname: %s\n" "local mountpoint: %s\n" "error: %s\n"
-                "See log for more information\n", conf.export, conf.host,
-                mountpoint, strerror(errno));
         return 1;
     }
 
@@ -1521,6 +1679,7 @@ int fuseloop(struct fuse_args *args, int fg) {
     uma_dbg_addTopic("start_config", show_start_config);
     uma_dbg_addTopic("rotateModulo", show_rotate_modulo);
     uma_dbg_addTopic("flock", show_flock);
+    uma_dbg_addTopic("ientry", show_ientry);
     uma_dbg_addTopic("trc_fuse", show_trc_fuse);
     uma_dbg_addTopic("xattr_flt", show_xattr_flt);
     uma_dbg_addTopic("xattr_disable", rozofs_disable_xattr);

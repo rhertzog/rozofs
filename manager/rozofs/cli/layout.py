@@ -16,7 +16,7 @@
 # along with this program.  If not, see
 # <http://www.gnu.org/licenses/>.
 
-from rozofs.core.platform import Platform
+from rozofs.core.platform import Platform, Role
 from rozofs.core.constants import LAYOUT_VALUES
 from rozofs.cli.output import ordered_puts
 from collections import OrderedDict
@@ -33,5 +33,5 @@ def get(platform, args):
         ])})
 
 def dispatch(args):
-    p = Platform(args.exportd)
+    p = Platform(args.exportd, Role.EXPORTD)
     globals()[args.action.replace('-', '_')](p, args)

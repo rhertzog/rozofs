@@ -2796,7 +2796,7 @@ static inline int get_rozofs_xattr_max_size(export_t *e, lv2_entry_t *lv2, char 
   int       idx;
   uint64_t  free=-1;
   uint8_t   rozofs_forward = rozofs_get_rozofs_forward(e->layout);
-  uint8_t   rozofs_inverse = rozofs_get_rozofs_inverse(e->layout);
+  //uint8_t   rozofs_inverse = rozofs_get_rozofs_inverse(e->layout);
   int       rozofs_psize;
   volume_t * volume; 
   epp_sstat_t * storage_stat = NULL; 
@@ -3114,7 +3114,7 @@ concatenate:
     lock_elt = lv2_cache_allocate_file_lock(lock_requested);
     list_push_front(&lv2->file_lock,&lock_elt->next_fid_lock);
     lv2->nb_locks++;
-    status = 0; 
+   status = 0; 
     
 out:
 #if 0
@@ -3124,7 +3124,8 @@ out:
       debug_file_lock_list(pChar);
       info("%s",BuF);
     }
-#endif       
+#endif      
+    if (lv2) lv2_cache_update_lru(e->lv2_cache, lv2);	
     STOP_PROFILING(export_set_file_lock);
     return status;
 }
@@ -3236,6 +3237,8 @@ reloop:
 	  lv2->nb_locks--;
 	  if (list_empty(&lv2->file_lock)) {
 	    lv2->nb_locks = 0;
+	    // Remove it from the lru
+	    lv2_cache_update_lru(e->lv2_cache, lv2);	    
 	    break;
 	  }
 	  goto reloop;

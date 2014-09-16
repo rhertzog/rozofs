@@ -211,7 +211,7 @@ void rozofs_ll_rename_cbk(void *this,void *param)
     ** end of decoding section
     */
     if ((old_ie = get_ientry_by_fid(fid))) {
-        old_ie->nlookup--;
+        //old_ie->nlookup--;
     }
 
     /*

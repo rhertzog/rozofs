@@ -25,11 +25,12 @@ from collections import OrderedDict
 
 
 def list(platform, args):
-    configurations = platform.get_configurations([args.exportd], Role.EXPORTD)
-    if configurations[args.exportd] is None:
-        raise Exception("exportd node is off line.")
+    e_host = platform._active_export_host
+    configurations = platform.get_configurations([e_host], Role.EXPORTD)
+    if configurations[e_host] is None:
+        raise Exception("%s is not reachable" % e_host)
 
-    configuration = configurations[args.exportd][Role.EXPORTD]
+    configuration = configurations[e_host][Role.EXPORTD]
 
     list_l = {}
     exports_l = []
@@ -60,15 +61,21 @@ def remove(platform, args):
     platform.remove_export(args.eids, args.force)
 
 def get(platform, args):
-    configurations = platform.get_configurations([args.exportd], Role.EXPORTD)
-    if configurations[args.exportd] is None:
+    e_host = platform._active_export_host
+    configurations = platform.get_configurations([e_host], Role.EXPORTD)
+
+    if configurations[e_host] is None:
         raise Exception("exportd node is off line.")
 
-    configuration = configurations[args.exportd][Role.EXPORTD]
+    configuration = configurations[e_host][Role.EXPORTD]
 
     list_l = {}
     exports_l = []
     for eid in args.eids:
+
+        if eid not in configuration.exports:
+            raise Exception("Unknown export with eid=%d." % eid)
+
         econfig = configuration.exports[eid]
         export_l = []
         export_l.append({'vid':econfig.vid})
@@ -96,5 +103,14 @@ def umount(platform, args):
 
 
 def dispatch(args):
-    p = Platform(args.exportd)
+    only_export_actions = {'list', 'create', 'update', 'get'}
+
+    if (args.action in only_export_actions):
+        p = Platform(args.exportd, Role.EXPORTD)
+    else:
+        p = Platform(args.exportd)
+
     globals()[args.action.replace('-', '_')](p, args)
+
+
+

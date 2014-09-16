@@ -53,7 +53,7 @@ class RozofsMountAgent(Agent):
         self._mountdir = mountdir
 
     def _mount_path(self, export_host, export_path):
-        return os.path.join(self._mountdir, "rozofs@%s" % export_host,
+        return os.path.join(self._mountdir, "rozofs@%s" % export_host.replace('/','-'),
                             export_path.split('/')[-1])
 
     #

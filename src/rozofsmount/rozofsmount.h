@@ -236,7 +236,7 @@ static inline ientry_t *alloc_ientry(fid_t fid) {
 	ie->db.eof = 0;
 	ie->db.cookie = 0;
 	ie->db.p = NULL;
-	ie->nlookup = 1;
+	ie->nlookup = 0;
         ie->write_pending = NULL; 
         ie->read_consistency = 1;
 	ie->file_extend_pending = 0;

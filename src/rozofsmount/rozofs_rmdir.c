@@ -249,7 +249,7 @@ void rozofs_ll_rmdir_cbk(void *this,void *param)
     */
 
     if ((ie2 = get_ientry_by_fid(fid))) {
-        ie2->nlookup--;
+        //ie2->nlookup--;
     }
     fuse_reply_err(req, 0);
     goto out;

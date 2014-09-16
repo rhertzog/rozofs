@@ -21,6 +21,8 @@ from rozofs.core.libconfig import config_t, config_read_file, \
     config_write_file, CONFIG_TRUE
 import time
 import shutil
+import os
+import exceptions
 
 class ConfigurationParser():
 
@@ -38,6 +40,10 @@ class ConfigurationReader(object):
         self._parser = parser
 
     def read(self, configuration):
+
+        if not os.path.isfile(self._file):
+            raise IOError("%s is not a file." % self._file)
+
         c = config_t()
         if (config_read_file(c, self._file) != CONFIG_TRUE):
             error_text = c.error_text

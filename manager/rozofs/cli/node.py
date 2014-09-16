@@ -63,11 +63,14 @@ def status(platform, args):
         status_l = {}
         for h, s in statuses.items():
             role_l = []
-            for role, status in s.items():
-                if status:
-                    role_l.append({ROLES_STR[role]: 'running'})
-                else:
-                    role_l.append({ROLES_STR[role]: 'not running'})
+            if s is not None:
+                for role, status in s.items():
+                    if status:
+                        role_l.append({ROLES_STR[role]: 'running'})
+                    else:
+                        role_l.append({ROLES_STR[role]: 'not running'})
+            else:
+                status_l.update({h:"not reachable"})
             if role_l:
                 status_l.update({h:role_l})
         ordered_puts(status_l)
@@ -77,6 +80,9 @@ def start(platform, args):
 
 def stop(platform, args):
     platform.stop(args.nodes, __args_to_roles(args))
+
+def rebuild(platform, args):
+    platform.rebuild_storage_node(args.node[0])
 
 def config(platform, args):
     if not args.roles:
@@ -90,7 +96,8 @@ def config(platform, args):
         #    return
 
         if c is None:
-            raise Exception ('%s is down.' % h)
+            host_l.update({'NODE: ' + str(h) : "not reachable"})
+            continue
 
         role_l=[]
         for role, config in c.items():

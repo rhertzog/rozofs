@@ -73,7 +73,8 @@ typedef struct lv2_cache {
     uint64_t   hit;
     uint64_t   miss;
     uint64_t   lru_del;
-    list_t entries;     ///< entries cached
+    list_t     lru;     ///< LRU 
+    list_t     flock_list;
     htable_t htable;    ///< entries hashing
 } lv2_cache_t;
 
@@ -135,7 +136,23 @@ void lv2_cache_del(lv2_cache_t *cache, fid_t fid);
  * @retval the end of the output string
  */
 char * lv2_cache_display(lv2_cache_t *cache, char * pChar) ;
-
+/*
+ *___________________________________________________________________
+ * Put the entry in front of the lru list when no lock is set
+ *
+ * @param cache: the cache context
+ * @param entry: the cache entry
+ *___________________________________________________________________
+ */
+static inline void lv2_cache_update_lru(lv2_cache_t *cache, lv2_entry_t *entry) {
+    list_remove(&entry->list);
+    if (entry->nb_locks == 0) {
+        list_push_front(&cache->lru, &entry->list);
+    }
+    else {
+        list_push_front(&cache->flock_list, &entry->list);    
+    }
+}
 /*
 *___________________________________________________________________
 * Remove all the locks of a client and then remove the client 

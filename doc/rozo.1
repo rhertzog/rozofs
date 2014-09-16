@@ -1,7 +1,7 @@
 .\" Process this file with
 .\" groff -man -Tascii rozo.1
 .\"
-.TH ROZO 1 "April 2014" RozoFS "User Manuals"
+.TH ROZO 1 "September 2014" RozoFS "User Manuals"
 .SH NAME
 rozo \- RozoFS management tool
 .SH SYNOPSIS
@@ -76,51 +76,63 @@ List of listener. Must be a subset of {exportd,storaged,rozofsmount}.
 .\""" rozo layout
 .SH LAYOUT TOPIC
 .B rozo layout
-.I get\fP | \fIset\fP \fB\-E | \-\-exportd\fP \fIhost\fP 
+.I get\fP | \fIset\fP \fB\-E | \-\-exportd\fP \fIhost\fP... 
 
 .\" rozo layout get
 .SS get
-.B rozo layout get \fB\-E | \-\-exportd\fP \fIhost\fP 
+.B rozo layout get \fB\-E | \-\-exportd\fP \fIhost\fP... 
 .TP 
-Get the storage \fIlayout\fP for this platform, see \fBexportd(8)\fP,\fBrozofs(7)\fP. The \fIlayout\fP value should be 0, 1 or 2.
+Get the storage \fIlayout\fP for this platform, see \fBexportd(8)\fP,\fBrozofs(7)\fP.
 .TP
-\fB\-E\fP, \fB--exportd \fP\fIhost
-A running exportd hostname.
+\fB\-E\fP, \fB--exportd \fP\fIhost\fP...
+List of running exportd hostname(s). When securing the exportd thanks to a
+virtual IP address only the VIP address is declared and when no VIP is used,
+the list of "physical" IP addresses of each host securing the
+exportd must be given.
 
 .\" rozo layout set
 .SS set
-.B rozo layout set \fIlayout\fP \fB\-E | \-\-exportd\fP \fIhost\fP
+.B rozo layout set \fIlayout\fP \fB\-E | \-\-exportd\fP \fIhost\fP... 
 .TP 
 Set the protection configuration for this platform according to the given \fIlayout\fP, see \fBexportd(8)\fP, \fBrozofs(7)\fP. The \fIlayout\fP value must be 0, 1 or 2.
 .TP
-\fB\-E\fP, \fB--exportd \fP\fIhost
-A running exportd hostname.
+\fB\-E\fP, \fB--exportd \fP\fIhost\fP...
+List of running exportd hostname(s). When securing the exportd thanks to a
+virtual IP address only the VIP address is declared and when no VIP is used,
+the list of "physical" IP addresses of each host securing the
+exportd must be given.
 
 
 .SH NODE TOPIC
 .B rozo node
-.I list\fP | \fIstatus\fP | \fIconfig\fP | \fIstart\fP | \fIstop\fP [\fB\-r | \-\-roles\fP \fIrole\fP...] \fB\-E | \-\-exportd\fP \fIhost\fP 
+.I list\fP | \fIstatus\fP | \fIconfig\fP | \fIstart\fP | \fIstop\fP | \fIrebuild\fP [\fB\-r | \-\-roles\fP \fIrole\fP...] \fB\-E | \-\-exportd\fP \fIhost\fP... 
 
 .\" rozo node list
 .SS list
-.B rozo node list [\fB\-r | \-\-roles\fP \fIrole\fP...] \fB\-E | \-\-exportd\fP \fIhost\fP 
+.B rozo node list [\fB\-r | \-\-roles\fP \fIrole\fP...] \fB\-E | \-\-exportd\fP \fIhost\fP... 
 .TP 
 Display the list of nodes managed by this platform. Nodes are specified with their roles.
 .TP
-\fB\-E\fP, \fB--exportd \fP\fIhost
-A running exportd hostname.
+\fB\-E\fP, \fB--exportd \fP\fIhost\fP...
+List of running exportd hostname(s). When securing the exportd thanks to a
+virtual IP address only the VIP address is declared and when no VIP is used,
+the list of "physical" IP addresses of each host securing the
+exportd must be given.
 .TP 
 \fB\-r | \-\-roles\fP\fI role\fP...
 List of roles. Must be a subset of {exportd,storaged,rozofsmount}. Only nodes with these roles will be listed. If not set all nodes with all roles will be displayed.
 
 .\" rozo node status
 .SS status
-.B rozo node status [\fB\-r | \-\-roles\fP \fIrole\fP...] [\fB\-n | \-\-nodes\fP \fInode\fP...] \fB\-E | \-\-exportd\fP \fIhost\fP 
+.B rozo node status [\fB\-r | \-\-roles\fP \fIrole\fP...] [\fB\-n | \-\-nodes\fP \fInode\fP...] \fB\-E | \-\-exportd\fP \fIhost\fP... 
 .TP 
 Display the list of node managed by this platform. Check the status of nodes and their associated RozoFS components. Nodes and roles can be set to filter the output. If none is specified, everything is displayed.
 .TP
-\fB\-E\fP, \fB--exportd \fP\fIhost
-A running exportd hostname.
+\fB\-E\fP, \fB--exportd \fP\fIhost\fP...
+List of running exportd hostname(s). When securing the exportd thanks to a
+virtual IP address only the VIP address is declared and when no VIP is used,
+the list of "physical" IP addresses of each host securing the
+exportd must be given.
 .TP
 \fB\-r | \-\-roles\fP\fI role\fP... 
 List of roles. Must be a subset of {exportd,storaged,rozofsmount}. Only nodes with these roles will be listed. If not set all nodes with all roles will be displayed.
@@ -130,12 +142,15 @@ List of node hostnames to be displayed. If not set all nodes of the platform wil
 
 .\" rozo node config
 .SS config
-.B rozo node config [\fB\-r | \-\-roles\fP \fIrole\fP...] [\fB\-n | \-\-nodes\fP \fInode\fP...] \fB\-E | \-\-exportd\fP \fIhost\fP 
+.B rozo node config [\fB\-r | \-\-roles\fP \fIrole\fP...] [\fB\-n | \-\-nodes\fP \fInode\fP...] \fB\-E | \-\-exportd\fP \fIhost\fP... 
 .TP 
 Display the list of nodes managed by this platform. Check the status of nodes and their associated RozoFS components. Nodes and roles can be set to filter the output. If none is specified, everything is displayed.
 .TP
-\fB\-E\fP, \fB--exportd \fP\fIhost
-A running exportd hostname.
+\fB\-E\fP, \fB--exportd \fP\fIhost\fP...
+List of running exportd hostname(s). When securing the exportd thanks to a
+virtual IP address only the VIP address is declared and when no VIP is used,
+the list of "physical" IP addresses of each host securing the
+exportd must be given.
 .TP
 \fB\-r | \-\-roles\fP\fI role\fP... 
 List of roles. Must be a subset of {exportd,storaged,rozofsmount}. Only nodes with these roles will be listed. If not set all nodes with all roles will be displayed.
@@ -145,27 +160,34 @@ List of node hostnames to be displayed. If not set all nodes of the platform wil
 
 .\" rozo node start
 .SS start
-.B rozo node start [\fB\-r | \-\-roles\fP \fIrole\fP...] [\fB\-n | \-\-nodes\fP \fInode\fP...] \fB\-E | \-\-exportd\fP \fIhost\fP 
+.B rozo node start [\fB\-r | \-\-roles\fP \fIrole\fP...] [\fB\-n | \-\-nodes\fP \fInode\fP...] \fB\-E | \-\-exportd\fP \fIhost\fP... 
 .TP 
 Start node services.
 .TP
-\fB\-E\fP, \fB\-\-exportd \fP\fIhost
-A running exportd hostname.
+\fB\-E\fP, \fB--exportd \fP\fIhost\fP...
+List of running exportd hostname(s). When securing the exportd thanks to a
+virtual IP address only the VIP address is declared and when no VIP is used,
+the list of "physical" IP addresses of each host securing the
+exportd must be given.
 .TP
 \fB\-r\fP, \fB\-\-roles\fP\fI role\fP... 
 List of roles. Must be a subset of {exportd,storaged,rozofsmount}. Only nodes with these roles will be listed. If not set all nodes with all roles will be displayed.
 .TP
-\fB\-n\fP, \fB\-\-nodes\fP\fI node(s)\fP,... 
+\fB\-n\fP, \fB\-\-nodes\fP\fI node\fP,... 
 List of node hostnames to be started. If not set all nodes of the platform will be started.
 
 .\" rozo node stop
 .SS stop
-.B rozo node stop [\fB\-r |\-\-roles\fP \fIrole\fP...] [\fB\-n | \-\-nodes\fP \fInode\fP...] \fB\-E | \-\-exportd\fP \fIhost\fP 
+.B rozo node stop [\fB\-r |\-\-roles\fP \fIrole\fP...] [\fB\-n | \-\-nodes\fP \fInode\fP...] \fB\-E | \-\-exportd\fP \fIhost\fP... 
 .TP
 Stop node services.
 .TP
-\fB\-E\fP, \fB\-\-exportd \fP\fIhost
-A running exportd hostname.
+\fB\-E\fP, \fB--exportd \fP\fIhost\fP...
+List of running exportd hostname(s). When securing the exportd thanks to a
+virtual IP address only the VIP address is declared and when no VIP is used,
+the list of "physical" IP addresses of each host securing the
+exportd must be given.
+.TP
 \fB\-r\fP, \fB\-\-roles\fP\fI role\fP... 
 List of roles. Must be a subset of {exportd,storaged,rozofsmount}. Only nodes with these roles will be listed. If not set all nodes with all roles will be displayed.
 .TP
@@ -173,47 +195,74 @@ List of roles. Must be a subset of {exportd,storaged,rozofsmount}. Only nodes wi
 List of node hostnames to be stopped. If not set all nodes of the platform
 will be stopped.
 
+.\" rozo node rebuild
+.SS rebuild
+.B rozo node rebuild \fB\-n | \-\-node\fP \fInode\fP \fB\-E | \-\-exportd\fP \fIhost\fP... 
+.TP
+Restart the storaged daemon for one storage node with processes for rebuild data of each storage declared in the storaged configuration file.
+.TP
+\fB\-E\fP, \fB--exportd \fP\fIhost\fP...
+List of running exportd hostname(s). When securing the exportd thanks to a
+virtual IP address only the VIP address is declared and when no VIP is used,
+the list of "physical" IP addresses of each host securing the
+exportd must be given.
+.TP
+\fB\-n\fP, \fB\-\-node\fP\fI node\fP
+Storage node hostname to be restarted with rebuild processes.
+
 
 .\""" rozo volume
 .SH VOLUME TOPIC
 .B rozo volume
-.I list\fP | \fIstat\fP | \fIget\fP | \fIexpand\fP | \fIremove\fP \fB\-E | \-\-exportd\fP \fIhost\fP 
+.I list\fP | \fIstat\fP | \fIget\fP | \fIexpand\fP | \fIremove\fP \fB\-E | \-\-exportd\fP \fIhost\fP... 
 
 .\" rozo volume list
 .SS list
-.B rozo volume list \fB\-E | \-\-exportd\fP \fIhost\fP 
+.B rozo volume list \fB\-E | \-\-exportd\fP \fIhost\fP... 
 .TP 
 Display the list of the volumes managed by this platform. Volumes contain clusters which contain storages.
 .TP
-\fB\-E\fP, \fB\-\-exportd \fP\fIhost
-A running exportd hostname.
+\fB\-E\fP, \fB--exportd \fP\fIhost\fP...
+List of running exportd hostname(s). When securing the exportd thanks to a
+virtual IP address only the VIP address is declared and when no VIP is used,
+the list of "physical" IP addresses of each host securing the
+exportd must be given.
 
 .\" rozo volume stat
 .SS stat
-.B rozo volume stat \fB\-E | \-\-exportd\fP \fIhost\fP 
+.B rozo volume stat \fB\-E | \-\-exportd\fP \fIhost\fP... 
 .TP 
 Display statistics about the volumes managed by this platform.
 .TP
-\fB\-E\fP, \fB\-\-exportd \fP\fIhost
-A running exportd hostname.
+\fB\-E\fP, \fB--exportd \fP\fIhost\fP...
+List of running exportd hostname(s). When securing the exportd thanks to a
+virtual IP address only the VIP address is declared and when no VIP is used,
+the list of "physical" IP addresses of each host securing the
+exportd must be given.
 
 .\" rozo volume get
 .SS get
-.B rozo volume get \fIvid\fP... \fB\-E | \-\-exportd\fP \fIhost\fP
+.B rozo volume get \fIvid\fP... \fB\-E | \-\-exportd\fP \fIhost\fP... 
 .TP 
 Display statistics about the volume according to the given \fIvid(s)\fP.
 .TP
-\fB\-E\fP, \fB\-\-exportd \fP\fIhost
-A running exportd hostname.
+\fB\-E\fP, \fB--exportd \fP\fIhost\fP...
+List of running exportd hostname(s). When securing the exportd thanks to a
+virtual IP address only the VIP address is declared and when no VIP is used,
+the list of "physical" IP addresses of each host securing the
+exportd must be given.
 
 .\" rozo volume expand
 .SS expand
-.B rozo volume expand [\fB\-v | \-\-vid\fP \fIvid\fP] [\fB\-l | \-\-layout\fP \fIlayout\fP] \fInode\fP...  \fB\-E | \-\-exportd\fP \fIhost\fP 
+.B rozo volume expand [\fB\-v | \-\-vid\fP \fIvid\fP] [\fB\-l | \-\-layout\fP \fIlayout\fP] \fInode\fP...  \fB\-E | \-\-exportd\fP \fIhost\fP... 
 .TP 
 Expand a volume relying on the given list of storage \fInode\fP hostnames.
 .TP
-\fB\-E\fP, \fB\-\-exportd \fP\fIhost
-A running exportd hostname.
+\fB\-E\fP, \fB--exportd \fP\fIhost\fP...
+List of running exportd hostname(s). When securing the exportd thanks to a
+virtual IP address only the VIP address is declared and when no VIP is used,
+the list of "physical" IP addresses of each host securing the
+exportd must be given.
 .TP
 \fB\-v\fP, \fB\-\-vid\fP \fIvid\fP
 \fBvid\fP of the volume to expand. If not set a new volume will be created.
@@ -223,12 +272,15 @@ Specific \fBlayout\fP to use. If not set the default \fBlayout\fP or the \fBlayo
 
 .\" rozo volume remove
 .SS remove
-.B rozo volume remove \fB\-v | \-\-vid\fP \fIvid\fP... \fB\-E | \-\-exportd\fP \fIhost\fP 
+.B rozo volume remove \fB\-v | \-\-vid\fP \fIvid\fP... \fB\-E | \-\-exportd\fP \fIhost\fP... 
 .TP 
 Remove a volume according to the given \fIvid\fP list from this platform. Volume can be removed only if no export is defined on it.
 .TP
-\fB\-E\fP, \fB\-\-exportd \fP\fIhost
-A running exportd hostname.
+\fB\-E\fP, \fB--exportd \fP\fIhost\fP...
+List of running exportd hostname(s). When securing the exportd thanks to a
+virtual IP address only the VIP address is declared and when no VIP is used,
+the list of "physical" IP addresses of each host securing the
+exportd must be given.
 .TP
 \fB\-v\fP, \fB\-\-vid\fP \fIvid\fP...
 List of the \fBvid\fP of the volumes to remove.
@@ -236,7 +288,7 @@ List of the \fBvid\fP of the volumes to remove.
 .\""" rozo export
 .SH EXPORT TOPIC
 .B rozo export
-.I list\fP | \fIcreate\fP | \fIupdate\fP | \fIremove\fP | \fIget\fP | \fImount\fP | \fIumount\fP \fB\-E | \-\-exportd\fP \fIhost\fP 
+.I list\fP | \fIcreate\fP | \fIupdate\fP | \fIremove\fP | \fIget\fP | \fImount\fP | \fIumount\fP \fB\-E | \-\-exportd\fP \fIhost\fP... 
 
 .\" rozo export list
 .SS list
@@ -244,16 +296,22 @@ List of the \fBvid\fP of the volumes to remove.
 .TP 
 Display the list of the exports managed by this platform. 
 .TP
-\fB\-E\fP, \fB\-\-exportd \fP\fIhost
-A running exportd hostname.
+\fB\-E\fP, \fB--exportd \fP\fIhost\fP...
+List of running exportd hostname(s). When securing the exportd thanks to a
+virtual IP address only the VIP address is declared and when no VIP is used,
+the list of "physical" IP addresses of each host securing the
+exportd must be given.
 
 .SS create
-.B rozo export create \fIvid\fP \fB\-E\fP | \fB--exportd\fP \fIhost\fP [\fB\-n\fP | \fP\-\-name\fP\fI name\fP] [\fB\-p\fP | \fB--passwd\fP\fI password\fP] [\fB\-s\fP | \fB--squota\fP\fI squota\fP] [\fB\-a\fP | \fB--hquota\fP\fI hquota\fP]
+.B rozo export create \fIvid\fP \fB\-E\fP | \fB--exportd\fP \fIhost\fP... [\fB\-n\fP | \fP\-\-name\fP\fI name\fP] [\fB\-p\fP | \fB--passwd\fP\fI password\fP] [\fB\-s\fP | \fB--squota\fP\fI squota\fP] [\fB\-a\fP | \fB--hquota\fP\fI hquota\fP]
 .TP
 Export a new filesystem on the given volume by \fIvid\fP.
 .TP
-\fB\-E\fP, \fB\-\-exportd \fP\fIhost
-A running exportd hostname.
+\fB\-E\fP, \fB--exportd \fP\fIhost\fP...
+List of running exportd hostname(s). When securing the exportd thanks to a
+virtual IP address only the VIP address is declared and when no VIP is used,
+the list of "physical" IP addresses of each host securing the
+exportd must be given.
 .TP
 \fB\-n\fP, \fB\-\-name \fP\fIname
 The name to give to the new export. If not set a name will be generated (export_x).
@@ -268,12 +326,15 @@ Soft quota to set. (value [K | M | G | T])
 Hard quota to set. (value [K | M | G | T]) 
 
 .SS update
-.B rozo export update \fIeid\fP \fB\-E\fP | \fB--exportd\fP \fIhost\fP [\fB\-c\fP | \fB--current\fP\fI password\fP] [\fB\-p\fP | \fB--passwd\fP\fI password\fP] [\fB\-s\fP | \fB--squota\fP\fI squota\fP] [\fB\-a\fP | \fB--hquota\fP\fI hquota\fP]
+.B rozo export update \fIeid\fP \fB\-E\fP | \fB--exportd\fP \fIhost\fP... [\fB\-c\fP | \fB--current\fP\fI password\fP] [\fB\-p\fP | \fB--passwd\fP\fI password\fP] [\fB\-s\fP | \fB--squota\fP\fI squota\fP] [\fB\-a\fP | \fB--hquota\fP\fI hquota\fP]
 .TP
 Update an export according to \fIeid\fP.
 .TP
-\fB\-E\fP, \fB\-\-exportd \fP\fIhost
-A running exportd hostname.
+\fB\-E\fP, \fB--exportd \fP\fIhost\fP...
+List of running exportd hostname(s). When securing the exportd thanks to a
+virtual IP address only the VIP address is declared and when no VIP is used,
+the list of "physical" IP addresses of each host securing the
+exportd must be given.
 .TP
 \fB\-c\fP, \fB\-\-current \fP\fIpasswd
 Current password (needed with \fB-p\fP).
@@ -288,23 +349,29 @@ Soft quota to set. (value [K | M | G | T])
 Hard quota to set. (value [K | M | G | T]) 
 
 .SS remove
-.B rozo export remove [\fB\-f\fP | \fB--force\fP] \fIeid\fP... \fB\-E\fP | \fB--exportd\fP \fIhost\fP
+.B rozo export remove [\fB\-f\fP | \fB--force\fP] \fIeid\fP... \fB\-E\fP | \fB--exportd\fP \fIhost\fP... 
 .TP
 Remove an export according to \fIeid\fP... Only empty exports will be removed. 
 .TP
-\fB\-E\fP, \fB\-\-exportd\fP \fIhost\fP
-A running exportd hostname.
+\fB\-E\fP, \fB--exportd \fP\fIhost\fP...
+List of running exportd hostname(s). When securing the exportd thanks to a
+virtual IP address only the VIP address is declared and when no VIP is used,
+the list of "physical" IP addresses of each host securing the
+exportd must be given.
 .TP
 \fB\-f\fP, \fB\-\-force 
 Force removing non empty exports.
 
 .SS mount
-.B rozo export mount \fB\-E\fP | \fB--exportd\fP\fI host\fP [\fB\-n\fP | \fB--node\fP \fInode\fP...] [\fB\-e\fP | \fB--eids\fP \fIeid\fP...] [\fB\-o\fP | \fB--options\fP \fIoptions\fP...]
+.B rozo export mount \fB\-E\fP | \fB--exportd\fP\fI host\fP... [\fB\-n\fP | \fB--node\fP \fInode\fP...] [\fB\-e\fP | \fB--eids\fP \fIeid\fP...] [\fB\-o\fP | \fB--options\fP \fIoptions\fP...]
 .TP
 Mount export(s) identified by \fIeid\fP... on nodes.
 .TP
-\fB\-E\fP, \fB\-\-exportd \fP\fIhost
-A running exportd hostname.
+\fB\-E\fP, \fB--exportd \fP\fIhost\fP...
+List of running exportd hostname(s). When securing the exportd thanks to a
+virtual IP address only the VIP address is declared and when no VIP is used,
+the list of "physical" IP addresses of each host securing the
+exportd must be given.
 .TP
 \fB\-n\fP, \fB\-\-nodes \fP\fInode\fP...
 List of \fInode\fP hostnames to mount on. If not set exports will be mount on each node.
@@ -316,12 +383,15 @@ List of export(s) identified by \fIeid\fP... to mount.
 List of mount option(s) to use.
 
 .SS umount
-.B rozo export umount \fB\-E\fP | \fB--exportd\fP \fIhost\fP [\fB\-n\fP | \fB--node\fP \fBnode\fP...] [\fB\-e\fP | \fB--eids\fP \fIeid\fP...]
+.B rozo export umount \fB\-E\fP | \fB--exportd\fP \fIhost\fP... [\fB\-n\fP | \fB--node\fP \fInode\fP...] [\fB\-e\fP | \fB--eids\fP \fIeid\fP...]
 .TP
 Umount export(s) identified by \fIeid\fP... on nodes. 
 .TP
-\fB\-E\fP, \fB\-\-exportd \fP\fInode
-A running exportd hostname.
+\fB\-E\fP, \fB--exportd \fP\fIhost\fP...
+List of running exportd hostname(s). When securing the exportd thanks to a
+virtual IP address only the VIP address is declared and when no VIP is used,
+the list of "physical" IP addresses of each host securing the
+exportd must be given.
 .TP
 \fB\-n\fP, \fB\-\-nodes \fP\fInode\fP...
 List of \fInode\fP hostnames to umount from. If not set exports will be umount
@@ -334,7 +404,7 @@ List of export(s) identified by \fIeid\fP... to umount.
 .\""" rozo storage
 .SH STORAGE TOPIC
 .B rozo storage
-.I list\fP | \fIget\fP | \fIadd\fP | \fIremove\fP \fB\-E | \-\-exportd\fP \fIhost\fP
+.I list\fP | \fIget\fP | \fIadd\fP | \fIremove\fP \fB\-E | \-\-exportd\fP \fIhost\fP... 
 
 .\" rozo storage list
 .SS list
@@ -342,27 +412,35 @@ List of export(s) identified by \fIeid\fP... to umount.
 .TP 
 Display the list of the storage interface listeners.
 .TP
-\fB\-E\fP, \fB\-\-exportd \fP\fIhost
-A running exportd hostname.
+\fB\-E\fP, \fB--exportd \fP\fIhost\fP...
+List of running exportd hostname(s). When securing the exportd thanks to a
+virtual IP address only the VIP address is declared and when no VIP is used,
+the list of "physical" IP addresses of each host securing the
+exportd must be given.
 
 .\" rozo storage get
 .SS get
-.B rozo storage get \fInode\fP... \fB\-E | \-\-exportd\fP \fIhost\fP 
+.B rozo storage get \fInode\fP... \fB\-E | \-\-exportd\fP \fIhost\fP... 
 .TP 
 Get the interface listeners for the given storage \fInode\fP hostnames.
 .TP
-\fB\-E\fP, \fB\-\-exportd \fP\fIhost
-A running exportd hostname.
+\fB\-E\fP, \fB--exportd \fP\fIhost\fP...
+List of running exportd hostname(s). When securing the exportd thanks to a
+virtual IP address only the VIP address is declared and when no VIP is used,
+the list of "physical" IP addresses of each host securing the
+exportd must be given.
 
 .\" rozo storage add
 .SS add
-.B rozo storage add \fB\-n\fP | \fB\-\-nodes\fP \fInode\fP... \fB\-i\fP | \fB\-\-interface\fP \fIinterface\fP \fB\-p\fP | \fB\-\-port\fP \fIport\fP \fB\-E\fP | \fB\-\-exportd\fP \fIhost\fP 
+.B rozo storage add \fB\-n\fP | \fB\-\-nodes\fP \fInode\fP... \fB\-i\fP | \fB\-\-interface\fP \fIinterface\fP \fB\-p\fP | \fB\-\-port\fP \fIport\fP \fB\-E\fP | \fB\-\-exportd\fP \fIhost\fP... 
 .TP
-Add an interface listener according to the given \fIinterface\fP and
-\fIport\fP to the storaged \fIhost\fP.
+Add an interface listener according to the given \fIinterface\fP and \fIport\fP to the storaged \fIhost\fP.
 .TP
-\fB\-E\fP, \fB\-\-exportd\fP \fIhost\fP
-A running exportd hostname.
+\fB\-E\fP, \fB--exportd \fP\fIhost\fP...
+List of running exportd hostname(s). When securing the exportd thanks to a
+virtual IP address only the VIP address is declared and when no VIP is used,
+the list of "physical" IP addresses of each host securing the
+exportd must be given.
 .TP
 \fB\-n\fP, \fB\-\-nodes\fP \fInode\fP...
 The list of running storaged nodes to add the new listener.
@@ -375,12 +453,15 @@ Port to set.
 
 .\" rozo storage remove
 .SS remove
-.B rozo storage remove \fB\-n\fP | \fB\-\-nodes\fP \fInode\fP... \fB\-i\fP | \fB\-\-interface\fP \fIinterface\fP \fB\-p\fP | \fB\-\-port\fP \fIport\fP \fB\-E\fP | \fB\-\-exportd\fP \fIhost\fP 
+.B rozo storage remove \fB\-n\fP | \fB\-\-nodes\fP \fInode\fP... \fB\-i\fP | \fB\-\-interface\fP \fIinterface\fP \fB\-p\fP | \fB\-\-port\fP \fIport\fP \fB\-E\fP | \fB\-\-exportd\fP \fIhost\fP... 
 .TP
 Remove an interface listener to the storaged \fInode\fP list according to the given \fIinterface\fP and \fIport\fP.
 .TP
-\fB\-E\fP, \fB\-\-exportd\fP \fIhost\fP
-A running exportd hostname.
+\fB\-E\fP, \fB--exportd \fP\fIhost\fP...
+List of running exportd hostname(s). When securing the exportd thanks to a
+virtual IP address only the VIP address is declared and when no VIP is used,
+the list of "physical" IP addresses of each host securing the
+exportd must be given.
 .TP
 \fB\-n\fP, \fB\-\-nodes\fP \fInode\fP...
 The list of running storaged nodes to add the new listener.
@@ -390,7 +471,13 @@ Interface to set.
 .TP
 \fB\-p\fP, \fB\-\-port\fP \fIport
 Port to set.
+
+.SH "ENVIRONMENT VARIABLE"
 .TP
+.IP "\fBROZO_EXPORT_HOSTNAME\fP"
+Specify default exportd hostname(s) (option: \fB\-E\fP | \fB\-\-exportd\fP) 
+using this environment variable . If not set, exportd hostname(s) must be 
+specified with \fB\-E\fP | \fB\-\-exportd\fP option.
 
 .SH "REPORTING BUGS"
 Report bugs to <bugs@fizians.org>.
