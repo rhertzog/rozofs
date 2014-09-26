@@ -75,7 +75,7 @@ int monitor_volume(volume_t *volume) {
     }
 
     sprintf(path, "%s%s%d", DAEMON_PID_DIRECTORY, "exportd/volume_", clone.vid);
-    if ((fd = open(path, O_WRONLY | O_CREAT, S_IRWXU | S_IROTH)) < 0) {
+    if ((fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, S_IRWXU | S_IROTH)) < 0) {
         severe("can't open %s", path);
         goto out;
     }
