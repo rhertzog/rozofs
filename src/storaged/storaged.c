@@ -40,7 +40,6 @@
 #include <netdb.h>
 
 #include <rozofs/rozofs_srv.h>
-#include <rozofs/rozofs_debug_ports.h>
 #include <rozofs/common/log.h>
 #include <rozofs/common/xmalloc.h>
 #include <rozofs/common/list.h>
@@ -418,9 +417,7 @@ static void on_start() {
 
     // Create the debug thread of the parent
     conf.instance_id = 0;
-    conf.debug_port  = rzdbg_default_base_port + RZDBG_STORAGED_PORT;
-    /* Try to get debug port from /etc/services */    
-    conf.debug_port = get_service_port("rozo_storaged_dbg",NULL,conf.debug_port);
+   conf.debug_port = rozofs_get_service_port_storaged_diag();
 
     if (storaged_hostname != NULL) strcpy(conf.hostname, storaged_hostname);
     else conf.hostname[0] = 0;

@@ -58,7 +58,6 @@
 #include <rozofs/core/rozofs_rpc_non_blocking_generic.h>
 #include <rozofs/rpc/eproto.h>
 #include <rozofs/rpc/epproto.h>
-#include <rozofs/rozofs_debug_ports.h>
 
 #include "export.h"
 #include "export_expgateway_conf.h"
@@ -614,7 +613,7 @@ int expgwc_non_blocking_init(uint16_t dbg_port, uint16_t exportd_instance) {
 //  sem_t semForEver;    /* semaphore for blocking the main thread doing nothing */
 
 
- ret = ruc_init(FALSE,dbg_port + RZDBG_EXPORTD_PORT,exportd_instance);
+ ret = ruc_init(FALSE,dbg_port,exportd_instance);
  
  if (ret != RUC_OK) return -1;
  

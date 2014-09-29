@@ -1,5 +1,4 @@
 #!/bin/bash
-
 #  Copyright (c) 2010 Fizians SAS. <http://www.fizians.com>
 #  This file is part of Rozofs.
 #  Rozofs is free software; you can redistribute it and/or modify
@@ -136,7 +135,34 @@ gen_storage_conf ()
         done; 
     done;
 }
+reset_one_storio() 
+{
+    case "$1" in
+      "") usage;;
+    esac
 
+
+    sid=$1	       
+    cid=$(( ((sid-1) / STORAGES_BY_CLUSTER) + 1 ))
+
+    #echo "Start storage cid: $cid sid: $sid"
+    pid=`ps -ef | grep "storio -i" | grep -v starter | grep ${LOCAL_CONF}"storage_l0_"${cid}"_"${sid}".conf" | awk '{ print $2 }'`
+    
+    kill -9 $pid
+    #sleep 1
+}
+stop_one_storio()
+{
+    case "$1" in
+      "") usage;;
+    esac
+
+
+    sid=$1	       
+    cid=$(( ((sid-1) / STORAGES_BY_CLUSTER) + 1 ))
+
+
+}
 # $1 -> LAYOUT
 # $2 -> storages by node
 # $2 -> Nb. of exports
@@ -1082,8 +1108,8 @@ main ()
     SQUOTA=""
     HQUOTA=""
 
-    STORIO_MODE="multiple"
-    #STORIO_MODE="single"
+    #STORIO_MODE="multiple"
+    STORIO_MODE="single"
 
     #READ_FILE_MINIMUM_SIZE=8
     READ_FILE_MINIMUM_SIZE=$WRITE_FILE_BUFFERING_SIZE
@@ -1200,6 +1226,12 @@ main ()
 		reset)   reset_one_storage $2;;
         *)       usage;;
       esac
+    elif [ "$1" == "storio" ]
+    then  	
+      case "$3" in 
+        reset)           reset_one_storio $2;;	
+        *)               usage;;
+      esac      
     elif [ "$1" == "process" ]
     then 
        set_layout

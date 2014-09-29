@@ -36,34 +36,7 @@ def my_duration (val):
 def reset_counters():
 # Use debug interface to reset profilers and some counters
 #___________________________________________________
-
-  string='./dbg.sh all profiler reset'
-  parsed = shlex.split(string)
-  cmd = subprocess.Popen(parsed, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-  string='./dbg.sh io diskThreads reset'
-  parsed = shlex.split(string)
-  cmd = subprocess.Popen(parsed, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-  if fuseTrace == True:
-
-    string='./dbg.sh fs1 fuse reset'
-    parsed = shlex.split(string)
-    cmd = subprocess.Popen(parsed, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-    string='./dbg.sh fs1 trc_fuse count 256'
-    parsed = shlex.split(string)
-    cmd = subprocess.Popen(parsed, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-    string='./dbg.sh fs1 trc_fuse enable'
-    parsed = shlex.split(string)
-    cmd = subprocess.Popen(parsed, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-  else:
-
-    string='./dbg.sh fs1 trc_fuse disable'
-    parsed = shlex.split(string)
-    cmd = subprocess.Popen(parsed, stdout=subprocess.PIPE, stderr=subprocess.PIPE)  
+  return
 
 #___________________________________________________
 def export_count_sid_up ():
@@ -71,24 +44,40 @@ def export_count_sid_up ():
 # seen from the export. 
 #___________________________________________________
 
-  string="./dbg.sh exp vfstat_stor"
+  string="./build/src/rozodiag/rozodiag -T export -c vfstat_stor"
   parsed = shlex.split(string)
   cmd = subprocess.Popen(parsed, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
+  
   match=int(0)
   for line in cmd.stdout:
     if "UP" in line:
       match=match+1
     
   return match
+#___________________________________________________
+def get_rozofmount_instance ():
 
+  p = subprocess.Popen(["ps","-ef"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+  for proc in p.stdout:
+    if not "rozofsmount/rozofsmount" in proc:
+      continue
+      
+    for words in proc.split():
+      if mnt in words.split("/"):        
+	for opt in proc.split(" "):
+	  if opt.startswith("instance="):
+            instance=opt.split("instance=")[1]
+	    return int(instance)
+	    
+  return int(78)
 #___________________________________________________
 def storcli_count_sid_available ():
 # Use debug interface to count the number of sid 
 # available seen from the storcli. 
 #___________________________________________________
 
-  string="./dbg.sh stc1 storaged_status"
+#  inst=get_rozofmount_instance()
+  string="./build/src/rozodiag/rozodiag -T mount:0:1 -c storaged_status"       
   parsed = shlex.split(string)
   cmd = subprocess.Popen(parsed, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
@@ -123,6 +112,7 @@ def loop_wait_until (success,retries,function):
     up=getattr(sys.modules[__name__],function)()
     time.sleep(1)
     
+  time.sleep(1)    
   return True  
     
 #___________________________________________________
@@ -131,8 +121,10 @@ def wait_until_all_sid_up (retries=DEFAULT_RETRIES) :
 #___________________________________________________
 
   if loop_wait_until(NB_SID,retries,'storcli_count_sid_available') == False:
+    print "all sid are not up from storcli !!!"
     return False
   if loop_wait_until(NB_SID,retries,'export_count_sid_up') == False:
+    print "all sid are not up from export !!!"
     return False
   return True  
   
@@ -143,6 +135,7 @@ def wait_until_one_sid_down (retries=DEFAULT_RETRIES) :
 #___________________________________________________
 
   if loop_wait_until(NB_SID-1,retries,'storcli_count_sid_available') == False:
+    print "all sid are not down from storcli !!!"
     return False
   return True   
 #___________________________________________________
@@ -178,6 +171,7 @@ def storageFailed (test) :
 #___________________________________________________
 
   if wait_until_all_sid_up() == False:
+    print "all sid are not up !!!"
     return 1
 
   for sid in range(NB_SID):
@@ -264,10 +258,10 @@ def snipper_storio ():
       
       sys.stdout.write("\r                                 ")
       sys.stdout.flush()
-      sys.stdout.write("\rStorage %d reset"%(sid+1))
+      sys.stdout.write("\rStorio %d reset"%(sid+1))
       sys.stdout.flush()
 
-      os.system("./setup.sh storage %d reset"%(sid+1))
+      os.system("./setup.sh storio %d reset"%(sid+1))
 
 
 #___________________________________________________
@@ -587,7 +581,7 @@ def rebuild_all() :
     finish=False
     while finish == False:      
       time.sleep(4)      
-      string="./dbg.sh std%d rebuild"%(sid+1)
+      string="./build/src/rozodiag/rozodiag -i localhost%d -T storaged -c rebuild"%(sid+1)
       parsed = shlex.split(string)
       cmd = subprocess.Popen(parsed, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
       for line in cmd.stdout:

@@ -34,7 +34,6 @@
 #include <unistd.h>
 #include <rpc/pmap_clnt.h>
 
-#include <rozofs/rozofs_debug_ports.h>
 #include <rozofs/rozofs.h>
 #include <rozofs/common/log.h>
 #include <rozofs/rozofs_srv.h>
@@ -791,7 +790,7 @@ static void on_start() {
       pmap_unset(EXPORT_PROGRAM, EXPORT_VERSION); // in case !
 
       struct sockaddr_in sin;
-      uint16_t tcp_port = ROZOFS_GET_EXPNB_PORT;
+      uint16_t tcp_port = rozofs_get_service_port_export_master_eproto();
 
             
       sin.sin_addr.s_addr = INADDR_ANY;
@@ -1078,7 +1077,7 @@ int main(int argc, char *argv[]) {
     };
 
     /* Try to get debug port from /etc/services */
-    expgwc_non_blocking_conf.debug_port = get_service_port("rozo_exportd_dbg",NULL,rzdbg_default_base_port);
+    expgwc_non_blocking_conf.debug_port = rozofs_get_service_port_export_master_diag();
     expgwc_non_blocking_conf.instance = 1;
     expgwc_non_blocking_conf.exportd_hostname = NULL;
 

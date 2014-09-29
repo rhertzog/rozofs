@@ -28,7 +28,12 @@ STATE_UNKNOWN=3
 rozodiag_PATHS=". /usr/bin /usr/local/bin $ROZO_TESTS/build/src/rozodiag" 
 resolve_rozodiag() {
 
-  option="-i $host -p $port"
+  if [ ! -z "$port" ];
+  then
+    option="-i $host -p $port"
+  else
+    option="-i $host -T $DBGTARGET"   
+  fi
 
   if [ ! -z "$time" ];
   then
@@ -100,8 +105,7 @@ set_default() {
   verbosity=0
   host=""
   time=""
-  port=50003
-  instance=""
+  instance=0
 }
 
 is_numeric () {
@@ -159,8 +163,7 @@ scan_value () {
 test_storcli()
 {
   # 1st storcli
-  port=`expr $port + 1 `
-  resolve_rozodiag
+
   $ROZDBG -c storaged_status >  $TMPFILE
 
   res=`grep cid $TMPFILE`
@@ -254,7 +257,7 @@ fi
 
 if [ ! -z "$instance" ];
 then
-  port=$(( 50003 + 3 * $instance ))
+  DBGTARGET="mount:$instance"
 fi
 
 # Find rozodiag utility and prepare command line parameters
@@ -289,6 +292,14 @@ fi
 
 for i in $(seq $NBSTORCLI)
 do
+  if [ ! -z "$port" ];
+  then
+    port=`expr $port + 1 `
+  else
+    DBGTARGET="mount:$instance:$i"   
+  fi    
+  resolve_rozodiag
+  
   test_storcli $i
 done  
 
