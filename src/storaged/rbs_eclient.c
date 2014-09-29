@@ -77,10 +77,11 @@ char * rbs_get_cluster_list(rpcclt_t * clt, const char *export_host_list, cid_t 
 	    pHost = rozofs_host_list_get_host(export_idx);
 	    if (pHost == NULL) break;
 
-        // Initialize connection with exportd server
-        if (rpcclt_initialize
-            (clt, pHost, EXPORT_PROGRAM, EXPORT_VERSION,
-            ROZOFS_RPC_BUFFER_SIZE, ROZOFS_RPC_BUFFER_SIZE, 0, timeo) != 0)
+	    // Initialize connection with exportd server
+	    if (rpcclt_initialize
+        	    (clt, pHost, EXPORT_PROGRAM, EXPORT_VERSION,
+        	    ROZOFS_RPC_BUFFER_SIZE, ROZOFS_RPC_BUFFER_SIZE,
+		    rozofs_get_service_port_export_master_eproto(), timeo) != 0)
         	continue;
 
         // Send request

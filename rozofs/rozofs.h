@@ -27,13 +27,7 @@
 /**
 * Ports definition of RozoFS
 */
-#define EXPNB_SLAVE_PORT       53000  /**< supports up to 8 exportd slave */
-#define ROZOFS_GET_EXPNB_PORT  get_service_port("rozo_export_nb",NULL,EXPNB_SLAVE_PORT)
- 
-/*
-** Port on which storaged services MPROTO and SPPROTO
-*/
-#define ROZOFS_MPROTO_PORT 51000
+#include "rozofs_service_ports.h"
 
 #define ROZOFS_UUID_SIZE 16
 /* Instead of using an array of unsigned char for store the UUID, we use an

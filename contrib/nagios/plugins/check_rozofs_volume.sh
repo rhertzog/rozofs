@@ -26,8 +26,13 @@ STATE_UNKNOWN=3
 rozodiag_PATHS=". /usr/bin /usr/local/bin $ROZO_TESTS/build/src/rozodiag" 
 resolve_rozodiag() {
 
-  option="-i $1 -p $port"
-
+  if [ ! -z "$port" ];
+  then
+    option="-i $1 -p $port"
+  else
+    option="-i $1 -T $DBGTARGET"   
+  fi
+  
   if [ ! -z "$time" ];
   then
     option=`echo "$option -t $time"`
@@ -99,11 +104,11 @@ set_default() {
   thresh_crit=""
   thresh_crit_percent=""
   host=""
-  time=""
-  port=50000
+  time="" 
   free=0
   percent=0
   volume=1
+  DBGTARGET="export"
 }
 
 is_numeric () {

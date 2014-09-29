@@ -181,17 +181,7 @@ static void on_start(void) {
      */
     
     conf.instance_id = storio_instance;
-    
-    if (storio_instance == 0) {
-      conf.debug_port  = rzdbg_default_base_port + RZDBG_STORAGED_PORT + 1;
-      /* Try to get debug port from /etc/services */    
-      //conf.debug_port  = get_service_port("rozo_storio_dbg",NULL,conf.debug_port);
-    }
-    else {
-      conf.debug_port  = rzdbg_default_base_port + RZDBG_STORAGED_PORT + storio_instance;
-      /* Try to get debug port from /etc/services */    
-      //conf.debug_port  = get_service_port("rozo_storio_dbg",NULL,conf.debug_port);    
-    }  
+    conf.debug_port = rozofs_get_service_port_storio_diag(storio_instance); 
     if (storaged_hostname != NULL) 
       strcpy(conf.hostname, storaged_hostname);
     else 

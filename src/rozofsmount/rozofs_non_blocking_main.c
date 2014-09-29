@@ -212,7 +212,7 @@ uint32_t ruc_init(uint32_t test, uint16_t debug_port) {
         if (ret != RUC_OK) break;
 #endif    
         exportclt_t *exportclt = args_p->exportclt;
-	uint16_t export_nb_port = ROZOFS_GET_EXPNB_PORT;
+	uint16_t export_nb_port = rozofs_get_service_port_export_master_eproto(); 
         ret = rozofs_expgateway_init( exportclt->host,(int)exportclt->eid, export_nb_port,
 	                              (af_stream_poll_CBK_t) rozofs_export_lbg_cnx_polling);
         if (ret != RUC_OK) break;
@@ -296,7 +296,7 @@ int rozofs_stat_start(void *args) {
     /*
      ** Perform the init with exportd--> setup of the TCP connection associated with the load balancing group
      */
-    uint16_t export_nb_port = ROZOFS_GET_EXPNB_PORT;     
+    uint16_t export_nb_port = rozofs_get_service_port_export_master_eproto();     
     if (export_lbg_initialize((exportclt_t*) args_p->exportclt, EXPORT_PROGRAM, EXPORT_VERSION, export_nb_port,
                                (af_stream_poll_CBK_t) rozofs_export_lbg_cnx_polling) != 0) {
         severe("Cannot setup the load balancing group towards Exportd");

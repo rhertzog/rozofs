@@ -39,6 +39,7 @@
 #include <readline/history.h>
 
 #include <rozofs/core/uma_dbg_msgHeader.h>
+#include <rozofs/rozofs.h>
 
 #define SILENT 1
 #define NOT_SILENT 0
@@ -71,13 +72,20 @@ char prompt[64];
 **   lnkdebug <IPADDR> <PORT>
 */
 void syntax() {
-  printf("\n%s ([-i <hostname>] -p <port>)... [-c <cmd|all>]... [-f <cmd file>]... [-period <seconds>] [-t <seconds>]\n\n",prgName);
-  printf("Several diagnostic targets can be specified ([-i <hostname>] -p <port>)...\n");
+  printf("\n%s ([-i <hostname>] {-p <port>|-T <target>})... [-c <cmd|all>]... [-f <cmd file>]... [-period <seconds>] [-t <seconds>]\n\n",prgName);
+  printf("Several diagnostic targets can be specified ( [-i <hostname>] {-p <port>|-T <target>} )...\n");
   printf("  -i <hostname>  IP address or hostname of the diagnostic target.\n");
   printf("                 When omitted previous -i value in the command line is taken as default\n");
   printf("                 or 127.0.0.1 when no previous -i option is set.\n");
-  printf("  -p <port>      Port number of the diagnostic target.\n");
-  printf("                 At least one port value must be given.\n");
+  printf("    -p <port>      Port number of the diagnostic target.\n");
+  printf(" or\n");
+  printf("    -T <target>    The diagnostic target in the format:\n");
+  printf("                     export                               for an export\n");
+  printf("                     storaged                             for a storaged\n");
+  printf("                     storio[:<instance>]                  for a storio\n");
+  printf("                     mount[:<mount instance>]             for a rozofsmount\n");
+  printf("                     mount[:<mount instance>[:<1|2>]]     for a storcli of a rozofsmount\n");
+  printf(" At least one -p or -m value must be given.\n");
   printf("\nOptionnaly a list of command to run can be specified:\n");
   printf("  [-c <cmd|all>]...\n"); 
   printf("         Every word after -c is interpreted as a word of a command until end of line or new option.\n");
@@ -88,7 +96,8 @@ void syntax() {
   printf("  [-period <seconds>]\n");       
   printf("         Periodicity when running commands using -c or/and -f options.\n");  
   printf("\nMiscellaneous options:\n");
-  printf("  -t <seconds>   Timeout value to wait for a response (default %d seconds).\n",DEFAULT_TIMEOUT);      
+  printf("  -t <seconds>     Timeout value to wait for a response (default %d seconds).\n",DEFAULT_TIMEOUT);
+  printf("  -reserved_ports  Displays model for port reservation\n");        
   printf("\ne.g\n%s -i 192.168.1.1 -p 50003 -p 50004 -p 50005 -c profiler reset\n",prgName) ;          
   printf("%s -i 192.168.1.1 -p 50003 -i 192.168.1.2 -p 50003 -c profiler -period 10\n",prgName) ;          
   exit(0);
@@ -366,7 +375,9 @@ char *argv[];
   uint32_t            ret;
   uint32_t            idx;
   uint32_t            port32;
+  uint32_t            val32;
   int                 status;
+  char              * pt;
 
   idx = 1;
   /* Scan parameters */
@@ -389,6 +400,20 @@ char *argv[];
       continue;
     }
 
+    
+    /* -reserved_ports */
+    if (strcmp(argv[idx],"-reserved_ports")==0) {
+      char message[1024*4];
+      show_ip_local_reserved_ports(message);
+      printf("%s\n",message);
+      printf("grep ip_local_reserved_ports /etc/sysctl.conf\n");
+      system("grep ip_local_reserved_ports /etc/sysctl.conf");
+      printf("\ncat /proc/sys/net/ipv4/ip_local_reserved_ports\n");
+      system("cat /proc/sys/net/ipv4/ip_local_reserved_ports"); 
+      exit(0);
+    }
+    
+    
     /* -p <portNumber> */
     if (strcmp(argv[idx],"-p")==0) {
       idx++;
@@ -413,6 +438,85 @@ char *argv[];
       idx++;
       continue;
     }
+    
+    /* 
+    ** storaged               : -f storaged
+    ** storio                 : -f storio[:<instance>]
+    ** rozofsmount            : -f mount[:<mount instance>]
+    ** storcli of rozofsmount : -f mount[:<mount instance>[:<1|2>]]
+    ** geomgr                 : -f geomgr
+    ** geocli                 : -f geocli[:<geocli instance>]
+    ** storcli of geocli      : -f geocli[:<geocli instance>[:<1|2>]]
+    */
+    if (strcmp(argv[idx],"-T")==0) {
+      idx++;
+      if (idx == argc) {
+	printf ("%s option but missing value !!!\n",argv[idx-1]);
+	syntax();
+      }
+      pt = argv[idx];
+      if (strncasecmp(pt,"storio",strlen("storio"))==0) {
+        port32 = 0;
+	pt += strlen("storio");
+        if (*pt == ':') {
+	  pt++;
+	  ret = sscanf(pt,"%u",&port32);
+	  if (ret != 1) {
+	    printf ("%s option with unexpected value \"%s\" !!!\n",argv[idx-1],argv[idx]);
+            syntax();
+	  }		  
+	}
+        port32 = rozofs_get_service_port_storio_diag(port32);
+	
+      }
+      else if (strncasecmp(pt,"storaged",strlen("storaged"))==0) {
+        port32 = rozofs_get_service_port_storaged_diag();
+      }
+      else if (strncasecmp(pt,"export",strlen("export"))==0) {
+	  port32 = rozofs_get_service_port_export_master_diag();	  	
+      }    
+      else if (strncasecmp(pt,"mount",strlen("mount"))==0) {
+	pt += strlen("mount");
+        if (*pt != ':') { 
+	  syntax();
+	}  
+	pt++;
+	ret = sscanf(pt,"%u",&port32);
+	if (ret != 1) {
+	  printf ("%s option with unexpected value \"%s\" !!!\n",argv[idx-1],argv[idx]);
+          syntax();
+	}
+	while ((*pt != 0)&&(*pt != ':')) pt++;
+	if (*pt == 0) { 
+	  port32 = rozofs_get_service_port_fsmount_diag(port32);
+	}    
+	else { // geocli:x: ...
+	  pt++;
+	  ret = sscanf(pt,"%u",&val32);
+	  if (ret != 1) {
+	    printf ("%s option with unexpected value \"%s\" !!!\n",argv[idx-1],argv[idx]);
+            syntax();
+	  }	
+	  // storcli:x:y 
+	  port32 = rozofs_get_service_port_fsmount_storcli_diag(port32,val32);
+	}
+      }          
+      else {
+	syntax();           
+      }
+
+      if ((port32<0) || (port32>0xFFFF)) {
+	printf ("%s option with unexpected value \"%s\" !!!\n",argv[idx-1],argv[idx]);
+	syntax();
+      }
+      
+      serverPort[nbTarget] = (uint16_t) port32;
+      nbTarget++;
+      /* Pre-initialize next IP address */ 
+      ipAddr[nbTarget] = ipAddr[nbTarget-1];             
+      idx++;
+      continue;
+    }    
     
     /* -period <period> */
     if (strcmp(argv[idx],"-period")==0) {

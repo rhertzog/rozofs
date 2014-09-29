@@ -36,7 +36,7 @@ int mclient_initialize(mclient_t * clt, struct timeval timeout) {
 
     if (mproto_service_port == 0) {
       /* Try to get debug port from /etc/services */    
-      mproto_service_port = get_service_port("rozo_storaged_srv",NULL,ROZOFS_MPROTO_PORT);
+      mproto_service_port = rozofs_get_service_port_storaged_mproto();
     }
     
     if (rpcclt_initialize(&clt->rpcclt, clt->host, MONITOR_PROGRAM,

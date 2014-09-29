@@ -47,22 +47,22 @@ The communication between *rozodiag* client and *rozodiag* agent is
 based on TCP. There is a predefined set of TCP ports that are reserved
 for the communication with the *rozodiag* agent. To address one
 *rozodiag* agent the client should provide the IP address of the
-*rozodiag* agent and the TCP port number of the target process
+*rozodiag* agent and the function identifier of the target process
 (*rozofsmount*, *storcli*, *exportd*, etc...).
 
-List of the rozodiag agent ports
---------------------------------
+List of the rozodiag agent functionnal targets
+----------------------------------------------
 
-The based TCP port for the *rozodiag* service is **50000**.
+The functionnal target is the -T option of the rozodiag command.
 
 exportd node
 ~~~~~~~~~~~~
 
 It is assumed that there is one *exportd* process per *exportd* node,
 one *exportd* process supporting more than one exported file system. The
-port value is the following:
+target name is set as follow:
 
--  *exportd*: **50000**
+-  *exportd*: **-T export**
 
 RozoFS client node
 ~~~~~~~~~~~~~~~~~~
@@ -71,16 +71,16 @@ There are 3 processes for one RozoFS client: *rozofsmount* and two
 *storcli* processes.
 
 It might be possible to instanciate more than one RozoFS Client on one
-RozoFS client node, as a consequence the port numbering includes the
+RozoFS client node, as a consequence the target name includes the
 RozoFS client instance.
 
 The following port numbers are given for the instance 0:
 
--  *rozofsmount*: **50003** (50003 + 3 \* client\_instance\_id)
+-  *rozofsmount*: **-T mount:client\_instance\_id**
 
--  *storcli-1*: **50004** (50004 + 3 \* client\_instance\_id)
+-  *storcli-1*: **-T mount:client\_instance\_id:1**
 
--  *storcli-2*: **50005** (50005 + 3 \* client\_instance\_id)
+-  *storcli-2*: **-T mount:client\_instance\_id:2**
 
 storaged node
 ~~~~~~~~~~~~~
@@ -89,13 +89,15 @@ There is one *storaged* process (its role is to provided volume
 occupancy, file deletion,..) and several *storio* processes that are
 responsible of the low level disk operations (read, write and
 truncated). For the case of the *storio*, the port value depends on the
-*storio* instance identifier. The port values are the following:
+*storio* instance identifier. The target name are set as follow:
 
--  *storaged*: **50027**
+-  *storaged*: **-T storaged**
 
--  *storio-0*: **50028** (50028 + storio\_instance\_id)
+-  *storio* (mono storio mode): **-T storio**
 
--  *storio-1*: **50029** (50028 + storio\_instance\_id)
+-  *storio-1* (multi storio mode): **-T storio:1**
+
+-  *storio-2* (multi storio mode): **-T storio:2**
 
 rozodiag usage
 --------------
@@ -104,15 +106,23 @@ The following section provides the help of the ``rozodiag`` utilitary.
 
 Here is the menu of ``rozodiag``. An external application can
 communicate with any component of RozoFS by providing the IP address and
-the RozoFS well-known *rozodiag* port associated with the component.
+the RozoFS target name associated with the component.
 
 ::
 
-    rozodiag [-i <hostname>] -p <port> [-c <cmd>] [-f <cmd file>] [-period <s>] [-t <s>]
+    rozodiag [-i <hostname>] {-p <port>|-T <target>} [-c <cmd>] [-f <cmd file>] [-period <s>] [-t <s>]
     -i <hostname>           destination IP address or hostname of the debug server
                             default is 127.0.0.1
-    -p <port>               destination port number of the debug server
-                            mandatory parameter
+       -p <port>            Port number of the diagnostic target.
+    or
+       -T <target>           The diagnostic target in the formatT:
+                	      export                               for an export
+                	      storaged                             for a storaged
+                	      storio[:<instance>]                  for a storio
+                	      mount[:<mount instance>]             for a rozofsmount
+                	      mount[:<mount instance>[:<1|2>]]     for a storcli of a rozofsmount
+    At least one -p or -m value must be given.
+
     -c <cmd|all>            command to run in one shot or periodically (-period)
                             several -c options can be set
     -f <cmd file>           command file to run in one shot or periodically (-period)
@@ -131,7 +141,7 @@ the RozoFS well-known *rozodiag* port associated with the component.
 
    ::
 
-       # rozodiag -p 50004
+       # rozodiag -T mount:0:1
        system : storcli 1 of rozofsmount 0
        _________________________________________________________
        storcli 1 of rozofsmount 0>
@@ -181,7 +191,7 @@ the RozoFS well-known *rozodiag* port associated with the component.
 
    ::
 
-       # rozodiag -p 50004 -c cpu -c buffer
+       # rozodiag -T mount:0:1 -c cpu -c buffer
 
        select max cpu time : 1000 us
        application                      sock  last  cumulated activation  average
@@ -990,15 +1000,15 @@ The list of these tasks can be retrieved by using the ``cpu`` command:
 
 ::
 
-    rozodiag -p 50004 -c cpu
+    rozodiag -T mount:0:1 -c cpu
 
-The port number depends of the instance of the storcli and on the
+The tarhet name depends of the instance of the storcli and on the
 instance of the *rozofsmount* client that owns the *storcli*. For the
-*rozofsmount* instance 0 the storcli's port numbers are:
+*rozofsmount* instance 0 the storcli's target names are:
 
--  **50004**: *storcli* instance 0.
+-  **mount:0:1**: *storcli* instance 1.
 
--  **50005**: *storcli* instance 1.
+-  **mount:0:2**: *storcli* instance 2.
 
 The following output example corresponds to a configuration where the
 *storcli* is connected with 4 storage nodes:
@@ -1058,7 +1068,7 @@ encoding/decoding time.
 
 ::
 
-    rozodiag -p 50004 -c profiler
+    rozodiag -T mount:0:1 -c profiler
 
 Output example:
 
@@ -1154,7 +1164,7 @@ The profiler statistics can be cleared by using the following command:
 
 ::
 
-    rozodiag -p 50004 -c profiler reset
+    rozodiag -T mount:0:1 -c profiler reset
 
 Storage Node connection status
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

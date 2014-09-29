@@ -21,6 +21,8 @@ link_directories(${CMAKE_BINARY_DIR}/rozofs)
 
 add_executable(rozodiag
     rozodiag.c
+    ../../rozofs/rozofs_service_ports.c
+    ../../rozofs/rozofs_service_ports.h    
 )
 target_link_libraries(rozodiag ${READLINE_LIBRARY})
 

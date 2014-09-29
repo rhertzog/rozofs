@@ -23,7 +23,6 @@
 #include <mntent.h>
 #include <sys/resource.h>
 
-#include <rozofs/rozofs_debug_ports.h>
 #include <rozofs/rozofs_timer_conf.h>
 #include <rozofs/core/rozofs_timer_conf_dbg.h>
 #include <rozofs/core/rozofs_ip_utilities.h>
@@ -1741,11 +1740,7 @@ int fuseloop(struct fuse_args *args, int fg) {
     */
     if (conf.dbg_port == 0) 
     {
-      conf.dbg_port = rzdbg_default_base_port;    
-    }
-    else
-    {
-      rzdbg_default_base_port = conf.dbg_port;    
+      conf.dbg_port = rozofs_get_service_port_fsmount_diag(conf.instance);    
     }    
     
     if (conf.nb_cores == 0) 
@@ -1753,15 +1748,8 @@ int fuseloop(struct fuse_args *args, int fg) {
       conf.nb_cores = 2;    
     }     
     rozofs_fuse_conf.instance = (uint16_t) conf.instance;
-    rozofs_fuse_conf.debug_port = (uint16_t)rzdbg_get_rozofsmount_port((uint16_t) conf.instance);
-    /* Try to get debug port from /etc/services */
-    {
-      char debug_port_name[32];
-      sprintf(debug_port_name,"rozo_mount%d_dbg",conf.instance);
-      rozofs_fuse_conf.debug_port = get_service_port(debug_port_name,NULL,rozofs_fuse_conf.debug_port);
-    }
+    rozofs_fuse_conf.debug_port = conf.dbg_port;
     rozofs_fuse_conf.nb_cores = (uint16_t) conf.nb_cores;
-    conf.dbg_port = rozofs_fuse_conf.debug_port;
     rozofs_fuse_conf.se = se;
     rozofs_fuse_conf.ch = ch;
     rozofs_fuse_conf.exportclt = (void*) &exportclt;

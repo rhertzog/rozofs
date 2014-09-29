@@ -506,7 +506,7 @@ int storaged_north_interface_init(char * host) {
   }
 
   /* Try to get debug port from /etc/services */    
-  port = get_service_port("rozo_storaged_srv",NULL,ROZOFS_MPROTO_PORT);
+  port = rozofs_get_service_port_storaged_mproto();
 
   // Create the listening socket
   ret = af_inet_sock_listening_create("MP/SPP",ip, port, &af_inet_rozofs_north_conf);    

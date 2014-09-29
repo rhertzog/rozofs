@@ -27,7 +27,12 @@ STATE_UNKNOWN=3
 rozodiag_PATHS=". /usr/bin /usr/local/bin $ROZO_TESTS/build/src/rozodiag" 
 resolve_rozodiag() {
 
-  option="-i $host -p $port"
+  if [ ! -z "$port" ];
+  then
+    option="-i $host -p $port"
+  else
+    option="-i $host -T $DBGTARGET"   
+  fi
 
   if [ ! -z "$time" ];
   then
@@ -99,7 +104,7 @@ set_default() {
   verbosity=0
   host=""
   time=""
-  port=50027
+  DBGTARGET="storaged"
 }
 
 is_numeric () {
@@ -157,8 +162,7 @@ scan_value () {
 test_storage_io()
 {
   # 1st storage_io
-  port=`expr $port + 1 `
-  resolve_rozodiag
+
   $ROZDBG -c profiler >  $TMPFILE
  
   res=`grep GPROFILER $TMPFILE`
@@ -251,7 +255,6 @@ resolve_rozodiag
 
 
 # Run vfstat_stor debug command on export to check storage status
-
 $ROZDBG -c profiler >  $TMPFILE
 res=`grep "storaged:" $TMPFILE`
 case $res in
@@ -262,17 +265,24 @@ esac
 
 # get the number of I/O processes
 $ROZDBG -c storio_nb >  $TMPFILE
-res=`grep "storio_nb" $TMPFILE`
-case $res in
+storio_nb=`awk '{if($1=="storio_nb") print $3;}' $TMPFILE`
+case $storio_nb in
   "") {
     display_output $STATE_CRITICAL "$host do not respond to rozodiag storio_nb"
   };;  
 esac
 
-storio_nb=`echo $res | awk '{ print $3 }'`
 for i in $(seq ${storio_nb}) 
 do
 
+  if [ ! -z "$port" ];
+  then
+    port=`expr $port + 1 `
+  else
+    DBGTARGET="storio:$i"
+  fi 
+  resolve_rozodiag
+ 
   test_storage_io
   if [ $? -eq 0 ]
   then

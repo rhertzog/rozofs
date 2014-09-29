@@ -58,7 +58,7 @@ int exportclt_initialize(exportclt_t * clt, const char *host, char *root,
     init_rpcctl_ctx(&clt->rpcclt);    
 
     /* Initialize connection to export server */
-    uint16_t export_nb_port = ROZOFS_GET_EXPNB_PORT;
+    uint16_t export_nb_port = rozofs_get_service_port_export_master_eproto();
     if (rpcclt_initialize
             (&clt->rpcclt, host, EXPORT_PROGRAM, EXPORT_VERSION,
             ROZOFS_RPC_BUFFER_SIZE, ROZOFS_RPC_BUFFER_SIZE, export_nb_port,
