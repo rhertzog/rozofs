@@ -42,7 +42,7 @@ Install Release Key
 
 .. code-block:: bash
 
-    $ wget -O - http://54.225.196.202/debian/devel@rozofs.com.gpg.key | apt-key add -
+    $ wget -O - http://debian.rozofs.org/debian/devel@rozofs.com.gpg.key | apt-key add -
 
 Add Release Packages
 ~~~~~~~~~~~~~~~~~~~~
@@ -51,13 +51,13 @@ For the lastest stable release :
 
 .. code-block:: bash
 
-    $ echo deb http://54.225.196.202/debian/master $(lsb_release -sc) main | tee /etc/apt/sources.list.d/rozofs.list
+    $ echo deb http://debian.rozofs.org/debian/master $(lsb_release -sc) main | tee /etc/apt/sources.list.d/rozofs.list
 
 For the lastest development release :
 
 .. code-block:: bash
 
-    $ echo deb http://54.225.196.202/debian/develop $(lsb_release -sc) main | tee /etc/apt/sources.list.d/rozofs.list
+    $ echo deb http://debian.rozofs.org/debian/develop $(lsb_release -sc) main | tee /etc/apt/sources.list.d/rozofs.list
 
 Install Packages
 ~~~~~~~~~~~~~~~~
