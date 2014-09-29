@@ -148,27 +148,27 @@ For example, if the exported file system is
 Using the Rozo Console Manager
 ==============================
 
-RozoFS comes with a command line utility called rozo that aims to
+RozoFS comes with a command line utility called ``rozo`` that aims to
 automate the **management** process of a RozoFS platform. Its main
 purpose is to chain up the operations required on remote nodes involved
 on a high level management task such as stopping and starting the whole
 platform, add new nodes to the platform in order to extend the capacity,
 add new exports on volume etc…
 
-Rozo is fully independant of RozoFS daemons and processes and is not
+``Rozo`` is fully independant of RozoFS daemons and processes and is not
 required for a fully functional system but when installed aside RozoFS
 on each involved nodes it greatly facilitates configuration as it takes
 care of all the unique id generation of storage locations, clusters and
-so on. Despite not being a monitoring tool, rozo can be however used to
+so on. Despite not being a monitoring tool, ``rozo`` can be however used to
 get easily a description of the platform, its status and its
 configuration.
 
 Rozo uses the running exportd configuration file as a basic platform
-knowledge, you can use rozo on any nodes (even not involve in the
+knowledge, you can use ``rozo`` on any nodes (even not involve in the
 platform).
 
 You can have an overview of ``rozo`` capabilities and get the help you
-need by using the rozo manual
+need by using the rozo manual:
 
 .. code-block:: bash
 
@@ -198,6 +198,11 @@ To get informations about all nodes in the platform and their roles.
 
 You can easily list nodes according to their roles (exportd, storaged or
 rozofsmount) using the ``-r`` option.
+
+.. note::
+    If you don't want specify the IP address of exportd node for each ``rozo`` 
+    command, you can specify the default exportd IP with 
+    **ROZO_EXPORT_HOSTNAME** environment variable.
 
 Get the Status of a Platform
 ----------------------------
@@ -344,4 +349,16 @@ rozofsmount role to mount this new export (id=2) as illustrated in the
     $ df | grep /mnt/rozofs
     rozofs      4867164832      0 4867164832   0% /mnt/rozofs@192.168.1.10/export_1
     rozofs      4867164832      0 4867164832   0% /mnt/rozofs@192.168.1.10/export_2
+
+Rebuild a Storage Node
+----------------------
+
+``rozo node rebuild`` command will restart the storaged daemon for one storage 
+node with processes for rebuild data of each storage declared in the storaged 
+configuration file.
+
+.. code-block:: bash
+
+    $ rozo node rebuild -n 192.168.1.204 -E 192.168.1.10
+
 
