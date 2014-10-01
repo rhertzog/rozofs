@@ -20,6 +20,7 @@
 . env.sh 2> /dev/null
 
 COREDIR="/var/run/rozofs_core"
+STORAGES_BY_CLUSTER=0
 
 process_killer () {
 
@@ -370,7 +371,7 @@ start_one_storage()
 	esac
    
 	sid=$1
-	cid=$(( ((sid-1) / STORAGES_BY_CLUSTER) + 1 ))
+	cid=$(( ((sid-1) / STORAGES_BY_CLUSTER) + 1 )) 
 	#echo "Start storage cid: $cid sid: $sid"
 	${LOCAL_BINARY_DIR}/$storaged_dir/${LOCAL_STORAGE_DAEMON} -c ${LOCAL_CONF}'_'$cid'_'$sid"_"${LOCAL_STORAGE_CONF_FILE} -H ${LOCAL_STORAGE_NAME_BASE}$sid
 	#sleep 1
@@ -404,7 +405,7 @@ stop_one_storage () {
      "all") stop_storaged; return;;
    esac
    
-   process_killer storaged_${LOCAL_STORAGE_NAME_BASE}$1
+   process_killer "storaged_${LOCAL_STORAGE_NAME_BASE}${1}."
 }   
 reset_one_storage () {
   stop_one_storage $1
@@ -978,12 +979,23 @@ usage ()
 # $1 -> Layout to use
 set_layout () {
 
+  if [ ! -f ${WORKING_DIR}/layout.saved ];
+  then
+    echo 0 > ${WORKING_DIR}/layout.saved   
+  fi
+  
   # Get default layout from /tmp/rozo.layout if not given as parameter
-  ROZOFS_LAYOUT=$1
-  case "$ROZOFS_LAYOUT" in
-    "") ROZOFS_LAYOUT=`cat /tmp/rozo.layout`
-  esac
 
+  case "$1" in
+    "") {
+      if [ -f ${WORKING_DIR}/layout.saved ];
+      then
+        ROZOFS_LAYOUT=`cat ${WORKING_DIR}/layout.saved`    
+      fi
+    };;   
+    *) ROZOFS_LAYOUT=$1;;
+  esac
+  
   case "$ROZOFS_LAYOUT" in
     0) {
       STORAGES_BY_CLUSTER=4
@@ -1003,7 +1015,7 @@ set_layout () {
     };
   esac  
   # Save layout
-  echo $ROZOFS_LAYOUT > /tmp/rozo.layout
+  echo $ROZOFS_LAYOUT > ${WORKING_DIR}/layout.saved
 }
 	
 show_process () {
@@ -1093,11 +1105,10 @@ main ()
     # to reach storio_starter.sh  
     export PATH=$PATH:${LOCAL_SOURCE_DIR}/src/$storaged_dir
 
-    set_layout 0
 
     NB_EXPORTS=1
     NB_VOLUMES=1
-    NB_CLUSTERS_BY_VOLUME=2
+    NB_CLUSTERS_BY_VOLUME=1
     NB_PORTS_PER_STORAGE_HOST=2
     NB_DISK_THREADS=3
     NB_CORES=4
@@ -1116,6 +1127,18 @@ main ()
 
     EXPORT_HOST="192.168.36.15/localhost"
 
+
+    # Set new layout when given on start command
+    # or read saved layout 
+    if [ "$1" == "start" -a $# -ge 2 ];
+    then
+        # Set layout and save it
+        set_layout $2  
+    else
+        # Read saved layout
+        set_layout
+    fi
+
     ulimit -c unlimited
     nbaddr=$((STORAGES_BY_CLUSTER*NB_CLUSTERS_BY_VOLUME*NB_VOLUMES))
     ${WORKING_DIR}/conf_local_addr.sh set $nbaddr eth0 > /dev/null 2>&1 
@@ -1124,9 +1147,6 @@ main ()
     then
 
         [ $# -lt 2 ] && usage
-
-        # Set layout
-        set_layout $2
 
         check_build
         do_stop
@@ -1234,7 +1254,6 @@ main ()
       esac      
     elif [ "$1" == "process" ]
     then 
-       set_layout
        show_process 
     elif [ "$1" == "clean" ]
     then

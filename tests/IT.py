@@ -14,7 +14,8 @@ from optparse import OptionParser
 fileSize=int(4)
 loop=int(32)
 process=int(8)
-NB_SID=int(8)
+EXPORT_SID_NB=int(8)
+STORCLI_SID_NB=int(8)
 nbGruyere=int(1000)
 stopOnFailure=False
 fuseTrace=False
@@ -37,7 +38,30 @@ def reset_counters():
 # Use debug interface to reset profilers and some counters
 #___________________________________________________
   return
+#___________________________________________________
+def get_sid_nb():
+# Use debug interface to get the number of sid from exportd
+#___________________________________________________
 
+  string="./build/src/rozodiag/rozodiag -T mount:0:1 -c storaged_status"       
+  parsed = shlex.split(string)
+  cmd = subprocess.Popen(parsed, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+  storcli_sid=int(0)
+  for line in cmd.stdout:
+    if "UP" in line or "DOWN" in line:
+      storcli_sid=storcli_sid+1
+      
+  string="./build/src/rozodiag/rozodiag -T export -c vfstat_stor"
+  parsed = shlex.split(string)
+  cmd = subprocess.Popen(parsed, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+  export_sid=int(0)
+  for line in cmd.stdout:
+    if "UP" in line or "DOWN" in line:
+      export_sid=export_sid+1
+
+  return export_sid,storcli_sid   
 #___________________________________________________
 def export_count_sid_up ():
 # Use debug interface to count the number of sid up 
@@ -120,10 +144,10 @@ def wait_until_all_sid_up (retries=DEFAULT_RETRIES) :
 # Wait for all sid up seen by storcli as well as export
 #___________________________________________________
 
-  if loop_wait_until(NB_SID,retries,'storcli_count_sid_available') == False:
+  if loop_wait_until(STORCLI_SID_NB,retries,'storcli_count_sid_available') == False:
     print "all sid are not up from storcli !!!"
     return False
-  if loop_wait_until(NB_SID,retries,'export_count_sid_up') == False:
+  if loop_wait_until(EXPORT_SID_NB,retries,'export_count_sid_up') == False:
     print "all sid are not up from export !!!"
     return False
   return True  
@@ -134,7 +158,7 @@ def wait_until_one_sid_down (retries=DEFAULT_RETRIES) :
 # Wait until one sid down seen by storcli 
 #___________________________________________________
 
-  if loop_wait_until(NB_SID-1,retries,'storcli_count_sid_available') == False:
+  if loop_wait_until(STORCLI_SID_NB-1,retries,'storcli_count_sid_available') == False:
     print "all sid are not down from storcli !!!"
     return False
   return True   
@@ -174,7 +198,7 @@ def storageFailed (test) :
     print "all sid are not up !!!"
     return 1
 
-  for sid in range(NB_SID):
+  for sid in range(STORCLI_SID_NB):
 
     storageStop(sid)
     reset_counters()
@@ -251,7 +275,7 @@ def snipper_storio ():
 #___________________________________________________
 
   while True:
-    for sid in range(NB_SID):
+    for sid in range(STORCLI_SID_NB):
 
       if wait_until_all_sid_up() == False:
         return 1
@@ -557,7 +581,7 @@ def rebuild_one() :
 #___________________________________________________
 
   ret=1 
-  for sid in range(NB_SID):
+  for sid in range(STORCLI_SID_NB):
     for dev in range(6):
       os.system("./setup.sh storage %d device-delete %d 1> /dev/null"%(sid+1,dev))
       ret = os.system("./setup.sh storage %d device-rebuild %d 1> /dev/null"%(sid+1,dev))
@@ -574,7 +598,7 @@ def rebuild_all() :
 #___________________________________________________
 
   ret=1 
-  for sid in range(NB_SID):
+  for sid in range(STORCLI_SID_NB):
     os.system("./setup.sh storage %d delete 1> /dev/null"%(sid+1))
     os.system("./setup.sh storage %d rebuild 1> /dev/null"%(sid+1))
 
@@ -868,6 +892,8 @@ if options.verbose == True:
 if options.list == True:
   do_list()
   exit(0)
+  
+EXPORT_SID_NB,STORCLI_SID_NB=get_sid_nb()
   
 if options.snipper != None:
   snipper(options.snipper)

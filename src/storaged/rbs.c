@@ -884,7 +884,7 @@ out:
  * @return: 0 on success -1 otherwise (errno is set)
  */
 int rbs_get_rb_entry_list_one_storage(rb_stor_t *rb_stor, cid_t cid,
-        sid_t sid) {
+        sid_t sid, int failed) {
     int status = -1;
     uint8_t layout = 0;
     uint8_t spare = 0;
@@ -914,6 +914,37 @@ int rbs_get_rb_entry_list_one_storage(rb_stor_t *rb_stor, cid_t cid,
         // For each entry 
         while (iterator != NULL) {
 
+	    /*
+	    ** Check that not too much storages are failed for this layout
+	    */
+	    if (failed) {
+	      switch(iterator->layout) {
+
+		case LAYOUT_2_3_4:
+	          if (failed>1) {
+		    severe("%d failed storages on LAYOUT_2_3_4",failed);
+		    return -1;
+		  }
+		  break;
+		case LAYOUT_4_6_8:
+	          if (failed>2) {
+		    severe("%d failed storages on LAYOUT_4_6_8",failed);
+		    return -1;
+		  }
+		  break;	
+		case LAYOUT_8_12_16:
+	          if (failed>2) {
+		    severe("%d failed storages on LAYOUT_8_12_16",failed);
+		    return -1;
+		  }
+		  break;	
+		default:	         	 		 	 
+		  severe("Unexpected layout %d",iterator->layout);
+		  return -1;
+	      }
+	      failed = 0;
+	    }
+	   
             rb_entry_t *nre = 0;
 
             // Verify if this entry is already present in list 
@@ -981,9 +1012,11 @@ int rbs_check_cluster_list(list_t * cluster_entries, cid_t cid, sid_t sid) {
  * @return: 0 on success -1 otherwise (errno is set)
  */
 static int rbs_init_cluster_cnts(list_t * cluster_entries, cid_t cid,
-        sid_t sid) {
+        sid_t sid, int * failed, int * available) {
     list_t *p, *q;
-    int status = -1;
+    
+    *failed = 0;
+    *available = 0;
 
     list_for_each_forward(p, cluster_entries) {
 
@@ -995,22 +1028,21 @@ static int rbs_init_cluster_cnts(list_t * cluster_entries, cid_t cid,
 
                 rb_stor_t *rb_stor = list_entry(q, rb_stor_t, list);
 
-                if (rb_stor->sid == sid)
+                if (rb_stor->sid == sid) {
+		    (*failed)++;
                     continue;
-
+                }
+		
                 // Get connections for this storage
                 if (rbs_stor_cnt_initialize(rb_stor) != 0) {
-                    severe("rbs_stor_cnt_initialize failed: %s",
-                            strerror(errno));
-                    goto out;
+		    (*failed)++;
+                    continue;
                 }
+		(*available)++;
             }
         }
     }
-
-    status = 0;
-out:
-    return status;
+    return 0;
 }
 
 /** Release storages connections of cluster(s)
@@ -1080,7 +1112,7 @@ static void rbs_release_cluster_list(list_t * cluster_entries) {
  * @return: 0 on success -1 otherwise (errno is set)
  */
 static int rbs_get_rb_entry_list_one_cluster(list_t * cluster_entries,
-        cid_t cid, sid_t sid) {
+        cid_t cid, sid_t sid, int failed) {
     list_t *p, *q;
     int status = -1;
 
@@ -1097,11 +1129,11 @@ static int rbs_get_rb_entry_list_one_cluster(list_t * cluster_entries,
                 if (rb_stor->sid == sid)
                     continue;
 
+		if (rb_stor->mclient.rpcclt.client == NULL)
+		    continue;  
+		    
                 // Get the list of bins files to rebuild for this storage
-                if (rbs_get_rb_entry_list_one_storage(rb_stor, cid, sid) != 0) {
-
-                    severe("rbs_get_rb_entry_list_one_storage failed: %s\n",
-                            strerror(errno));
+                if (rbs_get_rb_entry_list_one_storage(rb_stor, cid, sid, failed) != 0) {
                     goto out;
                 }
             }
@@ -1180,6 +1212,7 @@ int rbs_rebuild_storage(const char *export_host_list, cid_t cid, sid_t sid,
     uint64_t current_nb_rb_files = 0;
     int status = -1;
     char * pExport_host = 0;
+    int failed,available;
 
     DEBUG_FUNCTION;
 
@@ -1209,14 +1242,13 @@ int rbs_rebuild_storage(const char *export_host_list, cid_t cid, sid_t sid,
     SET_PROBE_VALUE(rb_status[stor_idx], 2);
 
     // Get connections for this given cluster
-    if (rbs_init_cluster_cnts(&cluster_entries, cid, sid) != 0)
-        goto out;
+    rbs_init_cluster_cnts(&cluster_entries, cid, sid, &failed, &available);
 
     // Indicate rebuild status
     SET_PROBE_VALUE(rb_status[stor_idx], 3);
 
     // Get the list of bins files to rebuild for this storage
-    if (rbs_get_rb_entry_list_one_cluster(&cluster_entries, cid, sid) != 0)
+    if (rbs_get_rb_entry_list_one_cluster(&cluster_entries, cid, sid, failed) != 0)
         goto out;
 
     // Set for monitoring, the nb. of files to rebuild
@@ -1281,8 +1313,7 @@ int rbs_rebuild_storage(const char *export_host_list, cid_t cid, sid_t sid,
             sleep(RBS_TIME_BETWEEN_2_PASSES);
 
             // Try to re-init connections to storages
-            while (rbs_init_cluster_cnts(&cluster_entries, cid, sid) != 0)
-                sleep(RBS_TIME_BETWEEN_2_PASSES);
+            rbs_init_cluster_cnts(&cluster_entries, cid, sid, &failed, &available);
         }
     }
 

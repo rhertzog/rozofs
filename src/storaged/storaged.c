@@ -387,9 +387,14 @@ static void on_start() {
     */
     if (storaged_config.multiio==0) {
       p = cmd;
-      p += sprintf(p, "storio_starter.sh storio -i 0 -c %s ", storaged_config_file);
-      if (storaged_hostname) p += sprintf (p, "-H %s", storaged_hostname);
-      p += sprintf(p, "&");
+      if (storaged_hostname) {
+        p += sprintf (p, "storio_starter.sh storio -H %s -i 0 -c %s &", 
+	             storaged_hostname,storaged_config_file);
+      }
+      else {
+        p += sprintf(p, "storio_starter.sh storio -i 0 -c %s &", 
+	             storaged_config_file);
+      }	
 
       // Launch storio_starter script
       ret = system(cmd);
@@ -402,9 +407,14 @@ static void on_start() {
       int idx;
       for (idx = 0; idx < storaged_nb_ports; idx++) {
         p = cmd;
-        p += sprintf(p, "storio_starter.sh storio -i %d -c %s ", idx+1, storaged_config_file);
-        if (storaged_hostname) p += sprintf (p, "-H %s", storaged_hostname);
-        p += sprintf(p, "&");
+	if (storaged_hostname) {
+          p += sprintf (p, "storio_starter.sh storio -H %s -i %d -c %s &", 
+	               storaged_hostname,idx+1,storaged_config_file);
+	}
+	else {
+          p += sprintf(p, "storio_starter.sh storio -i %d -c %s &", 
+	               idx+1,storaged_config_file);
+	}		
 
         // Launch storio_starter script
         ret = system(cmd);

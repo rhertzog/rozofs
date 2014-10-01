@@ -65,7 +65,7 @@ static sclient_t *rbs_get_stor_cnt(list_t * storages, sid_t sid,
                 // node are down when we mount the filesystem or we don't
                 // have get ports for this storage when we mount the
                 // the filesystem
-                severe("No connection found for storage (sid: %u)", sid);
+                //severe("No connection found for storage (sid: %u)", sid);
                 return NULL;
             }
         }
