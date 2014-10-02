@@ -23,7 +23,45 @@
 #include "sprotosvc_nb.h"
 
 
+bool_t
+xdr_sp_read_no_bins_t (XDR *xdrs, sp_read_t *objp)
+{
+	//register int32_t *buf;
+	int position;
 
+	 if (!xdr_uint32_t (xdrs, &objp->filler))
+		 return FALSE;
+	 if (!xdr_uint32_t (xdrs, &objp->bins.bins_len))
+		 return FALSE;
+	 position = xdr_getpos(xdrs);
+	 position += objp->bins.bins_len;
+	 xdr_setpos(xdrs,position);
+	 if (!xdr_uint64_t (xdrs, &objp->file_size))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
+xdr_sp_read_ret_no_bins_t (XDR *xdrs, sp_read_ret_t *objp)
+{
+	//register int32_t *buf;
+
+	 if (!xdr_sp_status_t (xdrs, &objp->status))
+		 return FALSE;
+	switch (objp->status) {
+	case SP_SUCCESS:
+		 if (!xdr_sp_read_no_bins_t (xdrs, &objp->sp_read_ret_t_u.rsp))
+			 return FALSE;
+		break;
+	case SP_FAILURE:
+		 if (!xdr_int (xdrs, &objp->sp_read_ret_t_u.error))
+			 return FALSE;
+		break;
+	default:
+		break;
+	}
+	return TRUE;
+}
 /*
 **__________________________________________________________________________
 */
@@ -113,7 +151,7 @@ void storio_req_rcv_cbk(void *userRef,uint32_t  socket_ctx_idx, void *recv_buf)
       
     case SP_READ:
       rozorpc_srv_ctx_p->arg_decoder = (xdrproc_t) xdr_sp_read_arg_t;
-      rozorpc_srv_ctx_p->xdr_result  = (xdrproc_t) xdr_sp_read_ret_t;
+      rozorpc_srv_ctx_p->xdr_result  = (xdrproc_t) xdr_sp_read_ret_no_bins_t;
 //      local = sp_read_1_svc_nb;
       local = sp_read_1_svc_disk_thread;
       size = sizeof (sp_read_arg_t);
