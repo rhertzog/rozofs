@@ -77,7 +77,7 @@
 /**
 *  North Interface
 */
-#define ROZORPC_SRV_CTX_CNT   8  /**< context for processing either a read or write request from rozofsmount and internal read req */
+#define ROZORPC_SRV_CTX_CNT   16  /**< context for processing either a read or write request from rozofsmount and internal read req */
 #define ROZORPC_SRV_CTX_MIN_CNT 3 /**< minimum count to process a request from rozofsmount */
 /**
 * Buffer s associated with the reception of the load balancing group on north interface
