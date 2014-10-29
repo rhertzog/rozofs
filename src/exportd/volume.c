@@ -182,7 +182,7 @@ error:
 
 }
 
-uint8_t export_rotate_sid = 0;
+uint8_t export_rotate_sid[ROZOFS_CLUSTERS_MAX] = {0};
 
 void volume_balance(volume_t *volume) {
     list_t *p, *q;
@@ -261,6 +261,7 @@ void volume_balance(volume_t *volume) {
 
     list_for_each_forward(p, &clone.clusters) {
         cluster_t *cluster = list_entry(p, cluster_t, list);
+	export_rotate_sid[cluster->cid] = 0;
         list_sort(&cluster->storages, volume_storage_compare);
     }
     list_sort(&clone.clusters, cluster_compare_capacity);
@@ -283,7 +284,6 @@ void volume_balance(volume_t *volume) {
     }
 
 out:
-    export_rotate_sid = 0;
     STOP_PROFILING(volume_balance);
 }
 
@@ -302,8 +302,8 @@ static int cluster_distribute(uint8_t layout, cluster_t *cluster, sid_t *sids) {
     uint8_t rozofs_forward = rozofs_get_rozofs_forward(layout);
     uint8_t rozofs_safe = rozofs_get_rozofs_safe(layout);
 
-    int modulo = export_rotate_sid % rozofs_safe;
-    export_rotate_sid++;
+    int modulo = export_rotate_sid[cluster->cid] % rozofs_safe;
+    export_rotate_sid[cluster->cid]++;
 
     list_for_each_forward(p, &cluster->storages) {
         volume_storage_t *vs = list_entry(p, volume_storage_t, list);
@@ -326,7 +326,7 @@ static int cluster_distribute(uint8_t layout, cluster_t *cluster, sid_t *sids) {
 }
 
 int volume_distribute(volume_t *volume, cid_t *cid, sid_t *sids) {
-    list_t *p;
+    list_t *p,*q;
     int xerrno = ENOSPC;
 
     DEBUG_FUNCTION;
@@ -338,10 +338,42 @@ int volume_distribute(volume_t *volume, cid_t *cid, sid_t *sids) {
     }
 
     list_for_each_forward(p, &volume->clusters) {
+        cluster_t *next_cluster;
         cluster_t *cluster = list_entry(p, cluster_t, list);
         if (cluster_distribute(volume->layout, cluster, sids) == 0) {
             *cid = cluster->cid;
             xerrno = 0;
+	    
+	    /*
+	    ** Decrease the estimated free size of the cluster
+	    */
+	    if (cluster->free >= (256*1024)) {
+	    
+	      cluster->free -= (256*1024);
+	      
+	      /*
+	      ** Re-order the clusters
+	      */
+	      while (1) {
+	      
+	        q = p->next;
+
+		// This cluster is the last and so the smallest
+		if (q == &volume->clusters) break;
+
+		// Check against next cluster
+		next_cluster = list_entry(q, cluster_t, list);
+		if (cluster->free > next_cluster->free) break;
+						
+		// Next cluster has to be set before the current one		
+		q->prev       = p->prev;
+		q->prev->next = q;
+		p->next       = q->next;
+		p->next->prev = p;
+		q->next       = p;
+		p->prev       = q;
+	      }
+	    }
             break;
         }
     }
