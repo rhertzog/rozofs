@@ -65,45 +65,41 @@ void * af_unix_disk_pool_recv = NULL;
 
 #define display_line_topic(title) \
   new_line(title);\
-  for (i=0; i<=af_unix_disk_thread_count; i++) {\
+  for (i=startIdx; i<(stopIdx+last); i++) {\
     pChar += sprintf(pChar,"__________________|");\
   }
-  
+    
 #define display_line_val(title,val) \
   new_line(title);\
-  sum1 = 0;\
-  for (i=0; i<af_unix_disk_thread_count; i++) {\
-    sum1 += p[i].stat.val;\
+  for (i=startIdx; i<stopIdx; i++) {\
+    sum.val += p[i].stat.val;\
     display_val(p[i].stat.val);\
-  }
-    
-#define display_line_val_and_sum(title,val) \
-  display_line_val(title,val);\
-  display_val(sum1)
+  }\
+  if (last) display_val(sum.val);
+  
 
 #define display_line_div(title,val1,val2) \
   new_line(title);\
-  sum1 = sum2 = 0;\
-  for (i=0; i<af_unix_disk_thread_count; i++) {\
-    sum1 += p[i].stat.val1;\
-    sum2 += p[i].stat.val2;\
+  for (i=startIdx; i<stopIdx; i++) {\
     display_div(p[i].stat.val1,p[i].stat.val2);\
-  }
-  
-#define display_line_div_and_sum(title,val1,val2) \
-  display_line_div(title,val1,val2);\
-  display_div(sum1,sum2)
+  }\
+  if (last) display_div(sum.val1,sum.val2);
+
+ 
 static char * disk_thread_debug_help(char * pChar) {
   pChar += sprintf(pChar,"usage:\n");
   pChar += sprintf(pChar,"diskThreads reset       : reset statistics\n");
   pChar += sprintf(pChar,"diskThreads             : display statistics\n");  
   return pChar; 
 }  
+#define THREAD_PER_LINE 6
 void disk_thread_debug(char * argv[], uint32_t tcpRef, void *bufRef) {
   char           *pChar=uma_dbg_get_buffer();
   int i;
-  uint64_t        sum1,sum2;
   rozofs_disk_thread_ctx_t *p = rozofs_disk_thread_ctx_tb;
+  int startIdx,stopIdx;
+  rozofs_disk_thread_stat_t sum;
+  int                       last=0;
   
   if (argv[1] != NULL) {
     if (strcmp(argv[1],"reset")==0) {
@@ -118,43 +114,62 @@ void disk_thread_debug(char * argv[], uint32_t tcpRef, void *bufRef) {
     return;      
   }
   
-  new_line("Thread number");
-  for (i=0; i<af_unix_disk_thread_count; i++) {
-    display_val(p[i].thread_idx);
-  }    
-  display_txt("TOTAL");
-  
-  display_line_topic("Read Requests");  
-  display_line_val_and_sum("   number", diskRead_count);
-  display_line_val_and_sum("   No such file",diskRead_nosuchfile);
-  display_line_val_and_sum("   Unknown cid/sid",diskRead_badCidSid);  
-  display_line_val_and_sum("   error spare",diskRead_error_spare);  
-  display_line_val_and_sum("   error",diskRead_error);  
-  display_line_val_and_sum("   Bytes",diskRead_Byte_count);      
-  display_line_val_and_sum("   Cumulative Time (us)",diskRead_time);
-  display_line_div_and_sum("   Average Bytes",diskRead_Byte_count,diskRead_count);  
-  display_line_div_and_sum("   Average Time (us)",diskRead_time,diskRead_count);
-  display_line_div_and_sum("   Throughput (MBytes/s)",diskRead_Byte_count,diskRead_time);  
-  
-  display_line_topic("Write Requests");  
-  display_line_val_and_sum("   number", diskWrite_count);
-  display_line_val_and_sum("   Unknown cid/sid",diskWrite_badCidSid);  
-  display_line_val_and_sum("   error",diskWrite_error);  
-  display_line_val_and_sum("   Bytes",diskWrite_Byte_count);      
-  display_line_val_and_sum("   Cumulative Time (us)",diskWrite_time);
-  display_line_div_and_sum("   Average Bytes",diskWrite_Byte_count,diskWrite_count); 
-  display_line_div_and_sum("   Average Time (us)",diskWrite_time,diskWrite_count);
-  display_line_div_and_sum("   Throughput (MBytes/s)",diskWrite_Byte_count,diskWrite_time);  
 
-  display_line_topic("Truncate Requests");  
-  display_line_val_and_sum("   number", diskTruncate_count);
-  display_line_val_and_sum("   Unknown cid/sid",diskTruncate_badCidSid);  
-  display_line_val_and_sum("   error",diskTruncate_error);  
-  display_line_val_and_sum("   Cumulative Time (us)",diskTruncate_time);
-  display_line_div_and_sum("   Average Time (us)",diskTruncate_time,diskTruncate_count);
+  memset(&sum, 0, sizeof(sum));
+  stopIdx  = 0;
+  last = 0;
+   
+  while (last == 0) {
   
-  display_line_topic("");  
-  pChar += sprintf(pChar,"\n");
+    startIdx = stopIdx;
+    if ((af_unix_disk_thread_count - startIdx) > THREAD_PER_LINE) {
+      stopIdx = startIdx + THREAD_PER_LINE;
+    }  
+    else {
+      stopIdx = af_unix_disk_thread_count;
+      last = 1;
+    }  
+    
+    new_line("Thread number");
+    for (i=startIdx; i<stopIdx; i++) {
+      display_val(p[i].thread_idx);
+    } 
+    if (last) {
+      display_txt("Total");
+    }   
+  
+    display_line_topic("Read Requests");  
+    display_line_val("   number", diskRead_count);
+    display_line_val("   No such file",diskRead_nosuchfile);
+    display_line_val("   Unknown cid/sid",diskRead_badCidSid);  
+    display_line_val("   error spare",diskRead_error_spare);  
+    display_line_val("   error",diskRead_error);  
+    display_line_val("   Bytes",diskRead_Byte_count);      
+    display_line_val("   Cumulative Time (us)",diskRead_time);
+    display_line_div("   Average Bytes",diskRead_Byte_count,diskRead_count);  
+    display_line_div("   Average Time (us)",diskRead_time,diskRead_count);
+    display_line_div("   Throughput (MBytes/s)",diskRead_Byte_count,diskRead_time);  
+
+    display_line_topic("Write Requests");  
+    display_line_val("   number", diskWrite_count);
+    display_line_val("   Unknown cid/sid",diskWrite_badCidSid);  
+    display_line_val("   error",diskWrite_error);  
+    display_line_val("   Bytes",diskWrite_Byte_count);      
+    display_line_val("   Cumulative Time (us)",diskWrite_time);
+    display_line_div("   Average Bytes",diskWrite_Byte_count,diskWrite_count); 
+    display_line_div("   Average Time (us)",diskWrite_time,diskWrite_count);
+    display_line_div("   Throughput (MBytes/s)",diskWrite_Byte_count,diskWrite_time);  
+
+    display_line_topic("Truncate Requests");  
+    display_line_val("   number", diskTruncate_count);
+    display_line_val("   Unknown cid/sid",diskTruncate_badCidSid);  
+    display_line_val("   error",diskTruncate_error);  
+    display_line_val("   Cumulative Time (us)",diskTruncate_time);
+    display_line_div("   Average Time (us)",diskTruncate_time,diskTruncate_count);
+
+    display_line_topic("");  
+    pChar += sprintf(pChar,"\n");
+  }
 
   uma_dbg_send(tcpRef,bufRef,TRUE,uma_dbg_get_buffer());
 }
