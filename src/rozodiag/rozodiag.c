@@ -250,24 +250,32 @@ int debug_run_this_cmd(int socketId, const char * cmd, int silent) {
 void uma_dbg_read_prompt(int socketId, char * pr) {
   int i=strlen(SYSTEM_HEADER);
   char *c = pr;
+  char *pt = msg.buffer; 
     
   // Read the prompt
   if (debug_run_this_cmd(socketId, "who", SILENT) < 0)  return;
   
-  if (strncmp(msg.buffer,SYSTEM_HEADER, strlen(SYSTEM_HEADER)) == 0) {
+  // skip 1rst line
+  while ((*pt != 0)&&(*pt != '\n')) pt++;
+  
+  if (*pt != 0) {
 
-    while(msg.buffer[i] != '\n') {
-      *c = msg.buffer[i];
-      c++;
-      i++;
+    pt++;
+  
+    if (strncmp(pt,SYSTEM_HEADER, strlen(SYSTEM_HEADER)) == 0) {
+
+      pt += strlen(SYSTEM_HEADER);
+
+      while((*pt != '\n')&&(*pt != 0)) {
+	*c = *pt;
+	c++;
+	pt++;
+      }
     }
-    *c++ = '>';
-    *c++ = ' ';     
-    *c = 0;
-  }
-  else {
-    strcpy(pr,"rzdbg> ");
-  }
+  }  
+  *c++ = '>';
+  *c++ = ' ';     
+  *c = 0;
 }
 #define LIST_COMMAND_HEADER "List of available topics :"
 void uma_dbg_read_all_cmd_list(int socketId) {
