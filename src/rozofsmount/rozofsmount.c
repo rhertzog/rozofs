@@ -818,7 +818,6 @@ void rozofs_set_cache(char * argv[], uint32_t tcpRef, void *bufRef)
 
 void rozofs_disable_xattr(char * argv[], uint32_t tcpRef, void *bufRef) 
 {
-
    if ((argv[1] != NULL)&&(strcmp(argv[1],"disable")==0)) { 
      rozofs_xattr_disable = 1;
      uma_dbg_send(tcpRef, bufRef, TRUE, "Extended Attributes are now disabled\n");
@@ -1671,7 +1670,7 @@ int fuseloop(struct fuse_args *args, int fg) {
      ** case
      */
     uma_dbg_addTopic("stclbg", show_stclbg);
-    uma_dbg_addTopic("profiler", show_profiler);
+    uma_dbg_addTopic_option("profiler", show_profiler,UMA_DBG_OPTION_RESET);
     uma_dbg_addTopic("xmalloc", show_xmalloc);
     uma_dbg_addTopic("exp_route", show_exp_routing_table);
     uma_dbg_addTopic("exp_eid", show_eid_exportd_assoc);
@@ -1679,12 +1678,12 @@ int fuseloop(struct fuse_args *args, int fg) {
     uma_dbg_addTopic("fsmode_set", rozofs_set_fsmode);
     uma_dbg_addTopic("shared_mem", rozofs_shared_mem_display);
     uma_dbg_addTopic("blockmode_cache", show_blockmode_cache);
-    uma_dbg_addTopic("data_cache", rozofs_gcache_show_cache_stats);
+    uma_dbg_addTopic_option("data_cache", rozofs_gcache_show_cache_stats,UMA_DBG_OPTION_RESET);
     uma_dbg_addTopic("start_config", show_start_config);
     uma_dbg_addTopic("rotateModulo", show_rotate_modulo);
     uma_dbg_addTopic("flock", show_flock);
     uma_dbg_addTopic("ientry", show_ientry);
-    uma_dbg_addTopic("trc_fuse", show_trc_fuse);
+    uma_dbg_addTopic_option("trc_fuse", show_trc_fuse,UMA_DBG_OPTION_RESET);
     uma_dbg_addTopic("xattr_flt", show_xattr_flt);
     uma_dbg_addTopic("xattr", rozofs_disable_xattr);
     

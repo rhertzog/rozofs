@@ -385,7 +385,7 @@ int storio_start_nb_th(void *args) {
   /*
   ** add profiler subject 
   */
-  uma_dbg_addTopic("profiler", show_profile_storaged_io_display);
+  uma_dbg_addTopic_option("profiler", show_profile_storaged_io_display,UMA_DBG_OPTION_RESET);
 
     if ((args_p->hostname[0] != 0)) {
         info("storio started (instance: %d, host: %s, dbg port: %d).",

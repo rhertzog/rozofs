@@ -1182,7 +1182,7 @@ int main(int argc, char *argv[]) {
     /*
      ** add the topic for the local profiler
      */
-    uma_dbg_addTopic("profiler", show_profiler);
+    uma_dbg_addTopic_option("profiler", show_profiler,UMA_DBG_OPTION_RESET);
     /*
      ** add the topic to display the storcli configuration
      */    

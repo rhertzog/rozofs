@@ -248,7 +248,6 @@ int debug_run_this_cmd(int socketId, const char * cmd, int silent) {
 }
 #define SYSTEM_HEADER "system : "
 void uma_dbg_read_prompt(int socketId, char * pr) {
-  int i=strlen(SYSTEM_HEADER);
   char *c = pr;
   char *pt = msg.buffer; 
     
@@ -412,6 +411,8 @@ char *argv[];
     /* -reserved_ports */
     if (strcmp(argv[idx],"-reserved_ports")==0) {
       char message[1024*4];
+      unsigned  res;
+      
       show_ip_local_reserved_ports(message);
       printf("%s\n",message);
       printf("grep ip_local_reserved_ports /etc/sysctl.conf\n");

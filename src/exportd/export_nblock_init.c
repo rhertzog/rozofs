@@ -657,9 +657,9 @@ int expgwc_start_nb_blocking_th(void *args) {
     /*
     ** add profiler subject (exportd statistics)
     */
-    uma_dbg_addTopic("profiler", show_profiler);
+    uma_dbg_addTopic_option("profiler", show_profiler,UMA_DBG_OPTION_RESET);
 //    uma_dbg_addTopic("profiler_conf", show_profiler_conf);
-    uma_dbg_addTopic("profiler_short", show_profiler_short);
+    uma_dbg_addTopic_option("profiler_short", show_profiler_short,UMA_DBG_OPTION_RESET);
     uma_dbg_addTopic("vfstat", show_vfstat);
     uma_dbg_addTopic("vfstat_stor",show_vfstat_stor);
     uma_dbg_addTopic("vfstat_vol",show_vfstat_vol);

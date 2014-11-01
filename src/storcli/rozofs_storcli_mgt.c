@@ -181,7 +181,7 @@ void rozofs_storcli_debug(char * argv[], uint32_t tcpRef, void *bufRef) {
   RETURN: none
   ==========================================================================*/
 void rozofs_storcli_debug_init() {
-  uma_dbg_addTopic(ROZOFS_STORCLI_DEBUG_TOPIC, rozofs_storcli_debug); 
+  uma_dbg_addTopic_option(ROZOFS_STORCLI_DEBUG_TOPIC, rozofs_storcli_debug,UMA_DBG_OPTION_RESET); 
 }
 
 

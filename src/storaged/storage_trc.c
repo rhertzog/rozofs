@@ -201,5 +201,5 @@ void trc_buf_init(int count)
 
    trc_buf_p = malloc(sizeof(trc_entry_t)*count);
    memset(trc_buf_p,0,sizeof(trc_entry_t)*count);
-   uma_dbg_addTopic("trace",show_trc);
+   uma_dbg_addTopic_option("trace",show_trc,UMA_DBG_OPTION_RESET);
 }

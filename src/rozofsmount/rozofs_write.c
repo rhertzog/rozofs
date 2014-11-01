@@ -177,7 +177,7 @@ static void bugwatch_proc(char * argv[], uint32_t tcpRef, void *bufRef){
 void init_write_flush_stat(int max_write_pending){
   ROZOFS_MAX_WRITE_PENDING = max_write_pending;
   reset_write_flush_stat();
-  uma_dbg_addTopic("write_flush", display_write_flush_stat);  
+  uma_dbg_addTopic_option("write_flush", display_write_flush_stat,UMA_DBG_OPTION_RESET);  
   uma_dbg_addTopic("bugwatch", bugwatch_proc);  
 }
 

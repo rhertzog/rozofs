@@ -406,10 +406,10 @@ void ruc_sockCtrl_show_select_stats(char * argv[], uint32_t tcpRef, void * bufRe
   RETURN: none
   ==========================================================================*/
 void ruc_sockCtrl_debug_init() {
-  uma_dbg_addTopic(RUC_SOCKCTRL_DEBUG_TOPIC, ruc_sockCtrl_debug); 
+  uma_dbg_addTopic_option(RUC_SOCKCTRL_DEBUG_TOPIC, ruc_sockCtrl_debug,UMA_DBG_OPTION_RESET); 
   uma_dbg_addTopic(RUC_SOCKCTRL_CTX_TOPIC, ruc_sockCtrl_ctx); 
   uma_dbg_addTopic("sockctrl", ruc_sockCtrl_conf); 
-  uma_dbg_addTopic("select_stats", ruc_sockCtrl_show_select_stats); 
+  uma_dbg_addTopic_option("select_stats", ruc_sockCtrl_show_select_stats,UMA_DBG_OPTION_RESET); 
 }
 
 

@@ -557,7 +557,7 @@ void trshape_module_init(uint64_t byte_time_ns)
  */
  ruc_sockCtrl_attach_traffic_shaper(trshape_scheduler_entry_point);
  
-     uma_dbg_addTopic("shaper", show_traffic_shaper);
+     uma_dbg_addTopic_option("shaper", show_traffic_shaper,UMA_DBG_OPTION_RESET);
 
  
  

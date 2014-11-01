@@ -75,7 +75,7 @@ void * af_unix_disk_pool_recv = NULL;
     sum.val += p[i].stat.val;\
     display_val(p[i].stat.val);\
   }\
-  if (last) display_val(sum.val);
+  if (last) { display_val(sum.val); }
   
 
 #define display_line_div(title,val1,val2) \
@@ -83,7 +83,7 @@ void * af_unix_disk_pool_recv = NULL;
   for (i=startIdx; i<stopIdx; i++) {\
     display_div(p[i].stat.val1,p[i].stat.val2);\
   }\
-  if (last) display_div(sum.val1,sum.val2);
+  if (last) { display_div(sum.val1,sum.val2); }
 
  
 static char * disk_thread_debug_help(char * pChar) {
@@ -645,7 +645,7 @@ int storio_disk_thread_intf_create(char * hostname, int instance_id, int nb_thre
   */
   storio_set_socket_name_with_hostname(&storio_north_socket_name,ROZOFS_SOCK_FAMILY_DISK_NORTH,hostname,instance_id);
   
-  uma_dbg_addTopic("diskThreads", disk_thread_debug); 
+  uma_dbg_addTopic_option("diskThreads", disk_thread_debug,UMA_DBG_OPTION_RESET); 
   /*
   ** attach the callback on socket controller
   */

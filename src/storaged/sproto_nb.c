@@ -130,7 +130,7 @@ void display_detailed_counters (char * argv[], uint32_t tcpRef, void *bufRef) {
 */
 void detailed_counters_init(void) {
   reset_detailed_counters();
-  uma_dbg_addTopic("detailedTiming", display_detailed_counters); 
+  uma_dbg_addTopic_option("detailedTiming", display_detailed_counters,UMA_DBG_OPTION_RESET); 
 }
 
 DECLARE_PROFILING(spp_profiler_t);
