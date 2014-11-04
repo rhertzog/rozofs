@@ -3,7 +3,7 @@
 kill_everybody ()
 {
   pid_list=""
-  for pid in `ps -ef | grep -v grep | grep "storio -i" | awk '{print $2}'`
+  for pid in `ps -ef | grep -v grep | grep "storio" | awk '{print $2}'`
   do
     kill $pid
     pid_list=`echo "$pid_list $pid"`
