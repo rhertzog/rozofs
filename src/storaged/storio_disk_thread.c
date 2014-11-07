@@ -47,7 +47,7 @@ storage_t *storaged_lookup(cid_t cid, sid_t sid) ;
 /**
 *  Thread table
 */
-#define ROZOFS_MAX_DISK_THREADS  16
+#define ROZOFS_MAX_DISK_THREADS  32
 rozofs_disk_thread_ctx_t rozofs_disk_thread_ctx_tb[ROZOFS_MAX_DISK_THREADS];
 
 /*

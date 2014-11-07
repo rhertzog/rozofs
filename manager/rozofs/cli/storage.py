@@ -73,14 +73,15 @@ def get(platform, args):
     ordered_puts(sid_l)
 
 def add(platform, args):
-    
+    e_host = platform._active_export_host
+
     for host in args.nodes:
         if not host in platform.list_nodes(Role.STORAGED):
             raise Exception('%s: invalid storaged server.' % host)
-    
+
     for host in args.nodes:
         
-        configurations = platform._get_nodes(args.exportd)[host].get_configurations(Role.STORAGED)
+        configurations = platform._get_nodes(e_host)[host].get_configurations(Role.STORAGED)
         configuration = configurations[Role.STORAGED]
         for listener in configuration.listens:
             # if given interface is '*', remove existing interfaces
@@ -99,7 +100,7 @@ def add(platform, args):
         lconfig = ListenConfig(args.interface, args.port)
         configuration.listens.append(lconfig)
         configurations[Role.STORAGED] = configuration
-        platform._get_nodes(args.exportd)[host].set_configurations(configurations)
+        platform._get_nodes(e_host)[host].set_configurations(configurations)
 
         for lconfig in configuration.listens:
             lid_l = OrderedDict([
@@ -111,16 +112,17 @@ def add(platform, args):
         ordered_puts(sid_l)
 
 def remove(platform, args):
-    
+    e_host = platform._active_export_host
+
     for host in args.nodes:
         if not host in platform.list_nodes(Role.STORAGED):
             raise Exception('%s: invalid storaged server.' % host)
     
     for host in args.nodes:
-        configurations = platform._get_nodes(args.exportd)[host].get_configurations(Role.STORAGED)
+        configurations = platform._get_nodes(e_host)[host].get_configurations(Role.STORAGED)
         configuration = configurations[Role.STORAGED]
         check = True
-        
+
         for listener in configuration.listens:
             if args.interface == listener.addr:
                 if args.port == listener.port:
@@ -141,7 +143,7 @@ def remove(platform, args):
         lid_l={}
         configurations[Role.STORAGED] = configuration
 
-        platform._get_nodes(args.exportd)[host].set_configurations(configurations)
+        platform._get_nodes(e_host)[host].set_configurations(configurations)
 
         for lconfig in configuration.listens:
             lid_l = OrderedDict([

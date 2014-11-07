@@ -84,7 +84,6 @@ static char rcvCmdBuffer[UMA_DBG_MAX_CMD_LEN+1];
 char uma_dbg_temporary_buffer[UMA_DBG_MAX_SEND_SIZE];
 
 void uma_dbg_listTopic(uint32_t tcpCnxRef, void *bufRef, char * topic);
-
 static uint32_t do_not_send = 0;
 
 /*__________________________________________________________________________
@@ -241,7 +240,8 @@ void uma_dbg_show_uptime(char * argv[], uint32_t tcpRef, void *bufRef) {
     mins = (int) ((elapse / 60) - (days * 1440) - (hours * 60));
     secs = (int) (elapse % 60);
     uma_dbg_send(tcpRef, bufRef, TRUE, "uptime = %d days, %d:%d:%d\n", days, hours, mins, secs);
-}   
+}
+
 /*__________________________________________________________________________
  */
 /**
@@ -506,7 +506,6 @@ UMA_DBG_SESSION_S *uma_dbg_findFromCnxRef(uint32_t ref) {
   /* not found */
   return (UMA_DBG_SESSION_S *) NULL;
 }
-
 /*
 **--------------------------------------------------------------------------
 **  #SYNOPSIS
@@ -604,7 +603,6 @@ void uma_dbg_addTopic_option(char * topic, uma_dbg_topic_function_t funct, uint1
   uma_dbg_insert_topic(idx,my_topic,option,length, funct);
   uma_dbg_nb_topic++;
 }
-
 /*-----------------------------------------------------------------------------
 **
 **  #SYNOPSIS

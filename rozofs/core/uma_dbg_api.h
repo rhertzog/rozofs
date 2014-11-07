@@ -114,8 +114,7 @@ static inline int uma_dbg_get_buffer_len() {return UMA_DBG_MAX_SEND_SIZE;}
  //64BITS typedef void (*uma_dbg_topic_function_t)(char * argv[], uint32_t tcpRef, uint32 bufRef);
 typedef void (*uma_dbg_topic_function_t)(char * argv[], uint32_t tcpRef, void *bufRef);
 void uma_dbg_addTopic_option(char * topic, uma_dbg_topic_function_t funct, uint16_t option);
-#define uma_dbg_addTopic(topic, funct) uma_dbg_addTopic_option(topic, funct, 0)
-
+#define uma_dbg_addTopic(topic, funct) uma_dbg_addTopic_option(topic, funct, 0);
 void uma_dbg_hide_topic(char * topic);
 void uma_dbg_init(uint32_t nbElements, uint32_t ipAddr, uint16_t serverPort) ;
 //64BITS void uma_dbg_send(uint32_t tcpCnxRef, uint32 bufRef, uint8_t end, char *fmt, ... );

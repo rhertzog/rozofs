@@ -23,6 +23,9 @@
 
 DECLARE_PROFILING(mpp_profiler_t);
 
+#define ROZOFS_XATTR "rozofs"
+#define ROZOFS_USER_XATTR "user.rozofs"
+#define ROZOFS_ROOT_XATTR "trusted.rozofs"
 /*
 **__________________________________________________________________
 */
@@ -73,6 +76,11 @@ void rozofs_ll_setxattr_nb(fuse_req_t req, fuse_ino_t ino, const char *name, con
     if (!(ie = get_ientry_by_inode(ino))) {
         errno = ENOENT;
         goto error;
+    }
+
+    // Invalidate ientry
+    if ((strcmp(name,ROZOFS_XATTR)==0)||(strcmp(name,ROZOFS_USER_XATTR)==0)||(strcmp(name,ROZOFS_ROOT_XATTR)==0)) {
+        ie->timestamp=0;
     }
 
     /*

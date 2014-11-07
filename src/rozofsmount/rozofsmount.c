@@ -818,6 +818,7 @@ void rozofs_set_cache(char * argv[], uint32_t tcpRef, void *bufRef)
 
 void rozofs_disable_xattr(char * argv[], uint32_t tcpRef, void *bufRef) 
 {
+
    if ((argv[1] != NULL)&&(strcmp(argv[1],"disable")==0)) { 
      rozofs_xattr_disable = 1;
      uma_dbg_send(tcpRef, bufRef, TRUE, "Extended Attributes are now disabled\n");

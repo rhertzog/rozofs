@@ -74,6 +74,7 @@ inline void htable_put(htable_t * h, void *key, void *value) {
     list_for_each_forward(p, bucket) {
         he = list_entry(p, hash_entry_t, list);
         if (h->cmp(he->key, key) == 0) {
+            warning("duplicate entry in htable");
             he->value = value;
             return;
         }

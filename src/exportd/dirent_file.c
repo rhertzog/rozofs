@@ -1611,6 +1611,11 @@ int del_mdirentry(int dirfd, fid_t fid_parent, char * name, fid_t fid, uint32_t 
                     DIRENT_WARN(" ERROR  dirent_cache_release_entry\at line %d\n", __LINE__);
                 }
 
+                /*
+                 ** clear the pointer to the root entry
+                 */
+                root_entry_p = NULL;
+		
 #ifndef DIRENT_SKIP_DISK
                 int flags = 0;
                 int ret;
@@ -1620,10 +1625,7 @@ int del_mdirentry(int dirfd, fid_t fid_parent, char * name, fid_t fid, uint32_t 
                     goto out;
                 }
 #endif
-                /*
-                 ** clear the pointer to the root entry
-                 */
-                root_entry_p = NULL;
+
                 status = 0;
                 goto out;
             }

@@ -173,7 +173,7 @@ static inline uint32_t fuse_ino_hash(void *n) {
 }
 
 static inline int fuse_ino_cmp(void *v1, void *v2) {
-    return (*(fuse_ino_t *) v1 - *(fuse_ino_t *) v2);
+    return memcmp(v1, v2, sizeof (fuse_ino_t));
 }
 
 static inline int fid_cmp(void *key1, void *key2) {
@@ -182,6 +182,14 @@ static inline int fid_cmp(void *key1, void *key2) {
 
 static inline unsigned int fid_hash(void *key) {
     uint32_t hash = 0;
+    uint8_t *c;
+    for (c = key; c != key + 16; c++)
+        hash = *c + (hash << 6) + (hash << 16) - hash;
+    return hash;
+}
+
+static inline fuse_ino_t fid_to_fuse_inode(void *key) {
+    fuse_ino_t hash = 0;
     uint8_t *c;
     for (c = key; c != key + 16; c++)
         hash = *c + (hash << 6) + (hash << 16) - hash;
@@ -230,7 +238,7 @@ static inline ientry_t *alloc_ientry(fid_t fid) {
 
 	ie = xmalloc(sizeof(ientry_t));
 	memcpy(ie->fid, fid, sizeof(fid_t));
-	ie->inode = fid_hash(fid);
+	ie->inode = fid_to_fuse_inode(fid);
 	list_init(&ie->list);
 	ie->db.size = 0;
 	ie->db.eof = 0;

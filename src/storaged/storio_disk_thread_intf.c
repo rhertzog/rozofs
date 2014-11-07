@@ -114,7 +114,6 @@ void disk_thread_debug(char * argv[], uint32_t tcpRef, void *bufRef) {
     return;      
   }
   
-
   memset(&sum, 0, sizeof(sum));
   stopIdx  = 0;
   last = 0;
