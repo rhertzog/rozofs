@@ -295,7 +295,8 @@ void uma_dbg_show_version(char * argv[], uint32_t tcpRef, void *bufRef) {
 void uma_dbg_counters_reset(char * argv[], uint32_t tcpRef, void *bufRef) {
   int topicNum;
   UMA_DBG_TOPIC_S * p;
-  int count=0;
+  char mybuffer[1024];
+  char *pChar = mybuffer;
   
   if ((argv[1] == NULL)||(strcmp(argv[1],"reset")!=0)) {  
     uma_dbg_send(tcpRef, bufRef, TRUE, "counters requires \"reset\" as parameter\n");
@@ -310,14 +311,14 @@ void uma_dbg_counters_reset(char * argv[], uint32_t tcpRef, void *bufRef) {
   p = uma_dbg_topic;
   for (topicNum=0; topicNum <uma_dbg_nb_topic; topicNum++,p++) {
     if (p->option & UMA_DBG_OPTION_RESET) {
-      count++;
+      pChar += sprintf(pChar,"%s reset\n",p->name);
       p->funct(argv,tcpRef,bufRef);
     }
   }  
 
   do_not_send = 0;
 
-  uma_dbg_send(tcpRef, bufRef, TRUE, "%d reset done\n", count);
+  uma_dbg_send(tcpRef, bufRef, TRUE, "%s", mybuffer);
 } 
 /*-----------------------------------------------------------------------------
 **
