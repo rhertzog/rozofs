@@ -1,0 +1,7 @@
+#!/bin/sh
+set -e
+# Try to mount RozoFS mountpoints
+if [ -x "/etc/init.d/rozofs-rozofsmount" ]; then
+    update-rc.d rozofs-rozofsmount defaults >/dev/null
+    invoke-rc.d rozofs-rozofsmount start 2>&1 || exit 0
+fi

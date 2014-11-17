@@ -162,18 +162,47 @@ static inline int eid_check_free_quota(uint64_t oldSize, uint64_t newSize) {
   return 1;
 }
 
+static inline uint32_t fuse_ino_hash_fnv_with_len(void *key1) {
+    unsigned char *d = (unsigned char *) key1;
+    int i = 0;
+    int h;
 
-
-
-
-
-
-static inline uint32_t fuse_ino_hash(void *n) {
-    return hash_xor8(*(uint32_t *) n);
+    h = 2166136261U;
+    /*
+     ** hash on name
+     */
+    d = key1;
+    for (i = 0; i < sizeof(fuse_ino_t); d++, i++) {
+        h = (h * 16777619) ^ *d;
+    }
+    return (uint32_t) h;
 }
 
+static inline uint32_t fuse_ino_hash(void *n) {
+    // inode nb. is already a result of hash
+    //return fuse_ino_hash_fnv_with_len(n);
+    return *((uint32_t*) n);
+}
+
+extern uint64_t hash_inode_collisions_count;
+extern uint64_t hash_inode_max_collisions;
+extern uint64_t hash_inode_cur_collisions;
+
+// Flag used for detect ientry collision
+uint8_t put_ientry_process;
+
 static inline int fuse_ino_cmp(void *v1, void *v2) {
-    return memcmp(v1, v2, sizeof (fuse_ino_t));
+    int ret = 0;
+    // indicates collision
+    put_ientry_process = 0;
+    ret = memcmp(v1, v2, sizeof(fuse_ino_t));
+    if (ret != 0) {
+        hash_inode_cur_collisions++;
+        return ret;
+    }
+    if (hash_inode_max_collisions < hash_inode_cur_collisions)
+        hash_inode_max_collisions = hash_inode_cur_collisions;
+    return ret;
 }
 
 static inline int fid_cmp(void *key1, void *key2) {
@@ -212,7 +241,16 @@ static inline void ientries_release() {
 static inline void put_ientry(ientry_t * ie) {
     DEBUG("put inode: %lu\n", ie->inode);
     rozofs_ientries_count++;
+    hash_inode_cur_collisions = 0;
+    // Change flag to indicate
+    // the put entry process
+    put_ientry_process = 1;
     htable_put(&htable_inode, &ie->inode, ie);
+    if (put_ientry_process == 0){
+        // The flag was changed by the comparison function
+        // So there collision
+        hash_inode_collisions_count++;
+    }
     htable_put(&htable_fid, ie->fid, ie);
     list_push_front(&inode_entries, &ie->list);
 }
@@ -220,12 +258,14 @@ static inline void put_ientry(ientry_t * ie) {
 static inline void del_ientry(ientry_t * ie) {
     DEBUG("del inode: %lu\n", ie->inode);
     rozofs_ientries_count--;
+    hash_inode_cur_collisions = 0;
     htable_del(&htable_inode, &ie->inode);
     htable_del(&htable_fid, ie->fid);
     list_remove(&ie->list);
 }
 
 static inline ientry_t *get_ientry_by_inode(fuse_ino_t ino) {
+    hash_inode_cur_collisions = 0;
     return htable_get(&htable_inode, &ino);
 }
 

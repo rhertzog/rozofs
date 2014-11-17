@@ -39,8 +39,8 @@
 #include "rozofs_xattr_flt.h"
 
 #define hash_xor8(n)    (((n) ^ ((n)>>8) ^ ((n)>>16) ^ ((n)>>24)) & 0xff)
-#define INODE_HSIZE 8192
-#define PATH_HSIZE  8192
+#define INODE_HSIZE 65536
+#define PATH_HSIZE  65536
 
 // Filesystem source (first field in /etc/mtab)
 #define FSNAME "rozofs"
@@ -83,7 +83,9 @@ int rozofs_mountpoint_check(const char * mntpoint);
 */
 uint64_t eid_free_quota = -1; // -1 means no quota 
 
-
+uint64_t hash_inode_collisions_count = 0;
+uint64_t hash_inode_max_collisions = 0;
+uint64_t hash_inode_cur_collisions;
 
 uint64_t   rozofs_client_hash=0;
 /**
@@ -513,6 +515,7 @@ void show_flock(char * argv[], uint32_t tcpRef, void *bufRef) {
 static char * show_ientry_help(char * pChar) {
   pChar += sprintf(pChar,"usage:\n");
   pChar += sprintf(pChar,"ientry count         : display ientry count\n");
+  pChar += sprintf(pChar,"ientry coll          : display ientry collisions\n");
   pChar += sprintf(pChar,"ientry fid <fid>     : display ientry by FID\n");  
   pChar += sprintf(pChar,"ientry inode <inode> : display ientry by inode\n");  
   pChar += sprintf(pChar,"ientry nb <nb> : display ientry number <nb> in list\n");  
@@ -530,7 +533,14 @@ void show_ientry(char * argv[], uint32_t tcpRef, void *bufRef) {
       uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   
       return;
   } 
-  
+  if (strcmp(argv[1],"coll")==0) {
+      pChar += sprintf(pChar, "ientry collisions: %llu\n", (long long unsigned int) hash_inode_collisions_count);
+      pChar += sprintf(pChar, "ientry max colls : %llu\n", (long long unsigned int) hash_inode_max_collisions);
+      uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer()); 
+      hash_inode_collisions_count = 0;  
+      hash_inode_max_collisions = 0;
+      return;
+  }
   if (strcmp(argv[1],"count")==0) {
       pChar += sprintf(pChar, "ientry counter: %llu\n", (long long unsigned int) rozofs_ientries_count);
       uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   
