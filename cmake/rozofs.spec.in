@@ -1,105 +1,84 @@
 Summary: RozoFS scale-out NAS
 Name: rozofs
 Version: @VERSION@
-Release: 1
+Release: 2
 License: GPLv2
 Group: System Environment/Base
 Vendor: Fizians SAS
 Packager: devel@rozofs.com
 URL: http://www.rozofs.com
 Source0: rozofs-@VERSION@.tar.gz
-#Requires(post): /sbin/chkconfig
-#Requires(preun): /sbin/service, /sbin/chkconfig
-#Requires(postun): /sbin/service
 
 # Manage by cmake
-#BuildRequires: gcc make automake cmake
-#BuildRequires:
-#BuildRequires: python-devel
-BuildRequires: libuuid-devel readline-devel python-devel, cmake, swig
+BuildRequires: libuuid-devel libattr-devel readline-devel python-devel cmake
+BuildRequires: fuse-devel python-devel swig libconfig-devel
+%{?systemd_requires}
 
 %description
-Rozofs is a scale-out NAS using erasure coding.
+RozoFS is a scale-out NAS using erasure coding.
 
 %package exportd
-Summary: Rozofs filesystem (export package).
+Summary: RozoFS filesystem (export package).
 License: GPLv2
 Group: System Environment/Daemons
-BuildRequires: libattr-devel libconfig-devel
-Requires: rpcbind, libattr, libconfig9
-
+Requires: rpcbind libattr libconfig libuuid
 %description exportd
-Rozofs is a scale-out NAS using erasure coding.
+RozoFS exportd daemon manages metadata for the RozoFS filesystems.
 
 %package storaged
-Summary: Rozofs filesystem (storage package).
+Summary: RozoFS filesystem (storage package).
 License: GPLv2
 Group: System Environment/Daemons
-BuildRequires: libconfig-devel
-Requires: rpcbind libconfig9
-
+Requires: rpcbind libconfig libuuid
 %description storaged
-Rozofs is a scale-out NAS using erasure coding.
+RozoFS storaged daemon stores encoded data for the RozoFS filesystems.
 
 %package rozofsmount
-Summary: Rozofs filesystem (rozofsmount package).
+Summary: RozoFS filesystem (mount utility package).
 License: GPLv2
 Group: System Environment/File
-BuildRequires: fuse-devel
-Requires: libfuse2
-
+Requires: fuse
 %description rozofsmount
-Rozofs is a scale-out NAS using erasure coding.
+rozofsmount mounts RozoFS filesystems using FUSE.
 
 %package rprof
 Summary: Rozofs filesystem (profiling package).
 License: GPLv2
 Group: System Environment/File
-#BuildRequires:
-#Requires:
-
 %description rprof
 Rozofs is a scale-out NAS using erasure coding.
 
 %package rozodiag
-Summary: Rozofs filesystem (debugging package).
+Summary: RozoFS filesystem (debugging package).
 License: GPLv2
 Group: System Environment/File
-#BuildRequires:
-#Requires:
-
+Requires: readline
 %description rozodiag
-Rozofs is a scale-out NAS using erasure coding.
+rozodiag allows deep audit of RozoFS filesystems.
 
 %package manager-lib
-Summary: Rozofs filesystem (management library package).
+Summary: RozoFS filesystem (management library package).
 License: GPLv2
 Group: System Environment/File
-#BuildRequires:
-Requires: libconfig9, python-pyro, python-argparse
-
+Requires: libconfig PyYAML psmisc
 %description manager-lib
-Rozofs is a scale-out NAS using erasure coding.
+Python management libraries for RozoFS.
 
 %package manager-cli
 Summary: Rozofs filesystem (management cli package).
 License: GPLv2
 Group: System Environment/File
-#BuildRequires:
-Requires: rozofs-manager-lib
-
+Requires: rozofs-manager-lib python
 %description manager-cli
-Rozofs is a scale-out NAS using erasure coding.
+Management command-line for RozoFS.
 
 %package manager-agent
 Summary: Rozofs filesystem (management agent package).
 License: GPLv2
 Group: System Environment/File
-#BuildRequires:
-Requires: rozofs-manager-cli
-
+Requires: rozofs-manager-lib rozofs-manager-cli
 %description manager-agent
-Rozofs is a scale-out NAS using erasure coding.
+Management daemon for RozoFS.
 
 %prep
 %setup -q
@@ -120,12 +99,12 @@ rm -rf %{buildroot}/*
 make install DESTDIR=%{buildroot}
 #install init script
 mkdir -p %{buildroot}%{_initrddir}
+mkdir -p %{buildroot}%{_unitdir}
 mkdir -p %{buildroot}/etc/default
-%{__cp} redhat/rozofs-exportd %{buildroot}%{_initrddir}/rozofs-exportd
-%{__cp} redhat/rozofs-storaged %{buildroot}%{_initrddir}/rozofs-storaged
+%{__cp} redhat/rozofs-exportd.service %{buildroot}%{_unitdir}/rozofs-exportd.service
+%{__cp} redhat/rozofs-storaged.service %{buildroot}%{_unitdir}/rozofs-storaged.service
 %{__cp} redhat/rozofs-rozofsmount %{buildroot}%{_initrddir}/rozofs-rozofsmount
-%{__cp} redhat/rozofs-manager-agent %{buildroot}%{_initrddir}/rozofs-manager-agent
-%{__cp} redhat/rozofs-manager-agent.default %{buildroot}%{_sysconfdir}/default/rozofs-manager-agent
+%{__cp} redhat/rozofs-manager-agent.service %{buildroot}%{_unitdir}/rozofs-manager-agent.service
 
 %clean
 %{__rm} -rf %{buildroot}
@@ -135,7 +114,7 @@ mkdir -p %{buildroot}/etc/default
 %{_bindir}/exportd
 %{_sysconfdir}/rozofs/export.conf
 %{_sysconfdir}/rozofs/export.conf.sample
-%{_initrddir}/rozofs-exportd
+%{_unitdir}/rozofs-exportd.service
 %{_mandir}/man5/export.conf.5.gz
 %{_mandir}/man7/rozofs.7.gz
 %{_mandir}/man8/exportd.8.gz
@@ -148,7 +127,7 @@ mkdir -p %{buildroot}/etc/default
 %{_bindir}/storio_killer.sh
 %{_sysconfdir}/rozofs/storage.conf
 %{_sysconfdir}/rozofs/storage.conf.sample
-%{_initrddir}/rozofs-storaged
+%{_unitdir}/rozofs-storaged.service
 %{_mandir}/man5/storage.conf.5.gz
 %{_mandir}/man8/storaged.8.gz
 
@@ -210,39 +189,47 @@ mkdir -p %{buildroot}/etc/default
 
 %files manager-agent
 %defattr(-,root,root)
-%{_sysconfdir}/default/rozofs-manager-agent
-%{_initrddir}/rozofs-manager-agent
+%{_unitdir}/rozofs-manager-agent.service
+
 
 %post exportd
-if [ -x /usr/lib/lsb/install_initd ]; then
-  /usr/lib/lsb/install_initd /etc/init.d/rozofs-exportd
-elif [ -x /sbin/chkconfig ]; then
-  /sbin/chkconfig --add rozofs-exportd
-fi
+%systemd_post rozofs-exportd.service
+
+%preun exportd
+%systemd_preun rozofs-exportd.service
+
+%postun exportd
+%systemd_postun_with_restart rozofs-exportd.service
+
 
 %post storaged
-if [ -x /usr/lib/lsb/install_initd ]; then
-  /usr/lib/lsb/install_initd /etc/init.d/rozofs-storaged
-elif [ -x /sbin/chkconfig ]; then
-  /sbin/chkconfig --add rozofs-storaged
-fi
+%systemd_post rozofs-storaged.service
+
+%preun storaged
+%systemd_preun rozofs-storaged.service
+
+%postun storaged
+%systemd_postun_with_restart rozofs-storaged.service
+
 
 %post rozofsmount
 ln -sf /sbin/mount.fuse /sbin/mount.rozofs
-if [ -x /usr/lib/lsb/install_initd ]; then
-  /usr/lib/lsb/install_initd /etc/init.d/rozofs-rozofsmount
-elif [ -x /sbin/chkconfig ]; then
-  /sbin/chkconfig --add rozofs-rozofsmount
-fi
+
 
 %post manager-agent
-if [ -x /usr/lib/lsb/install_initd ]; then
-  /usr/lib/lsb/install_initd /etc/init.d/rozofs-manager-agent
-elif [ -x /sbin/chkconfig ]; then
-  /sbin/chkconfig --add rozofs-manager-agent
-fi
+%systemd_post rozofs-manager-agent.service
+
+%preun manager-agent
+%systemd_preun rozofs-manager-agent.service
+
+%postun manager-agent
+%systemd_postun_with_restart manager-agent.service
 
 %changelog
+
+* Thu Nov 27 2014 RozoFS <devel@rozofs.org> 1.5.4-2
+- Missing dependencies.
+- Integration of systemd service files
 
 * Thu Oct 16 2014 Laurent Wandrebeck <lw@hygeos.com> 1.5.4-1
 - Missing dependencies.
