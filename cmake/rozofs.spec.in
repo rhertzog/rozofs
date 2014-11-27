@@ -1,7 +1,7 @@
 Summary: RozoFS scale-out NAS
 Name: rozofs
 Version: @VERSION@
-Release:1
+Release: 1
 License: GPLv2
 Group: System Environment/Base
 Vendor: Fizians SAS
@@ -16,6 +16,7 @@ Source0: rozofs-@VERSION@.tar.gz
 #BuildRequires: gcc make automake cmake
 #BuildRequires:
 #BuildRequires: python-devel
+BuildRequires: libuuid-devel readline-devel python-devel, cmake, swig
 
 %description
 Rozofs is a scale-out NAS using erasure coding.
@@ -120,11 +121,11 @@ make install DESTDIR=%{buildroot}
 #install init script
 mkdir -p %{buildroot}%{_initrddir}
 mkdir -p %{buildroot}/etc/default
-%{__cp} @CMAKE_CURRENT_SOURCE_DIR@/redhat/rozofs-exportd %{buildroot}%{_initrddir}/rozofs-exportd
-%{__cp} @CMAKE_CURRENT_SOURCE_DIR@/redhat/rozofs-storaged %{buildroot}%{_initrddir}/rozofs-storaged
-%{__cp} @CMAKE_CURRENT_SOURCE_DIR@/redhat/rozofs-rozofsmount %{buildroot}%{_initrddir}/rozofs-rozofsmount
-%{__cp} @CMAKE_CURRENT_SOURCE_DIR@/redhat/rozofs-manager-agent %{buildroot}%{_initrddir}/rozofs-manager-agent
-%{__cp} @CMAKE_CURRENT_SOURCE_DIR@/redhat/rozofs-manager-agent.default %{buildroot}%{_sysconfdir}/default/rozofs-manager-agent
+%{__cp} redhat/rozofs-exportd %{buildroot}%{_initrddir}/rozofs-exportd
+%{__cp} redhat/rozofs-storaged %{buildroot}%{_initrddir}/rozofs-storaged
+%{__cp} redhat/rozofs-rozofsmount %{buildroot}%{_initrddir}/rozofs-rozofsmount
+%{__cp} redhat/rozofs-manager-agent %{buildroot}%{_initrddir}/rozofs-manager-agent
+%{__cp} redhat/rozofs-manager-agent.default %{buildroot}%{_sysconfdir}/default/rozofs-manager-agent
 
 %clean
 %{__rm} -rf %{buildroot}
@@ -142,6 +143,9 @@ mkdir -p %{buildroot}/etc/default
 %files storaged
 %defattr(-,root,root)
 %{_bindir}/storaged
+%{_bindir}/storio
+%{_bindir}/storio_starter.sh
+%{_bindir}/storio_killer.sh
 %{_sysconfdir}/rozofs/storage.conf
 %{_sysconfdir}/rozofs/storage.conf.sample
 %{_initrddir}/rozofs-storaged
@@ -167,45 +171,37 @@ mkdir -p %{buildroot}/etc/default
 
 %files manager-lib
 %defattr(-,root,root)
-%{_libdir}/python2.7/site-packages/rozofs/cli/platform.py
-%{_libdir}/python2.7/site-packages/rozofs/cli/agent.py
-%{_libdir}/python2.7/site-packages/rozofs/cli/__init__.py
-%{_libdir}/python2.7/site-packages/rozofs/cli/parser.py
-%{_libdir}/python2.7/site-packages/rozofs/ext/__init__.py
-%{_libdir}/python2.7/site-packages/rozofs/ext/fstab.py
-%{_libdir}/python2.7/site-packages/rozofs/__init__.py
-%{_libdir}/python2.7/site-packages/rozofs/core/platform.py
-%{_libdir}/python2.7/site-packages/rozofs/core/agent.py
-%{_libdir}/python2.7/site-packages/rozofs/core/_profile.so
-%{_libdir}/python2.7/site-packages/rozofs/core/libconfig.py
-%{_libdir}/python2.7/site-packages/rozofs/core/storaged.py
-%{_libdir}/python2.7/site-packages/rozofs/core/__init__.py
-%{_libdir}/python2.7/site-packages/rozofs/core/_libconfig.so
-%{_libdir}/python2.7/site-packages/rozofs/core/daemon.py
-%{_libdir}/python2.7/site-packages/rozofs/core/configuration.py
-%{_libdir}/python2.7/site-packages/rozofs/core/constants.py
-%{_libdir}/python2.7/site-packages/rozofs/core/exportd.py
-%{_libdir}/python2.7/site-packages/rozofs/core/profile.py
-%{_libdir}/python2.7/site-packages/rozofs/core/rozofsmount.py
-%exclude %{_libdir}/python2.7/site-packages/rozofs/cli/platform.pyc
-%exclude %{_libdir}/python2.7/site-packages/rozofs/cli/agent.pyc
-%exclude %{_libdir}/python2.7/site-packages/rozofs/cli/__init__.pyc
-%exclude %{_libdir}/python2.7/site-packages/rozofs/cli/parser.pyc
-%exclude %{_libdir}/python2.7/site-packages/rozofs/ext/__init__.pyc
-%exclude %{_libdir}/python2.7/site-packages/rozofs/ext/fstab.pyc
-%exclude %{_libdir}/python2.7/site-packages/rozofs/__init__.pyc
-%exclude %{_libdir}/python2.7/site-packages/rozofs/core/platform.pyc
-%exclude %{_libdir}/python2.7/site-packages/rozofs/core/agent.pyc
-%exclude %{_libdir}/python2.7/site-packages/rozofs/core/libconfig.pyc
-%exclude %{_libdir}/python2.7/site-packages/rozofs/core/storaged.pyc
-%exclude %{_libdir}/python2.7/site-packages/rozofs/core/__init__.pyc
-%exclude %{_libdir}/python2.7/site-packages/rozofs/core/daemon.pyc
-%exclude %{_libdir}/python2.7/site-packages/rozofs/core/configuration.pyc
-%exclude %{_libdir}/python2.7/site-packages/rozofs/core/constants.pyc
-%exclude %{_libdir}/python2.7/site-packages/rozofs/core/exportd.pyc
-%exclude %{_libdir}/python2.7/site-packages/rozofs/core/profile.pyc
-%exclude %{_libdir}/python2.7/site-packages/rozofs/core/rozofsmount.pyc
-%exclude %{_libdir}/python2.7/site-packages/rozofs_manager-@VERSION@-py2.7.egg-info
+%{python_sitearch}/rozofs/cli/agent.py
+%{python_sitearch}/rozofs/cli/__init__.py
+%{python_sitearch}/rozofs/cli/export.py
+%{python_sitearch}/rozofs/cli/layout.py
+%{python_sitearch}/rozofs/cli/node.py
+%{python_sitearch}/rozofs/cli/output.py
+%{python_sitearch}/rozofs/cli/storage.py
+%{python_sitearch}/rozofs/cli/volume.py
+%{python_sitearch}/rozofs/ext/__init__.py
+%{python_sitearch}/rozofs/ext/fstab.py
+%{python_sitearch}/rozofs/__init__.py
+%{python_sitearch}/rozofs/core/platform.py
+%{python_sitearch}/rozofs/core/agent.py
+%{python_sitearch}/rozofs/core/libconfig.py
+%{python_sitearch}/rozofs/core/storaged.py
+%{python_sitearch}/rozofs/core/__init__.py
+%{python_sitearch}/rozofs/core/_libconfig.so
+%{python_sitearch}/rozofs/core/daemon.py
+%{python_sitearch}/rozofs/core/configuration.py
+%{python_sitearch}/rozofs/core/constants.py
+%{python_sitearch}/rozofs/core/exportd.py
+%{python_sitearch}/rozofs/core/rozofsmount.py
+%exclude %{python_sitearch}/rozofs/cli/*.pyc
+%exclude %{python_sitearch}/rozofs/cli/*.pyo
+%exclude %{python_sitearch}/rozofs/ext/*.pyc
+%exclude %{python_sitearch}/rozofs/ext/*.pyo
+%exclude %{python_sitearch}/rozofs/__init__.pyc
+%exclude %{python_sitearch}/rozofs/__init__.pyo
+%exclude %{python_sitearch}/rozofs/core/*.pyc
+%exclude %{python_sitearch}/rozofs/core/*.pyo
+%exclude %{python_sitearch}/rozofs_manager-@VERSION@-py2.7.egg-info
 
 %files manager-cli
 %defattr(-,root,root)
@@ -248,5 +244,10 @@ fi
 
 %changelog
 
-* Tue Feb 05 2013 RozoFS <devel@rozofs.org> - @VERSION@
+* Thu Oct 16 2014 Laurent Wandrebeck <lw@hygeos.com> 1.5.4-1
+- Missing dependencies.
+- Get rid of hardcoded values.
+- Update files list (Thx Sylvain !)
+
+* Tue Feb 05 2013 RozoFS <devel@rozofs.org> - 1.0.3-1
 - Initial spec file
