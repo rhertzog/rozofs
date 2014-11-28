@@ -78,11 +78,13 @@ void rozofs_storcli_transform_update_headers(rozofs_storcli_projection_ctx_t *pr
                                             +((rozofs_get_max_psize(layout)+(sizeof(rozofs_stor_bins_hdr_t)/sizeof(bin_t))) * block_idx));
       if (rozofs_bins_hdr_p->s.timestamp == 0)
       {
+        prj_ctx_p->block_hdr_tab[block_idx].s.projection_id = 0;      
         prj_ctx_p->block_hdr_tab[block_idx].s.timestamp = rozofs_bins_hdr_p->s.timestamp;
         prj_ctx_p->block_hdr_tab[block_idx].s.effective_length = ROZOFS_BSIZE;          
       }
       else
       {
+        prj_ctx_p->block_hdr_tab[block_idx].s.projection_id = rozofs_bins_hdr_p->s.projection_id;      	
         prj_ctx_p->block_hdr_tab[block_idx].s.timestamp = rozofs_bins_hdr_p->s.timestamp;
         prj_ctx_p->block_hdr_tab[block_idx].s.effective_length = rozofs_bins_hdr_p->s.effective_length;                 
       }    
@@ -92,6 +94,7 @@ void rozofs_storcli_transform_update_headers(rozofs_storcli_projection_ctx_t *pr
     */
     for (block_idx = number_of_blocks_returned; block_idx < number_of_blocks_requested; block_idx++)
     {    
+      prj_ctx_p->block_hdr_tab[block_idx].s.projection_id = 0;      	
       prj_ctx_p->block_hdr_tab[block_idx].s.timestamp = 0;
       prj_ctx_p->block_hdr_tab[block_idx].s.effective_length = 0;      
     } 
@@ -147,6 +150,7 @@ inline int rozofs_storcli_transform_inverse_check_timestamp_tb(rozofs_storcli_pr
                                        uint16_t *effective_len_p)
 {
     uint8_t prj_ctx_idx;
+    uint8_t prjid;
     uint8_t timestamp_entry;
     *timestamp_p = 0;
     uint8_t rozofs_inverse = rozofs_get_rozofs_inverse(layout);
@@ -175,13 +179,16 @@ inline int rozofs_storcli_transform_inverse_check_timestamp_tb(rozofs_storcli_pr
       ** the situation where the projections read on the different storages do not return the same number of block.
       */
       if ((rozofs_bins_hdr_p->s.timestamp == 0)&&(rozofs_bins_hdr_p->s.effective_length == 0))  continue;
+      prjid = rozofs_bins_hdr_p->s.projection_id;
+      
       if (rozofs_storcli_timestamp_next_free_idx == 0)
       {
         /*
         ** first entry
         */
         eof = 0;
-        p = &rozofs_storcli_timestamp_tb[rozofs_storcli_timestamp_next_free_idx];        
+        p = &rozofs_storcli_timestamp_tb[rozofs_storcli_timestamp_next_free_idx];  
+	p->prjid_bitmap  = (1<<prjid); // set the projection id in the bitmap      
         p->timestamp     = rozofs_bins_hdr_p->s.timestamp;
         p->effective_length = rozofs_bins_hdr_p->s.effective_length;
         p->count         = 0;
@@ -197,6 +204,15 @@ inline int rozofs_storcli_transform_inverse_check_timestamp_tb(rozofs_storcli_pr
       {
         p = &rozofs_storcli_timestamp_tb[timestamp_entry];        
         if ((rozofs_bins_hdr_p->s.timestamp != p->timestamp) || (rozofs_bins_hdr_p->s.effective_length != p->effective_length)) continue;
+	
+	/*
+	** Check whether the same projection id is already in the list
+	*/
+	if ((rozofs_bins_hdr_p->s.timestamp!=0)&&(p->prjid_bitmap & (1<<prjid))) {	  
+	  break;
+        }
+	p->prjid_bitmap |= (1<<prjid); // set the projection id in the bitmap      	
+	
         /*
         ** same timestamp and length: register the projection index and check if we have reached rozofs_inverse projections
         ** to stop the search
@@ -223,17 +239,21 @@ inline int rozofs_storcli_transform_inverse_check_timestamp_tb(rozofs_storcli_pr
         /*
         ** try next
         */
+	break;
       }
       /*
       ** that timestamp does not exist, so create an entry for it
       */
-      p = &rozofs_storcli_timestamp_tb[rozofs_storcli_timestamp_next_free_idx];        
-      p->timestamp     = rozofs_bins_hdr_p->s.timestamp;
-      p->effective_length = rozofs_bins_hdr_p->s.effective_length;
-      p->count     = 0;
-      p->prj_idx_tb[p->count]= prj_ctx_idx;
-      p->count++;
-      rozofs_storcli_timestamp_next_free_idx++;
+      if (timestamp_entry == rozofs_storcli_timestamp_next_free_idx) {
+	p = &rozofs_storcli_timestamp_tb[rozofs_storcli_timestamp_next_free_idx];        
+	p->timestamp     = rozofs_bins_hdr_p->s.timestamp;
+	p->prjid_bitmap  = (1<<prjid); // set the projection id in the bitmap      	
+	p->effective_length = rozofs_bins_hdr_p->s.effective_length;
+	p->count     = 0;
+	p->prj_idx_tb[p->count]= prj_ctx_idx;
+	p->count++;
+	rozofs_storcli_timestamp_next_free_idx++;
+      }
     }
     /*
     ** take care of the case where we try to read after the end of file
@@ -271,11 +291,11 @@ inline int rozofs_storcli_transform_inverse_check(rozofs_storcli_projection_ctx_
     int eof = 1;
     *timestamp_p = 0;
     *effective_len_p = 0;
-    rozofs_storcli_timestamp_ctx_t ref_ctx;        
+    rozofs_storcli_timestamp_ctx_t ref_ctx={0};        
     rozofs_storcli_timestamp_ctx_t *ref_ctx_p = &ref_ctx;        
     rozofs_storcli_timestamp_ctx_t rozofs_storcli_timestamp_tb[ROZOFS_SAFE_MAX];
     uint8_t  rozofs_storcli_timestamp_next_free_idx=0;
-    
+    uint8_t prjid;    
     ref_ctx_p->count = 0;
     /*
     ** clean data used for tracking projection to rebuild
@@ -297,6 +317,7 @@ inline int rozofs_storcli_transform_inverse_check(rozofs_storcli_projection_ctx_
       ** Get the pointer to the projection header
       */
       rozofs_stor_bins_hdr_t *rozofs_bins_hdr_p = (rozofs_stor_bins_hdr_t*)&prj_ctx_p[prj_ctx_idx].block_hdr_tab[block_idx];
+      prjid = rozofs_bins_hdr_p->s.projection_id;
       /*
       ** skip the invalid blocks
       */
@@ -308,6 +329,7 @@ inline int rozofs_storcli_transform_inverse_check(rozofs_storcli_projection_ctx_
         */
         eof = 0;
         ref_ctx_p->timestamp     = rozofs_bins_hdr_p->s.timestamp;
+	ref_ctx_p->prjid_bitmap  = (1<<prjid); // set the projection id in the bitmap 
         ref_ctx_p->effective_length = rozofs_bins_hdr_p->s.effective_length;
         ref_ctx_p->count++;
         prj_idx_tb_p[nb_projection_with_same_timestamp++] = prj_ctx_idx; 
@@ -319,6 +341,14 @@ inline int rozofs_storcli_transform_inverse_check(rozofs_storcli_projection_ctx_
       */
       if ((rozofs_bins_hdr_p->s.timestamp == ref_ctx_p->timestamp) &&(rozofs_bins_hdr_p->s.effective_length == ref_ctx_p->effective_length))
       {
+	/*
+	** Check whether the same projection id is already in the list
+	*/
+	if ((rozofs_bins_hdr_p->s.timestamp!=0) && (ref_ctx_p->prjid_bitmap & (1<<prjid))) {
+	  continue;
+        }
+	ref_ctx_p->prjid_bitmap |= (1<<prjid); // set the projection id in the bitmap      	
+      
         /*
         ** there is a match, store the projection index and check if we have reach rozofs_inverse blocks with the 
         ** same timestamp and length

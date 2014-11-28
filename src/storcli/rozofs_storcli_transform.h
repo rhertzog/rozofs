@@ -89,6 +89,7 @@ typedef struct _rozofs_storcli_timestamp_ctx_t
   uint16_t effective_length;  /**< effective length of the block */
   uint8_t  count;      /**< number of projection with the same timestamp */
   uint8_t  prj_idx_tb[ROZOFS_SAFE_MAX];  /**< table of the projection index that have the same timestamp */
+  uint32_t prjid_bitmap;
 } rozofs_storcli_timestamp_ctx_t;
 
 

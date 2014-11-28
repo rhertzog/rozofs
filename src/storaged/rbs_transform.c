@@ -39,6 +39,7 @@ int rbs_check_timestamp_tb(rbs_projection_ctx_t *prj_ctx_p, uint8_t layout,
         uint16_t *effective_length_p) {
 
     uint8_t prj_ctx_idx = 0;
+    uint8_t prjid;
     uint8_t ts_entry_idx = 0;
     rbs_timestamp_ctx_t *ts_ctx_p = NULL;
     uint64_t ts_empty_count = 0;
@@ -64,7 +65,7 @@ int rbs_check_timestamp_tb(rbs_projection_ctx_t *prj_ctx_p, uint8_t layout,
                 (sizeof (rozofs_stor_bins_hdr_t) / sizeof (bin_t)))
                 * block_idx));
 
-
+        prjid = rozofs_bins_hdr_p->s.projection_id;
         // Case of ts = 0
         if (rozofs_bins_hdr_p->s.timestamp == 0) {
             // Need to check that all the header is filled with 0
@@ -90,6 +91,7 @@ int rbs_check_timestamp_tb(rbs_projection_ctx_t *prj_ctx_p, uint8_t layout,
         if (rbs_timestamp_next_free_idx == 0) {
             ts_ctx_p = &rbs_timestamp_tb[rbs_timestamp_next_free_idx];
             ts_ctx_p->timestamp = rozofs_bins_hdr_p->s.timestamp;
+	    ts_ctx_p->prjid_bitmap  = (1<<prjid); // set the projection id in the bitmap      	    
             ts_ctx_p->count = 0;
             ts_ctx_p->prj_idx_tb[ts_ctx_p->count] = prj_ctx_idx;
             ts_ctx_p->count++;
@@ -104,7 +106,15 @@ int rbs_check_timestamp_tb(rbs_projection_ctx_t *prj_ctx_p, uint8_t layout,
             ts_ctx_p = &rbs_timestamp_tb[ts_entry_idx];
 
             if (rozofs_bins_hdr_p->s.timestamp != ts_ctx_p->timestamp)
-                continue;
+                    continue;
+	    /*
+	    ** Check whether the same projection id is already in the list
+	    */
+	    if ((rozofs_bins_hdr_p->s.timestamp!=0)&&(ts_ctx_p->prjid_bitmap & (1<<prjid))) {	  
+	      break;
+            }
+	    ts_ctx_p->prjid_bitmap |= (1<<prjid); // set the projection id in the bitmap      	
+	
 
             // Same timestamp: register the projection index and check if we
             // have reached rozofs_inverse projections to stop the search
@@ -122,16 +132,20 @@ int rbs_check_timestamp_tb(rbs_projection_ctx_t *prj_ctx_p, uint8_t layout,
                 *effective_length_p = rozofs_bins_hdr_p->s.effective_length;
                 return 1;
             }
+	    break;
             // Try next
         }
 
-        // This timestamp does not exist, so create an entry for it
-        ts_ctx_p = &rbs_timestamp_tb[rbs_timestamp_next_free_idx];
-        ts_ctx_p->timestamp = rozofs_bins_hdr_p->s.timestamp;
-        ts_ctx_p->count = 0;
-        ts_ctx_p->prj_idx_tb[ts_ctx_p->count] = prj_ctx_idx;
-        ts_ctx_p->count++;
-        rbs_timestamp_next_free_idx++;
+        if (ts_entry_idx == rbs_timestamp_next_free_idx) {
+            // This timestamp does not exist, so create an entry for it
+            ts_ctx_p = &rbs_timestamp_tb[rbs_timestamp_next_free_idx];
+	    ts_ctx_p->prjid_bitmap  = (1<<prjid); // set the projection id in the bitmap
+            ts_ctx_p->timestamp = rozofs_bins_hdr_p->s.timestamp;
+            ts_ctx_p->count = 0;
+            ts_ctx_p->prj_idx_tb[ts_ctx_p->count] = prj_ctx_idx;
+            ts_ctx_p->count++;
+            rbs_timestamp_next_free_idx++;
+	}
     }
 
 
@@ -152,6 +166,7 @@ int rbs_count_timestamp_tb(rbs_projection_ctx_t *prj_ctx_p, uint8_t layout,
     uint8_t rozofs_inverse = rozofs_get_rozofs_inverse(layout);
     uint8_t rozofs_safe = rozofs_get_rozofs_safe(layout);
     uint8_t and_the_winner_is = -1;
+    uint8_t prjid;    
 
     *timestamp_p = 0;
     rbs_timestamp_next_free_idx = 0;
@@ -171,10 +186,12 @@ int rbs_count_timestamp_tb(rbs_projection_ctx_t *prj_ctx_p, uint8_t layout,
                 + ((rozofs_get_max_psize(layout)+
                 (sizeof (rozofs_stor_bins_hdr_t) / sizeof (bin_t)))
                 * block_idx));
+        prjid = rozofs_bins_hdr_p->s.projection_id;		
 
         // First valid projection
         if (rbs_timestamp_next_free_idx == 0) {
             ts_ctx_p = &rbs_timestamp_tb[rbs_timestamp_next_free_idx];
+	    ts_ctx_p->prjid_bitmap  = (1<<prjid); // set the projection id in the bitmap 	    
             ts_ctx_p->timestamp = rozofs_bins_hdr_p->s.timestamp;
             ts_ctx_p->count = 0;
             ts_ctx_p->prj_idx_tb[ts_ctx_p->count] = prj_ctx_idx;
@@ -191,6 +208,13 @@ int rbs_count_timestamp_tb(rbs_projection_ctx_t *prj_ctx_p, uint8_t layout,
 
             if (rozofs_bins_hdr_p->s.timestamp != ts_ctx_p->timestamp)
                 continue;
+            /*
+	    ** Check whether the same projection id is already in the list
+	    */
+	    if ((rozofs_bins_hdr_p->s.timestamp!=0) && (ts_ctx_p->prjid_bitmap & (1<<prjid))) {
+	      continue;
+            }
+	    ts_ctx_p->prjid_bitmap |= (1<<prjid); // set the projection id in the bitmap      	
 
             // Same timestamp: register the projection index and check if we
             // have reached rozofs_inverse projections to stop the search
@@ -212,6 +236,7 @@ int rbs_count_timestamp_tb(rbs_projection_ctx_t *prj_ctx_p, uint8_t layout,
 
         // This timestamp does not exist, so create an entry for it
         ts_ctx_p = &rbs_timestamp_tb[rbs_timestamp_next_free_idx];
+	ts_ctx_p->prjid_bitmap  = (1<<prjid); // set the projection id in the bitmap 	    	
         ts_ctx_p->timestamp = rozofs_bins_hdr_p->s.timestamp;
         ts_ctx_p->count = 0;
         ts_ctx_p->prj_idx_tb[ts_ctx_p->count] = prj_ctx_idx;

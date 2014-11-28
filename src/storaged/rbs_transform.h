@@ -71,6 +71,7 @@ typedef struct rbs_timestamp_ctx {
     uint64_t timestamp; /**< key */
     uint8_t count; /**< number of projection with the same timestamp */
     uint8_t prj_idx_tb[ROZOFS_SAFE_MAX]; /**< table of the projection index that have the same timestamp */
+    uint32_t prjid_bitmap;    
 } rbs_timestamp_ctx_t;
 
 
