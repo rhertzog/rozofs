@@ -78,7 +78,7 @@ case "$1" in
         esac
         done
 
-        exec 0<&9 9<&-
+        exec 0<&9 9<&- ;;
   *)
         echo $"Usage: exportd {start}"
         RETVAL=1
