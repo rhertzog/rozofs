@@ -37,7 +37,7 @@ static const char *messages[] =
 #endif
 
 static const int priorities[] = {
-	LOG_DEBUG, LOG_INFO, LOG_WARNING, LOG_ERR, LOG_EMERG
+	LOG_DEBUG, LOG_INFO, LOG_WARNING, LOG_ERR, LOG_ERR
 };
 
 #define logmsg(level, fmt, ...) {\
