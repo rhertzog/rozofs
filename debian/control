@@ -51,7 +51,7 @@ Description: RozoFS filesystem (debugging tools)
 
 Package: rozofs-manager-lib
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, libconfig8 | libconfig9, pyro, python-support (>= 0.90), python-argparse, python-yaml
+Depends: ${shlibs:Depends}, ${misc:Depends}, libconfig8 | libconfig9, pyro, python-support (>= 0.90), python-argparse, python-yaml, psmisc
 Description: RozoFS filesystem (management library)
  Python management libraries for RozoFS.
  .
