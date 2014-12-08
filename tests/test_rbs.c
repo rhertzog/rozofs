@@ -36,6 +36,11 @@ int main(int argc, char *argv[]) {
     cid_t cid = 0;
     int status = -1;
 
+    /*
+    ** init of the crc32
+    */
+    crc32c_init(0 /*generate_enable*/,0/* check_enable*/,0 /*hw_forced*/);
+    
     // Check args
     if (argc < 4) {
         fprintf(stderr,

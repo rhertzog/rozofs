@@ -77,6 +77,7 @@ typedef struct _rozofs_storcli_projection_ctx_t
    uint64_t timestamp;       /**< monitoring timestamp                             */
    rozofs_stor_bins_hdr_t block_hdr_tab[ROZOFS_DISTRIBUTION_MAX_SIZE];
    uint64_t raw_file_size;    /**< file size reported from a fstat on the projection file */
+   uint64_t crc_err_bitmap;   /**< bitmap of the blocks on which a crc error has detected by storaged */
 } rozofs_storcli_projection_ctx_t;
 
 

@@ -166,6 +166,16 @@ void disk_thread_debug(char * argv[], uint32_t tcpRef, void *bufRef) {
     display_line_val("   Cumulative Time (us)",diskTruncate_time);
     display_line_div("   Average Time (us)",diskTruncate_time,diskTruncate_count);
 
+
+    display_line_topic("Repair Requests");  
+    display_line_val("   number", diskRepair_count);
+    display_line_val("   Unknown cid/sid",diskRepair_badCidSid);  
+    display_line_val("   error",diskRepair_error);  
+    display_line_val("   Bytes",diskRepair_Byte_count);      
+    display_line_val("   Cumulative Time (us)",diskRepair_time);
+    display_line_div("   Average Bytes",diskRepair_Byte_count,diskRepair_count); 
+    display_line_div("   Average Time (us)",diskRepair_time,diskRepair_count);
+    display_line_div("   Throughput (MBytes/s)",diskRepair_Byte_count,diskRepair_time);  
     display_line_topic("");  
     pChar += sprintf(pChar,"\n");
   }
@@ -320,6 +330,10 @@ void af_unix_disk_response(storio_disk_thread_msg_t *msg)
     case STORIO_DISK_THREAD_TRUNCATE:
       STOP_PROFILING(truncate);
       break;   
+    case STORIO_DISK_THREAD_WRITE_REPAIR:
+      STOP_PROFILING_IO(write,msg->size);
+      update_write_detailed_counters(toc - tic);            
+      break;     
     default:
       severe("Unexpected opcode %d", opcode);
   }

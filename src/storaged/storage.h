@@ -48,6 +48,7 @@ typedef struct storage {
     sid_t sid; ///< unique id of this storage for one cluster
     cid_t cid; //< unique id of cluster that owns this storage
     char root[FILENAME_MAX]; ///< absolute path.
+    uint64_t  crc_error;   ///> CRC32C error counter
 } storage_t;
 
 /**
@@ -185,6 +186,26 @@ int storage_rm_file(storage_t * st, uint8_t layout, sid_t * dist_set,
  */
 int storage_stat(storage_t * st, sstat_t * sstat);
 
+
+/** repair nb_proj projections
+ *
+ * @param st: the storage to use.
+ * @param layout: layout used for store this file.
+ * @param dist_set: storages nodes used for store this file.
+ * @param spare: indicator on the status of the projection.
+ * @param fid: unique file id.
+ * @param bid: first block idx (offset).
+ * @param nb_proj: number of projections.
+ * @param bitmap: bitmap of the projection to repair.
+ * @param version: version of rozofs used by the client. (not used yet)
+ * @param *file_size: size of file after the write operation.
+ * @param *bins: bins to store.
+ *
+ * @return: 0 on success -1 otherwise (errno is set)
+ */
+int storage_write_repair(storage_t * st, uint8_t layout, sid_t * dist_set,
+        uint8_t spare, fid_t fid, bid_t bid, uint32_t nb_proj,uint64_t bitmap, uint8_t version,
+        uint64_t *file_size, const bin_t * bins);
 
 int storage_list_bins_files_to_rebuild(storage_t * st, sid_t sid,
         uint8_t * layout, sid_t *dist_set, uint8_t * spare, uint64_t * cookie,

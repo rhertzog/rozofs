@@ -52,6 +52,7 @@
 #include <rozofs/core/rozofs_ip_utilities.h>
 #include <rozofs/core/af_unix_socket_generic.h>
 #include <rozofs/rozofs_timer_conf.h>
+#include "storio_crc32.h"
 
 #include "config.h"
 #include "sconfig.h"
@@ -533,6 +534,13 @@ int main(int argc, char *argv[]) {
                 strerror(errno));
         goto error;
     }
+    /*
+    ** init of the crc32c
+    */
+    crc32c_init(storaged_config.crc32c_generate,
+                storaged_config.crc32c_check,
+                storaged_config.crc32c_hw_forced);
+		
     // Check rebuild storage configuration if necessary
     if (rbs_start_process == 1) {
         if (rbs_check() != 0)

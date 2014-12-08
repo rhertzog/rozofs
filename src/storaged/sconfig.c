@@ -46,6 +46,9 @@
 #define SIOPORT     "port"
 #define SCORES      "nbcores"
 #define SSTORIO     "storio"
+#define SCRC32_C     "crc32c_check"
+#define SCRC32_G     "crc32c_generate"
+#define SCRC32_H     "crc32c_hw_forced"
 
 int storage_config_initialize(storage_config_t *s, cid_t cid, sid_t sid,
         const char *root) {
@@ -84,6 +87,7 @@ void sconfig_release(sconfig_t *config) {
 int sconfig_read(sconfig_t *config, const char *fname) {
     int status = -1;
     config_t cfg;
+    int my_bool;
     struct config_setting_t *stor_settings = 0;
     struct config_setting_t *ioaddr_settings = 0;
     int i = 0;
@@ -110,6 +114,22 @@ int sconfig_read(sconfig_t *config, const char *fname) {
         config->nb_disk_threads = threads;
     }
 
+    if (!config_lookup_bool(&cfg, SCRC32_C, &my_bool)) {
+        config->crc32c_check = 0;
+    } else {
+        config->crc32c_check = my_bool;
+    }
+
+    if (!config_lookup_bool(&cfg, SCRC32_G, &my_bool)) {
+        config->crc32c_generate = 0;
+    } else {
+        config->crc32c_generate = my_bool;
+    }
+    if (!config_lookup_bool(&cfg, SCRC32_H, &my_bool)) {
+        config->crc32c_hw_forced = 0;
+    } else {
+        config->crc32c_hw_forced = my_bool;
+    }
     if (!config_lookup_int(&cfg, SCORES, &nb_cores)) {
         config->nb_cores = 2;
     } else {

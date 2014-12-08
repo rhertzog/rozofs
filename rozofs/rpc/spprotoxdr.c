@@ -81,6 +81,9 @@ xdr_spp_profiler_t (XDR *xdrs, spp_profiler_t *objp)
 	 if (!xdr_vector (xdrs, (char *)objp->truncate, 3,
 		sizeof (uint64_t), (xdrproc_t) xdr_uint64_t))
 		 return FALSE;
+	 if (!xdr_vector (xdrs, (char *)objp->repair, 3,
+		sizeof (uint64_t), (xdrproc_t) xdr_uint64_t))
+		 return FALSE;
 	 if (!xdr_vector (xdrs, (char *)objp->rb_files_current, STORAGES_MAX_BY_STORAGE_NODE,
 		sizeof (uint64_t), (xdrproc_t) xdr_uint64_t))
 		 return FALSE;

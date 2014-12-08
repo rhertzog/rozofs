@@ -50,6 +50,7 @@ struct spp_profiler_t {
     uint64_t    read[3];
     uint64_t    write[3];
     uint64_t    truncate[3];
+    uint64_t    repair[3];
     uint64_t    rb_files_current[STORAGES_MAX_BY_STORAGE_NODE];
     uint64_t    rb_files_total[STORAGES_MAX_BY_STORAGE_NODE];
     uint8_t     rb_status[STORAGES_MAX_BY_STORAGE_NODE];

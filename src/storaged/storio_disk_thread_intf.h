@@ -50,6 +50,12 @@ typedef struct _rozofs_disk_thread_stat_t {
   uint64_t            diskTruncate_error;
   uint64_t            diskTruncate_badCidSid;  
   uint64_t            diskTruncate_time;  
+
+  uint64_t            diskRepair_count;
+  uint64_t            diskRepair_Byte_count;
+  uint64_t            diskRepair_error;
+  uint64_t            diskRepair_badCidSid;  
+  uint64_t            diskRepair_time;
 } rozofs_disk_thread_stat_t;
 /*
 ** Disk thread context
@@ -72,7 +78,8 @@ extern rozofs_disk_thread_ctx_t rozofs_disk_thread_ctx_tb[];
 typedef enum _storio_disk_thread_request_e {
   STORIO_DISK_THREAD_READ=1,
   STORIO_DISK_THREAD_WRITE,
-  STORIO_DISK_THREAD_TRUNCATE
+  STORIO_DISK_THREAD_TRUNCATE,
+  STORIO_DISK_THREAD_WRITE_REPAIR,
 } storio_disk_thread_request_e;
 
 typedef struct _storio_disk_thread_msg_t

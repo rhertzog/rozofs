@@ -41,6 +41,7 @@
 //#include <rozofs/core/rozofs_optim.h>
 #include "storio_cache.h"
 #include "storio_bufcache.h"
+#include "storio_crc32.h"
 
 #include "storage.h"
 
@@ -246,7 +247,10 @@ int storage_write(storage_t * st, uint8_t layout, sid_t * dist_set,
             sizeof (bin_t) + sizeof (rozofs_stor_bins_hdr_t));
     length_to_write = nb_proj * (rozofs_max_psize * sizeof (bin_t)
             + sizeof (rozofs_stor_bins_hdr_t));
-
+    /*
+    ** generate the crc32c for each projection block
+    */
+    storio_gen_crc32((char*)bins,nb_proj,(rozofs_max_psize * sizeof (bin_t)+ sizeof (rozofs_stor_bins_hdr_t)));
     // Write nb_proj * (projection + header)
     nb_write = pwrite(fd, bins, length_to_write, bins_file_offset);
     if (nb_write != length_to_write) {
@@ -337,8 +341,14 @@ int storage_read(storage_t * st, uint8_t layout, sid_t * dist_set,
 	nb_read *= (rozofs_max_psize * sizeof (bin_t));
 	nb_read += sizeof (rozofs_stor_bins_hdr_t);
     }
-
-
+    int nb_proj_effective;
+    nb_proj_effective = nb_read /(rozofs_max_psize * sizeof (bin_t) +sizeof (rozofs_stor_bins_hdr_t)) ;
+    /*
+    ** check the crc32c for each projection block
+    */
+    storio_check_crc32((char*)bins,nb_proj_effective,
+                       (rozofs_max_psize * sizeof (bin_t)+ sizeof (rozofs_stor_bins_hdr_t)),
+		       &st->crc_error);
     // Update the length read
     *len_read = nb_read;
 
@@ -770,5 +780,84 @@ int storage_list_bins_files_to_rebuild(storage_t * st, sid_t sid,
     status = 0;
 
 out:
+    return status;
+}
+
+
+int storage_write_repair(storage_t * st, uint8_t layout, sid_t * dist_set,
+        uint8_t spare, fid_t fid, bid_t bid, uint32_t nb_proj,uint64_t bitmap,uint8_t version,
+        uint64_t *file_size, const bin_t * bins) {
+    int status = -1;
+    char path[FILENAME_MAX];
+    int fd = -1;
+    size_t nb_write = 0;
+    size_t length_to_write = 0;
+    off_t bins_file_offset = 0;
+    uint16_t rozofs_max_psize = 0;
+    int error;
+    
+    rozofs_max_psize = rozofs_get_max_psize(layout);
+
+    // Build the full path of directory that contains the bins file
+    storage_map_distribution(st, layout, dist_set, spare, path);
+
+    // Check that this directory already exists
+    if (access(path, F_OK) == -1) {
+            goto out;
+    }
+
+    // Build the path of bins file
+    storage_map_projection(fid, path);
+
+    // Check that this file already exists
+    if (access(path, F_OK) == -1){
+            goto out;
+    }
+    // Open bins file
+    fd = open(path, ROZOFS_ST_BINS_FILE_FLAG, ROZOFS_ST_BINS_FILE_MODE);
+    if (fd < 0) {
+        severe("open failed (%s) : %s", path, strerror(errno));
+        goto out;
+    }
+    // Compute the initial offset to write and the effective size of each block   
+    bins_file_offset = ROZOFS_ST_BINS_FILE_HDR_SIZE + bid * (rozofs_max_psize *
+            sizeof (bin_t) + sizeof (rozofs_stor_bins_hdr_t));
+    length_to_write = (rozofs_max_psize * sizeof (bin_t)+sizeof (rozofs_stor_bins_hdr_t));
+    int block_idx = 0;
+    int block_count = 0;
+    char *data_p = (char *)bins;
+    error = 0;
+    
+    for (block_idx = 0; block_idx < nb_proj; block_idx++)
+    {
+       if ((bitmap & (1 << block_idx)) == 0) continue;
+       /*
+       ** generate the crc32c for each projection block
+       */
+       storio_gen_crc32((char*)data_p,1,(rozofs_max_psize * sizeof (bin_t)+ sizeof (rozofs_stor_bins_hdr_t)));
+       /* 
+       **  write the projection on disk
+       */
+       off_t off = bins_file_offset + length_to_write*block_idx;
+//       severe("FDL repair offset:%llx length %u  bitmap %llx",off,length_to_write,bitmap);
+       nb_write = pwrite(fd, data_p, length_to_write, off);
+       if (nb_write != length_to_write) {
+           severe("pwrite failed: %s", strerror(errno));
+	   error +=1;
+       }
+       /*
+       ** update the data pointer for the next write
+       */
+       data_p+=length_to_write;
+       block_count += length_to_write;
+    }
+    if (error != 0) goto out;
+
+
+    // Write is successful
+    status = block_count;
+
+out:
+    if (fd != -1) close(fd);
     return status;
 }

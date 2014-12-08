@@ -48,6 +48,8 @@ add_executable(storaged
     storio_cache.c
     storio_bufcache.c
     storio_bufcache.h
+    storio_crc32.c
+    storio_crc32.h
 )
 target_link_libraries(storaged rozofs ${PTHREAD_LIBRARY} ${UUID_LIBRARY} ${CONFIG_LIBRARY})
 
@@ -76,6 +78,8 @@ add_executable(storio
     storio_disk_thread_intf.h
     storio_disk_thread_intf.c
     storio_disk_thread.c
+    storio_crc32.c
+    storio_crc32.h
 )
 target_link_libraries(storio rozofs ${PTHREAD_LIBRARY} ${UUID_LIBRARY} ${CONFIG_LIBRARY})
 

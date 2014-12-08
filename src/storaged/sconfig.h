@@ -36,6 +36,9 @@ typedef struct storage_config {
 typedef struct sconfig {
     int                     nb_disk_threads; 
     int                     nb_cores;
+    int                     crc32c_check;
+    int                     crc32c_generate;
+    int                     crc32c_hw_forced;
     int                     io_addr_nb; 
     struct mp_io_address_t  io_addr[STORAGE_NODE_PORTS_MAX];
     int                     multiio; /* When set to 1, requests one storio per listening port */

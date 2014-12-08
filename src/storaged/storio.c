@@ -57,6 +57,7 @@
 #include "storaged.h"
 #include <rozofs/rozofs_timer_conf.h>
 #include "storio_nblock_init.h"
+#include "storio_crc32.h"
 
 #define STORIO_PID_FILE "storio"
 int     storio_instance = 0;
@@ -279,6 +280,13 @@ int main(int argc, char *argv[]) {
     if (sconfig_validate(&storaged_config) != 0) {
         fatal( "Inconsistent storage configuration file: %s.\n",strerror(errno));
     }
+    /*
+    ** init of the crc32c
+    */
+    crc32c_init(storaged_config.crc32c_generate,
+                storaged_config.crc32c_check,
+                storaged_config.crc32c_hw_forced);
+		
     // Initialization of the storage configuration
     if (storaged_initialize() != 0) {
         fatal("can't initialize storaged: %s.", strerror(errno));

@@ -203,6 +203,10 @@ void show_profiler(char * argv[], uint32_t tcpRef, void *bufRef) {
 	RESET_PROFILER_PROBE_BYTE(truncate_prj);
 	RESET_PROFILER_PROBE(truncate_prj_tmo);
 	RESET_PROFILER_PROBE(truncate_prj_err);  
+        RESET_PROFILER_PROBE_BYTE(repair)
+	RESET_PROFILER_PROBE_BYTE(repair_prj);
+	RESET_PROFILER_PROBE(repair_prj_tmo);
+	RESET_PROFILER_PROBE(repair_prj_err);    
 	uma_dbg_send(tcpRef, bufRef, TRUE, "Reset Done\n");    
 	return;
       }
@@ -242,6 +246,10 @@ void show_profiler(char * argv[], uint32_t tcpRef, void *bufRef) {
     SHOW_PROFILER_PROBE_BYTE(truncate_prj);
     SHOW_PROFILER_PROBE(truncate_prj_tmo);
     SHOW_PROFILER_PROBE(truncate_prj_err);
+    SHOW_PROFILER_PROBE_BYTE(repair)
+    SHOW_PROFILER_PROBE_BYTE(repair_prj);
+    SHOW_PROFILER_PROBE(repair_prj_tmo);
+    SHOW_PROFILER_PROBE(repair_prj_err);
     uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
 }
 

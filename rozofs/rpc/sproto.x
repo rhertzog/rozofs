@@ -62,6 +62,41 @@ struct sp_write_arg_no_bins_t {
     uint32_t    len;
 };
 
+struct sp_write_repair_arg_t {
+    uint16_t    cid;
+    uint8_t     sid;          
+    uint8_t     layout;
+    uint8_t     spare;
+    uint32_t     dist_set[ROZOFS_SAFE_MAX_RPC];
+    sp_uuid_t   fid;        
+    uint8_t     proj_id;     
+    uint64_t    bid;
+    uint32_t    nb_proj;
+    uint32_t    alignment;
+    uint64_t    bitmap;
+    opaque      bins<>;
+};
+
+
+/*
+** write repair structure without the bins -> use for storcli
+*/
+struct sp_write_repair_arg_no_bins_t {
+    uint16_t    cid;
+    uint8_t     sid;          
+    uint8_t     layout;
+    uint8_t     spare;
+    uint32_t     dist_set[ROZOFS_SAFE_MAX_RPC];
+    sp_uuid_t   fid;        
+    uint8_t     proj_id;     
+    uint64_t    bid;
+    uint32_t    nb_proj;
+    uint32_t    alignment;
+    uint64_t    bitmap;
+    uint32_t    len;
+};
+
+
 struct sp_read_arg_t {
     uint16_t    cid;
     uint8_t     sid;
@@ -133,5 +168,7 @@ program STORAGE_PROGRAM {
         sp_status_ret_t
         SP_TRUNCATE(sp_truncate_arg_t)  = 3;
 
+        sp_write_ret_t
+        SP_WRITE_REPAIR(sp_write_repair_arg_t)        = 4;
     }=1;
 } = 0x20000002;

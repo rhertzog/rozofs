@@ -427,6 +427,88 @@ static inline void storio_disk_truncate(rozofs_disk_thread_ctx_t *thread_ctx_p,s
   thread_ctx_p->stat.diskTruncate_time +=(timeAfter-timeBefore);  
 }    
 
+/*__________________________________________________________________________
+*/
+/**
+*  repair data of a file
+
+  @param thread_ctx_p: pointer to the thread context
+  @param msg         : address of the message received
+  
+  @retval: none
+*/
+static inline void storio_disk_write_repair(rozofs_disk_thread_ctx_t *thread_ctx_p,storio_disk_thread_msg_t * msg) {
+  struct timeval     timeDay;
+  unsigned long long timeBefore, timeAfter;
+  storage_t *st = 0;
+  sp_write_repair_arg_no_bins_t * args;
+  rozorpc_srv_ctx_t      * rpcCtx;
+  sp_write_ret_t           ret;
+  uint8_t                  version = 0;
+  int                      size;
+  
+  gettimeofday(&timeDay,(struct timezone *)0);  
+  timeBefore = MICROLONG(timeDay);
+
+  ret.status = SP_FAILURE;          
+  
+  /*
+  ** update statistics
+  */
+  thread_ctx_p->stat.diskRepair_count++;
+  
+  rpcCtx = msg->rpcCtx;
+  args   = (sp_write_repair_arg_no_bins_t*) ruc_buf_getPayload(rpcCtx->decoded_arg);
+
+  /*
+  ** set the pointer to the bins
+  */
+  char *pbuf = ruc_buf_getPayload(rpcCtx->recv_buf); 
+  pbuf += rpcCtx->position;
+  
+  /*
+  ** Use received buffer for the response
+  */
+  rpcCtx->xmitBuf  = rpcCtx->recv_buf;
+  rpcCtx->recv_buf = NULL;
+  
+
+  // Get the storage for the couple (cid;sid)
+  if ((st = storaged_lookup(args->cid, args->sid)) == 0) {
+    ret.sp_write_ret_t_u.error = errno;
+    storio_encode_rpc_response(rpcCtx,(char*)&ret);  
+    thread_ctx_p->stat.diskRepair_badCidSid++ ;   
+    storio_send_response(thread_ctx_p,msg,-1);
+    return;
+  }
+  
+
+
+  // Repair the projections
+  size =  storage_write_repair(st, args->layout, (sid_t *) args->dist_set, args->spare,
+          (unsigned char *) args->fid, args->bid, args->nb_proj,args->bitmap, version,
+          &ret.sp_write_ret_t_u.file_size,
+          (bin_t *) pbuf);
+  if (size <= 0)  {
+    ret.sp_write_ret_t_u.error = errno;
+    storio_encode_rpc_response(rpcCtx,(char*)&ret);  
+    thread_ctx_p->stat.diskRepair_error++; 
+    storio_send_response(thread_ctx_p,msg,-1);
+    return;
+  }
+  ret.status = SP_SUCCESS;          
+  msg->size = size;        
+  storio_encode_rpc_response(rpcCtx,(char*)&ret);  
+  thread_ctx_p->stat.diskRepair_Byte_count += size;
+  storio_send_response(thread_ctx_p,msg,0);
+
+  /*
+  ** Update statistics
+  */
+  gettimeofday(&timeDay,(struct timezone *)0);  
+  timeAfter = MICROLONG(timeDay);
+  thread_ctx_p->stat.diskRepair_time +=(timeAfter-timeBefore);  
+}    
 
 /*
 **   D I S K   T H R E A D
@@ -471,7 +553,11 @@ void *storio_disk_thread(void *arg) {
       case STORIO_DISK_THREAD_TRUNCATE:
         storio_disk_truncate(ctx_p,&msg);
         break;
-       	
+
+      case STORIO_DISK_THREAD_WRITE_REPAIR:
+        storio_disk_write_repair(ctx_p,&msg);
+        break;
+	       	
       default:
         fatal(" unexpected opcode : %d\n",msg.opcode);
         exit(0);       

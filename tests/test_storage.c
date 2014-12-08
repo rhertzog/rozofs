@@ -7,6 +7,7 @@
 #include <rozofs/common/xmalloc.h>
 #include <rozofs/common/transform.h>
 #include <src/storaged/storage.h>
+#include <src/storaged/storio_crc32.h>
 
 int main(int argc, char **argv) {
     storage_t st;
@@ -31,7 +32,11 @@ int main(int argc, char **argv) {
 
     // Initialize the layout table
     rozofs_layout_initialize();
-
+    /*
+    ** init of the crc32
+    */
+    crc32c_init(0 /*generate_enable*/,0/* check_enable*/,0 /*hw_forced*/);
+    
     // Initialize the storage root ditectory
     fprintf(stdout, "Initialize storage with SID: %u\n", sid);
     if (storage_initialize(&st, cid, sid, "/tmp") != 0) {

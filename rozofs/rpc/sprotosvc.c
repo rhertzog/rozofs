@@ -24,6 +24,7 @@ storage_program_1(struct svc_req *rqstp, register SVCXPRT *transp)
 		sp_write_arg_t sp_write_1_arg;
 		sp_read_arg_t sp_read_1_arg;
 		sp_truncate_arg_t sp_truncate_1_arg;
+		sp_write_repair_arg_t sp_write_repair_1_arg;
 	} argument;
 	char *result;
 	xdrproc_t _xdr_argument, _xdr_result;
@@ -52,6 +53,12 @@ storage_program_1(struct svc_req *rqstp, register SVCXPRT *transp)
 		_xdr_argument = (xdrproc_t) xdr_sp_truncate_arg_t;
 		_xdr_result = (xdrproc_t) xdr_sp_status_ret_t;
 		local = (char *(*)(char *, struct svc_req *)) sp_truncate_1_svc;
+		break;
+
+	case SP_WRITE_REPAIR:
+		_xdr_argument = (xdrproc_t) xdr_sp_write_repair_arg_t;
+		_xdr_result = (xdrproc_t) xdr_sp_write_ret_t;
+		local = (char *(*)(char *, struct svc_req *)) sp_write_repair_1_svc;
 		break;
 
 	default:

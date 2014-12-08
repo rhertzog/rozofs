@@ -67,6 +67,7 @@
 #include "config.h"
 #include "sconfig.h"
 #include "storage.h"
+#include "storio_crc32.h"
 
 extern sconfig_t storaged_config;
 
@@ -139,6 +140,7 @@ static void show_profile_storaged_io_display(char * argv[], uint32_t tcpRef, voi
 	sp_clear_io_probe(gprofiler, read);
 	sp_clear_io_probe(gprofiler, write);
 	sp_clear_io_probe(gprofiler, truncate);
+	sp_clear_io_probe(gprofiler, repair);
 	uma_dbg_send(tcpRef, bufRef, TRUE, "Reset Done");
 	return;      
       }
@@ -168,6 +170,7 @@ static void show_profile_storaged_io_display(char * argv[], uint32_t tcpRef, voi
     sp_display_io_probe(gprofiler, read);
     sp_display_io_probe(gprofiler, write);
     sp_display_io_probe(gprofiler, truncate);
+    sp_display_io_probe(gprofiler, repair);
     uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
 }
 
@@ -394,7 +397,6 @@ int storio_start_nb_th(void *args) {
         info("storio started (instance: %d, dbg port: %d).",
                 args_p->instance_id, args_p->debug_port);
     }
-
   /*
    ** main loop
    */

@@ -1312,4 +1312,49 @@ void storcli_lbg_cnx_polling(af_unix_ctx_generic_t  *sock_p);
 */
 void rozofs_storcli_write_req_processing(rozofs_storcli_ctx_t *working_ctx_p);
 
+/*
+**__________________________________________________________________________
+*/
+/**
+*   That function check if a repair block procedure has to be launched after a successfull read
+    The goal is to detect the block for which the storage node has reported a crc error
+    
+    @param working_ctx_p: storcli working context of the read request
+    @param rozofs_safe : max number of context to check
+    @param rozofs_fwd : number of projection in the optimal distribution associated with the layout
+    
+    @retval 0 : no crc error 
+    @retval 1 : there is at least one block with a crc error
+*/
+int rozofs_storcli_check_repair(rozofs_storcli_ctx_t *working_ctx_p,int rozofs_safe,int rozofs_fwd);
+
+/*
+**__________________________________________________________________________
+*/
+/**
+*  Get the Mojette projection identifier according to the distribution
+
+   @param dist_p : pointer to the distribution set
+   @param sid : reference of the sid within the cluster
+   @param fwd : number of projections for a forward
+   
+   @retval >= 0 : Mojette projection id
+   @retval < 0 the sid belongs to the spare part of the distribution set
+*/
+
+int rozofs_storcli_get_mojette_proj_id(uint8_t *dist_p,uint8_t sid,uint8_t fwd);
+/*
+**__________________________________________________________________________
+*/
+/**
+  Initial write repair request
+
+
+  Here it is assumed that storclo is working with the context that has been allocated 
+  @param  working_ctx_p: pointer to the working context of a read transaction
+ 
+   @retval : TRUE-> xmit ready event expected
+  @retval : FALSE-> xmit  ready event not expected
+*/
+void rozofs_storcli_repair_req_init(rozofs_storcli_ctx_t *working_ctx_p);
 #endif

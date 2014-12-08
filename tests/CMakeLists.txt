@@ -122,9 +122,12 @@ add_executable(test_storage
     ${CMAKE_SOURCE_DIR}/rozofs/common/htable.c
     ${CMAKE_SOURCE_DIR}/src/storaged/storage.h
     ${CMAKE_SOURCE_DIR}/src/storaged/storage.c
+    ${CMAKE_SOURCE_DIR}/src/storaged/storio_crc32.c
+    ${CMAKE_SOURCE_DIR}/src/storaged/storio_crc32.h
+    rbs_stub.c
     test_storage.c
 )
-target_link_libraries(test_storage ${UUID_LIBRARY})
+target_link_libraries(test_storage ${UUID_LIBRARY} ${PTHREAD_LIBRARY})
 
 add_executable(test_sconfig
     ${CMAKE_SOURCE_DIR}/rozofs/common/xmalloc.h
@@ -243,9 +246,12 @@ add_executable(test_rbs
     ${CMAKE_SOURCE_DIR}/src/storaged/rbs_eclient.h
     ${CMAKE_SOURCE_DIR}/src/storaged/rbs_eclient.c
     ${CMAKE_SOURCE_DIR}/src/storaged/rbs.c
+    ${CMAKE_SOURCE_DIR}/src/storaged/storio_crc32.c
+    ${CMAKE_SOURCE_DIR}/src/storaged/storio_crc32.h
+    rbs_stub.c
     test_rbs.c
 )
-target_link_libraries(test_rbs ${UUID_LIBRARY})
+target_link_libraries(test_rbs ${UUID_LIBRARY} ${PTHREAD_LIBRARY})
 
 add_executable(rw
     rw.c

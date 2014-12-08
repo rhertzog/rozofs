@@ -378,6 +378,8 @@ void rozofs_storcli_read_req_init(uint32_t  socket_ctx_idx,
      working_ctx_p->prj_ctx[i].prj_state = ROZOFS_PRJ_READ_IDLE;
      working_ctx_p->prj_ctx[i].prj_buf   = NULL;   
      working_ctx_p->prj_ctx[i].bins       = NULL;   
+     working_ctx_p->prj_ctx[i].crc_err_bitmap = 0;
+
    }
    working_ctx_p->cur_nmbs2read = 0;  /**< relative index of the starting nmbs */
    working_ctx_p->cur_nmbs = 0;
@@ -674,7 +676,6 @@ retry:
      request->sid = (uint8_t) rozofs_storcli_lbg_prj_get_sid(working_ctx_p->lbg_assoc_tb,prj_cxt_p[projection_id].stor_idx);;
      request->layout        = storcli_read_rq_p->layout;
      if (prj_cxt_p[projection_id].stor_idx >= rozofs_forward) request->spare = 1;
-//     if (projection_id >= rozofs_forward) request->spare = 1;
      else request->spare = 0;
      memcpy(request->dist_set, storcli_read_rq_p->dist_set, ROZOFS_SAFE_MAX*sizeof (uint8_t));
      memcpy(request->fid, storcli_read_rq_p->fid, sizeof (sp_uuid_t));
@@ -1090,6 +1091,7 @@ void rozofs_storcli_read_req_processing_cbk(void *this,void *param)
    uint8_t layout         = storcli_read_rq_p->layout;
    uint8_t rozofs_safe    = rozofs_get_rozofs_safe(layout);
    uint8_t rozofs_inverse = rozofs_get_rozofs_inverse(layout);
+   uint8_t rozofs_forward = rozofs_get_rozofs_forward(layout);
    rozofs_max_psize       = rozofs_get_max_psize(layout);
     /*
     ** get the sequence number and the reference of the projection id form the opaque user array
@@ -1211,7 +1213,6 @@ void rozofs_storcli_read_req_processing_cbk(void *this,void *param)
       if ( rozofs_status.status != SP_SUCCESS )
       {
         errno = rozofs_status.sp_status_ret_t_u.error;
-//        printf("FDL storage error %s\n",strerror(errno));
         if (errno == ENOENT) {
           STORCLI_ERR_PROF(read_prj_enoent); 	
 	}
@@ -1480,7 +1481,21 @@ void rozofs_storcli_read_req_processing_cbk(void *this,void *param)
       ** attempt to read block with the next distribution
       */
       return rozofs_storcli_read_req_processing(working_ctx_p);        
-    }    
+    } 
+    /*
+    ** check for auto-repair because of potential crc error
+    */
+#warning auto-repair
+    {
+      int ret = rozofs_storcli_check_repair(working_ctx_p,rozofs_safe,rozofs_forward);  
+      if (ret != 0)
+      {
+         rozofs_tx_free_from_ptr(this);      
+         rozofs_storcli_repair_req_init(working_ctx_p);
+	 return;
+      }
+    
+    }
     /*
     ** read is finished, send back the buffer to the client (rozofsmount)
     */       
