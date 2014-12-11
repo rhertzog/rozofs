@@ -606,6 +606,17 @@ class Platform(object):
 
             # configure the storaged
             sconfig = self._nodes[h].get_configurations(Role.STORAGED)
+
+            # Check if a storage is already configured for this node
+            # If no storage configured crc32 activation is forced
+            if len(sconfig[Role.STORAGED].storages) == 0:
+                if sconfig[Role.STORAGED].crc32c_check is None:
+                    sconfig[Role.STORAGED].crc32c_check = True
+                if sconfig[Role.STORAGED].crc32c_generate is None:
+                    sconfig[Role.STORAGED].crc32c_generate = True
+                if sconfig[Role.STORAGED].crc32c_hw_forced is None:
+                    sconfig[Role.STORAGED].crc32c_hw_forced = True
+
             sconfig[Role.STORAGED].storages[(cid, sid)] = StorageConfig(cid,
                  sid, "%s/storage_%d_%d" % (STORAGES_ROOT, cid, sid))
             self._nodes[h].set_configurations(sconfig)
