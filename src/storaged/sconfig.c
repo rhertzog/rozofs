@@ -104,7 +104,8 @@ int sconfig_read(sconfig_t *config, const char *fname) {
 
     if (config_read_file(&cfg, fname) == CONFIG_FALSE) {
         errno = EIO;
-        severe("can't read %s : %s.", fname, config_error_text(&cfg));
+        severe("can't read %s: %s (line %d).", fname, config_error_text(&cfg),
+                config_error_line(&cfg));
         goto out;
     }
 
