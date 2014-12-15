@@ -10,12 +10,15 @@ URL: http://www.rozofs.com
 Source0: rozofs-@VERSION@.tar.gz
 
 # Manage by cmake
-BuildRequires: libuuid-devel libattr-devel readline-devel python-devel cmake
+BuildRequires: libuuid-devel libattr-devel readline-devel cmake
 BuildRequires: fuse-devel python-devel swig libconfig-devel
 %{?systemd_requires}
 
 %description
-RozoFS is a scale-out NAS using erasure coding.
+RozoFS is a scale-out distributed network POSIX file system using erasure 
+coding algorithm for data distribution. RozoFS designed to provide very high 
+availability levels with optimized raw capacity usage on heterogeneous 
+commodity hardware.
 
 %package exportd
 Summary: RozoFS filesystem (export package).
@@ -42,7 +45,7 @@ Requires: fuse
 rozofsmount mounts RozoFS filesystems using FUSE.
 
 %package rprof
-Summary: Rozofs filesystem (profiling package).
+Summary: RozoFS filesystem (profiling package).
 License: GPLv2
 Group: System Environment/File
 %description rprof
@@ -60,12 +63,12 @@ rozodiag allows deep audit of RozoFS filesystems.
 Summary: RozoFS filesystem (management library package).
 License: GPLv2
 Group: System Environment/File
-Requires: libconfig PyYAML psmisc
+Requires: libconfig PyYAML psmisc python-pyro3
 %description manager-lib
 Python management libraries for RozoFS.
 
 %package manager-cli
-Summary: Rozofs filesystem (management cli package).
+Summary: RozoFS filesystem (management cli package).
 License: GPLv2
 Group: System Environment/File
 Requires: rozofs-manager-lib python
@@ -73,7 +76,7 @@ Requires: rozofs-manager-lib python
 Management command-line for RozoFS.
 
 %package manager-agent
-Summary: Rozofs filesystem (management agent package).
+Summary: RozoFS filesystem (management agent package).
 License: GPLv2
 Group: System Environment/File
 Requires: rozofs-manager-lib rozofs-manager-cli

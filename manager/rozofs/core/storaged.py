@@ -20,15 +20,18 @@ import os
 from rozofs.core.configuration import ConfigurationParser, ConfigurationReader, \
     ConfigurationWriter
 from rozofs.core.libconfig import config_setting_add, CONFIG_TYPE_INT, \
-    config_setting_set_int, CONFIG_TYPE_LIST, CONFIG_TYPE_GROUP, CONFIG_TYPE_STRING, \
+    config_setting_set_int, CONFIG_TYPE_LIST, CONFIG_TYPE_GROUP, \
+    CONFIG_TYPE_STRING, CONFIG_TYPE_BOOL, \
     config_setting_set_string, config_lookup, config_setting_get_int, \
     config_setting_length, config_setting_get_elem, config_setting_get_member, \
     config_setting_get_string, config_setting_set_int_elem, \
-    config_setting_get_int_elem
+    config_setting_get_int_elem, config_setting_get_bool, \
+    config_setting_set_bool
 from rozofs.core.daemon import DaemonManager
 from rozofs.core.constants import LAYOUT, STORAGES, STORAGE_SID, STORAGE_CID, STORAGE_ROOT, \
     LAYOUT_2_3_4, STORAGED_MANAGER, LAYOUT_4_6_8, LAYOUT_8_12_16, LISTEN, \
-    LISTEN_ADDR, LISTEN_PORT, THREADS, NBCORES, STORIO
+    LISTEN_ADDR, LISTEN_PORT, THREADS, NBCORES, STORIO, CRC32C_CHECK, \
+    CRC32C_GENERATE, CRC32C_HW_FORCED
 from rozofs.core.agent import Agent, ServiceStatus
 from rozofs import __sysconfdir__
 import collections
@@ -47,10 +50,15 @@ class ListenConfig():
         self.port = port
 
 class StoragedConfig():
-    def __init__(self, threads=None, nbcores=None, storio=None, listens=[], storages={}):
+    def __init__(self, threads=None, nbcores=None, storio=None,
+                 crc32c_check=None, crc32c_generate=None, crc32c_hw_forced=None,
+                 listens=[], storages={}):
         self.threads = threads
         self.nbcores = nbcores
         self.storio = storio
+        self.crc32c_check = crc32c_check
+        self.crc32c_generate = crc32c_generate
+        self.crc32c_hw_forced = crc32c_hw_forced
         # keys is a tuple (cid, sid)
         self.storages = storages
         self.listens = listens
@@ -70,6 +78,18 @@ class StoragedConfigurationParser(ConfigurationParser):
         if configuration.storio is not None:
              storio_setting = config_setting_add(config.root, STORIO, CONFIG_TYPE_STRING)
              config_setting_set_string(storio_setting, configuration.storio)
+
+        if configuration.crc32c_check is not None:
+             crc32c_check_setting = config_setting_add(config.root, CRC32C_CHECK, CONFIG_TYPE_BOOL)
+             config_setting_set_bool(crc32c_check_setting, configuration.crc32c_check)
+
+        if configuration.crc32c_generate is not None:
+             crc32c_gen_setting = config_setting_add(config.root, CRC32C_GENERATE, CONFIG_TYPE_BOOL)
+             config_setting_set_bool(crc32c_gen_setting, configuration.crc32c_generate)
+
+        if configuration.crc32c_hw_forced is not None:
+             crc32c_hw_forced_setting = config_setting_add(config.root, CRC32C_HW_FORCED, CONFIG_TYPE_BOOL)
+             config_setting_set_bool(crc32c_hw_forced_setting, configuration.crc32c_hw_forced)
 
         listen_settings = config_setting_add(config.root, LISTEN, CONFIG_TYPE_LIST)
         for listen in configuration.listens:
@@ -102,6 +122,18 @@ class StoragedConfigurationParser(ConfigurationParser):
         storio_setting = config_lookup(config, STORIO)
         if storio_setting is not None:
             configuration.storio = config_setting_get_string(storio_setting)
+
+        crc32c_check_setting = config_lookup(config, CRC32C_CHECK)
+        if crc32c_check_setting is not None:
+            configuration.crc32c_check = config_setting_get_bool(crc32c_check_setting)
+
+        crc32c_gen_setting = config_lookup(config, CRC32C_GENERATE)
+        if crc32c_gen_setting is not None:
+            configuration.crc32c_generate = config_setting_get_bool(crc32c_gen_setting)
+
+        crc32c_hw_forced_setting = config_lookup(config, CRC32C_HW_FORCED)
+        if crc32c_hw_forced_setting is not None:
+            configuration.crc32c_hw_forced = config_setting_get_bool(crc32c_hw_forced_setting)
 
         listen_settings = config_lookup(config, LISTEN)
         configuration.listens = []

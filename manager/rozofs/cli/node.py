@@ -125,11 +125,25 @@ def config(platform, args):
                 role_l.append({'EXPORTD':exportd_l})
 
             if (role & Role.STORAGED == Role.STORAGED):
-                storage_l = []
+                options_l = []
                 interface_l = []
+                storage_l = []
+
+                if config.nbcores is not None:
+                    options_l.append({'nbcores' : config.nbcores})
+                if config.threads is not None:
+                    options_l.append({'threads' : config.threads})
+                if config.storio is not None:
+                    options_l.append({'storio' : config.storio})
+                options_l.append({'crc32c_check' : bool(config.crc32c_check)})
+                options_l.append({'crc32c_generate' : bool(config.crc32c_generate)})
+                options_l.append({'crc32c_hw_forced' : bool(config.crc32c_hw_forced)})
+                storage_l.append({'OPTIONS':options_l})
+
                 for lconfig in config.listens:
                     interface_l.append({lconfig.addr : lconfig.port})
                 storage_l.append({'INTERFACE':interface_l})
+
                 keylist = config.storages.keys()
                 keylist.sort()
                 st_l = []
@@ -138,6 +152,7 @@ def config(platform, args):
                     st_l.append({'cid ' + str(st.cid) + ', sid '+
                         str(st.sid) : st.root})
                 storage_l.append({'STORAGE': st_l})
+
                 role_l.append({'STORAGED': storage_l})
 
             if (role & Role.ROZOFSMOUNT == Role.ROZOFSMOUNT):
