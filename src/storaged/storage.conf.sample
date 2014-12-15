@@ -1,6 +1,14 @@
 #
-# rozofs storage daemon configuration file.
+# RozoFS storage daemon configuration file.
 #
+
+# Boolean (true or false) indicating if a check (thanks to CRC error
+# detecting code) will be used for detect accidental changes to raw data.
+crc32c_check = true;
+
+# Boolean (true or false) indicating if a checksum must be generated (thanks to
+# CRC error detecting code) for each write request.
+crc32c_generate = true;
 
 # listen: (mandatory)
 #   Specifies list of IP(s) (or hostname(s)) and port(s) the storio process should listen on for receive write and read requests from clients.

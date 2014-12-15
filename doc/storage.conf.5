@@ -27,6 +27,19 @@ Specifies if storaged start one or multiple storio process(es). (default: "singl
            - "single"; (one storio for all the listening port(s), it's the default value)
            - "multiple"; (one storio per listening port)
 
+.SS crc32c_check (optional)
+
+Boolean (true or false) indicating if a check (thanks to CRC error detecting code) will be used for detect accidental changes to raw data.
+ 
+.SS crc32c_generate (optional)
+
+Boolean (true or false) indicating if a checksum must be generated (thanks to CRC error detecting code) for each write request.
+
+.SS crc32c_hw_forced (optional)
+
+That boolean (true or false) can be asserted if the information reported by cpuid does not indicates that hardware CRC is supported whilst the current CPU supports it.
+This might be the case with VirtualBox.
+
 .SS listen (mandatory)
 
 Specifies list of IP(s) (or hostname(s)) and port(s) the storio process should listen on for receive write and read requests from clients.
