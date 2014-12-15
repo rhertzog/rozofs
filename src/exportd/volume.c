@@ -249,8 +249,10 @@ void volume_balance(volume_t *volume) {
             }
 
             // Update cluster stats
-            cluster->free += vs->stat.free;
-            cluster->size += vs->stat.size;
+	    if (vs->status) {
+              cluster->free += vs->stat.free;
+              cluster->size += vs->stat.size;
+	    }  
 
             mclient_release(&mclt);
         }
