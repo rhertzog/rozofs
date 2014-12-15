@@ -151,8 +151,8 @@ class Node(object):
                 raise Exception("no %s agent reachable for host: %s" % (ROLES_STR[role], self._host))
             except ProtocolError:
                 raise Exception("rozofs-manager agent is not reachable for host: %s" % self._host)
-            except Exception:
-                raise
+            except Exception as e:
+                raise type(e)(e.message + ' on host: %s' % self._host)
 
         return configurations
 

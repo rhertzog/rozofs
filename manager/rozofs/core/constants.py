@@ -56,6 +56,7 @@ STORAGE_CID = "cid"
 STORAGE_SID = "sid"
 STORAGE_ROOT = "root"
 SID_MAX = 255
+STORAGE_PORTS_MAX = 32
 
 LAYOUT = "layout"
 VOLUMES = "volumes"

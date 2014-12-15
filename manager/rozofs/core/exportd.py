@@ -195,22 +195,26 @@ class ExportdConfigurationParser(ConfigurationParser):
             configuration.nbcores = config_setting_get_int(nbcores_setting)
 
         layout_setting = config_lookup(config, LAYOUT)
-        if layout_setting == None:
-            raise Exception("wrong format: no layout defined.")
+        if layout_setting is not None:
+            configuration.layout = config_setting_get_int(layout_setting)
+        else:
+            raise SyntaxError("can't lookup key '%s'" % LAYOUT)
 
-        configuration.layout = config_setting_get_int(layout_setting)
 
         volumes_setting = config_lookup(config, VOLUMES)
-        # if volumes_setting == None:
-        #    raise Exception(config.error_text)
 
         configuration.volumes = {}
         if volumes_setting is not None:
             for i in range(config_setting_length(volumes_setting)):
+
                 volume_setting = config_setting_get_elem(volumes_setting, i)
-                
+
                 vid_setting = config_setting_get_member(volume_setting, VOLUME_VID)
-                vid = config_setting_get_int(vid_setting)
+                if vid_setting is not None:
+                    vid = config_setting_get_int(vid_setting)
+                else:
+                    raise SyntaxError("can't lookup key '%s' in volume idx: %d"
+                                       % (VOLUME_VID, i))
 
                 layout = None
                 volume_layout_setting =  config_setting_get_member(volume_setting, LAYOUT)
@@ -218,44 +222,111 @@ class ExportdConfigurationParser(ConfigurationParser):
                     layout = config_setting_get_int(volume_layout_setting)
 
                 clusters_setting = config_setting_get_member(volume_setting, VOLUME_CIDS)
-                clusters = {}
-                for j in range(config_setting_length(clusters_setting)):
-                    cluster_setting = config_setting_get_elem(clusters_setting, j)
-                    cid_setting = config_setting_get_member(cluster_setting, VOLUME_CID)
-                    cid = config_setting_get_int(cid_setting)
-                    storages = {}
-                    sids_setting = config_setting_get_member(cluster_setting, VOLUME_SIDS)
-                    for k in range(config_setting_length(sids_setting)):
-                        storage_setting = config_setting_get_elem(sids_setting, k)
-                        sid_setting = config_setting_get_member(storage_setting, VOLUME_SID)
-                        sid = config_setting_get_int(sid_setting)
-                        host_setting = config_setting_get_member(storage_setting, VOLUME_HOST)
-                        host = config_setting_get_string(host_setting)
-                        storages[sid] = host
-                        clusters[cid] = ClusterConfig(cid, storages)
+                if clusters_setting is not None:
+
+                    clusters = {}
+                    for j in range(config_setting_length(clusters_setting)):
+
+                        cluster_setting = config_setting_get_elem(clusters_setting, j)
+
+                        cid_setting = config_setting_get_member(cluster_setting, VOLUME_CID)
+                        if cid_setting is not None:
+                            cid = config_setting_get_int(cid_setting)
+                        else:
+                            raise SyntaxError("can't lookup key '%s'"
+                                              " for volume idx: %d,"
+                                              " cluster idx: %d" 
+                                              % (VOLUME_CID, i, j))
+
+                        storages = {}
+                        sids_setting = config_setting_get_member(cluster_setting, VOLUME_SIDS)
+                        if sids_setting is None:
+                            raise SyntaxError("can't lookup key '%s'"
+                                              " for volume idx: %d,"
+                                              " cluster idx: %d" 
+                                              % (VOLUME_SIDS, i, j))
+
+                        for k in range(config_setting_length(sids_setting)):
+                            storage_setting = config_setting_get_elem(sids_setting, k)
+                            
+                            sid_setting = config_setting_get_member(storage_setting, VOLUME_SID)
+                            if sid_setting is not None:
+                                sid = config_setting_get_int(sid_setting)
+                            else:
+                                raise SyntaxError("can't lookup key '%s' for"
+                                                  " volume idx: %d,"
+                                                  " cluster idx: %d,"
+                                                  " storage idx: %d"
+                                                   % (VOLUME_SID, i, j, k))
+
+                            host_setting = config_setting_get_member(storage_setting, VOLUME_HOST)
+                            if host_setting is not None:
+                                host = config_setting_get_string(host_setting)
+                            else:
+                                raise SyntaxError("can't lookup key '%s' for"
+                                                  " volume idx: %d,"
+                                                  " cluster idx: %d,"
+                                                  " storage idx: %d"
+                                                   % (VOLUME_HOST, i, j, k))
+
+                            storages[sid] = host
+                            clusters[cid] = ClusterConfig(cid, storages)
                     configuration.volumes[vid] = VolumeConfig(vid, layout, clusters)
+                else:
+                    raise SyntaxError("can't lookup key '%s' in volume idx: %d"
+                                      % (VOLUME_CIDS, i))
 
         export_settings = config_lookup(config, EXPORTS)
-        # if export_settings == None:
-        #    raise Exception(config.error_text)
-
         configuration.exports = {}
+
         if export_settings is not None:
             for i in range(config_setting_length(export_settings)):
                 export_setting = config_setting_get_elem(export_settings, i)
+
                 eid_setting = config_setting_get_member(export_setting, EXPORT_EID)
-                eid = config_setting_get_int(eid_setting)
+                if eid_setting is not None:
+                    eid = config_setting_get_int(eid_setting)
+                else:
+                    raise SyntaxError("can't lookup key '%s' in export idx: %d"
+                                       % (EXPORT_EID, i))
+
                 vid_setting = config_setting_get_member(export_setting, VOLUME_VID)
-                vid = config_setting_get_int(vid_setting)
+                if vid_setting is not None:
+                    vid = config_setting_get_int(vid_setting)
+                else:
+                    raise SyntaxError("can't lookup key '%s' in export idx: %d"
+                                       % (VOLUME_VID, i))
+
                 root_setting = config_setting_get_member(export_setting, EXPORT_ROOT)
-                root = config_setting_get_string(root_setting)
+                if root_setting is not None:
+                    root = config_setting_get_string(root_setting)
+                else:
+                    raise SyntaxError("can't lookup key '%s' in export idx: %d"
+                                       % (EXPORT_ROOT, i))
+
                 md5_setting = config_setting_get_member(export_setting, EXPORT_MD5)
-                md5 = config_setting_get_string(md5_setting)
+                if md5_setting is not None:
+                    md5 = config_setting_get_string(md5_setting)
+                else:
+                    raise SyntaxError("can't lookup key '%s' in export idx: %d"
+                                       % (EXPORT_MD5, i))
+
                 sqt_setting = config_setting_get_member(export_setting, EXPORT_SQUOTA)
-                sqt = config_setting_get_string(sqt_setting)
+                if sqt_setting is not None:
+                    sqt = config_setting_get_string(sqt_setting)
+                else:
+                    raise SyntaxError("can't lookup key '%s' in export idx: %d"
+                                       % (EXPORT_SQUOTA, i))
+
                 hqt_setting = config_setting_get_member(export_setting, EXPORT_HQUOTA)
-                hqt = config_setting_get_string(hqt_setting)
-                configuration.exports[eid] = ExportConfig(eid, vid, root, md5, sqt, hqt)
+                if hqt_setting is not None:
+                    hqt = config_setting_get_string(hqt_setting)
+                else:
+                    raise SyntaxError("can't lookup key '%s' in export idx: %d"
+                                       % (EXPORT_HQUOTA, i))
+
+                configuration.exports[eid] = ExportConfig(eid, vid, root,
+                                                          md5, sqt, hqt)
 
 class ExportdAgent(Agent):
     """ exportd agent """

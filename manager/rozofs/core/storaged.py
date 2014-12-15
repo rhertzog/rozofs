@@ -31,7 +31,7 @@ from rozofs.core.daemon import DaemonManager
 from rozofs.core.constants import LAYOUT, STORAGES, STORAGE_SID, STORAGE_CID, STORAGE_ROOT, \
     LAYOUT_2_3_4, STORAGED_MANAGER, LAYOUT_4_6_8, LAYOUT_8_12_16, LISTEN, \
     LISTEN_ADDR, LISTEN_PORT, THREADS, NBCORES, STORIO, CRC32C_CHECK, \
-    CRC32C_GENERATE, CRC32C_HW_FORCED
+    CRC32C_GENERATE, CRC32C_HW_FORCED, STORAGE_PORTS_MAX
 from rozofs.core.agent import Agent, ServiceStatus
 from rozofs import __sysconfdir__
 import collections
@@ -135,28 +135,90 @@ class StoragedConfigurationParser(ConfigurationParser):
         if crc32c_hw_forced_setting is not None:
             configuration.crc32c_hw_forced = config_setting_get_bool(crc32c_hw_forced_setting)
 
+
         listen_settings = config_lookup(config, LISTEN)
-        configuration.listens = []
-        for i in range(config_setting_length(listen_settings)):
-            listen_setting = config_setting_get_elem(listen_settings, i)
-            addr_setting = config_setting_get_member(listen_setting, LISTEN_ADDR)
-            addr = config_setting_get_string(addr_setting)
-            port_setting = config_setting_get_member(listen_setting, LISTEN_PORT)
-            port = config_setting_get_int(port_setting)
-            configuration.listens.append(ListenConfig(addr, port))
+        if listen_settings is not None:
+
+            nb_io_addr = config_setting_length(listen_settings)
+
+            if nb_io_addr == 0:
+                raise SyntaxError("no IO listen address defined")
+
+            if nb_io_addr > STORAGE_PORTS_MAX:
+                raise SyntaxError("too many IO listen addresses defined.%d "
+                                  "while max is %d." 
+                                  % (nb_io_addr, STORAGE_PORTS_MAX))
+
+            configuration.listens = []
+            for i in range(config_setting_length(listen_settings)):
+
+                listen_setting = config_setting_get_elem(listen_settings, i)
+
+                if listen_setting is not None:
+
+                    addr_setting = config_setting_get_member(listen_setting,
+                                                             LISTEN_ADDR)
+                    if addr_setting is not None:
+                        addr = config_setting_get_string(addr_setting)
+                    else:
+                        raise SyntaxError("can't lookup key '%s' in IO address "
+                                          "(idx: %d)" % (LISTEN_ADDR, i))
+
+                    port_setting = config_setting_get_member(listen_setting,
+                                                             LISTEN_PORT)
+                    if port_setting is not None:
+                        port = config_setting_get_int(port_setting)
+                    else:
+                        raise SyntaxError("can't lookup key '%s' in IO address "
+                                          "(idx: %d)" % (LISTEN_PORT, i))
+
+                    configuration.listens.append(ListenConfig(addr, port))
+
+                else:
+                    raise SyntaxError("can't fetch IO listen address(es)"
+                                      " settings (idx: %d)" % i);
+        else:
+            raise SyntaxError("can't fetch '%s' settings" % LISTEN)
+
 
         storage_settings = config_lookup(config, STORAGES)
-        configuration.storages = {}
-        for i in range(config_setting_length(storage_settings)):
-            storage_setting = config_setting_get_elem(storage_settings, i)
-            cid_setting = config_setting_get_member(storage_setting, STORAGE_CID)
-            cid = config_setting_get_int(cid_setting)
-            sid_setting = config_setting_get_member(storage_setting, STORAGE_SID)
-            sid = config_setting_get_int(sid_setting)
-            root_setting = config_setting_get_member(storage_setting, STORAGE_ROOT)
-            root = config_setting_get_string(root_setting)
-            configuration.storages[(cid, sid)] = StorageConfig(cid, sid, root)
 
+        if storage_settings is not None:
+
+            configuration.storages = {}
+
+            for i in range(config_setting_length(storage_settings)):
+
+                storage_setting = config_setting_get_elem(storage_settings, i)
+
+                cid_setting = config_setting_get_member(storage_setting,
+                                                        STORAGE_CID)
+                if cid_setting is not None:
+                    cid = config_setting_get_int(cid_setting)
+                else:
+                    raise SyntaxError("can't lookup key '%s' for "
+                                      "storage (idx: %d)" % (STORAGE_CID, i))
+
+                sid_setting = config_setting_get_member(storage_setting,
+                                                        STORAGE_SID)
+                if sid_setting is not None:
+                    sid = config_setting_get_int(sid_setting)
+                else:
+                    raise SyntaxError("can't lookup key '%s' for "
+                                      "storage (idx: %d)" % (STORAGE_SID, i))
+
+                root_setting = config_setting_get_member(storage_setting,
+                                                         STORAGE_ROOT)
+                if root_setting is not None:
+                    root = config_setting_get_string(root_setting)
+                else:
+                    raise SyntaxError("can't lookup key '%s' for "
+                                      "storage (idx: %d)" % (STORAGE_ROOT, i))
+
+                configuration.storages[(cid, sid)] = StorageConfig(cid, sid,
+                                                                   root)
+        else:
+            raise SyntaxError("can't fetch '%s' settings" % STORAGES)
 
 class StoragedAgent(Agent):
 
