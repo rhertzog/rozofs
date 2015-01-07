@@ -45,6 +45,7 @@ NBCORES = "nbcores"
 
 THREADS = "threads"
 STORIO = "storio"
+STORIO_VALID_VALUES = ["single", "multiple"]
 CRC32C_CHECK = "crc32c_check"
 CRC32C_GENERATE = "crc32c_generate"
 CRC32C_HW_FORCED = "crc32c_hw_forced"

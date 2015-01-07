@@ -23,7 +23,9 @@ from rozofs.core.constants import STORAGED_MANAGER, EXPORTD_MANAGER, \
 ROZOFSMOUNT_MANAGER
 import json
 from rozofs.cli.output import ordered_puts
+from rozofs.cli.exceptions import MultipleError
 from collections import OrderedDict
+import yaml
 
 ROLES_STR = {Role.EXPORTD: "EXPORTD", Role.STORAGED: "STORAGED", Role.ROZOFSMOUNT: "ROZOFSMOUNT"}
 STR_ROLES = {"exportd": Role.EXPORTD, "storaged": Role.STORAGED, "rozofsmount": Role.ROZOFSMOUNT}
@@ -56,24 +58,40 @@ def list(platform, args):
     ordered_puts(list_l)
 
 def status(platform, args):
+
     statuses = platform.get_statuses(args.nodes, __args_to_roles(args))
-    if statuses is None:
-        ordered_puts(OrderedDict({h:'down'}))
-    else:
-        status_l = {}
-        for h, s in statuses.items():
-            role_l = []
-            if s is not None:
-                for role, status in s.items():
-                    if status:
-                        role_l.append({ROLES_STR[role]: 'running'})
-                    else:
-                        role_l.append({ROLES_STR[role]: 'not running'})
+    status_l = {}
+    errors_l = {}
+
+    for h, s in statuses.items():
+        role_l = []
+        role_err_l = []
+
+        for role, status in s.items():
+
+            # Check exception
+            if isinstance(status, Exception):
+                # Update standard output dict
+                err_str = type(status).__name__ + ' (' + status.message + ')'
+                role_l.append({ROLES_STR[role]: err_str})
+                # Update errors dict
+                role_err_l.append({ROLES_STR[role]: err_str})
+                errors_l.update({'NODE: ' + str(h) : role_err_l})
+                continue
+            if status:
+                role_l.append({ROLES_STR[role]: 'running'})
             else:
-                status_l.update({h:"not reachable"})
-            if role_l:
-                status_l.update({h:role_l})
-        ordered_puts(status_l)
+                role_l.append({ROLES_STR[role]: 'not running'})
+
+        if role_l:
+            status_l.update({h:role_l})
+
+    # Display output
+    ordered_puts(status_l)
+
+    # Check errors
+    if errors_l:
+     raise MultipleError(errors_l)
 
 def start(platform, args):
     platform.start(args.nodes, __args_to_roles(args))
@@ -81,26 +99,42 @@ def start(platform, args):
 def stop(platform, args):
     platform.stop(args.nodes, __args_to_roles(args))
 
-def rebuild(platform, args):
-    platform.rebuild_storage_node(args.node[0])
-
 def config(platform, args):
     if not args.roles:
         args.roles = [EXPORTD_MANAGER, STORAGED_MANAGER, ROZOFSMOUNT_MANAGER]
-    configurations = platform.get_configurations(args.nodes, __args_to_roles(args))
-    host_l = {}
-    for h, c in configurations.items():
-        
-        # Why?
-        #if c is not None and not c:
-        #    return
 
+    configurations = platform.get_configurations(args.nodes, __args_to_roles(args))
+
+    errors_l = {}
+    host_l = {}
+
+    for h, c in configurations.items():
+
+        # Is-it necessary ?
         if c is None:
             host_l.update({'NODE: ' + str(h) : "not reachable"})
             continue
 
         role_l=[]
+        role_err_l = []
+
         for role, config in c.items():
+
+            # Check exception
+            if isinstance(config, Exception):
+
+                # Get error msg
+                err_str = type(config).__name__ + ' (' + config.message + ')'
+                # Update standard output dict
+                role_l.append({ROLES_STR[role]: err_str})
+                host_l.update({'NODE: ' + str(h) : role_l})
+
+                # Update errors dict
+                role_err_l.append({ROLES_STR[role]: err_str})
+                errors_l.update({'NODE: ' + str(h) : role_err_l})
+
+                continue
+
             if (role & Role.EXPORTD == Role.EXPORTD):
                 exportd_l = []
                 volume_l = []
@@ -165,6 +199,9 @@ def config(platform, args):
             host_l.update({'NODE: ' + str(h) : role_l})
 
     ordered_puts(host_l)
+
+    if errors_l:
+        raise MultipleError(errors_l)
 
 def dispatch(args):
     p = Platform(args.exportd)

@@ -31,6 +31,7 @@ from argparse import ArgumentParser, Namespace, Action
 from rozofs.core.constants import EXPORTD_MANAGER, STORAGED_MANAGER, \
     ROZOFSMOUNT_MANAGER
 from rozofs.cli.node import STR_ROLES
+from rozofs.cli.exceptions import MultipleError
 
 
 __all__ = []
@@ -101,6 +102,7 @@ def main(argv=None):  # IGNORE:C0111
         global_parser.add_argument('-V', '--version', action='version', version=program_version_message)
         global_parser.add_argument('-d', '--debug', action='store_true', default=False, help='set debugging on')
         global_parser.add_argument('-h', '--help', action='store_true', default=False, help='get help')
+        global_parser.add_argument('--verbose', action='store_true', default=False, help='get command status output')
 
         #
         # Topics
@@ -111,20 +113,23 @@ def main(argv=None):  # IGNORE:C0111
 
         topic_agent_parser = topic_subparsers.add_parser('agent', help='agent commands', add_help=False)
 
-        topic_layout_parser = topic_subparsers.add_parser('layout', help='layout commands', add_help=False)
-        topic_layout_parser.add_argument('-E', '--exportd', nargs='+', action = GetEnvValueAction, var_name = __export_host_env_var__, required = True, help = export_help_msg)
+        topic_exportd_parser = topic_subparsers.add_parser('exportd', help='exportd commands', add_help=False)
+        topic_exportd_parser.add_argument('-E', '--exportd', nargs='+', action = GetEnvValueAction, var_name = __export_host_env_var__, metavar = "HOST", required = True, help = export_help_msg)
 
         topic_node_parser = topic_subparsers.add_parser('node', help='node commands', add_help=False)
-        topic_node_parser.add_argument('-E', '--exportd', nargs='+', action = GetEnvValueAction, var_name = __export_host_env_var__, required = True, help = export_help_msg)
+        topic_node_parser.add_argument('-E', '--exportd', nargs='+', action = GetEnvValueAction, var_name = __export_host_env_var__, metavar = "HOST", required = True, help = export_help_msg)
 
         topic_volume_parser = topic_subparsers.add_parser('volume', help='volume commands', add_help=False)
-        topic_volume_parser.add_argument('-E', '--exportd', nargs='+', action = GetEnvValueAction, var_name = __export_host_env_var__, required = True, help = export_help_msg)
+        topic_volume_parser.add_argument('-E', '--exportd', nargs='+', action = GetEnvValueAction, var_name = __export_host_env_var__, metavar = "HOST", required = True, help = export_help_msg)
 
         topic_export_parser = topic_subparsers.add_parser('export', help='export commands', add_help=False)
-        topic_export_parser.add_argument('-E', '--exportd', nargs='+', action = GetEnvValueAction, var_name = __export_host_env_var__, required = True, help = export_help_msg)
+        topic_export_parser.add_argument('-E', '--exportd', nargs='+', action = GetEnvValueAction, var_name = __export_host_env_var__, metavar = "HOST", required = True, help = export_help_msg)
 
-        topic_storage_parser = topic_subparsers.add_parser('storage', help='storage commands', add_help=False)
-        topic_storage_parser.add_argument('-E', '--exportd', nargs='+', action = GetEnvValueAction, var_name = __export_host_env_var__, required = True, help = export_help_msg)
+        topic_mount_parser = topic_subparsers.add_parser('mount', help='mount commands', add_help=False)
+        topic_mount_parser.add_argument('-E', '--exportd', nargs='+', action = GetEnvValueAction, var_name = __export_host_env_var__, metavar = "HOST", required = True, help = export_help_msg)
+
+        topic_storaged_parser = topic_subparsers.add_parser('storaged', help='storaged commands', add_help=False)
+        topic_storaged_parser.add_argument('-E', '--exportd', nargs='+', action = GetEnvValueAction, var_name = __export_host_env_var__, metavar = "HOST", required = True, help = export_help_msg)
 
         #
         # Actions
@@ -147,21 +152,12 @@ def main(argv=None):  # IGNORE:C0111
         action_agent_restart_parser.add_argument('-p', '--pacemaker', nargs='?', const='exportd_rozofs', help='exportd cluster resource name when exportd is managed thru pacemaker (default: exportd_rozofs).')
         action_agent_restart_parser.add_argument('-l', '--listeners', nargs='*', choices=[[], EXPORTD_MANAGER, STORAGED_MANAGER, ROZOFSMOUNT_MANAGER], default=[], help='list of listeners.')
 
-        # Layout
-        action_layout_parser = ArgumentParser(add_help=False, prog='rozo layout')
-        action_layout_subparsers = action_layout_parser.add_subparsers(help='layout available actions', dest='action')
-
-        action_layout_get_parser = action_layout_subparsers.add_parser('get', add_help=False, help='get layout')
-
-        action_layout_set_parser = action_layout_subparsers.add_parser('set', add_help=False, help='set layout')
-        action_layout_set_parser.add_argument('layout', nargs=1, type=int, choices=[0, 1, 2], help='the layout to set.')
-
         # Node
         action_node_parser = ArgumentParser(add_help=False, prog='rozo node')
         action_node_subparsers = action_node_parser.add_subparsers(help='node available actions', dest='action')
 
-        action_node_list_parser = action_node_subparsers.add_parser('list', add_help=False, help='list nodes')
-        action_node_list_parser.add_argument('-r', '--roles', nargs='+', choices=STR_ROLES.keys(), help='list of roles to be started on nodes. If not set all roles will be started')
+        action_node_list_parser = action_node_subparsers.add_parser('list', add_help=False, help='list nodes roles')
+        action_node_list_parser.add_argument('-r', '--roles', nargs='+', choices=STR_ROLES.keys(), help='list of role(s) to display. If not set all roles will be displayed')
 
         action_node_status_parser = action_node_subparsers.add_parser('status', add_help=False, help='get node(s) status')
         action_node_status_parser.add_argument('-r', '--roles', nargs='+', choices=STR_ROLES.keys(), help='list of roles. If not set all roles.')
@@ -227,34 +223,106 @@ def main(argv=None):  # IGNORE:C0111
         action_get_remove_parser = action_export_subparsers.add_parser('get', add_help=False, help='get export(s)')
         action_get_remove_parser.add_argument('eids', nargs='*', type=int, default=None, help='eid(s) of existing export.')
 
-        action_mount_remove_parser = action_export_subparsers.add_parser('mount', add_help=False, help='mount export(s)')
-        action_mount_remove_parser.add_argument('-n', '--nodes', nargs='+', help='list of nodes to mount on')
-        action_mount_remove_parser.add_argument('-e', '--eids', nargs='*', type=int, default=None, help='eid(s) to be mount.')
-        action_mount_remove_parser.add_argument('-o', '--options', nargs='*', default=None, help='list of mount option(s) to use.')
+        # Mount
+        action_mount_parser = ArgumentParser(add_help=False, prog='rozo mount')
+        action_mount_subparsers = action_mount_parser.add_subparsers(help='mount available actions', dest='action')
 
-        action_umount_remove_parser = action_export_subparsers.add_parser('umount', add_help=False, help='umount export(s)')
-        action_umount_remove_parser.add_argument('-n', '--nodes', nargs='+', help='list of nodes to umount from')
-        action_umount_remove_parser.add_argument('-e', '--eids', nargs='*', type=int, default=None, help='eid(s) to be umount.')
+        action_mount_create_parser = action_mount_subparsers.add_parser('create', add_help=False, help='mount export(s)', parents=[topic_mount_parser])
+        action_mount_create_parser.add_argument('-n', '--nodes', nargs='+', help='list of nodes to mount on')
+        action_mount_create_parser.add_argument('-e', '--eids', nargs='*', type=int, default=None, help='eid(s) to be mount.')
+        action_mount_create_parser.add_argument('-o', '--options', nargs='*', default=None, help='list of mount option(s) to use.')
 
-        # Storage
-        action_storage_parser = ArgumentParser(add_help=False, prog='rozo storage')
-        action_storage_subparsers = action_storage_parser.add_subparsers(help='storage available actions', dest='action')
+        action_mount_remove_parser = action_mount_subparsers.add_parser('remove', add_help=False, help='umount export(s)', parents=[topic_mount_parser])
+        action_mount_remove_parser.add_argument('-n', '--nodes', nargs='+', help='list of nodes to umount from')
+        action_mount_remove_parser.add_argument('-e', '--eids', nargs='*', type=int, default=None, help='eid(s) to be umount.')
 
-        action_storage_list_parser = action_storage_subparsers.add_parser('list', add_help=False, help='list storages')
+        # exportd
+        subtopic_exportd_parser = ArgumentParser(add_help=False, prog='rozo exportd')
 
-        action_storage_get_parser = action_storage_subparsers.add_parser('get', add_help=False, help='get storage(s)')
-        action_storage_get_parser.add_argument('nodes', nargs='+', help='list of storaged servers.')
+        subtopic_exportd_subparsers = subtopic_exportd_parser.add_subparsers(help='rozo exportd available subtopics', dest='subtopic')
 
-        action_storage_add_parser = action_storage_subparsers.add_parser('add', add_help=False, help='add a storage listener')
-        action_storage_add_parser.add_argument('-n', '--nodes', nargs='+', help='list of storaged servers.')
-        action_storage_add_parser.add_argument('-i', '--interface', help='interface for data transfer.')
-        action_storage_add_parser.add_argument('-p', '--port', type=int, help='port used for communication.')
+        subtopic_exportd_layout_parser = subtopic_exportd_subparsers.add_parser('layout', help='layout commands', add_help=False)
+        subtopic_exportd_option_parser = subtopic_exportd_subparsers.add_parser('option', help='option commands', add_help=False)
 
-        action_storage_remove_parser = action_storage_subparsers.add_parser('remove', add_help=False, help='remove a storage listener')
-        action_storage_remove_parser.add_argument('-n', '--nodes', nargs='+', help='list of storaged servers.')
-        action_storage_remove_parser.add_argument('-i', '--interface', help='storage node hostname.')
-        action_storage_remove_parser.add_argument('-p', '--port', type=int, help='port used for communication.')
+        # exportd layout
+        action_exportd_layout_parser = ArgumentParser(add_help=False, prog='rozo exportd layout')
+        action_exportd_layout_subparser = action_exportd_layout_parser.add_subparsers(help='rozo exportd layout available actions', dest='action')
 
+        ## get
+        action_exportd_layout_get_parser = action_exportd_layout_subparser.add_parser('get', add_help=False, help='get exportd default layout.', parents=[topic_exportd_parser])
+
+        ## set
+        action_exportd_layout_set_parser = action_exportd_layout_subparser.add_parser('set', add_help=False, help='set exportd default layout.', parents=[topic_exportd_parser])
+        action_exportd_layout_set_parser.add_argument('layout', nargs=1, type=int, choices=[0, 1, 2], help='the layout to set.')
+
+        # exportd option
+        action_exportd_option_parser = ArgumentParser(add_help=False, prog='rozo exportd option')
+        action_exportd_option_subparser = action_exportd_option_parser.add_subparsers(help='rozo exportd option available actions', dest='action')
+
+        ## list
+        action_exportd_option_list_parser = action_exportd_option_subparser.add_parser('list', add_help=False, help='list all exportd option.', parents=[topic_exportd_parser])
+
+        ## set
+        action_exportd_option_set_parser = action_exportd_option_subparser.add_parser('set', add_help=False, help='set a specific exportd value option.', parents=[topic_exportd_parser])
+        action_exportd_option_set_parser.add_argument('option', metavar='OPTION', help='option to set.')
+        action_exportd_option_set_parser.add_argument('value', metavar='VALUE', help='value to set.')
+
+        ## get
+        action_exportd_option_get_parser = action_exportd_option_subparser.add_parser('get', add_help=False, help='get a specific exportd value option.', parents=[topic_exportd_parser])
+        action_exportd_option_get_parser.add_argument('option', metavar='OPTION', help='option to get.')
+
+        # storaged
+        subtopic_storaged_parser = ArgumentParser(add_help=False, prog='rozo storaged')
+
+        subtopic_storaged_subparsers = subtopic_storaged_parser.add_subparsers(help='rozo storaged available subtopics', dest='subtopic')
+
+        subtopic_storaged_listen_parser = subtopic_storaged_subparsers.add_parser('listen', help='listen commands', add_help=False)
+        subtopic_storaged_option_parser = subtopic_storaged_subparsers.add_parser('option', help='option commands', add_help=False)
+        subtopic_storaged_rebuild_parser = subtopic_storaged_subparsers.add_parser('rebuild', help='rebuild commands', add_help=False)
+
+        # storaged listen
+        action_storaged_listen_parser = ArgumentParser(add_help=False, prog='rozo storaged listen')
+        action_storaged_listen_subparser = action_storaged_listen_parser.add_subparsers(help='rozo storaged listen available actions', dest='action')
+
+        action_storaged_listen_get_parser = action_storaged_listen_subparser.add_parser('get', add_help=False, help='display listen parameters', parents=[topic_storaged_parser])
+        action_storaged_listen_get_parser.add_argument('-n', '--nodes', nargs='+', metavar='NODE', help='list of storaged nodes hostnames to query. If not set all storaged nodes are queried.')
+
+        action_storaged_listen_add_parser = action_storaged_listen_subparser.add_parser('add', add_help=False, help='add a listener', parents=[topic_storaged_parser])
+        action_storaged_listen_add_parser.add_argument('nodes', nargs='+', metavar='NODE', help='list of storaged nodes hostnames to set.')
+        action_storaged_listen_add_parser.add_argument('-i', '--interface', default='*', help='interface to add.')
+        action_storaged_listen_add_parser.add_argument('-p', '--port', type=int, default=41001, help='port to add.')
+
+        action_storaged_listen_remove_parser = action_storaged_listen_subparser.add_parser('remove', add_help=False, help='remove a listener.', parents=[topic_storaged_parser])
+        action_storaged_listen_remove_parser.add_argument('nodes', nargs='+', metavar='NODE', help='list of storaged nodes hostnames to set.')
+        action_storaged_listen_remove_parser.add_argument('-i', '--interface', default='*', help='interface to remove.')
+        action_storaged_listen_remove_parser.add_argument('-p', '--port', type=int, default=41001, help='port to remove.')
+
+        # storaged option
+        action_storaged_option_parser = ArgumentParser(add_help=False, prog='rozo storaged option')
+        action_storaged_option_subparser = action_storaged_option_parser.add_subparsers(help='rozo storaged option available actions', dest='action')
+
+        ## list
+        action_storaged_option_list_parser = action_storaged_option_subparser.add_parser('list', add_help=False, help='list all storaged option.', parents=[topic_storaged_parser])
+        action_storaged_option_list_parser.add_argument('-n', '--nodes', nargs='+', metavar='NODE', help='list of storaged nodes hostnames to query. If not set all storaged nodes are queried.')
+
+        ## set
+        action_storaged_option_set_parser = action_storaged_option_subparser.add_parser('set', add_help=False, help='set a specific storaged value option.', parents=[topic_storaged_parser])
+        action_storaged_option_set_parser.add_argument('option', metavar='OPTION', help='option to set.')
+        action_storaged_option_set_parser.add_argument('value', metavar='VALUE', help='value to set.')
+        action_storaged_option_set_parser.add_argument('-n', '--nodes', metavar='NODE', nargs='+', help='list of storaged servers.')
+
+        ## get
+        action_storaged_option_get_parser = action_storaged_option_subparser.add_parser('get', add_help=False, help='get a specific storaged value option.', parents=[topic_storaged_parser])
+        action_storaged_option_get_parser.add_argument('option', metavar='OPTION', help='option to get.')
+        action_storaged_option_get_parser.add_argument('-n', '--nodes', nargs='+', metavar='NODE', help='list of storaged nodes hostnames to query. If not set all storaged nodes are queried.')
+
+        # storaged rebuild
+        action_storaged_rebuild_parser = ArgumentParser(add_help=False, prog='rozo storaged rebuild')
+        action_storaged_rebuild_subparser = action_storaged_rebuild_parser.add_subparsers(help='rozo storaged rebuild available actions', dest='action')
+
+        ## start
+        action_storaged_rebuild_start_parser = action_storaged_rebuild_subparser.add_parser('start', add_help=False, help='start to rebuild one storaged node', parents=[topic_storaged_parser])
+        action_storaged_rebuild_start_parser.add_argument('node', nargs=1, metavar='NODE', help='storaged node to rebuild.')
 
         #
         # Parsing
@@ -262,12 +330,15 @@ def main(argv=None):  # IGNORE:C0111
         global_namespace, extra = global_parser.parse_known_args()
         # help wanted
         if global_namespace.help:
-            if len(extra) == 0 or len(extra) > 2:
+            if len(extra) == 0 or len(extra) > 3:
                 topic_parser.print_help()
                 return 0
             if len(extra) == 1:
                 try:
-                    locals()['action_%s_parser' % (extra[0])].print_help()
+                    if extra[0] in ["storaged", "exportd"]:
+                        locals()['subtopic_%s_parser' % (extra[0])].print_help()
+                    else:
+                        locals()['action_%s_parser' % (extra[0])].print_help()
                 except KeyError as ke:
                     raise Exception("invalid topic: %s" % extra[0])
             if len(extra) == 2:
@@ -276,24 +347,56 @@ def main(argv=None):  # IGNORE:C0111
                     return 0
                 except KeyError as ke:
                     raise Exception("invalid topic: %s or command: %s" % (extra[0], extra[1]))
+            if len(extra) == 3:
+                try:
+                    locals()['action_%s_%s_%s_parser' % (extra[0], extra[1], extra[2])].print_help()
+                    return 0
+                except KeyError as ke:
+                    raise Exception("invalid topic: %s or command: %s" % (extra[0], extra[1]))
             return 0
 
         # command execution wanted
+        # parse topic
         topic_namespace, extra = topic_parser.parse_known_args(extra)
-        action_namespace = locals()['action_%s_parser' % topic_namespace.topic].parse_args(extra, topic_namespace)
+
+        if topic_namespace.topic in ["storaged", "exportd"]:
+
+            # Parse subtopic
+            subtopic_namespace = locals()['subtopic_%s_parser' % topic_namespace.topic].parse_known_args(extra, topic_namespace)
+            
+            # Parse action for this subtopic
+            action_namespace = locals()['action_%s_%s_parser' % (topic_namespace.topic, subtopic_namespace[0].subtopic)].parse_args(subtopic_namespace[1], subtopic_namespace[0])
+        else:
+            action_namespace = locals()['action_%s_parser' % topic_namespace.topic].parse_args(extra, topic_namespace)
+
         m = __import__('rozofs.cli.%s' % topic_namespace.topic, globals(), locals(), ['dispatch'], -1)
         getattr(m, 'dispatch')(action_namespace)
+        
+        if global_namespace.verbose:
+            sys.stdout.write(program_name.upper() + ": SUCCESS\n")
 
         return 0
     except KeyboardInterrupt:
         ### handle keyboard interrupt ###
         return 0
+
+    except MultipleError, e:
+        if global_namespace.debug:
+            traceback.print_exc(file=sys.stderr)
+            raise(e)
+
+        if global_namespace.verbose:
+            sys.stderr.write(program_name.upper() + ": FAILED\n")
+            sys.stderr.write('ERRORS:\n' + str(e))
+        return 2
+        
     except Exception, e:
         if global_namespace.debug:
             traceback.print_exc(file=sys.stderr)
             raise(e)
-        # indent = len(program_name) * " "
-        sys.stderr.write(program_name + ": " + str(e) + "\n")
+
+        sys.stderr.write(program_name.upper() + ": FAILED\n" + str(e) + "\n")
+
         return 2
 
 if __name__ == "__main__":

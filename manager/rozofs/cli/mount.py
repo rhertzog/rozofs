@@ -16,22 +16,22 @@
 # along with this program.  If not, see
 # <http://www.gnu.org/licenses/>.
 
-from rozofs.core.platform import Platform, Role
-from rozofs.core.constants import LAYOUT_VALUES
-from rozofs.cli.output import ordered_puts
-from collections import OrderedDict
+import sys
+from rozofs.core.platform import Platform
 
-def set(platform, args):
-    platform.set_layout(args.layout[0])
+def create(platform, args):
+    if not args.eids:
+        args.eids = None
 
-def get(platform, args):
-    layout = platform. get_layout()
-    ordered_puts({'layout '+str(layout): OrderedDict([
-          ("inverse", LAYOUT_VALUES[layout][0]),
-          ("forward", LAYOUT_VALUES[layout][1]),
-          ("safe", LAYOUT_VALUES[layout][2])
-        ])})
+    platform.mount_export(args.eids, args.nodes, args.options)
+
+
+def remove(platform, args):
+    if not args.eids:
+        args.eids = None
+
+    platform.umount_export(args.eids, args.nodes)
 
 def dispatch(args):
-    p = Platform(args.exportd, Role.EXPORTD)
+    p = Platform(args.exportd)
     globals()[args.action.replace('-', '_')](p, args)

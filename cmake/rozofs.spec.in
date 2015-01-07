@@ -156,10 +156,12 @@ mkdir -p %{buildroot}/etc/default
 %{python_sitearch}/rozofs/cli/agent.py
 %{python_sitearch}/rozofs/cli/__init__.py
 %{python_sitearch}/rozofs/cli/export.py
-%{python_sitearch}/rozofs/cli/layout.py
+%{python_sitearch}/rozofs/cli/exportd.py
+%{python_sitearch}/rozofs/cli/mount.py
 %{python_sitearch}/rozofs/cli/node.py
 %{python_sitearch}/rozofs/cli/output.py
-%{python_sitearch}/rozofs/cli/storage.py
+%{python_sitearch}/rozofs/cli/exceptions.py
+%{python_sitearch}/rozofs/cli/storaged.py
 %{python_sitearch}/rozofs/cli/volume.py
 %{python_sitearch}/rozofs/ext/__init__.py
 %{python_sitearch}/rozofs/ext/fstab.py

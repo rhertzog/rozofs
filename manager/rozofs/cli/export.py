@@ -61,6 +61,7 @@ def remove(platform, args):
     platform.remove_export(args.eids, args.force)
 
 def get(platform, args):
+
     e_host = platform._active_export_host
     configurations = platform.get_configurations([e_host], Role.EXPORTD)
 
@@ -87,20 +88,6 @@ def get(platform, args):
         exports_l.append({'EXPORT '+ str(eid):export_l})
     list_l.update({'EXPORTS': exports_l})
     ordered_puts(list_l)
-
-def mount(platform, args):
-    if not args.eids:
-        args.eids = None
-
-    platform.mount_export(args.eids, args.nodes, args.options)
-
-
-def umount(platform, args):
-    if not args.eids:
-        args.eids = None
-
-    platform.umount_export(args.eids, args.nodes)
-
 
 def dispatch(args):
     only_export_actions = {'list', 'create', 'update', 'get'}

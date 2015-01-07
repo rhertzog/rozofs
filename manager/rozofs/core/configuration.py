@@ -49,12 +49,13 @@ class ConfigurationReader(object):
             error_text = c.error_text
             error_line = c.error_line
             config_destroy(c)
-            raise SyntaxError("can't read file %s: %s (line: %d)"
+            raise SyntaxError('cannot read file %s: %s (line: %d)'
                                % (self._file, error_text, error_line))
         try:
             self._parser.unparse(c, configuration)
         except SyntaxError as e:
-                raise type(e)("Syntax error in file %s (%s)" % (self._file, e.message))
+                raise type(e)("Syntax error in file %s (%s)" 
+                              % (self._file, e.message))
         finally:
             config_destroy(c)
 

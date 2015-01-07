@@ -30,6 +30,9 @@ from rozofs.core.storaged import StorageConfig
 from rozofs.core.rozofsmount import RozofsMountConfig
 from socket import socket
 
+
+class ConnectionError(Exception): pass
+
 def check_reachability(host):
     with open('/dev/null', 'w') as devnull:
         if subprocess.call(['ping', '-c', '1', '-w', '2', host],
@@ -139,20 +142,25 @@ class Node(object):
         return False
 
     def get_configurations(self, roles=Role.EXPORTD | Role.STORAGED | Role.ROZOFSMOUNT):
-        if not self._try_up():
-            return None
 
         configurations = {}
+
+        if not self._try_up():
+            for role in [r for r in Role.ROLES if r & roles == r and self.has_roles(r)]:
+                configurations[role] = ConnectionError("host not reachable")
+            return configurations
+
+
 
         for role in [r for r in Role.ROLES if r & roles == r and self.has_roles(r)]:
             try:
                 configurations[role] = self._proxies[role].get_service_config()
-            except NamingError:
-                raise Exception("no %s agent reachable for host: %s" % (ROLES_STR[role], self._host))
-            except ProtocolError:
-                raise Exception("rozofs-manager agent is not reachable for host: %s" % self._host)
+            except NamingError as e:
+                configurations[role] =  type(e)("no %s agent reachable" % (ROLES_STR[role]))
+            except ProtocolError as e:
+                configurations[role] =  type(e)("rozofs-manager agent is not reachable")
             except Exception as e:
-                raise type(e)(e.message + ' on host: %s' % self._host)
+                configurations[role] = type(e)(e.message)
 
         return configurations
 
@@ -165,19 +173,23 @@ class Node(object):
                 self._proxies[r].set_service_config(c)
 
     def get_statuses(self, roles=Role.EXPORTD | Role.STORAGED | Role.ROZOFSMOUNT):
-        if not self._try_up():
-            return None
 
         statuses = {}
+
+        if not self._try_up():
+            for role in [r for r in Role.ROLES if r & roles == r and self.has_roles(r)]:
+                statuses[role] = ConnectionError("host not reachable")
+            return statuses
+
         for role in [r for r in Role.ROLES if r & roles == r and self.has_roles(r)]:
             try:
                 statuses[role] = self._proxies[role].get_service_status()
-            except NamingError:
-                raise Exception("no %s agent reachable for host: %s" % (ROLES_STR[role], self._host))
-            except ProtocolError:
-                raise Exception("rozofs-manager agent is not reachable for host: %s" % self._host)
-            except Exception:
-                raise
+            except NamingError as e:
+                statuses[role] = type(e)("no %s agent reachable" % (ROLES_STR[role]))
+            except ProtocolError as e:
+                statuses[role] = type(e)("rozofs-manager agent is not reachable")
+            except Exception as e:
+                statuses[role] = type(e)(e.message)
 
         return statuses
 
@@ -271,10 +283,10 @@ class Platform(object):
                 raise Exception("%s unreachable." % hostname)
 
             econfig = node_configs[Role.EXPORTD]
-    
+
             if econfig is None:
                 raise "exportd node is off line."
-    
+
             for h in [s for v in econfig.volumes.values()
                             for c in v.clusters.values()
                             for s in c.storages.values()]:
@@ -344,6 +356,8 @@ class Platform(object):
                 statuses[h] = n.get_statuses(roles)
         else:
             for h in hosts:
+                if h not in self._nodes:
+                    raise Exception("Unknown node: %s." % h)
                 statuses[h] = self._nodes[h].get_statuses(roles)
         return statuses
 
@@ -390,14 +404,15 @@ class Platform(object):
     def start(self, hosts=None, roles=Role.EXPORTD | Role.STORAGED | Role.ROZOFSMOUNT):
         """ Convenient method to start all nodes with a role
         Args:
-            the roles to be started
+            hosts: list of hosts to start , if None all host are started
+            roles: which roles to start
         """
 
         # check if hosts are managed
         if hosts is not None:
             for h in hosts:
                 if h not in self._nodes.keys():
-                    raise Exception('unmanaged host: %s' % h)
+                    raise Exception("Unknown node: %s." % h)
 
         if hosts is None:
             hosts = self._nodes.keys()
@@ -465,6 +480,8 @@ class Platform(object):
                 configurations[h] = n.get_configurations(roles)
         else:
             for h in hosts:
+                if h not in self._nodes:
+                    raise Exception("Unknown node: %s." % h)
                 configurations[h] = self._nodes[h].get_configurations(roles)
 
         return configurations
@@ -869,8 +886,11 @@ class Platform(object):
             node = self._nodes[h]
             node.set_roles(node.get_roles() | Role.ROZOFSMOUNT)
             rconfig = node.get_configurations(Role.ROZOFSMOUNT)
-            if rconfig is None:
-                raise Exception("%s is not reachable" % h)
+
+            # TO CHANGE
+            if isinstance(rconfig[Role.ROZOFSMOUNT], Exception):
+                raise type(rconfig[Role.ROZOFSMOUNT])("NODE %s: %s" % (h, rconfig[Role.ROZOFSMOUNT].message))
+
             current_rconfig[h] = rconfig
 
         # Set new rozo configs
