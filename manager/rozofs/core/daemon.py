@@ -48,18 +48,24 @@ class DaemonManager(object):
     def start(self, add_args=[]):
         '''
         Start the underlying daemon
+        @return: True if not started before and False if already started
         '''
         cmds = [self._daemon] + self._args + add_args
+        # Not already started
         if self.status() is False :
             with open('/dev/null', 'w') as devnull:
                 p = subprocess.Popen(cmds, stdout=devnull,
                     stderr=subprocess.PIPE)
                 if p.wait() is not 0 :
                     raise Exception(p.communicate()[1])
+            return True
+        else: # Already started
+            return False
 
     def stop(self):
         '''
         Stop the underlying daemon
+        @return: True if not stopped before and False if already stopped
         '''
         cmds = ['killall', '-TERM', self._daemon]
         if self.status() is True :
@@ -68,6 +74,9 @@ class DaemonManager(object):
                     stderr=subprocess.PIPE)
                 if p.wait() is not 0 :
                     raise Exception(p.communicate()[1])
+            return True
+        else: # Already stopped
+            return False
 
     def restart(self, add_args=[]):
         '''

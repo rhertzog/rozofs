@@ -435,10 +435,12 @@ class ExportdAgent(Agent):
 
     def set_service_status(self, status):
         current_status = self._daemon_manager.status()
-        if status == ServiceStatus.STARTED and not current_status:
-            self._daemon_manager.start()
-        if status == ServiceStatus.STOPPED and current_status:
-            self._daemon_manager.stop()
+        rstatus = None
+        if status == ServiceStatus.STARTED:
+            rstatus = self._daemon_manager.start()
+        if status == ServiceStatus.STOPPED:
+            rstatus = self._daemon_manager.stop()
+        return rstatus
 
 
 class ExportdPacemakerAgent(ExportdAgent):
@@ -450,27 +452,38 @@ class ExportdPacemakerAgent(ExportdAgent):
 
     def _start(self):
         cmds = ['crm', 'resource', 'start', self._resource]
-        with open('/dev/null', 'w') as devnull:
-            p = subprocess.Popen(cmds, stdout=devnull,
-                stderr=subprocess.PIPE)
-            if p.wait() is not 0 :
-                raise Exception(p.communicate()[1])
+        if self.status() is False :
+            with open('/dev/null', 'w') as devnull:
+                p = subprocess.Popen(cmds, stdout=devnull,
+                    stderr=subprocess.PIPE)
+                if p.wait() is not 0 :
+                    raise Exception(p.communicate()[1])
+            return True
+        else:
+            return False
 
     def _stop(self):
         cmds = ['crm', 'resource', 'stop', self._resource]
-        with open('/dev/null', 'w') as devnull:
-            p = subprocess.Popen(cmds, stdout=devnull,
-                stderr=subprocess.PIPE)
-            if p.wait() is not 0 :
-                raise Exception(p.communicate()[1])
+        if self.status() is True :
+            with open('/dev/null', 'w') as devnull:
+                p = subprocess.Popen(cmds, stdout=devnull,
+                    stderr=subprocess.PIPE)
+                if p.wait() is not 0 :
+                    raise Exception(p.communicate()[1])
+            return True
+        else:
+            return False
 
     def get_service_status(self):
         return self._daemon_manager.status()
 
     def set_service_status(self, status):
         current_status = self._daemon_manager.status()
-        if status == ServiceStatus.STARTED and not current_status:
-            self._start()
-        if status == ServiceStatus.STOPPED and current_status:
-            self._stop()
+        rstatus = None
+        if status == ServiceStatus.STARTED:
+            rstatus= self._start()
+        if status == ServiceStatus.STOPPED:
+            rstatus = self._stop()
+        return rstatus
+
 

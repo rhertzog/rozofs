@@ -150,8 +150,6 @@ class Node(object):
                 configurations[role] = ConnectionError("host not reachable")
             return configurations
 
-
-
         for role in [r for r in Role.ROLES if r & roles == r and self.has_roles(r)]:
             try:
                 configurations[role] = self._proxies[role].get_service_config()
@@ -194,11 +192,27 @@ class Node(object):
         return statuses
 
     def set_statuses(self, statuses):
+
+        changes = {}
+
         if not self._try_up():
-            return
+            for r, s in statuses.items():
+                if self.has_roles(r):
+                    changes[r] = ConnectionError("host not reachable")
+            return changes
+
         for r, s in statuses.items():
             if self.has_roles(r):
-                self._proxies[r].set_service_status(s)
+                try:
+                    changes[r] = self._proxies[r].set_service_status(s)
+                except NamingError as e:
+                    changes[r] = type(e)("no %s agent reachable" % (ROLES_STR[role]))
+                except ProtocolError as e:
+                    changes[r] = type(e)("rozofs-manager agent is not reachable")
+                except Exception as e:
+                    changes[r] = type(e)(e.message)
+
+        return changes
 
     def set_rebuild(self, exports_list):
         if not self._try_up():
@@ -367,22 +381,28 @@ class Platform(object):
         Args:
             statuses : A dict where keys are host names,
                        values are dicts {Role: ServiceStatus}
-
+        Return:
+            A dict: keys are host names, values are dicts {Role: True or False}
+            or {Role: Exception} if a error occurred
         Warning:
             assuming user knows what he is doing start share before
             exportd or storaged will lead to errors
         """
+        changes = {}
         for h, s in statuses.items():
-            self._nodes[h].set_statuses(s)
+            changes[h] = self._nodes[h].set_statuses(s)
+
+        return changes
 
     def set_status(self, hosts=None, roles=Role.EXPORTD | Role.STORAGED | Role.ROZOFSMOUNT, status=ServiceStatus.STOPPED):
         """ Convenient method to set the same status to hosts.
 
         Args:
             hosts: list of hosts to set status , if None all host are set
-
             roles: for which roles status should be set
-
+        Return:
+            A dict: keys are host names, values are dicts {Role: True or False}
+            or {Role: Exception} if a error occurred
         Warning:
             see set_statuses
         """
@@ -399,13 +419,16 @@ class Platform(object):
             for host in hosts:
                 statuses[host] = statuses_to_set
 
-        self.set_statuses(statuses)
+        return self.set_statuses(statuses)
 
     def start(self, hosts=None, roles=Role.EXPORTD | Role.STORAGED | Role.ROZOFSMOUNT):
         """ Convenient method to start all nodes with a role
         Args:
             hosts: list of hosts to start , if None all host are started
             roles: which roles to start
+        Return:
+            A dict: keys are host names, values are dicts {Role: True or False}
+            or {Role: Exception} if a error occurred
         """
 
         # check if hosts are managed
@@ -417,14 +440,29 @@ class Platform(object):
         if hosts is None:
             hosts = self._nodes.keys()
 
+        # Changes dict to return
+        changes = {}
+
         # take care of the starting order
         if roles & Role.STORAGED == Role.STORAGED:
-            self.set_status(hosts, Role.STORAGED, ServiceStatus.STARTED)
+            changes = self.set_status(hosts, Role.STORAGED, ServiceStatus.STARTED)
+
         if roles & Role.EXPORTD == Role.EXPORTD:
-            self.set_status(hosts, Role.EXPORTD, ServiceStatus.STARTED)
+            e_changes = self.set_status(hosts, Role.EXPORTD, ServiceStatus.STARTED)
+            for h in set(changes) & set(e_changes):
+                changes[h].update(e_changes[h].items())
+            for h in set(changes) ^ set(e_changes):
+                changes[h] = e_changes[h]
+
         if roles & Role.ROZOFSMOUNT == Role.ROZOFSMOUNT:
             time.sleep(1)
-            self.set_status(hosts, Role.ROZOFSMOUNT, ServiceStatus.STARTED)
+            r_changes = self.set_status(hosts, Role.ROZOFSMOUNT, ServiceStatus.STARTED)
+            for h in set(changes) & set(r_changes):
+                changes[h].update(r_changes[h].items())
+            for h in set(changes) ^ set(r_changes):
+                changes[h] = r_changes[h]
+
+        return changes
 
     def stop(self, hosts=None, roles=Role.EXPORTD | Role.STORAGED | Role.ROZOFSMOUNT):
         """ Convenient method to stop all nodes with a role
@@ -434,13 +472,26 @@ class Platform(object):
         if hosts is None:
             hosts = self._nodes.keys()
 
+        # Changes dict to return
+        changes = {}
+
         # take care of the stopping order
         if roles & Role.ROZOFSMOUNT == Role.ROZOFSMOUNT:
-            self.set_status(hosts, Role.ROZOFSMOUNT, ServiceStatus.STOPPED)
+            changes = self.set_status(hosts, Role.ROZOFSMOUNT, ServiceStatus.STOPPED)
         if roles & Role.EXPORTD == Role.EXPORTD:
-            self.set_status(hosts, Role.EXPORTD, ServiceStatus.STOPPED)
+            e_changes = self.set_status(hosts, Role.EXPORTD, ServiceStatus.STOPPED)
+            for h in set(changes) & set(e_changes):
+                changes[h].update(e_changes[h].items())
+            for h in set(changes) ^ set(e_changes):
+                changes[h] = e_changes[h]
         if roles & Role.STORAGED == Role.STORAGED:
-            self.set_status(hosts, Role.STORAGED, ServiceStatus.STOPPED)
+            s_changes = self.set_status(hosts, Role.STORAGED, ServiceStatus.STOPPED)
+            for h in set(changes) & set(s_changes):
+                changes[h].update(s_changes[h].items())
+            for h in set(changes) ^ set(s_changes):
+                changes[h] = s_changes[h]
+
+        return changes
 
     def rebuild_storage_node(self, host):
         """ Convenient method to rebuild one storage node

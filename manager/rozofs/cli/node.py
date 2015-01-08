@@ -94,10 +94,79 @@ def status(platform, args):
      raise MultipleError(errors_l)
 
 def start(platform, args):
-    platform.start(args.nodes, __args_to_roles(args))
+
+    changes = platform.start(args.nodes, __args_to_roles(args))
+
+    status_l = {}
+    errors_l = {}
+
+    for h, s in changes.items():
+        role_l = []
+        role_err_l = []
+
+        for role, status in s.items():
+
+            # Check exception
+            if isinstance(status, Exception):
+                # Update standard output dict
+                err_str = type(status).__name__ + ' (' + status.message + ')'
+                role_l.append({ROLES_STR[role]: 'failed, ' + err_str})
+                # Update errors dict
+                role_err_l.append({ROLES_STR[role]: err_str})
+                errors_l.update({'NODE: ' + str(h) : role_err_l})
+                continue
+            if status:
+                role_l.append({ROLES_STR[role]: 'started'})
+            else:
+                role_l.append({ROLES_STR[role]: 'already started'})
+
+        if role_l:
+            status_l.update({h:role_l})
+
+    # Display output
+    ordered_puts(status_l)
+
+    # Check errors
+    if errors_l:
+     raise MultipleError(errors_l)
+
 
 def stop(platform, args):
-    platform.stop(args.nodes, __args_to_roles(args))
+
+    changes = platform.stop(args.nodes, __args_to_roles(args))
+
+    status_l = {}
+    errors_l = {}
+
+    for h, s in changes.items():
+        role_l = []
+        role_err_l = []
+
+        for role, status in s.items():
+
+            # Check exception
+            if isinstance(status, Exception):
+                # Update standard output dict
+                err_str = type(status).__name__ + ' (' + status.message + ')'
+                role_l.append({ROLES_STR[role]: 'failed, ' + err_str})
+                # Update errors dict
+                role_err_l.append({ROLES_STR[role]: err_str})
+                errors_l.update({'NODE: ' + str(h) : role_err_l})
+                continue
+            if status:
+                role_l.append({ROLES_STR[role]: 'stopped'})
+            else:
+                role_l.append({ROLES_STR[role]: 'already stopped'})
+
+        if role_l:
+            status_l.update({h:role_l})
+
+    # Display output
+    ordered_puts(status_l)
+
+    # Check errors
+    if errors_l:
+     raise MultipleError(errors_l)
 
 def config(platform, args):
     if not args.roles:

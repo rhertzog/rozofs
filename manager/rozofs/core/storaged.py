@@ -249,10 +249,12 @@ class StoragedAgent(Agent):
 
     def set_service_status(self, status):
         current_status = self._daemon_manager.status()
-        if status == ServiceStatus.STARTED and not current_status:
-            self._daemon_manager.start()
-        if status == ServiceStatus.STOPPED and current_status:
-            self._daemon_manager.stop()
+        rstatus = None
+        if status == ServiceStatus.STARTED:
+            rstatus = self._daemon_manager.start()
+        if status == ServiceStatus.STOPPED:
+            rstatus = self._daemon_manager.stop()
+        return rstatus
 
     def restart_with_rebuild(self, exports_list):
         self._daemon_manager.restart(["-r", "/".join(exports_list)])
