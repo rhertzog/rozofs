@@ -435,12 +435,12 @@ class ExportdAgent(Agent):
 
     def set_service_status(self, status):
         current_status = self._daemon_manager.status()
-        rstatus = None
+        changes = None
         if status == ServiceStatus.STARTED:
-            rstatus = self._daemon_manager.start()
+            changes = self._daemon_manager.start()
         if status == ServiceStatus.STOPPED:
-            rstatus = self._daemon_manager.stop()
-        return rstatus
+            changes = self._daemon_manager.stop()
+        return changes
 
 
 class ExportdPacemakerAgent(ExportdAgent):
@@ -479,11 +479,11 @@ class ExportdPacemakerAgent(ExportdAgent):
 
     def set_service_status(self, status):
         current_status = self._daemon_manager.status()
-        rstatus = None
+        changes = None
         if status == ServiceStatus.STARTED:
-            rstatus= self._start()
+            changes= self._start()
         if status == ServiceStatus.STOPPED:
-            rstatus = self._stop()
-        return rstatus
+            changes = self._stop()
+        return changes
 
 

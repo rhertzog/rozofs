@@ -84,8 +84,10 @@ class Line(object):
         self.dict["options"] = ",".join(list)
 
     def get_rozofs_options(self):
+        
         opts = self.get_options()
-        return {"host": [o.split('=')[1] for o in opts if o.startswith('exporthost')][0],
+        return {"mountpoint": self.directory,
+                "host": [o.split('=')[1] for o in opts if o.startswith('exporthost')][0],
                 "path": [o.split('=')[1] for o in opts if o.startswith('exportpath')][0],
                 "instance": [o.split('=')[1] for o in opts if o.startswith('instance')][0]}
 

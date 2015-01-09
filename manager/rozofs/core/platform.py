@@ -949,7 +949,7 @@ class Platform(object):
             node = self._nodes[h]
             for eid in eids:
                 expconfig = econfig[Role.EXPORTD].exports[eid]
-                rconfig = RozofsMountConfig("/".join(self._export_hosts) , expconfig.root, -1, options)
+                rconfig = RozofsMountConfig("/".join(self._export_hosts) , expconfig.root, -1, options=options)
                 # check duplicates
                 if rconfig not in current_rconfig[h]:
                     current_rconfig[h][Role.ROZOFSMOUNT].append(rconfig)

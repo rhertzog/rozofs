@@ -23,10 +23,16 @@ import subprocess
 from rozofs.ext.fstab import Fstab, Line
 
 class RozofsMountConfig(object):
-    def __init__(self, export_host, export_path, instance, options=None):
+    def __init__(self, export_host, export_path, instance, mountpoint=None, options=None):
+
         self.export_host = export_host
         self.export_path = export_path
         self.instance = instance
+
+        if mountpoint is None:
+            self.mountpoint = os.path.join('/mnt/rozofs@%s' % export_host.replace('/','-'), export_path.split('/')[-1])
+        else:
+            self.mountpoint = mountpoint
         if options is None:
             self.options = []
         else:
@@ -65,6 +71,7 @@ class RozofsMountAgent(Agent):
             p = subprocess.Popen(cmds, stdout=devnull, stderr=subprocess.PIPE)
             if p.wait() is not 0 :
                 raise Exception(p.communicate()[1])
+        return True
 
     def _umount(self, path):
         cmds = ['umount', path]
@@ -72,6 +79,7 @@ class RozofsMountAgent(Agent):
             p = subprocess.Popen(cmds, stdout=devnull, stderr=subprocess.PIPE)
             if p.wait() is not 0 :
                 raise Exception(p.communicate()[1])
+        return True
 
     def _list_mount(self):
         with open(self.__MTAB, 'r') as mtab:
@@ -118,7 +126,9 @@ class RozofsMountAgent(Agent):
         configurations = []
         for l in fstab.get_rozofs_lines():
             o = l.get_rozofs_options()
-            configurations.append(RozofsMountConfig(o["host"], o["path"], o["instance"]))
+            configurations.append(RozofsMountConfig(o["host"], o["path"],
+                                                    o["instance"],
+                                                    o["mountpoint"]))
         return configurations
 
     def set_service_config(self, configurations):
@@ -136,16 +146,33 @@ class RozofsMountAgent(Agent):
             self._remove_mountpoint(config.export_host, config.export_path)
 
     def get_service_status(self):
-        return self._list_mountpoint() == self._list_mount()
+        statuses = {}
+        for m in self._list_mountpoint():
+            if m in self._list_mount():
+                statuses[m] = ServiceStatus.STARTED
+            else:
+                statuses[m] = ServiceStatus.STOPPED
+        return statuses
 
     def set_service_status(self, status):
+        changes = {}
+
         if status == ServiceStatus.STARTED:
-            cmds = ['mount', '-a', '-t', 'rozofs']
-            with open('/dev/null', 'w') as devnull:
-                p = subprocess.Popen(cmds, stdout=devnull, stderr=subprocess.PIPE)
-                if p.wait() is not 0 :
-                    raise Exception(p.communicate()[1])
+            # For each mountpoint defined in fstab
+            for mp in self._list_mountpoint():
+                # Check it's already mounted
+                if mp in self._list_mount():
+                    changes[mp] = False
+                else:
+                    changes[mp]= self._mount(mp)
 
         if status == ServiceStatus.STOPPED:
-            for mp in self._list_mount():
-                self._umount(mp)
+            # For each mountpoint defined in fstab
+            for mp in self._list_mountpoint():
+                # Check it's not mounted
+                if mp not in self._list_mount():
+                    changes[mp] = False
+                else:
+                    changes[mp]= self._umount(mp)
+
+        return changes

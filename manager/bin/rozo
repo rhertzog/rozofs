@@ -175,9 +175,6 @@ def main(argv=None):  # IGNORE:C0111
         action_node_stop_parser.add_argument('-r', '--roles', nargs='+', choices=STR_ROLES.keys(), help='list of roles. If not set all roles.')
         action_node_stop_parser.add_argument('-n', '--nodes', nargs='+', help='list of nodes. If not set all nodes.')
 
-        action_node_rebuild_parser = action_node_subparsers.add_parser('rebuild', add_help=False, help='rebuild one storage node')
-        action_node_rebuild_parser.add_argument('-n', '--node', nargs=1, required=True, help='node to rebuild.')
-
         # Volume
         action_volume_parser = ArgumentParser(add_help=False, prog='rozo volume')
         action_volume_subparsers = action_volume_parser.add_subparsers(help='volume available actions', dest='action')

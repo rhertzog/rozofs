@@ -78,10 +78,16 @@ def status(platform, args):
                 role_err_l.append({ROLES_STR[role]: err_str})
                 errors_l.update({'NODE: ' + str(h) : role_err_l})
                 continue
-            if status:
-                role_l.append({ROLES_STR[role]: 'running'})
+            if (role & Role.ROZOFSMOUNT == Role.ROZOFSMOUNT):
+                mount_l = []
+                for m, s in status.items():
+                    mount_l.append({m : 'mounted' if s else 'unmounted'})
+                role_l.append({ROLES_STR[role]: mount_l})
             else:
-                role_l.append({ROLES_STR[role]: 'not running'})
+                if status:
+                    role_l.append({ROLES_STR[role]: 'running'})
+                else:
+                    role_l.append({ROLES_STR[role]: 'not running'})
 
         if role_l:
             status_l.update({h:role_l})
@@ -104,21 +110,28 @@ def start(platform, args):
         role_l = []
         role_err_l = []
 
-        for role, status in s.items():
+        for role, change in s.items():
 
             # Check exception
-            if isinstance(status, Exception):
+            if isinstance(change, Exception):
                 # Update standard output dict
-                err_str = type(status).__name__ + ' (' + status.message + ')'
+                err_str = type(change).__name__ + ' (' + change.message + ')'
                 role_l.append({ROLES_STR[role]: 'failed, ' + err_str})
                 # Update errors dict
                 role_err_l.append({ROLES_STR[role]: err_str})
                 errors_l.update({'NODE: ' + str(h) : role_err_l})
                 continue
-            if status:
-                role_l.append({ROLES_STR[role]: 'started'})
+
+            if (role & Role.ROZOFSMOUNT == Role.ROZOFSMOUNT):
+                mount_l = []
+                for m, s in change.items():
+                    mount_l.append({m : 'mounted' if s else 'already mounted'})
+                role_l.append({ROLES_STR[role]: mount_l})
             else:
-                role_l.append({ROLES_STR[role]: 'already started'})
+                if change:
+                    role_l.append({ROLES_STR[role]: 'started'})
+                else:
+                    role_l.append({ROLES_STR[role]: 'already started'})
 
         if role_l:
             status_l.update({h:role_l})
@@ -142,21 +155,26 @@ def stop(platform, args):
         role_l = []
         role_err_l = []
 
-        for role, status in s.items():
-
+        for role, change in s.items():
             # Check exception
-            if isinstance(status, Exception):
+            if isinstance(change, Exception):
                 # Update standard output dict
-                err_str = type(status).__name__ + ' (' + status.message + ')'
+                err_str = type(change).__name__ + ' (' + change.message + ')'
                 role_l.append({ROLES_STR[role]: 'failed, ' + err_str})
                 # Update errors dict
                 role_err_l.append({ROLES_STR[role]: err_str})
                 errors_l.update({'NODE: ' + str(h) : role_err_l})
                 continue
-            if status:
-                role_l.append({ROLES_STR[role]: 'stopped'})
+            if (role & Role.ROZOFSMOUNT == Role.ROZOFSMOUNT):
+                mount_l = []
+                for m, s in change.items():
+                    mount_l.append({m : 'unmounted' if s else 'already unmounted'})
+                role_l.append({ROLES_STR[role]: mount_l})
             else:
-                role_l.append({ROLES_STR[role]: 'already stopped'})
+                if change:
+                    role_l.append({ROLES_STR[role]: 'stopped'})
+                else:
+                    role_l.append({ROLES_STR[role]: 'already stopped'})
 
         if role_l:
             status_l.update({h:role_l})
@@ -188,20 +206,16 @@ def config(platform, args):
         role_err_l = []
 
         for role, config in c.items():
-
             # Check exception
             if isinstance(config, Exception):
-
                 # Get error msg
                 err_str = type(config).__name__ + ' (' + config.message + ')'
                 # Update standard output dict
                 role_l.append({ROLES_STR[role]: err_str})
                 host_l.update({'NODE: ' + str(h) : role_l})
-
                 # Update errors dict
                 role_err_l.append({ROLES_STR[role]: err_str})
                 errors_l.update({'NODE: ' + str(h) : role_err_l})
-
                 continue
 
             if (role & Role.EXPORTD == Role.EXPORTD):
@@ -261,8 +275,11 @@ def config(platform, args):
             if (role & Role.ROZOFSMOUNT == Role.ROZOFSMOUNT):
                 exp_l = []
                 for c in config:
-                    exp_l.append({'node ' +
-                        str(c.export_host) : c.export_path})
+                    mountdict = {}
+                    mountdict["mountpoint"] = c.mountpoint
+                    mountdict["export host"] = c.export_host
+                    mountdict["export path"] = c.export_path
+                    exp_l.append(mountdict)
                 role_l.append({'ROZOFSMOUNT': exp_l})
 
             host_l.update({'NODE: ' + str(h) : role_l})
