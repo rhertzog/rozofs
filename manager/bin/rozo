@@ -217,8 +217,8 @@ def main(argv=None):  # IGNORE:C0111
         action_export_remove_parser.add_argument('-f', '--force', action="store_true", default=False, help='when ever to force removing.')
         action_export_remove_parser.add_argument('eids', nargs='*', type=int, default=None, help='eid(s) of existing export.')
 
-        action_get_remove_parser = action_export_subparsers.add_parser('get', add_help=False, help='get export(s)')
-        action_get_remove_parser.add_argument('eids', nargs='*', type=int, default=None, help='eid(s) of existing export.')
+        action_export_get_parser = action_export_subparsers.add_parser('get', add_help=False, help='get export(s)')
+        action_export_get_parser.add_argument('eids', nargs='*', type=int, default=None, help='eid(s) of existing export.')
 
         # Mount
         action_mount_parser = ArgumentParser(add_help=False, prog='rozo mount')
