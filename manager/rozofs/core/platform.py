@@ -537,29 +537,42 @@ class Platform(object):
 
         return configurations
 
-    # should be done at cli with get/set configuration?!
     def set_layout(self, layout):
-        if not layout in [0, 1, 2]:
+
+        # Check layout
+        valid_layouts = [0, 1, 2]
+        if not layout in valid_layouts:
             raise Exception("invalid layout: %d" % layout)
 
+        # Get config
         node = self._get_exportd_node()
         configuration = node.get_configurations(Role.EXPORTD)
 
-        if configuration is None:
-            raise Exception("exportd node is off line.")
+        # Check exception
+        if isinstance(configuration[Role.EXPORTD], Exception):
+            raise type(configuration[Role.EXPORTD])("%s: %s" % 
+                                                    (self._active_export_host,
+                                                    configuration[Role.EXPORTD].message))
 
+        # Check if we can change the layout
         if len(configuration[Role.EXPORTD].volumes) != 0:
             raise Exception("platform has configured volume(s) !!!")
 
+        # Set layout
         configuration[Role.EXPORTD].layout = layout
         node.set_configurations(configuration)
 
     def get_layout(self):
         node = self._get_exportd_node()
+
+        # Get config
         configuration = node.get_configurations(Role.EXPORTD)
 
-        if configuration is None:
-            raise Exception("exportd node is off line.")
+        # Check exception
+        if isinstance(configuration[Role.EXPORTD], Exception):
+            raise type(configuration[Role.EXPORTD])("%s: %s" % 
+                                                    (self._active_export_host,
+                                                    configuration[Role.EXPORTD].message))
 
         return configuration[Role.EXPORTD].layout
 
@@ -803,8 +816,6 @@ class Platform(object):
         """
         enode = self._get_exportd_node()
         econfig = enode.get_configurations(Role.EXPORTD)
-
-        print squota
 
         if econfig is None:
             raise Exception("%s is not reachable" % enode._host)
