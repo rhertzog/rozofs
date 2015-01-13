@@ -324,13 +324,17 @@ List of the \fBvid\fP of the volumes to remove.
 .\""" rozo export
 .SH EXPORT TOPIC
 .B rozo export
-.I list\fP | \fIcreate\fP | \fIupdate\fP | \fIremove\fP | \fIget\fP | \fImount\fP | \fIumount\fP \fB\-E | \-\-exportd\fP \fIhost\fP... 
+.I get\fP | \fIcreate\fP | \fIupdate\fP | \fIremove\fP \fB\-E | \-\-exportd\fP \fIhost\fP... 
 
-.\" rozo export list
-.SS list
-.B rozo export list \fB\-E | \-\-exportd\fP \fIhost\fP 
+.\" rozo export get
+.SS get
+.B rozo export get [\fB\-e\fP | \fB--eids\fP \fIeid\fP...] \fB\-E | \-\-exportd\fP \fIhost\fP 
 .TP 
-Display the list of the exports managed by this platform. 
+Display the list of export(s) configuration managed by this platform. If option \fB\-e\fP | \fB--eids\fP \fIeid\fP... is not specified, all export(s) configuration are displayed.
+
+.TP
+\fB\-e\fP, \fB\-\-eids \fP\fIeid\fP...
+List of export(s) identified by \fIeid\fP... to display. If not set all export(s) configuration are displayed.
 .TP
 \fB\-E\fP, \fB--exportd \fP\fIhost\fP...
 List of running exportd hostname(s). When securing the exportd thanks to a
