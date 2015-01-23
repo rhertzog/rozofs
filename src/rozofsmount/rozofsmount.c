@@ -121,10 +121,12 @@ static inline uint64_t rozofs_client_hash_compute(char * hostname, int instance)
     for (; *d != 0; d++) {
         h = (h * 16777619)^ *d;
     }
+    h = (h * 16777619);
     /*
      ** hash on instance id
      */
-    h = (h * 16777619)^ instance;
+    h = h & 0xFFFFFFFFFFFFFF00;
+    h += instance;
     return h;
 }     
 /*
