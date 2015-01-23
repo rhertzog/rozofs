@@ -96,10 +96,6 @@ static SVCXPRT *exportd_svc = NULL;
 
 extern void export_program_1(struct svc_req *rqstp, SVCXPRT * ctl_svc);
 
-static SVCXPRT *exportd_profile_svc = 0;
-
-extern void exportd_profile_program_1(struct svc_req *rqstp, SVCXPRT *ctl_svc);
-
 
 exportd_start_conf_param_t  expgwc_non_blocking_conf;  /**< configuration of the non blocking side */
 
@@ -818,17 +814,6 @@ static void on_start() {
         fatal("can't register service %s", strerror(errno));
     }
 
-    // Profiling service
-    if ((exportd_profile_svc = svctcp_create(RPC_ANYSOCK, 0, 0)) == NULL) {
-        severe("can't create profiling service.");
-    }
-    pmap_unset(EXPORTD_PROFILE_PROGRAM, EXPORTD_PROFILE_VERSION); // in case !
-
-    if (!svc_register(exportd_profile_svc, EXPORTD_PROFILE_PROGRAM,
-            EXPORTD_PROFILE_VERSION, exportd_profile_program_1, 0)) {
-        severe("can't register service : %s", strerror(errno));
-    }
-
 //    SET_PROBE_VALUE(uptime, time(0));
 //    strncpy((char *) gprofiler.vers, VERSION, 20);
 
@@ -846,13 +831,6 @@ static void on_stop() {
     if (exportd_svc) {
         svc_destroy(exportd_svc);
         exportd_svc = NULL;
-    }
-
-    svc_unregister(EXPORTD_PROFILE_PROGRAM, EXPORTD_PROFILE_VERSION);
-    pmap_unset(EXPORTD_PROFILE_PROGRAM, EXPORTD_PROFILE_VERSION);
-    if (exportd_profile_svc) {
-        svc_destroy(exportd_profile_svc);
-        exportd_profile_svc = NULL;
     }
 
     exportd_release();

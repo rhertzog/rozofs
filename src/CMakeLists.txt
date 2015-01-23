@@ -17,6 +17,5 @@
 add_subdirectory(exportd)
 add_subdirectory(storaged)
 add_subdirectory(rozofsmount)
-add_subdirectory(rprof)
 add_subdirectory(storcli)
 add_subdirectory(rozodiag)

@@ -76,8 +76,6 @@ static uint16_t storaged_nrstorages = 0;
 
 static SVCXPRT *storaged_monitoring_svc = 0;
 
-static SVCXPRT *storaged_profile_svc = 0;
-
 uint8_t storio_nb_threads = 0;
 uint8_t storaged_nb_ports = 0;
 uint8_t storaged_nb_io_processes = 0;
@@ -312,13 +310,6 @@ static void on_stop() {
         pmap_unset(MONITOR_PROGRAM, MONITOR_VERSION);
         svc_destroy(storaged_monitoring_svc);
         storaged_monitoring_svc = NULL;
-    }
-
-    if (storaged_profile_svc) {
-        svc_unregister(STORAGED_PROFILE_PROGRAM, STORAGED_PROFILE_VERSION);
-        pmap_unset(STORAGED_PROFILE_PROGRAM, STORAGED_PROFILE_VERSION);
-        svc_destroy(storaged_profile_svc);
-        storaged_profile_svc = NULL;
     }
 
     rozofs_layout_release();

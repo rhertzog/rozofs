@@ -35,17 +35,8 @@ set (librozofs_sources
     rpc/mprotosvc.c
     rpc/mprotoclt.c
     rpc/spproto.h
-    rpc/spprotoxdr.c
-    rpc/spprotosvc.c
-    rpc/spprotoclt.c
     rpc/epproto.h
-    rpc/epprotoxdr.c
-    rpc/epprotosvc.c
-    rpc/epprotoclt.c
     rpc/mpproto.h
-    rpc/mpprotoxdr.c
-    rpc/mpprotosvc.c
-    rpc/mpprotoclt.c
     rpc/rpcclt.h
     rpc/rpcclt.c
     rpc/eclient.h
@@ -54,12 +45,6 @@ set (librozofs_sources
     rpc/sclient.c
     rpc/mclient.h
     rpc/mclient.c
-    rpc/spclient.h
-    rpc/spclient.c
-    rpc/epclient.h
-    rpc/epclient.c
-    rpc/mpclient.h
-    rpc/mpclient.c
     rpc/export_lbg.c
     rpc/storcli_lbg_prototypes.h
     rpc/storcli_protoclt.c
@@ -69,10 +54,7 @@ set (librozofs_sources
     rpc/rozofs_rpc_util.c
     rpc/rozofs_rpc_util.h
     rpc/storcli_lbg.c 
-    rpc/stcpprotoclt.c
     rpc/stcpproto.h
-    rpc/stcpprotosvc.c
-    rpc/stcpprotoxdr.c
     core/af_inet_stream_api.h
     core/af_inet_tcp.c
     core/af_unix_ctx_mgt.c

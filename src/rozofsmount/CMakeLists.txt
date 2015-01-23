@@ -22,7 +22,6 @@ link_directories(${CMAKE_BINARY_DIR}/rozofs)
 
 add_executable(rozofsmount
     file.h
-    mpproto.c
     rozofsmount.c
     rozofs_fuse_api.h
     rozofs_fuse.c
