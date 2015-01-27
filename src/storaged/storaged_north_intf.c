@@ -44,7 +44,6 @@
 #include "sconfig.h"
 #include "storaged_north_intf.h"
 #include "mprotosvc.h"
-#include "spprotosvc.h"
 
 /**
 * Buffers information
@@ -54,74 +53,7 @@ int storage_read_write_buf_sz = 0;      /**<read:write buffer size on north inte
 
 void *storaged_buffer_pool_p = NULL;  /**< reference of the read/write buffer pool */
 
-/*
-**__________________________________________________________________________
-*/
-/**
-  SPPROTO dispatcher
-  
-  @param rozorpc_srv_ctx_p    generic RPC context
-  @param hdr                  received RPC header in host format
- 
-*/
-void spproto_svc(rozorpc_srv_ctx_t *rozorpc_srv_ctx_p, rozofs_rpc_call_hdr_t  * hdr) {
-    union {
-      spp_profiler_ret_t       profiler;
-      spp_status_ret_t         status;
-    } spproto_response;
-    
-    
-    spproto_response.status.status = MP_FAILURE;
-    
-    void (*local)(void * req, rozorpc_srv_ctx_t *, void * resp);
 
-    switch (hdr->proc) {
-    
-    case SPP_NULL:
-      rozorpc_srv_ctx_p->arg_decoder = (xdrproc_t) xdr_void;
-      rozorpc_srv_ctx_p->xdr_result  = (xdrproc_t) xdr_void;
-      local = spp_null_1_svc_nb;
-      break;
-
-    case SPP_GET_PROFILER:
-      rozorpc_srv_ctx_p->arg_decoder = (xdrproc_t) xdr_void;
-      rozorpc_srv_ctx_p->xdr_result  = (xdrproc_t) xdr_spp_profiler_ret_t;
-      local = spp_get_profiler_1_svc_nb;
-      break;
-      
-    case SPP_CLEAR:
-      rozorpc_srv_ctx_p->arg_decoder = (xdrproc_t) xdr_void;
-      rozorpc_srv_ctx_p->xdr_result  = (xdrproc_t) xdr_spp_status_ret_t;
-      local = spp_clear_1_svc_nb;
-      break;
-      
-    default:
-      rozorpc_srv_ctx_p->xdr_result =(xdrproc_t) xdr_spp_status_ret_t;
-      spproto_response.status.spp_status_ret_t_u.error = EPROTO;        
-      goto send_response;
-    }
-    
-    /*
-    ** call the user call-back
-    */
-    (*local)(NULL, rozorpc_srv_ctx_p, &spproto_response);   
-
-
-send_response:
-
-    /*
-    ** Send the response in the received buffer
-    */
-    rozorpc_srv_ctx_p->xmitBuf  = rozorpc_srv_ctx_p->recv_buf;
-    rozorpc_srv_ctx_p->recv_buf = NULL;
-    rozorpc_srv_forward_reply(rozorpc_srv_ctx_p,(char*)&spproto_response);  
- 
-    rozorpc_srv_ctx_p->xdr_result = NULL;
-    /*
-    ** Free the RPC context
-    */
-    rozorpc_srv_release_context(rozorpc_srv_ctx_p);    
-}
 /*
 **__________________________________________________________________________
 */
@@ -295,10 +227,6 @@ void storaged_req_rcv_cbk(void *userRef,uint32_t  socket_ctx_idx, void *recv_buf
         mproto_svc(rozorpc_srv_ctx_p, &hdr);
 	break;
 	
-      case STORAGED_PROFILE_PROGRAM :
-        spproto_svc(rozorpc_srv_ctx_p, &hdr);
-	break;  
-
       default:
         severe("Received RCP request 0x%x/0x%x",hdr.prog,hdr.proc);
         rozorpc_srv_release_context(rozorpc_srv_ctx_p);    
@@ -509,7 +437,7 @@ int storaged_north_interface_init(char * host) {
   port = rozofs_get_service_port_storaged_mproto();
 
   // Create the listening socket
-  ret = af_inet_sock_listening_create("MP/SPP",ip, port, &af_inet_rozofs_north_conf);    
+  ret = af_inet_sock_listening_create("MPROTO",ip, port, &af_inet_rozofs_north_conf);    
   if (ret < 0) {
     fatal("Can't create AF_INET listening socket %u.%u.%u.%u:%d",
             ip>>24, (ip>>16)&0xFF, (ip>>8)&0xFF, ip&0xFF, port);

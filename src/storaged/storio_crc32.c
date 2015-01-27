@@ -437,6 +437,7 @@ void storio_check_crc32(char *bins,int nb_proj,uint16_t prj_size,uint64_t *crc_e
       ((rozofs_stor_bins_hdr_t*)(buf))->s.filler = 0;
       crc = 0;
       crc = crc32c(crc,buf,crc_size);
+      if (crc==0) crc = 1;      
       /*
       ** control with the one stored in the header
       */
@@ -524,13 +525,14 @@ void storio_check_crc32_vect(struct iovec *vector,int nb_proj,uint16_t prj_size,
       /*
       **  compute the crc
       */
+      ((rozofs_stor_bins_hdr_t*)(buf))->s.filler = 0;
       crc = 0;
       crc = crc32c(crc,buf,crc_size);
-      ((rozofs_stor_bins_hdr_t*)(buf))->s.filler = 0;
+      if (crc==0) crc = 1;      
       /*
       ** control with the one stored in the header
-      */
-      if (cur_crc == crc)
+      */    
+      if (cur_crc != crc)
       {
         /*
 	** data corruption

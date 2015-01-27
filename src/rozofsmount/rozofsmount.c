@@ -66,7 +66,6 @@
 #define STORCLI_KILLER  "storcli_killer.sh"
 #define STORCLI_EXEC "storcli"
 
-static SVCXPRT *rozofsmount_profile_svc = 0;
 int rozofs_rotation_read_modulo = 0;
 static char *mountpoint = NULL;
     
@@ -121,10 +120,12 @@ static inline uint64_t rozofs_client_hash_compute(char * hostname, int instance)
     for (; *d != 0; d++) {
         h = (h * 16777619)^ *d;
     }
+    h = (h * 16777619);
     /*
      ** hash on instance id
      */
-    h = (h * 16777619)^ instance;
+    h = h & 0xFFFFFFFFFFFFFF00;
+    h += instance;
     return h;
 }     
 /*
@@ -324,90 +325,6 @@ void rozofs_ll_forget(fuse_req_t req, fuse_ino_t ino, unsigned long nlookup) {
 }
 
 
-
-/*#warning fake untested function.
-
-void rozofs_ll_fsyncdir(fuse_req_t req, fuse_ino_t ino, int datasync,
-        struct fuse_file_info *fi) {
-    START_PROFILING(rozofs_ll_fsyncdir);
-    fuse_reply_err(req, 0);
-    STOP_PROFILING(rozofs_ll_fsyncdir);
-}
-
-#warning fake untested function.
-
-void rozofs_ll_ioctl(fuse_req_t req, fuse_ino_t ino, int cmd, void *arg,
-        struct fuse_file_info *fi, unsigned flags,
-        const void *in_buf, size_t in_bufsz, size_t out_bufsz) {
-    START_PROFILING(rozofs_ll_ioctl);
-    fuse_reply_ioctl(req, 0, in_buf, out_bufsz);
-    STOP_PROFILING(rozofs_ll_ioctl);
-}
-
-#warning fake untested function.
-
-void rozofs_ll_access(fuse_req_t req, fuse_ino_t ino, int mask) {
-    START_PROFILING(rozofs_ll_access);
-    fuse_reply_err(req, 0);
-    STOP_PROFILING(rozofs_ll_access);
-}*/
-
-static SVCXPRT *rozofsmount_create_rpc_service(int port) {
-    int sock;
-    int one = 1;
-    struct sockaddr_in sin;
-
-    /* Give the socket a name. */
-    sin.sin_family = AF_INET;
-    sin.sin_port = htons(port);
-    sin.sin_addr.s_addr = INADDR_ANY;
-
-    /* Create the socket. */
-    sock = socket(PF_INET, SOCK_STREAM, 0);
-    if (sock < 0) {
-        severe("Can't create socket: %s.", strerror(errno));
-        return NULL;
-    }
-
-    /* Set socket options */
-    setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (char *) &one, sizeof (int));
-    setsockopt(sock, SOL_TCP, TCP_DEFER_ACCEPT, (char *) &one, sizeof (int));
-    setsockopt(sock, SOL_TCP, TCP_NODELAY, (char *) &one, sizeof (int));
-
-    /* Bind the socket */
-    if (bind(sock, (struct sockaddr *) &sin, sizeof (struct sockaddr)) < 0) {
-        severe("Couldn't bind to tcp port %d", port);
-        return NULL;
-    }
-
-    /* Creates a TCP/IP-based RPC service transport */
-    return svctcp_create(sock, ROZOFS_RPC_BUFFER_SIZE, ROZOFS_RPC_BUFFER_SIZE);
-
-}
-
-void rozofmount_profiling_thread_run(void *args) {
-
-    int *port = args;
-
-    rozofsmount_profile_svc = rozofsmount_create_rpc_service(*port);
-    if (!rozofsmount_profile_svc) {
-        severe("can't create monitoring service: %s", strerror(errno));
-    }
-
-    /* Associates ROZOFSMOUNT_PROFILE_PROGRAM and ROZOFSMOUNT_PROFILE_VERSION
-     * with the service dispatch procedure, rozofsmount_profile_program_1.
-     * Here protocol is zero, the service is not registered with
-     *  the portmap service */
-    if (!svc_register(rozofsmount_profile_svc, ROZOFSMOUNT_PROFILE_PROGRAM,
-            ROZOFSMOUNT_PROFILE_VERSION,
-            rozofsmount_profile_program_1, 0)) {
-        severe("can't register service : %s", strerror(errno));
-    }
-
-    svc_run();
-    DEBUG("REACHED !!!!");
-    /* NOT REACHED */
-}
 #define DISPLAY_UINT32_CONFIG(field)   pChar += sprintf(pChar,"%-25s = %u\n",#field, conf.field); 
 #define DISPLAY_STRING_CONFIG(field) \
   if (conf.field == NULL) pChar += sprintf(pChar,"%-25s = NULL\n",#field);\
@@ -1460,9 +1377,6 @@ int fuseloop(struct fuse_args *args, int fg) {
     char s;
     struct fuse_chan *ch;
     struct fuse_session *se;
-    int sock;
-    pthread_t profiling_thread;
-    uint16_t profiling_port;
     int retry_count;
     char ppfile[NAME_MAX];
     int ppfd = -1;
@@ -1774,46 +1688,6 @@ int fuseloop(struct fuse_args *args, int fg) {
         severe("can't create debug thread: %s", strerror(errno));
         return err;
     }
-
-    /*
-     * Start profiling server
-     */
-    gprofiler.uptime = time(0);
-    strncpy((char *) gprofiler.vers, VERSION, 20);
-    /* Find a free port */
-    for (profiling_port = 52000; profiling_port < 53000; profiling_port++) {
-        if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-            severe("can't create socket: %s", strerror(errno));
-            break;
-        }
-        struct sockaddr_in addr;
-        addr.sin_family = AF_INET;
-        addr.sin_port = htons(profiling_port);
-        addr.sin_addr.s_addr = INADDR_ANY;
-        if ((bind(sock, (struct sockaddr *) &addr, sizeof (struct sockaddr_in))) != 0) {
-            if (errno == EADDRINUSE)
-                profiling_port++; /* Try next port */
-            else {
-                severe("can't bind socket: %s", strerror(errno));
-                close(sock);
-            }
-        } else {
-            shutdown(sock, 2);
-            close(sock);
-            break;
-        }
-    }
-
-    if (profiling_port >= 60000) {
-        severe("no free port for monitoring !");
-    } else {
-        if ((errno = pthread_create(&profiling_thread, NULL,
-                (void*) rozofmount_profiling_thread_run,
-                &profiling_port)) != 0) {
-            severe("can't create monitoring thread: %s", strerror(errno));
-        }
-    }
-    info("monitoring port: %d", profiling_port);
 
     /* try to create a flag file with port number */
     sprintf(ppfile, "%s%s_%d%s", DAEMON_PID_DIRECTORY, "rozofsmount",conf.instance, mountpoint);

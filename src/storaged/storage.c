@@ -830,7 +830,7 @@ int storage_write_repair(storage_t * st, uint8_t layout, sid_t * dist_set,
     
     for (block_idx = 0; block_idx < nb_proj; block_idx++)
     {
-       if ((bitmap & (1 << block_idx)) == 0) continue;
+       if ((bitmap & (1ULL << block_idx)) == 0) continue;
        /*
        ** generate the crc32c for each projection block
        */

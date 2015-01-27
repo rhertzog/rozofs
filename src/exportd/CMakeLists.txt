@@ -49,7 +49,6 @@ add_executable(exportd
     monitor.c
     econfig.h
     econfig.c
-    epproto.c
     exportd.c
     exp_cache_dirty_mgt.c
     export_expgw_conf.c
