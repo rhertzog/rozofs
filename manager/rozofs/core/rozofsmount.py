@@ -39,7 +39,7 @@ class RozofsMountConfig(object):
             self.options = options
 
     def __eq__(self, other):
-        return self.export_host == other.export_host and self.export_path == other.export_path
+        return self.export_host == other.export_host and self.export_path == other.export_path and self.mountpoint == other.mountpoint
 
 class RozofsMountAgent(Agent):
     '''
@@ -89,29 +89,41 @@ class RozofsMountAgent(Agent):
 #    def _is_mount(self, share):
 #        return self._mount_path(share) in self._list_mount()
 
-    def _add_mountpoint(self, export_host, export_path, instance, options):
+    def _add_mountpoint(self, config, instance):
         fstab = Fstab()
         fstab.read(self.__FSTAB)
-        mount_path = self._mount_path(export_host, export_path)
-        if not os.path.exists(mount_path):
-            os.makedirs(mount_path)
+
+        mount_path = self._mount_path(config.export_host, config.export_path)
+
+        # Create mountpoint
+        if not os.path.exists(config.mountpoint):
+            os.makedirs(config.mountpoint)
+        else:
+            if not os.path.isdir(config.mountpoint):
+                raise Exception('mountpoint: %s is not a directory.'
+                                 % config.mountpoint)
+                # Check if empty
         # add a line to fstab
-        if not options:
+        if not config.options:
             stroptions=""
         else:
-            stroptions = ',' + ','.join(options)
+            stroptions = ',' + ','.join(config.options)
         
-        fstab.lines.append(Line(self.__FSTAB_LINE % (mount_path, export_host, export_path, instance, stroptions)))
+        fstab.lines.append(Line(self.__FSTAB_LINE % (config.mountpoint,
+                                                     config.export_host,
+                                                     config.export_path,
+                                                     instance,
+                                                     stroptions)))
         fstab.write(self.__FSTAB)
 
-    def _remove_mountpoint(self, export_host, export_path):
+    def _remove_mountpoint(self, config):
         fstab = Fstab()
         fstab.read(self.__FSTAB)
-        mount_path = self._mount_path(export_host, export_path)
-        if os.path.exists(mount_path):
-            os.rmdir(mount_path)
+        mount_path = self._mount_path(config.export_host, config.export_path)
+        if os.path.exists(config.mountpoint):
+            os.rmdir(config.mountpoint)
         # remove the line from fstab
-        newlines = [l for l in fstab.lines if l.directory != mount_path]
+        newlines = [l for l in fstab.lines if l.directory != config.mountpoint]
         fstab.lines = newlines
         fstab.write(self.__FSTAB)
 
@@ -132,18 +144,59 @@ class RozofsMountAgent(Agent):
         return configurations
 
     def set_service_config(self, configurations):
+        responses = {}
         instance = 0
         currents = self.get_service_config()
+
         # find an instance
         if currents:
             instance = max([int(c.instance) for c in currents]) + 1
+
+        # For added mountpoint(s)
         for config in [c for c in configurations if c not in currents]:
-            self._add_mountpoint(config.export_host, config.export_path, instance, config.options)
+            mnt_statuses = {}
+            mnt_statuses['config'] = True
+            mnt_statuses['service'] = True
+            # Add the mountpoint
+            try:
+                self._add_mountpoint(config, instance)
+            except Exception as e:
+                mnt_statuses['config'] = type(e)(e.message)
+            # Mount it
+            if mnt_statuses['config'] is True:
+                try:
+                    self._mount(config.mountpoint)
+                except Exception as e:
+                    mnt_statuses['service'] = type(e)(e.message)
+            else:
+                mnt_statuses['service'] = False
+
+            # Add mnt statuses to response
+            responses[config.mountpoint] = mnt_statuses
             instance = instance + 1
-            self._mount(self._mount_path(config.export_host, config.export_path))
+
+        # For removed mountpoint(s)
         for config in [c for c in currents if c not in configurations]:
-            self._umount(self._mount_path(config.export_host, config.export_path))
-            self._remove_mountpoint(config.export_host, config.export_path)
+            mnt_statuses = {}
+            mnt_statuses['config'] = True
+            mnt_statuses['service'] = True
+            # Umount this mountpoint
+            try:
+                self._umount(config.mountpoint)
+            except Exception as e:
+                mnt_statuses['service'] = type(e)(e.message)
+            # Remove it from fstab
+            if mnt_statuses['service'] is True:
+                try:
+                    self._remove_mountpoint(config)
+                except Exception as e:
+                    mnt_statuses['config'] = type(e)(e.message)
+            else:
+                mnt_statuses['config'] = False
+            # Add mnt statuses to response
+            responses[config.mountpoint] = mnt_statuses
+
+        return responses
 
     def get_service_status(self):
         statuses = {}

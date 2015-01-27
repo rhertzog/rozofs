@@ -408,9 +408,9 @@ Force removing non empty exports.
 .I create\fP | \fIremove\fP \fB\-E | \-\-exportd\fP \fIhost\fP...
 
 .SS create
-.B rozo export create \fB\-E\fP | \fB--exportd\fP\fI host\fP... [\fB\-n\fP | \fB--nodes\fP \fInode\fP...] [\fB\-e\fP | \fB--eids\fP \fIeid\fP...] [\fB\-o\fP | \fB--options\fP \fIoptions\fP...]
+.B rozo mount create \fB\-E\fP | \fB--exportd\fP\fI host\fP... [\fB\-n\fP | \fB--nodes\fP \fInode\fP...] [\fB\-i\fP | \fB--eids\fP \fIeid\fP...] | [\fB\-e\fP | \fB--exports\fP \fIexport_name\fP...] [\fB\-m\fP | \fB--mountpoints\fP \fImountpoint\fP...] [\fB\-o\fP | \fB--options\fP \fIoptions\fP...]
 .TP
-Mount export(s) identified by \fIeid\fP... on nodes.
+Mount export(s) identified by \fIeid\fP... or \fIexport_name\fP on nodes.
 .TP
 \fB\-E\fP, \fB--exportd \fP\fIhost\fP...
 List of running exportd hostname(s). When securing the exportd thanks to a
@@ -421,16 +421,22 @@ exportd must be given.
 \fB\-n\fP, \fB\-\-nodes \fP\fInode\fP...
 List of \fInode\fP hostnames to mount on. If not set exports will be mount on each node.
 .TP
-\fB\-e\fP, \fB\-\-eids \fP\fIeid\fP...
+\fB\-i\fP, \fB\-\-eids \fP\fIeid\fP...
 List of export(s) identified by \fIeid\fP... to mount.
+.TP
+\fB\-e\fP, \fB\-\-exports \fP\fIexport_name\fP...
+List of export(s) identified by \fIexport_name\fP... to mount.
+.TP
+\fB\-m\fP, \fB\-\-mountpoints \fP\fImountpoint\fP...
+List of mountpoint(s) to use for mount export(s).
 .TP
 \fB\-o\fP, \fB\-\-options \fP\fIoptions\fP...
 List of mount option(s) to use.
 
 .SS remove
-.B rozo export remove \fB\-E\fP | \fB--exportd\fP \fIhost\fP... [\fB\-n\fP | \fB--nodes\fP \fInode\fP...] [\fB\-e\fP | \fB--eids\fP \fIeid\fP...]
+.B rozo mount remove \fB\-E\fP | \fB--exportd\fP \fIhost\fP... [\fB\-n\fP | \fB--nodes\fP \fInode\fP...] [\fB\-i\fP | \fB--eids\fP \fIeid\fP...] | [\fB\-e\fP | \fB--exports\fP \fIexport_name\fP...] | [\fB\-m\fP | \fB--mountpoints\fP \fImountpoint\fP...]
 .TP
-Umount export(s) identified by \fIeid\fP... on nodes. 
+Unmount export(s) identified by \fIeid\fP..., \fIexport_name\fP..., or \fImountpoint\fP... on nodes.
 .TP
 \fB\-E\fP, \fB--exportd \fP\fIhost\fP...
 List of running exportd hostname(s). When securing the exportd thanks to a
@@ -439,12 +445,18 @@ the list of "physical" IP addresses of each host securing the
 exportd must be given.
 .TP
 \fB\-n\fP, \fB\-\-nodes \fP\fInode\fP...
-List of \fInode\fP hostnames to umount from. If not set exports will be umount
+List of \fInode\fP hostnames to unmount from. If not set exports will be umount
 from each node.
 .TP
-\fB\-e\fP, \fB\-\-eids \fP\fIeid\fP...
-List of export(s) identified by \fIeid\fP... to umount.
-
+\fB\-i\fP, \fB\-\-eids \fP\fIeid\fP...
+List of export(s) identified by \fIeid\fP... to unmount.
+.TP
+\fB\-e\fP, \fB\-\-exports \fP\fIexport_name\fP...
+List of export(s) identified by \fIexport_name\fP... to unmount.
+.TP
+\fB\-m\fP, \fB\-\-mountpoints \fP\fImountpoint\fP...
+List of mountpoint(s) to unmount.
+.TP
 
 .\""" rozo storaged
 .SH STORAGED TOPIC
