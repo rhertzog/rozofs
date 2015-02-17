@@ -127,4 +127,10 @@ typedef uint32_t (*uma_dbg_catcher_function_t)(uint32_t tcpRef, void *bufRef);
 //64BITS uint32_t uma_dbg_catcher_DFT(uint32 tcpRef, uint32 bufRef);
 uint32_t uma_dbg_catcher_DFT(uint32_t tcpRef, void *bufRef);
 void uma_dbg_setCatcher(uma_dbg_catcher_function_t funct);
+/*__________________________________________________________________________
+ */
+/**
+*  Run a system command and return the result 
+*/
+int uma_dbg_run_system_cmd(char * cmd, char *result, int len);
 #endif

@@ -411,15 +411,14 @@ char *argv[];
     /* -reserved_ports */
     if (strcmp(argv[idx],"-reserved_ports")==0) {
       char message[1024*4];
-      unsigned  res;
-      
+      int ret;
       show_ip_local_reserved_ports(message);
       printf("%s\n",message);
       printf("grep ip_local_reserved_ports /etc/sysctl.conf\n");
-      system("grep ip_local_reserved_ports /etc/sysctl.conf");
+      ret = system("grep ip_local_reserved_ports /etc/sysctl.conf");
       printf("\ncat /proc/sys/net/ipv4/ip_local_reserved_ports\n");
-      system("cat /proc/sys/net/ipv4/ip_local_reserved_ports"); 
-      exit(0);
+      ret += system("cat /proc/sys/net/ipv4/ip_local_reserved_ports"); 
+      exit(ret);
     }
     
     

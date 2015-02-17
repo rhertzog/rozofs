@@ -258,6 +258,35 @@ void show_profiler_short(char * argv[], uint32_t tcpRef, void *bufRef) {
 }
 /*
 *_______________________________________________________________________
+*
+*  synchro  diagnostic
+*/
+void show_synchro(char * argv[], uint32_t tcpRef, void *bufRef) {
+  char *pChar = uma_dbg_get_buffer();
+  int   fd;
+
+  if ((argv[1] == NULL) || (strcmp(argv[1],"drbd")==0)){
+    fd = open("/proc/drbd", O_RDONLY);
+    if (fd >= 0) {
+      pChar += read(fd,pChar, uma_dbg_get_buffer_len());
+      pChar += sprintf(pChar,"\n\n");
+      close(fd);
+    }
+  }  
+  
+  if ((argv[1] == NULL) || (strcmp(argv[1],"crm")==0)){
+    char   cmd[128];
+
+    sprintf(cmd,"crm_mon --one-shot");
+    pChar += uma_dbg_run_system_cmd(cmd, pChar, uma_dbg_get_buffer_len());
+    
+  }  
+  
+  uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   	  
+  return;
+}
+/*
+*_______________________________________________________________________
 */
 /**
 *   Storage,Volumes, EID statistics
@@ -654,6 +683,10 @@ int expgwc_start_nb_blocking_th(void *args) {
          fatal("can't initialize non blocking thread");
         return -1;
     }
+   /*
+    ** add synchro [drbd|crm]
+    */
+    uma_dbg_addTopic("synchro", show_synchro);
     /*
     ** add profiler subject (exportd statistics)
     */
