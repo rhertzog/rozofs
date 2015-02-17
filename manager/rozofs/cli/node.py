@@ -80,9 +80,12 @@ def status(platform, args):
                 continue
             if (role & Role.ROZOFSMOUNT == Role.ROZOFSMOUNT):
                 mount_l = []
-                for m, s in status.items():
-                    mount_l.append({m : 'mounted' if s else 'unmounted'})
-                role_l.append({ROLES_STR[role]: mount_l})
+                if not status:
+                    role_l.append({ROLES_STR[role]: 'no mountpoint configured'})
+                else:
+                    for m, s in status.items():
+                        mount_l.append({m : 'mounted' if s else 'unmounted'})
+                    role_l.append({ROLES_STR[role]: mount_l})
             else:
                 if status:
                     role_l.append({ROLES_STR[role]: 'running'})
@@ -274,13 +277,14 @@ def config(platform, args):
 
             if (role & Role.ROZOFSMOUNT == Role.ROZOFSMOUNT):
                 exp_l = []
-                for c in config:
-                    mountdict = {}
-                    mountdict["mountpoint"] = c.mountpoint
-                    mountdict["export host"] = c.export_host
-                    mountdict["export path"] = c.export_path
-                    exp_l.append(mountdict)
-                role_l.append({'ROZOFSMOUNT': exp_l})
+                if config:
+                    for c in config:
+                        mountdict = {}
+                        mountdict["mountpoint"] = c.mountpoint
+                        mountdict["export host"] = c.export_host
+                        mountdict["export path"] = c.export_path
+                        exp_l.append(mountdict)
+                    role_l.append({'ROZOFSMOUNT': exp_l})
 
             host_l.update({'NODE: ' + str(h) : role_l})
 

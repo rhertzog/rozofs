@@ -21,32 +21,52 @@ from rozofs.core.constants import LAYOUT_VALUES
 from rozofs.cli.output import ordered_puts
 from collections import OrderedDict
 from rozofs.core.constants import NBCORES
+from rozofs.cli.exceptions import MultipleError
 
 def layout_set(platform, args):
     platform.set_layout(args.layout[0])
+    ordered_puts({platform._active_export_host : {'layout '+str(layout): OrderedDict([
+          ("inverse", LAYOUT_VALUES[layout][0]),
+          ("forward", LAYOUT_VALUES[layout][1]),
+          ("safe", LAYOUT_VALUES[layout][2])
+        ])}})
 
 
 def layout_get(platform, args):
     layout = platform.get_layout()
-    ordered_puts({'layout '+str(layout): OrderedDict([
+    ordered_puts({platform._active_export_host : {'layout '+str(layout): OrderedDict([
           ("inverse", LAYOUT_VALUES[layout][0]),
           ("forward", LAYOUT_VALUES[layout][1]),
           ("safe", LAYOUT_VALUES[layout][2])
-        ])})
+        ])}})
 
 
 def option_list(platform, args):
 
     e_host = platform._active_export_host
     configurations = platform.get_configurations([e_host], Role.EXPORTD)
-    
     config = configurations[e_host][Role.EXPORTD]
 
-    options_l = []
+    export_l={}
+    errors_l={}
 
-    options_l.append({'nbcores' : config.nbcores})
+    # Check exception
+    if isinstance(config, Exception):
+        # Get error msg
+        err_str = type(config).__name__ + ' (' + config.message + ')'
+        # Update standard output dict
+        export_l.update({e_host: err_str})
+        # Update errors dict
+        errors_l.update({e_host : err_str})
+    else:
+        options_l = []
+        options_l.append({'nbcores' : config.nbcores})
+        export_l.update( {e_host :{'OPTIONS':options_l}})
 
-    ordered_puts({'OPTIONS':options_l})
+    ordered_puts(export_l)
+
+    if errors_l:
+        raise MultipleError(errors_l)
 
 
 def option_get(platform, args):
@@ -59,15 +79,29 @@ def option_get(platform, args):
 
     e_host = platform._active_export_host
     configurations = platform.get_configurations([e_host], Role.EXPORTD)
-
     config = configurations[e_host][Role.EXPORTD]
 
-    options_l = []
+    export_l={}
+    errors_l={}
 
-    if args.option == NBCORES:
-        options_l.append({'nbcores' : config.nbcores})
+    # Check exception
+    if isinstance(config, Exception):
+        # Get error msg
+        err_str = type(config).__name__ + ' (' + config.message + ')'
+        # Update standard output dict
+        export_l.update({e_host: err_str})
+        # Update errors dict
+        errors_l.update({e_host : err_str})
+    else:
+        options_l = []
+        if args.option == NBCORES:
+            options_l.append({'nbcores' : config.nbcores})
+        export_l.update( {e_host :{'OPTIONS':options_l}})
 
-    ordered_puts({'OPTIONS':options_l})
+    ordered_puts(export_l)
+
+    if errors_l:
+        raise MultipleError(errors_l)
 
 
 def option_set(platform, args):
@@ -83,17 +117,31 @@ def option_set(platform, args):
 
     config = configurations[e_host][Role.EXPORTD]
 
-    options_l = []
+    export_l={}
+    errors_l={}
 
-    if args.option == NBCORES:
-        config.nbcores = args.value
+    # Check exception
+    if isinstance(config, Exception):
+        # Get error msg
+        err_str = type(config).__name__ + ' (' + config.message + ')'
+        # Update standard output dict
+        export_l.update({e_host: err_str})
+        # Update errors dict
+        errors_l.update({e_host : err_str})
+    else:
+        options_l = []
+        if args.option == NBCORES:
+            config.nbcores = args.value
 
-    configurations[e_host][Role.EXPORTD] = config
+        configurations[e_host][Role.EXPORTD] = config
+        platform._get_nodes(e_host)[e_host].set_configurations(configurations[e_host])
+        options_l.append({args.option : int(args.value)})
+        export_l.update( {e_host :{'OPTIONS':options_l}})
 
-    platform._get_nodes(e_host)[e_host].set_configurations(configurations[e_host])
-    options_l.append({args.option : args.value})
+    ordered_puts(export_l)
 
-    ordered_puts({'OPTIONS':options_l})
+    if errors_l:
+        raise MultipleError(errors_l)
 
 
 def dispatch(args):

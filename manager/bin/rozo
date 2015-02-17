@@ -197,8 +197,6 @@ def main(argv=None):  # IGNORE:C0111
         action_export_parser = ArgumentParser(add_help=False, prog='rozo export')
         action_export_subparsers = action_export_parser.add_subparsers(help='export available actions', dest='action')
 
-        action_export_list_parser = action_export_subparsers.add_parser('list', add_help=False, help='list exports')
-
         action_export_create_parser = action_export_subparsers.add_parser('create', add_help=False, help='create an export')
         action_export_create_parser.add_argument('-n', '--name', default=None, help='Name of this export.')
         action_export_create_parser.add_argument('-p', '--passwd', default=None, help='password to set.')
@@ -217,21 +215,29 @@ def main(argv=None):  # IGNORE:C0111
         action_export_remove_parser.add_argument('-f', '--force', action="store_true", default=False, help='when ever to force removing.')
         action_export_remove_parser.add_argument('eids', nargs='*', type=int, default=None, help='eid(s) of existing export.')
 
-        action_get_remove_parser = action_export_subparsers.add_parser('get', add_help=False, help='get export(s)')
-        action_get_remove_parser.add_argument('eids', nargs='*', type=int, default=None, help='eid(s) of existing export.')
+        action_export_get_parser = action_export_subparsers.add_parser('get', add_help=False, help='get export(s) configuration')
+        action_export_get_parser.add_argument('-e', '--eids', nargs='+', metavar='EID', type=int, default=None, help='list of eid(s) to display. If not set all exports are displayed.')
 
         # Mount
         action_mount_parser = ArgumentParser(add_help=False, prog='rozo mount')
         action_mount_subparsers = action_mount_parser.add_subparsers(help='mount available actions', dest='action')
 
-        action_mount_create_parser = action_mount_subparsers.add_parser('create', add_help=False, help='mount export(s)', parents=[topic_mount_parser])
-        action_mount_create_parser.add_argument('-n', '--nodes', nargs='+', help='list of nodes to mount on')
-        action_mount_create_parser.add_argument('-e', '--eids', nargs='*', type=int, default=None, help='eid(s) to be mount.')
-        action_mount_create_parser.add_argument('-o', '--options', nargs='*', default=None, help='list of mount option(s) to use.')
+        action_mount_create_parser = action_mount_subparsers.add_parser('create', add_help=False, help='create an entry for an exported Rozo filesystem in fstab file and mount it', parents=[topic_mount_parser])
 
-        action_mount_remove_parser = action_mount_subparsers.add_parser('remove', add_help=False, help='umount export(s)', parents=[topic_mount_parser])
-        action_mount_remove_parser.add_argument('-n', '--nodes', nargs='+', help='list of nodes to umount from')
-        action_mount_remove_parser.add_argument('-e', '--eids', nargs='*', type=int, default=None, help='eid(s) to be umount.')
+        group_mount_create = action_mount_create_parser.add_mutually_exclusive_group()
+        group_mount_create.add_argument('-i', '--eids', nargs='+', metavar='EID', type=int, default=None, help='list of export(s) identified by eid to mount.')
+        group_mount_create.add_argument('-e', '--exports', nargs='+', metavar='EXPORT_NAME', default=None, help='list of export(s) identified by export_name to mount.')
+        action_mount_create_parser.add_argument('-n', '--nodes', nargs='+', help='list of node hostname(s) to mount on.')
+        action_mount_create_parser.add_argument('-o', '--options', nargs='+', default=None, help='list of mount option(s) to use.')
+        action_mount_create_parser.add_argument('-m', '--mountpoints', nargs='+', default=None, help='list of mountpoints to use on node(s)')
+
+        action_mount_remove_parser = action_mount_subparsers.add_parser('remove', add_help=False, help='unmount an exported Rozo filesystem and remove it from the fstab file', parents=[topic_mount_parser])
+
+        group_mount_remove = action_mount_remove_parser.add_mutually_exclusive_group()
+        group_mount_remove.add_argument('-i', '--eids', nargs='+', metavar='EID', type=int, default=None, help='list of export(s) identified by eid to unmount.')
+        group_mount_remove.add_argument('-e', '--exports', nargs='+', metavar='EXPORT_NAME', default=None, help='list of export(s) identified by export_name to unmount.')
+        group_mount_remove.add_argument('-m', '--mountpoints', nargs='+', metavar='MOUNTPOINT', default=None, help='list of mountpoint(s) to unmount.')
+        action_mount_remove_parser.add_argument('-n', '--nodes', nargs='+', metavar='NODE', help='list of node hostname(s) to unmount from.')
 
         # exportd
         subtopic_exportd_parser = ArgumentParser(add_help=False, prog='rozo exportd')

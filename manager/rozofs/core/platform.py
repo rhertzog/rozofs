@@ -20,6 +20,7 @@ import Pyro.core
 from Pyro.errors import PyroError, NamingError, ProtocolError
 import subprocess
 import time
+import os
 
 from rozofs.core.constants import STORAGED_MANAGER, EXPORTD_MANAGER, \
     AGENT_PORT, LAYOUT_VALUES, LAYOUT_SAFE, EXPORTS_ROOT, \
@@ -37,7 +38,7 @@ def check_reachability(host):
     with open('/dev/null', 'w') as devnull:
         if subprocess.call(['ping', '-c', '1', '-w', '2', host],
             stdout=devnull, stderr=devnull) is not 0:
-                raise Exception("host (%s) is not reachable" % host)
+                raise ConnectionError("host (%s) is not reachable" % host)
 
 def get_proxy(host, manager):
     try:
@@ -163,12 +164,24 @@ class Node(object):
         return configurations
 
     def set_configurations(self, configurations):
+        statuses = {}
         if not self._try_up():
-            return
+            for r in configurations.keys():
+                if self.has_roles(r):
+                    statuses[r] = ConnectionError("host not reachable")
+            return statuses
 
         for r, c in configurations.items():
             if self.has_roles(r):
-                self._proxies[r].set_service_config(c)
+                try:
+                    statuses[r] = self._proxies[r].set_service_config(c)
+                except NamingError as e:
+                    statuses[r] =  type(e)("no %s agent reachable" % (ROLES_STR[r]))
+                except ProtocolError as e:
+                    statuses[r] =  type(e)("rozofs-manager agent is not reachable")
+                except Exception as e:
+                    statuses[r] = type(e)(e.message)
+        return statuses
 
     def get_statuses(self, roles=Role.EXPORTD | Role.STORAGED | Role.ROZOFSMOUNT):
 
@@ -305,16 +318,18 @@ class Platform(object):
                             for c in v.clusters.values()
                             for s in c.storages.values()]:
                 node_roles = Role.STORAGED
-
+                node_roles = node_roles | Role.ROZOFSMOUNT
                 if Role.ROZOFSMOUNT & roles == Role.ROZOFSMOUNT:
                     # check if has rozofsmount
                     try :
                         check_reachability(h)
                         p = get_proxy(h, ROZOFSMOUNT_MANAGER)
-                        if p.get_service_config():
-                            node_roles = node_roles | Role.ROZOFSMOUNT
-                    except:
+                        p.get_service_config()
+                    except NamingError as e:
+                        node_roles = node_roles ^ Role.ROZOFSMOUNT
+                    except Exception as e:
                         pass
+
                 if h in nodes:  # the exportd node !
                     nodes[h].set_roles(nodes[h].get_roles() | node_roles)
                 else:
@@ -537,29 +552,42 @@ class Platform(object):
 
         return configurations
 
-    # should be done at cli with get/set configuration?!
     def set_layout(self, layout):
-        if not layout in [0, 1, 2]:
+
+        # Check layout
+        valid_layouts = [0, 1, 2]
+        if not layout in valid_layouts:
             raise Exception("invalid layout: %d" % layout)
 
+        # Get config
         node = self._get_exportd_node()
         configuration = node.get_configurations(Role.EXPORTD)
 
-        if configuration is None:
-            raise Exception("exportd node is off line.")
+        # Check exception
+        if isinstance(configuration[Role.EXPORTD], Exception):
+            raise type(configuration[Role.EXPORTD])("%s: %s" % 
+                                                    (self._active_export_host,
+                                                    configuration[Role.EXPORTD].message))
 
+        # Check if we can change the layout
         if len(configuration[Role.EXPORTD].volumes) != 0:
             raise Exception("platform has configured volume(s) !!!")
 
+        # Set layout
         configuration[Role.EXPORTD].layout = layout
         node.set_configurations(configuration)
 
     def get_layout(self):
         node = self._get_exportd_node()
+
+        # Get config
         configuration = node.get_configurations(Role.EXPORTD)
 
-        if configuration is None:
-            raise Exception("exportd node is off line.")
+        # Check exception
+        if isinstance(configuration[Role.EXPORTD], Exception):
+            raise type(configuration[Role.EXPORTD])("%s: %s" % 
+                                                    (self._active_export_host,
+                                                    configuration[Role.EXPORTD].message))
 
         return configuration[Role.EXPORTD].layout
 
@@ -804,8 +832,6 @@ class Platform(object):
         enode = self._get_exportd_node()
         econfig = enode.get_configurations(Role.EXPORTD)
 
-        print squota
-
         if econfig is None:
             raise Exception("%s is not reachable" % enode._host)
 
@@ -899,106 +925,304 @@ class Platform(object):
 
         enode.set_configurations(econfig)
 
-    def mount_export(self, eids=None, hosts=None, options=None):
-        """ Mount an exported file system
+    def mount_export(self, eids=None, exports=None, hosts=None, mountpoints=None, options=None):
+        """ Mount an exported rozo file system
 
         Only known (managed by this platform) hosts could mount a file system.
 
         Args:
-            eids: the export ids to mount if None all exports are mount
-            hosts: target hosts to mount on if None all export will be mount on
-                   all nodes
-            options: mount options to use
+            eids: list of specific eid(s) to mount.
+                  (if eids and exports are None, all exports will be mount)
+            exports: list of specific exports(s) name (dirname) to mount.
+                  (if eids and exports are None, all exports will be mount)
+            hosts: target hosts to mount on if None, exports will be mount on
+                   all nodes (node with rozofsmount agent listener)
+            mountpoints: list of path(s) to use for mount export on node(s)
+            options: mount options to use for the list of export(s)
         """
+        statuses = {}
 
+        # Get export configuration
         enode = self._get_exportd_node()
         econfig = enode.get_configurations(Role.EXPORTD)
+        # Check error
+        if isinstance(econfig[Role.EXPORTD], Exception):
+            raise type(econfig[Role.EXPORTD])(econfig[Role.EXPORTD].message)
 
-        if econfig is None:
-            raise Exception("%s is not reachable" % self._active_export_host)
-
-        if hosts is None:
+        # Check hosts arg
+        if hosts is not None:
+            for h in hosts:
+                if h not in self._nodes:
+                    raise Exception("Unknown host: %s." % h)
+        else:
+            # All nodes
             hosts = self._nodes.keys()
 
-        if eids is None:
+        # Check args eids and exports
+        if eids is not None and exports is not None:
+            raise Exception("eids and exports are mutually exclusive")
+        elif eids is not None:
+            # Check given eids
+            for eid in eids:
+                if eid not in econfig[Role.EXPORTD].exports.keys():
+                    raise Exception("Unknown export with eid=%d." % eid)
+        elif exports is not None:
+            # Check given exports
+            for export in exports:
+                if export not in [os.path.basename(e.root) for e in econfig[Role.EXPORTD].exports.values()]:
+                    raise Exception("Unknown export with name: %s." % export)
+            eids=[]
+            for export in exports:
+                for i,e in econfig[Role.EXPORTD].exports.items():
+                    if os.path.basename(e.root) == export:
+                        eids.append(i)
+        else:
             eids = econfig[Role.EXPORTD].exports.keys()
 
-        # Sanity check
-        for h in hosts:
-            if h not in self._nodes:
-                raise Exception("Unknown host: %s." % h)
-        for eid in eids:
-            if eid not in econfig[Role.EXPORTD].exports.keys():
-                raise Exception("Unknown export: %d." % eid)
+        mnt_path = {}
+        # Check mountpoints
+        if mountpoints:
+            for mnt in mountpoints:
+                if not os.path.isabs(mnt):
+                    raise Exception('Mountpoint: %s is not '
+                                    'an absolute pathname.' % mnt)
+            if len(mountpoints) > len(eids):
+                raise Exception('Too many mountpoint(s):'
+                                ' %d given mountpoint(s) for %d export(s)' %
+                                (len(mountpoints), len(eids)))
+            idx = 0
+            for eid in eids:
+                if len(mountpoints) > idx:
+                    mnt_path[eid] = mountpoints[idx]
+                    idx +=1
+                else:
+                    mnt_path[eid] = None
+        else:
+            for eid in eids:
+                mnt_path[eid] = None
 
         # Get current rozofsmount config on each node
         current_rconfig = {}
         for h in hosts:
             node = self._nodes[h]
-            node.set_roles(node.get_roles() | Role.ROZOFSMOUNT)
-            rconfig = node.get_configurations(Role.ROZOFSMOUNT)
 
-            # TO CHANGE
-            if isinstance(rconfig[Role.ROZOFSMOUNT], Exception):
-                raise type(rconfig[Role.ROZOFSMOUNT])("NODE %s: %s" % (h, rconfig[Role.ROZOFSMOUNT].message))
-
-            current_rconfig[h] = rconfig
+            if node.has_one_of_roles(Role.ROZOFSMOUNT):
+                rconfig = node.get_configurations(Role.ROZOFSMOUNT)
+                # Check error
+                if isinstance(rconfig[Role.ROZOFSMOUNT], Exception):
+                    # Update statuses
+                    statuses[h] = type(rconfig[Role.ROZOFSMOUNT])(rconfig[Role.ROZOFSMOUNT].message)
+                    continue
+                current_rconfig[h] = rconfig
 
         # Set new rozo configs
         for h in hosts:
+
+            # Check if we have config for this host
+            if not current_rconfig.has_key(h):
+                continue
+
+            host_mnt_statuses = {}
             node = self._nodes[h]
+
+            # Indicate if we add new config
+            new_config = False
+            old_config = False
+
             for eid in eids:
+
+                # Build new config
                 expconfig = econfig[Role.EXPORTD].exports[eid]
-                rconfig = RozofsMountConfig("/".join(self._export_hosts) , expconfig.root, -1, options=options)
-                # check duplicates
-                if rconfig not in current_rconfig[h]:
-                    current_rconfig[h][Role.ROZOFSMOUNT].append(rconfig)
+                rconfig = RozofsMountConfig("/".join(self._export_hosts) 
+                                            , expconfig.root
+                                            , -1
+                                            , mountpoint=mnt_path[eid]
+                                            , options=options)
 
-            node.set_configurations(current_rconfig[h])
+                mnt_desc = {}
+                mnt_desc['eid'] = eid
+                mnt_desc['export_root'] = expconfig.root
+                mnt_desc['export_host'] = self._export_hosts
+                mnt_desc['options'] = options
 
-    def umount_export(self, eids=None, hosts=None):
-        """ Umount an exported file system
+                # Check already present mnt_desc
+                if rconfig not in current_rconfig[h][Role.ROZOFSMOUNT]:
+                    # Check if mounpoint is already used
+                    if rconfig.mountpoint in [m.mountpoint for m in current_rconfig[h][Role.ROZOFSMOUNT]]:
+                        mnt_desc['config'] = Exception("mountpoint: %s already exists" % rconfig.mountpoint)
+                        mnt_desc['service'] = False
+                        host_mnt_statuses[rconfig.mountpoint] = mnt_desc
+                    else:
+                        current_rconfig[h][Role.ROZOFSMOUNT].append(rconfig)
+                        host_mnt_statuses[rconfig.mountpoint] = mnt_desc
+                        new_config = True
+                else:
+                    old_config = True
+                    for conf in current_rconfig[h][Role.ROZOFSMOUNT]:
+                        if conf == rconfig:
+                            mnt_desc['config'] = None
+                            mnt_desc['service'] = None
+                            host_mnt_statuses[conf.mountpoint] = mnt_desc
 
-        Only kown (managed by this platform) hosts could umount a file system.
+            if old_config:
+                mnt_statuses = node.get_statuses(Role.ROZOFSMOUNT)
+                for mnt, status in mnt_statuses[Role.ROZOFSMOUNT].items():
+                    if host_mnt_statuses.has_key(mnt):
+                        host_mnt_statuses[mnt].update({'service' : status})
+
+            if new_config:
+                resp = node.set_configurations(current_rconfig[h])
+                # Check error
+                if isinstance(resp[Role.ROZOFSMOUNT], Exception):
+                    # Update statuses
+                    statuses[h] = resp[Role.ROZOFSMOUNT]
+                    continue
+                for mnt, mnt_status in resp[Role.ROZOFSMOUNT].items():
+                    # Update config
+                    host_mnt_statuses[mnt].update(mnt_status)
+
+            statuses[h] = host_mnt_statuses
+
+        return statuses
+
+    def umount_export(self, eids=None, exports=None, mountpoints=None, hosts=None):
+        """ Unmount an exported rozo file system
+
+        Only known (managed by this platform) hosts could umount a file system.
 
         Args:
-            eids: the export ids to mount if None all exports are umount
-            hosts: target hosts to mount on if None all export will be mount on
-                   all nodes
+            eids: list of specific eid(s) to unmount.
+                  (if eids, exports and mountpoints are None,
+                   all exports will be unmounted)
+            exports: list of specific exports(s) name (dirname) to unmounted.
+                  (if eids, exports and mountpoints are None,
+                   all exports will be unmounted)
+            mountpoints: list of specific mountpath to unmount
+                          (if eids, exports and mountpoints are None,
+                           all exports will be unmounted)
+            hosts: target hosts to unmount, if None on all nodes will be
+                   requested (nodes) with rozofsmount listener).
         """
+        statuses = {}
 
-        if hosts is None:
-            hosts = self._nodes.keys()
-
+        # Get export configuration
         enode = self._get_exportd_node()
         econfig = enode.get_configurations(Role.EXPORTD)
+        # Check error
+        if isinstance(econfig[Role.EXPORTD], Exception):
+            raise type(econfig[Role.EXPORTD])(econfig[Role.EXPORTD].message)
 
-        if econfig is None:
-            raise Exception("Exportd node is off line.")
+        # Check hosts arg
+        if hosts is not None:
+            for h in hosts:
+                if h not in self._nodes:
+                    raise Exception("Unknown host: %s." % h)
+        else:
+            # All nodes
+            hosts = self._nodes.keys()
 
-        if eids is None:
+        # Check args eids, exports and mountpoints parameters
+        if eids is not None and exports is not None :
+            raise Exception("eids and exports are mutually exclusive")
+        elif eids is not None and mountpoints is not None :
+            raise Exception("eids and mounpoints are mutually exclusive")
+        elif exports is not None and mountpoints is not None :
+            raise Exception("exports and mountpoints are mutually exclusive")
+        elif eids is not None:
+            # Check given eids
+            for eid in eids:
+                if eid not in econfig[Role.EXPORTD].exports.keys():
+                    raise Exception("Unknown export with eid=%d." % eid)
+        elif exports is not None:
+            # Check given exports
+            for export in exports:
+                if export not in [os.path.basename(e.root) for e in econfig[Role.EXPORTD].exports.values()]:
+                    raise Exception("Unknown export with name: %s." % export)
+            # Compute eids
+            eids = []
+            for export in exports:
+                for i,e in econfig[Role.EXPORTD].exports.items():
+                    if os.path.basename(e.root) == export:
+                        eids.append(i)
+        elif mountpoints is not None:
+            # check mountpoints
+            for mnt in mountpoints:
+                if not os.path.isabs(mnt):
+                    raise Exception('mountpoint: %s is not '
+                                    'an absolute pathname.' % mnt)
+        else:
+            # All eids
             eids = econfig[Role.EXPORTD].exports.keys()
-
-        # sanity check
-        for h in hosts:
-            if h not in self._nodes:
-                raise Exception("Unknown host: %s." % h)
-        for eid in eids:
-            if eid not in econfig[Role.EXPORTD].exports.keys():
-                raise Exception("Unknown export with eid=%d." % eid)
 
         # umount
         for h in hosts:
+
             node = self._nodes[h]
+
             if node.has_one_of_roles(Role.ROZOFSMOUNT):
+
+                # Get current rozofsmount configs
                 rconfigs = node.get_configurations(Role.ROZOFSMOUNT)
+                # Check error
+                if isinstance(rconfigs[Role.ROZOFSMOUNT], Exception):
+                    # Update statuses
+                    statuses[h] = rconfigs[Role.ROZOFSMOUNT]
+                    continue
 
-                for eid in eids:
-                    expconfig = econfig[Role.EXPORTD].exports[eid]
-                    rconfig = RozofsMountConfig("/".join(self._export_hosts) , expconfig.root, -1, None)
-                    if rconfig in rconfigs[Role.ROZOFSMOUNT]:
-                        rconfigs[Role.ROZOFSMOUNT].remove(rconfig)
+                host_mnt_statuses = {}
 
-                node.set_configurations(rconfigs)
-                if not rconfigs:
-                    node.set_roles(node.get_roles ^ Role.ROZOFSMOUNT)
+                # Indicate if we add new config
+                new_config = False
+
+                if mountpoints is not None:
+                    # Build list of configs to remove
+                    remove_conf_l = []
+                    for mnt in mountpoints:
+                        for r in rconfigs[Role.ROZOFSMOUNT]:
+                            if r.mountpoint == mnt:
+                                remove_conf_l.append(r)
+
+                    for rem_c in remove_conf_l:
+                        mnt_desc = {}
+                        new_config = True
+                        for e in econfig[Role.EXPORTD].exports.values():
+                            if e.root == rem_c.export_path:
+                                mnt_desc['eid'] = e.eid
+                                break
+                        mnt_desc['export_root'] = rem_c.export_path
+                        mnt_desc['export_host'] = self._export_hosts
+                        rconfigs[Role.ROZOFSMOUNT].remove(rem_c)
+                        host_mnt_statuses[rem_c.mountpoint] = mnt_desc
+
+                else:
+                    for eid in eids:
+                        # Find exp_path
+                        exp_path = econfig[Role.EXPORTD].exports[eid].root
+                        # Build list of configs to remove
+                        remove_conf_l = [r for r in rconfigs[Role.ROZOFSMOUNT] if r.export_path == exp_path]
+
+                        for rem_c in remove_conf_l:
+                            mnt_desc = {}
+                            new_config = True
+                            mnt_desc['eid'] = eid
+                            mnt_desc['export_root'] = exp_path
+                            mnt_desc['export_host'] = self._export_hosts
+                            rconfigs[Role.ROZOFSMOUNT].remove(rem_c)
+                            host_mnt_statuses[rem_c.mountpoint] = mnt_desc
+
+                if new_config:
+                    # Send updated configuration
+                    resp = node.set_configurations(rconfigs)
+                    # Check error
+                    if isinstance(resp[Role.ROZOFSMOUNT], Exception):
+                        # Update statuses
+                        statuses[h] = resp[Role.ROZOFSMOUNT]
+                        continue
+
+                    for mnt, mnt_status in resp[Role.ROZOFSMOUNT].items():
+                        # Update config
+                        host_mnt_statuses[mnt].update(mnt_status)
+
+                statuses[h] = host_mnt_statuses
+
+        return statuses
