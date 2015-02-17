@@ -16,7 +16,7 @@
 VFSTAT=/tmp/vfstat_rozodiag.$$
 VERSION="Version 1.0"
 PROGNAME=`basename $0`
-
+SYNCHRO=/tmp/synchro_rozodiag.$$
 # Exit codes
 STATE_OK=0
 STATE_WARNING=1
@@ -258,7 +258,6 @@ esac
 
 # Find rozodiag utility and prepare command line parameters
 
-resolve_rozodiag
 
 
 ok=0
@@ -280,6 +279,37 @@ case $ok in
   "0") display_output $STATE_CRITICAL "$host:$port do not respond to rozodiag vfstat_vol";;
 esac
 host=${hosts[$((i-1))]}
+# Check DRDB synchronization status
+$ROZDBG -c synchro drbd >  $SYNCHRO
+synchro_warning=`awk '
+{
+  if (($1=="0:")||($1=="1:")) 
+  {
+    if (($2!= "cs:Connected")||($3!= "ro:Primary/Secondary")||($4!= "ds:UpToDate/UpToDate")) {
+      print "drdb $1 out of synchro";
+    }	
+    else {
+      print "OK";
+    }
+  }
+}' $SYNCHRO`
+case "$synchro_warning" in
+  "OK");;
+  "")  ;;
+  *)  display_output $STATE_CRITICAL "$res";;    
+esac
+
+  
+# Check pacemaker synchronization status
+$ROZDBG -c synchro crm >  $SYNCHRO
+grep --quiet "Failed" $SYNCHRO
+STATUS=$?
+if [ ${STATUS} -eq 0 ]
+then
+  DETAILS=`$awk '/Failed/ {f=1}f' | grep --invert-match Failed`
+  COUNT=`$awk '/Failed/ {f=1}f' | grep --invert-match --count Failed`
+  display_output $STATE_CRITICAL "${COUNT} failed action(s): ${DETAILS}"
+fi
 
 # Extract volume usage from the debug output
 
@@ -343,5 +373,12 @@ else
   fi
 fi  
 
+case "$synchro_warning" in
+  "OK")display_output $STATE_OK;;
+  "")  display_output $STATE_WARNING "No drdb synchro";;
+  *)   display_output $STATE_CRITICAL "$synchro_warning";;    
+esac
+ 
 # Hurra !!!
-display_output $STATE_OK 
+
+  
