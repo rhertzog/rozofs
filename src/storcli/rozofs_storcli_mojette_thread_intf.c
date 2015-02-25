@@ -57,10 +57,10 @@ void * af_unix_mojette_pool_recv = NULL;
 
 #define DEFAULT_STCMO_THREAD_WRITE       1
 #define DEFAULT_STCMO_THREAD_READ        0
-#define DEFAULT_STCMO_THREAD_THRESHOLD  16
+#define DEFAULT_STCMO_THREAD_THRESHOLD  (16*8*1024)
 int rozofs_stcmoj_thread_write_enable=DEFAULT_STCMO_THREAD_WRITE;
 int rozofs_stcmoj_thread_read_enable=DEFAULT_STCMO_THREAD_READ;
-uint32_t rozofs_stcmoj_thread_len_threshold=DEFAULT_STCMO_THREAD_THRESHOLD*ROZOFS_BSIZE;
+uint32_t rozofs_stcmoj_thread_len_threshold=DEFAULT_STCMO_THREAD_THRESHOLD;
 
 /*__________________________________________________________________________
   Trace level debug function
@@ -798,8 +798,8 @@ void rozofs_stcmoj_thread_enable_read(int enable) {
 *
 * @param threshold      The threshold in number of blocks
 */
-void rozofs_stcmoj_thread_set_threshold(int nbBlocks) {
-  rozofs_stcmoj_thread_len_threshold = nbBlocks*ROZOFS_BSIZE;
+void rozofs_stcmoj_thread_set_threshold(int threshold) {
+  rozofs_stcmoj_thread_len_threshold = threshold;
 }
 /*__________________________________________________________________________
 * Reset to the default parameters

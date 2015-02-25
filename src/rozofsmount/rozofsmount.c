@@ -178,7 +178,7 @@ static void usage() {
     fprintf(stderr, "    -o noXattr\t\t\tdisable support of extended attributes\n");
     fprintf(stderr, "    -o mojThreadWrite=0|1\t\t\tdisable|enable Mojette threads use for write in storcli\n");
     fprintf(stderr, "    -o mojThreadRead=0|1\t\t\tdisable|enable Mojette threads use for read in storcli\n");
-    fprintf(stderr, "    -o mojThreadThreshold=<nb blocks>\t\t\tset threashold to use Mojette threads in storcli\n");
+    fprintf(stderr, "    -o mojThreadThreshold=<bytes>\t\t\tset the byte threshold to use Mojette threads in storcli\n");
 }
 
 static rozofsmnt_conf_t conf;

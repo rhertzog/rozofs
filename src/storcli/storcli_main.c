@@ -852,7 +852,7 @@ void usage() {
     printf("\t-S,--shaper VALUE\t\tShaper initial value (default 1)\n");
     printf("\t-r,--mojThreadRead <enable|disable>\t\tWhether the read mojette threads are enabled (default disable)\n");
     printf("\t-w,--mojThreadWrite <enable|disable>\t\tWhether the read mojette threads are enabled (default enable)\n");
-    printf("\t-m,--mojThreadThreshold value\t\tThe number of blocks from which the storage threads are called (default 16)\n");
+    printf("\t-m,--mojThreadThreshold value\t\tThe number of bytes from which the storage threads are called (default 16)\n");
 }
 
 /**
