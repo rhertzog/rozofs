@@ -119,13 +119,13 @@ gen_storage_conf ()
             printf "storio  = \"$STORIO_MODE\";" >> $FILE
 
             printf "listen = ( \n" >> $FILE
-            printf "  {addr = \"192.168.2.$sid\"; port = 41000;}" >> $FILE
+            printf "  {addr = \"192.168.10.$sid\"; port = 41000;}" >> $FILE
 
             # Test for special character "*"
             #printf "  {addr = \"*\"; port = 4100$sid;}" >> $FILE
 
             for idx in $(seq 2 1 ${PORT_PER_STORAGE_HOST}); do
-                printf " ,\n  {addr = \"192.168.$((idx+1)).$sid\"; port = 41000;}"
+                printf " ,\n  {addr = \"192.168.$((idx+9)).$sid\"; port = 41000;}"
             done >>  $FILE
 
             printf "\n);\n" >>  $FILE
@@ -615,7 +615,10 @@ deploy_clients_local ()
                     option="$option -o rozofsshaper=$SHAPER"
                     option="$option -o posixlock"
                     option="$option -o bsdlock"
-                    option="$option -o rozofsrotate=3"		    
+                    option="$option -o rozofsrotate=3"	
+#		    option="$option -o mojThreadRead=1"		    
+#		    option="$option -o mojThreadWrite=0"		    		    
+#		    option="$option -o mojThreadThreshold=8"		    		    
                     let "INSTANCE=${idx_client}-1"
                     option="$option -o instance=$INSTANCE"
 

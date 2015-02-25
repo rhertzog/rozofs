@@ -41,7 +41,7 @@ main (){
 
         for k in $(seq ${NB_IP_TO_SET}); do
 
-            for n in {2..6}; do
+            for n in {10..13}; do
 
                 ip addr add ${IP_BASE}.${n}.${k}/${NETMASK} dev ${INTERFACE_TO_USE}
 
@@ -54,7 +54,7 @@ main (){
 
         for k in $(seq ${NB_IP_TO_SET}); do
 
-            for n in {2..6}; do
+            for n in {10..13}; do
 
                 ip addr del ${IP_BASE}.${n}.${k}/${NETMASK} dev ${INTERFACE_TO_USE}
 
