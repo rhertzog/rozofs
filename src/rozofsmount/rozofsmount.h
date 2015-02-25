@@ -71,6 +71,9 @@ typedef struct rozofsmnt_conf {
     unsigned max_write_pending ; /**< Maximum number pending write */
     unsigned quota; /* ignored */
     unsigned noXattr;
+    unsigned mojThreadWrite;
+    unsigned mojThreadRead;    
+    unsigned mojThreadThreshold;        
 } rozofsmnt_conf_t;
 
 typedef struct dirbuf {

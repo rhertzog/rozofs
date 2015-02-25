@@ -136,4 +136,28 @@ int rozofs_stcmoj_thread_intf_send(rozofs_stcmoj_thread_request_e   opcode,
 */
 void storio_send_response (rozofs_mojette_thread_ctx_t *thread_ctx_p, rozofs_stcmoj_thread_msg_t * msg, int status);
 
+
+/*__________________________________________________________________________
+* Enable/disable the mojette threads for write
+*
+* @param enable      1 to enable, 0 to disable 
+*/
+void rozofs_stcmoj_thread_enable_write(int enable) ;
+/*__________________________________________________________________________
+* Enable/disable the mojette threads for read
+*
+* @param enable      1 to enable, 0 to disable 
+*/
+void rozofs_stcmoj_thread_enable_read(int enable) ;
+/*__________________________________________________________________________
+* Set the threshold to call the mojette threads
+*
+* @param threshold      The threshold in number of blocks
+*/
+void rozofs_stcmoj_thread_set_threshold(int nbBlocks) ;
+/*__________________________________________________________________________
+* Reset to the default parameters
+*
+*/
+void rozofs_stcmoj_thread_set_default() ;
 #endif

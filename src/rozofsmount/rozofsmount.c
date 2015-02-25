@@ -176,7 +176,9 @@ static void usage() {
     fprintf(stderr, "    -o posixlock\t\tactive support for POSIX file lock\n");
     fprintf(stderr, "    -o bsdlock\t\t\tactive support for BSD file lock\n");
     fprintf(stderr, "    -o noXattr\t\t\tdisable support of extended attributes\n");
-
+    fprintf(stderr, "    -o mojThreadWrite=0|1\t\t\tdisable|enable Mojette threads use for write in storcli\n");
+    fprintf(stderr, "    -o mojThreadRead=0|1\t\t\tdisable|enable Mojette threads use for read in storcli\n");
+    fprintf(stderr, "    -o mojThreadThreshold=<nb blocks>\t\t\tset threashold to use Mojette threads in storcli\n");
 }
 
 static rozofsmnt_conf_t conf;
@@ -223,7 +225,10 @@ static struct fuse_opt rozofs_opts[] = {
     MYFS_OPT("quota", quota, 3),
     MYFS_OPT("usrquota", quota, 1),
     MYFS_OPT("noXattr", noXattr, 1),
-
+    MYFS_OPT("mojThreadWrite=%u",mojThreadWrite,-1),
+    MYFS_OPT("mojThreadRead=%u",mojThreadRead,-1),
+    MYFS_OPT("mojThreadThreshold=%u",mojThreadThreshold,-1),
+   
     FUSE_OPT_KEY("-H ", KEY_EXPORT_HOST),
     FUSE_OPT_KEY("-E ", KEY_EXPORT_PATH),
     FUSE_OPT_KEY("-P ", KEY_EXPORT_PASSWD),
@@ -355,7 +360,9 @@ void show_start_config(char * argv[], uint32_t tcpRef, void *bufRef) {
   DISPLAY_UINT32_CONFIG(rotate);  
   DISPLAY_UINT32_CONFIG(posix_file_lock);  
   DISPLAY_UINT32_CONFIG(bsd_file_lock);  
-  DISPLAY_UINT32_CONFIG(noXattr);  
+  DISPLAY_UINT32_CONFIG(mojThreadWrite);  
+  DISPLAY_UINT32_CONFIG(mojThreadRead);  
+  DISPLAY_UINT32_CONFIG(mojThreadThreshold);  
 
   uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
 }  
@@ -1326,6 +1333,20 @@ void rozofs_start_one_storcli(int instance) {
     cmd_p += sprintf(cmd_p, "--nbcores %d ", conf.nb_cores);
     cmd_p += sprintf(cmd_p, "--shaper %d ", conf.shaper);
     cmd_p += sprintf(cmd_p, "-s %d ", ROZOFS_TMR_GET(TMR_STORAGE_PROGRAM));
+    
+    /*
+    ** Storcli Mojette thread parameters
+    */
+    if (conf.mojThreadWrite!= -1) {
+      cmd_p += sprintf(cmd_p, "-w %s ", (conf.mojThreadWrite==0)?"disable":"enable");
+    }
+    if (conf.mojThreadRead!= -1) {
+      cmd_p += sprintf(cmd_p, "-r %s ", (conf.mojThreadRead==0)?"disable":"enable");
+    }
+    if (conf.mojThreadThreshold!= -1) {
+      cmd_p += sprintf(cmd_p, "-m %d ", conf.mojThreadThreshold);
+    }   
+    
     /*
     ** check if there is a share mem key
     */
@@ -1829,7 +1850,9 @@ int main(int argc, char *argv[]) {
     conf.posix_file_lock = 0; // No posix file lock until explicitly activated  man 2 fcntl)
     conf.bsd_file_lock = 0;   // No BSD file lock until explicitly activated    man 2 flock)
     conf.noXattr = 0;   // By default extended attributes are supported
-
+    conf.mojThreadWrite     = -1; // By default, do not modify the storli default
+    conf.mojThreadRead      = -1; // By default, do not modify the storli default
+    conf.mojThreadThreshold = -1; // By default, do not modify the storli default
     if (fuse_opt_parse(&args, &conf, rozofs_opts, myfs_opt_proc) < 0) {
         exit(1);
     }

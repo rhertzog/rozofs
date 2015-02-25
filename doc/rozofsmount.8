@@ -114,6 +114,15 @@ Active support for BSD file lock.
 .TP
 \fB\-o noXattr
 Disable support of extended attributes.
+.TP
+\fB\-o mojThreadWrite=\fP\fI1|0\fP
+Enable|disable the use of the Mojette threads in the STORCLI for writes.
+.TP
+\fB\-o mojThreadRead=\fP\fI1|0\fP
+Enable|disable the use of the Mojette threads in the STORCLI for reads.
+.TP
+\fB\-o mojThreadThreshold=\fP\fInb\fP
+Modify the threshold in number of blocks above which the Mojette threads in the STORCLI are used.
 .PP
 .SH "REPORTING BUGS"
 Report bugs to <bugs@fizians.org>.
