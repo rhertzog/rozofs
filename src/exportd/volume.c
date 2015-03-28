@@ -45,7 +45,8 @@ static int volume_storage_compare(list_t * l1, list_t *l2) {
     if ((!e1->status && e2->status) || (e1->status && !e2->status)) {
         return (e2->status - e1->status);
     }
-    return e2->stat.free - e1->stat.free;
+    return e1->stat.free < e2->stat.free;
+//  return e2->stat.free - e1->stat.free;
 }
 
 static int cluster_compare_capacity(list_t *l1, list_t *l2) {
