@@ -18,131 +18,119 @@
 #                    provides the rozofs-storaged server functionality.
 ### END INIT INFO
 
-
-DAEMON=/usr/bin/storaged
-NAME=storaged
-PIDFILE=/var/run/$NAME.pid
+RETVAL=0
+exec=/usr/bin/storaged
+storio=/usr/bin/storio
+storio_killer=/usr/bin/storio_killer.sh
+storio_starter=/usr/bin/storio_starter.sh
+prog=rozofs-storaged
+pidfile=/var/run/storaged.pid
+config=/etc/rozofs/storage.conf
 
 # Source function library.
-if [ -f /lib/lsb/init-functions ]; then
-    . /lib/lsb/init-functions
-    alias START_DAEMON=start_daemon
-    alias STATUS=storaged_status
-    alias LOG_SUCCESS=log_success_msg
-    alias LOG_FAILURE=log_failure_msg
-    alias LOG_WARNING=log_warning_msg
-elif [ -f /etc/init.d/functions ]; then
-    . /etc/init.d/functions
-    alias START_DAEMON=daemon
-    alias STATUS=status
-    alias LOG_SUCCESS=success
-    alias LOG_FAILURE=failure
-    alias LOG_WARNING=passed
-else
-    echo "Error: your platform is not supported by $0" > /dev/stderr
-    exit 1
-fi
+. /etc/rc.d/init.d/functions
 
-storaged_status () {
-    local status 
-
-    status="0"
-    pidofproc -p $PIDFILE $DAEMON >/dev/null || status="$?"
-    if [ "$status" = 0 ]; then
-        log_success_msg "$NAME is running"
-        return 0
-    elif [ "$status" = 4 ]; then
-        log_failure_msg "could not access PID file for $NAME"
-        return $status
-    else
-        log_success_msg "$NAME is not running"
-        return $status
-    fi
+rh_status()
+{
+  # run checks to determine if the service is running or use generic status
+  status -p "$pidfile" "$exec"
 }
 
-do_start()
+rh_status_q()
 {
-    # Return
-    #   0 if daemon has been started
-    #   1 if daemon was already running
-    #   2 if daemon could not be started
-
-    START_DAEMON -p $PIDFILE $DAEMON
-
-    return "$?"
+  rh_status >/dev/null 2>&1
 }
 
-# stop the daemon/service
-
-do_stop()
+start()
 {
-    # Return
-    #   0 if daemon has been stopped
-    #   1 if daemon was already stopped
-    #   2 if daemon could not be stopped
-    #   other if a failure occurred
 
-    killproc -p $PIDFILE $DAEMON
+  # user had insufficient privilege
+  if [ $UID -ne 0 ] ; then
+      echo "User has insufficient privilege."
+      exit 4
+  fi
 
-    RETVAL="$?"
-    [ "$RETVAL" = 2 ] && return 2
+  # program is not installed
+  [ -x $exec ] || exit 5
+  [ -x $storio ] || exit 5
+  [ -x $storio_starter ] || exit 5
+  [ -x $storio_killer ] || exit 5
 
-    # remove pidfile if daemon could not delete on exit.
-    rm -f $PIDFILE
+  # program is not configured
+  [ -f $config ] || exit 6
 
-    return "$RETVAL"
+  echo -n $"Starting $prog: "
+  daemon $exec
+  retval=$?
+  echo
+}
+
+stop()
+{
+
+  # user had insufficient privilege
+  if [ $UID -ne 0 ] ; then
+    echo "User has insufficient privilege."
+    exit 4
+  fi
+
+  echo -n $"Stopping $prog: "
+
+  if [ -n "`pidfileofproc $exec`" ]; then
+    killproc -p $pidfile $exec
+    RETVAL=3
+  else
+    failure $"Stopping $prog"
+  fi
+  retval=$?
+  echo
+}
+
+restart()
+{
+  rh_status_q && stop
+  start
+}
+
+force_reload()
+{
+  # new configuration takes effect after restart
+  restart
 }
 
 case "$1" in
-    start)
-        echo -n "Starting $NAME"
-        
-        do_start
 
-        case "$?" in
-            0|1) LOG_SUCCESS ;;
-            *)   LOG_FAILURE ;;
-        esac
-        ;;
-    status)
-    	STATUS;;
-    stop)
-        echo -n "Stopping $NAME"
-        
-        do_stop
+  start)
+    rh_status_q && exit 0
+    start
+    ;;
 
-        case "$?" in
-            0|1) LOG_SUCCESS ;;
-            2)   LOG_FAILURE ;;
-        esac
-        ;;
-    restart|force-reload)
-        echo -n "Restarting $NAME"
+  restart)
+    restart
+    ;;
 
-        do_stop
-        case "$?" in
-            0|1)
-                sleep 1
-                do_start
+  status)
+    rh_status
+    ;;
 
-                case "$?" in
-                    0) LOG_SUCESS ;;
-                    1) LOG_FAILURE ;; # Old process is still running
-                    *) LOG_FAILURE ;; # Failed to start
-                esac
-                ;;
-            *)
-                # Failed to stop
-                LOG_FAILURE
-            ;;
-        esac
-        ;;
-    *)
+  force-reload)
+    force_reload
+    ;;
 
-    LOG_WARNING "Usage: $0 {start|stop|restart|force-reload}" >&2
-    exit 3
+  stop)
+    rh_status_q || exit 0
+    stop
+    ;;
+
+  condrestart|try-restart)
+    rh_status_q || exit 0
+    restart
+    ;;
+
+  *)
+    echo $"Usage: $0 {start|stop|status|restart|condrestart|try-restart|force-reload}"
+    exit 2
     ;;
 esac
 
-:
-
+exit $?
