@@ -30,6 +30,7 @@
 DECLARE_PROFILING(mpp_profiler_t);
 
 void export_write_block_nb(void *fuse_ctx_p, file_t *file_p);
+void export_write_block_error_nb(void *fuse_ctx_p, file_t *file_p);
 
 static int64_t write_buf_nb(void *buffer_p,file_t * f, uint64_t off, const char *buf, uint32_t len);
 
@@ -1267,7 +1268,14 @@ error:
     ** release the transaction context and the fuse context
     */
  //   STOP_PROFILING_NB(param,rozofs_ll_write);
-    rozofs_fuse_release_saved_context(param);
+
+    /*
+    ** Update the exportd with the written filesize if some succesfull write 
+    ** have occured previously.
+    */ 
+    export_write_block_error_nb(param,file);
+    //rozofs_fuse_release_saved_context(param);
+    
     if (rozofs_tx_ctx_p != NULL) rozofs_tx_free_from_ptr(rozofs_tx_ctx_p);    
     if (recv_buf != NULL) ruc_buf_freeBuffer(recv_buf);   
     
@@ -2353,7 +2361,51 @@ out:
     if (fuse_ctx_p != NULL) rozofs_fuse_release_saved_context(fuse_ctx_p);
     return;
 }
+/**
+*  metadata update -> need to update the file size
 
+   Do not update file size in ientry since the last write is in error
+   but send the write_block message to the export for the already written size on disk
+
+   @param fuse_ctx_p: pointer to the fuse request context
+   @param file_p    : open file context
+ 
+   @retval none
+*/
+void export_write_block_error_nb(void *fuse_ctx_p, file_t *file_p) 
+{
+    int    ret;        
+    void *buffer_p = fuse_ctx_p;
+    int trc_idx;
+    /*
+    ** there is a writeblock request check if there is a pending request
+    ** without pending request nothing takes place
+    */
+    if (file_p->write_block_pending ==0) 
+    {
+      file_p->write_block_req = 0;
+      goto out;
+    }
+    /*
+    ** clear the flag and update the metadata server
+    */
+    START_PROFILING_NB(buffer_p,rozofs_ll_ioctl);
+    ret = export_write_block_asynchrone(fuse_ctx_p, file_p, export_write_block_cbk);
+    if (ret < 0) goto error; 
+    file_p->write_block_pending = 0;
+    file_p->write_block_req = 0;
+    return;
+error:
+    /*
+    ** release the buffer if has been allocated
+    */
+    RESTORE_FUSE_PARAM(fuse_ctx_p,trc_idx);
+    rozofs_trc_rsp(srv_rozofs_ll_ioctl,(fuse_ino_t)file_p,file_p->fid,(errno==0)?0:1,trc_idx);
+    STOP_PROFILING_NB(fuse_ctx_p,rozofs_ll_ioctl);
+out:
+    if (fuse_ctx_p != NULL) rozofs_fuse_release_saved_context(fuse_ctx_p);
+    return;
+}
 
 
 /**
