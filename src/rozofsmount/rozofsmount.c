@@ -1829,6 +1829,11 @@ int main(int argc, char *argv[]) {
     int res;
     struct rlimit core_limit;
 
+    /*
+    ** Change local directory to "/"
+    */
+    if (chdir("/")!=0) {
+    }
     memset(&conf, 0, sizeof (conf));
     /*
     ** init of the shared memory data structure

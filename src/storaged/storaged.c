@@ -452,6 +452,10 @@ int main(int argc, char *argv[]) {
         { "multiio", no_argument, 0, 'm'},
         { 0, 0, 0, 0}
     };
+    /*
+    ** Change local directory to "/"
+    */
+    if (chdir("/")!= 0) {}
 
     // Init of the timer configuration
     rozofs_tmr_init_configuration();
