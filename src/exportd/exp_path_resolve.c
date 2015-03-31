@@ -146,7 +146,7 @@ static inline int export_lv2_resolve_path_internal(char *root_path, fid_t fid, c
     /*
     ** convert the fid in ascii
     */
-    uuid_unparse(fid, str);
+    rozofs_uuid_unparse(fid, str);
     sprintf(path, "%s/%d/%d/%s", root_path, slice,subslice,str);
     return 0;
     

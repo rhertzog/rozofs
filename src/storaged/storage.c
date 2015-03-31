@@ -38,6 +38,8 @@
 #include <rozofs/common/list.h>
 #include <rozofs/common/xmalloc.h>
 #include <rozofs/rozofs_srv.h>
+#include <rozofs/core/rozofs_string.h>
+
 //#include <rozofs/core/rozofs_optim.h>
 #include "storio_cache.h"
 #include "storio_bufcache.h"
@@ -80,7 +82,7 @@ char *storage_map_distribution(storage_t * st, uint8_t layout,
 char *storage_map_projection(fid_t fid, char *path) {
     char str[37];
 
-    uuid_unparse(fid, str);
+    rozofs_uuid_unparse(fid, str);
     strcat(path, str);
     sprintf(str, ".bins");
     strcat(path, str);
@@ -334,7 +336,7 @@ int storage_read(storage_t * st, uint8_t layout, sid_t * dist_set,
     if ((nb_read % (rozofs_max_psize * sizeof (bin_t) +
             sizeof (rozofs_stor_bins_hdr_t))) != 0) {
         char fid_str[37];
-        uuid_unparse(fid, fid_str);
+        rozofs_uuid_unparse(fid, fid_str);
         severe("storage_read failed (FID: %s): read inconsistent length %d",fid_str,(int)nb_read);
 	nb_read -= sizeof (rozofs_stor_bins_hdr_t);
 	nb_read /= (rozofs_max_psize * sizeof (bin_t));
@@ -609,7 +611,7 @@ bins_file_rebuild_t ** storage_list_bins_file(storage_t * st, uint8_t layout,
             // Alloc a new bins_file_rebuild_t
             *iterator = xmalloc(sizeof (bins_file_rebuild_t)); // XXX FREE ?
             // Copy FID
-            uuid_parse(fid_str, (*iterator)->fid);
+            rozofs_uuid_parse(fid_str, (*iterator)->fid);
             // Copy current dist_set
             memcpy((*iterator)->dist_set_current, dist_set,
                     sizeof (sid_t) * ROZOFS_SAFE_MAX);

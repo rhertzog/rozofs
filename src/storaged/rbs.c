@@ -36,6 +36,7 @@
 #include <rozofs/common/profile.h>
 #include <rozofs/rpc/spproto.h>
 #include <rozofs/core/rozofs_host2ip.h>
+#include <rozofs/core/rozofs_string.h>
 
 #include "storage.h"
 #include "rbs_sclient.h"
@@ -1268,7 +1269,7 @@ int rbs_rebuild_storage(const char *export_host_list, cid_t cid, sid_t sid,
             if (DEBUG_RBS == 1) {
                 // Just for test: print UUID for this bins file
                 char fid_str[37];
-                uuid_unparse(re->fid, fid_str);
+                rozofs_uuid_unparse(re->fid, fid_str);
                 severe("rb. entry: (FID: %s; layout: %u)", fid_str, re->layout);
             }
 

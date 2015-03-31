@@ -19,6 +19,7 @@
 #include <inttypes.h>
 
 #include <rozofs/rpc/eproto.h>
+#include <rozofs/core/rozofs_string.h>
 
 #include "rozofs_fuse_api.h"
 
@@ -306,7 +307,7 @@ void rozofs_ll_open_cbk(void *this,void *param)
     rozofs_ientry_update(ie,&attr);  
     {
         char fid_str[37];
-        uuid_unparse(file->fid, fid_str);
+        rozofs_uuid_unparse(file->fid, fid_str);
         if (rozofs_bugwatch)
             severe("BUGROZOFSWATCH (open:%p),FID(%s) size=%"PRIu64"", file,
                     fid_str, ie->attrs.size);
