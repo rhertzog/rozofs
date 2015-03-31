@@ -386,6 +386,11 @@ char *argv[];
   int                 status;
   char              * pt;
 
+  /*
+  ** Change local directory to "/"
+  */
+  if (chdir("/")!=0) {}
+    
   idx = 1;
   /* Scan parameters */
   while (idx < argc) {
@@ -668,7 +673,6 @@ int main(int argc, const char **argv) {
   allCmd        = 0;
   read_parameters(argc, argv);
   if (nbTarget == 0) syntax();
-
 
 reloop:
 

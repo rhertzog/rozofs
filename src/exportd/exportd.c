@@ -1059,6 +1059,11 @@ int main(int argc, char *argv[]) {
     expgwc_non_blocking_conf.instance = 1;
     expgwc_non_blocking_conf.exportd_hostname = NULL;
 
+    /*
+    ** Change local directory to "/"
+    */
+    if (chdir("/")!= 0) {}
+    
     while (1) {
 
         int option_index = 0;

@@ -19,6 +19,7 @@
 #include <rozofs/rpc/eproto.h>
 
 #include "rozofs_fuse_api.h"
+#include <rozofs/core/rozofs_string.h>
 
 DECLARE_PROFILING(mpp_profiler_t);
 
@@ -168,7 +169,7 @@ int rozofs_parse_object_name(char *name,mattr_obj_t *attr_p)
       break;    
     }
     pnext[37]=0;
-    ret = uuid_parse(cur,attr_p->fid);
+    ret = rozofs_uuid_parse(cur,attr_p->fid);
     if (ret < 0)
     {
       errno = EINVAL;

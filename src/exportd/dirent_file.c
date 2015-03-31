@@ -33,6 +33,7 @@
 #include <rozofs/common/xmalloc.h>
 #include <rozofs/rpc/epproto.h>
 #include <rozofs/rpc/export_profiler.h>
+#include <rozofs/core/rozofs_string.h>
 
 #include "mdir.h"
 #include "mdirent.h"
@@ -2038,7 +2039,7 @@ get_next_collidx:
 	    if (name_entry_p->len == 0)
 	    {
 	       char fidstr[37];
-	       uuid_unparse(fid_parent, fidstr);
+	       rozofs_uuid_unparse(fid_parent, fidstr);
 
                 severe("empty name entry in directory %s at hash_idx %d in file d_%d collision idx %d",
 		        fidstr,hash_entry_idx,root_idx,coll_idx);

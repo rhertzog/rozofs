@@ -110,7 +110,7 @@ int stc_rng_insert(void *obj_ptr,uint8_t opcode, fid_t fid,uint64_t bid,uint64_t
    {
       p = &stc_rng_request_p[cur_idx];
       if (p->obj_ptr == NULL) continue;
-      if (memcmp(p->fid,fid,sizeof(fid))!= 0) continue;
+      if (memcmp(p->fid,fid,sizeof(fid_t))!= 0) continue;
       if (stc_rng_serialize)
       {
         runnable = 0;
@@ -141,7 +141,7 @@ int stc_rng_insert(void *obj_ptr,uint8_t opcode, fid_t fid,uint64_t bid,uint64_t
    */
    if (found) stc_rng_parallel_count++;
    p = &stc_rng_request_p[stc_rng_wr_idx];
-   memcpy(p->fid,fid,sizeof(fid));
+   memcpy(p->fid,fid,sizeof(fid_t));
    p->bid = bid;
    p->nb_blks = nb_blks;
    if (p->obj_ptr != NULL)
