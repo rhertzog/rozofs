@@ -23,6 +23,13 @@ set(MAJOR "1")
 set(MINOR "6")
 set(REVISION "alpha3")
 set(VERSION "${MAJOR}.${MINOR}.${REVISION}")
+
+# cmake_get.sh enables to populate some CMAKE variables
+set(CMAKE_GET ${PROJECT_SOURCE_DIR}/tools/cmake_get.sh ${PROJECT_SOURCE_DIR})
+
+# Set ROZO_GIT_REF with date + git branch + git commit hash + mojette (FSX or LEGACY)
+execute_process(COMMAND ${CMAKE_GET} date branch commit mojette OUTPUT_VARIABLE ROZO_GIT_REF)
+
 set(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH}" "${PROJECT_SOURCE_DIR}/cmake")
 
 #

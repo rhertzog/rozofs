@@ -287,6 +287,12 @@ void uma_dbg_show_name(char * argv[], uint32_t tcpRef, void *bufRef) {
 void uma_dbg_show_version(char * argv[], uint32_t tcpRef, void *bufRef) {  
   uma_dbg_send(tcpRef, bufRef, TRUE, "version : %s\n", VERSION);
 }
+/**
+*  Display the git version branch and reference
+*/
+void uma_dbg_show_git_ref(char * argv[], uint32_t tcpRef, void *bufRef) {  
+  uma_dbg_send(tcpRef, bufRef, TRUE, "git : %s\n", ROZO_GIT_REF);
+}
 /*__________________________________________________________________________
  */
 /**
@@ -992,6 +998,7 @@ void uma_dbg_init(uint32_t nbElements,uint32_t ipAddr, uint16_t serverPort) {
   uma_dbg_addTopic("who", uma_dbg_show_name);
   uma_dbg_addTopic("uptime", uma_dbg_show_uptime);
   uma_dbg_addTopic("version", uma_dbg_show_version);
+  uma_dbg_addTopic("git",uma_dbg_show_git_ref);
   uma_dbg_addTopic_option("system", uma_dbg_system_cmd, UMA_DBG_OPTION_HIDE); 
   uma_dbg_addTopic("ps", uma_dbg_system_ps);
   uma_dbg_addTopic("reserved_ports", uma_dbg_reserved_ports);
