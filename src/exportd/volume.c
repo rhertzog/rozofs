@@ -310,7 +310,7 @@ static int cluster_distribute(uint8_t layout, cluster_t *cluster, sid_t *sids) {
 
     list_for_each_forward(p, &cluster->storages) {
         volume_storage_t *vs = list_entry(p, volume_storage_t, list);
-        if (vs->status != 0 || vs->stat.free != 0)
+        if (vs->status != 0 && vs->stat.free != 0)
             ms_ok++;
         sid_local[ms_found++] = vs->sid;
 
