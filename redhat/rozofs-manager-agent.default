@@ -1,6 +1,6 @@
 # Defaults for rozofs-manager-agent initscript
 # sourced by /etc/init.d/rozofs-manager-agent
-# installed at /etc/default/rozofs-manager-agent by the maintainer scripts
+# installed at /etc/sysconfig/rozofs-manager-agent by the maintainer scripts
 
 #
 # This is a POSIX shell fragment
@@ -9,8 +9,13 @@
 # Additional options that are passed to the Daemon.
 
 # Agents to be started
-AGENTS="exportd storaged rozofsmount"
+# (space-separated list of exportd storaged rozofsmount, or auto)
+AGENTS="auto"
 
 # Does this agent manage exportd through pacemaker (default false)
-PACEMAKER=false
+# (one of true, false, or auto)
+PACEMAKER="auto"
+
+# Pacemaker cluster resource name for exportd (default auto)
+EXPORTD_RESOURCE_NAME="auto"
 

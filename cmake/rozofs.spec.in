@@ -1,7 +1,7 @@
 Summary: RozoFS scale-out NAS
 Name: rozofs
 Version: @VERSION@
-Release: 2
+Release: 1
 License: GPLv2
 Group: System Environment/Base
 Vendor: Fizians SAS
@@ -11,8 +11,10 @@ Source0: rozofs-@VERSION@.tar.gz
 
 # Manage by cmake
 BuildRequires: libuuid-devel libattr-devel readline-devel cmake
-BuildRequires: fuse-devel python-devel swig libconfig-devel
+BuildRequires: fuse-devel >= 2.9, python-devel swig libconfig-devel
+%if 0%{?rhel} > 7
 %{?systemd_requires}
+%endif
 
 %description
 RozoFS is a scale-out distributed network POSIX file system using erasure 
@@ -40,16 +42,9 @@ RozoFS storaged daemon stores encoded data for the RozoFS filesystems.
 Summary: RozoFS filesystem (mount utility package).
 License: GPLv2
 Group: System Environment/File
-Requires: fuse
+Requires: fuse >= 2.9
 %description rozofsmount
 rozofsmount mounts RozoFS filesystems using FUSE.
-
-%package rprof
-Summary: RozoFS filesystem (profiling package).
-License: GPLv2
-Group: System Environment/File
-%description rprof
-Rozofs is a scale-out NAS using erasure coding.
 
 %package rozodiag
 Summary: RozoFS filesystem (debugging package).
@@ -71,7 +66,10 @@ Python management libraries for RozoFS.
 Summary: RozoFS filesystem (management cli package).
 License: GPLv2
 Group: System Environment/File
-Requires: rozofs-manager-lib python
+Requires: rozofs-manager-lib python python
+#%if 0%{?rhel} < 7
+Requires: python-argparse
+#%endif
 %description manager-cli
 Management command-line for RozoFS.
 
@@ -100,14 +98,30 @@ cmake -G "Unix Makefiles" ${CMAKE_EXTRA_FLAGS}
 %install
 rm -rf %{buildroot}/*
 make install DESTDIR=%{buildroot}
-#install init script
-mkdir -p %{buildroot}%{_initrddir}
+
+# rozofs-exportd OCF script
+mkdir -p %{buildroot}%{_usr}/lib/ocf/resource.d/heartbeat/
+%{__cp} @CMAKE_CURRENT_SOURCE_DIR@/contrib/heartbeat/exportd %{buildroot}%{_usr}/lib/ocf/resource.d/heartbeat/exportd
+
+mkdir -p %{buildroot}%{_sysconfdir}/sysconfig/
+mkdir -p %{buildroot}/sbin
+ln -sf %{_sbindir}/mount.fuse %{buildroot}/sbin/mount.rozofs
+
+%if 0%{?rhel} > 7
+#install init script (systemd)
 mkdir -p %{buildroot}%{_unitdir}
-mkdir -p %{buildroot}/etc/default
 %{__cp} redhat/rozofs-exportd.service %{buildroot}%{_unitdir}/rozofs-exportd.service
 %{__cp} redhat/rozofs-storaged.service %{buildroot}%{_unitdir}/rozofs-storaged.service
-%{__cp} redhat/rozofs-rozofsmount %{buildroot}%{_initrddir}/rozofs-rozofsmount
 %{__cp} redhat/rozofs-manager-agent.service %{buildroot}%{_unitdir}/rozofs-manager-agent.service
+%else
+#install init script (sysVinit)
+mkdir -p %{buildroot}%{_initrddir}
+%{__cp} @CMAKE_CURRENT_SOURCE_DIR@/redhat/rozofs-exportd %{buildroot}%{_initrddir}/rozofs-exportd
+%{__cp} @CMAKE_CURRENT_SOURCE_DIR@/redhat/rozofs-storaged %{buildroot}%{_initrddir}/rozofs-storaged
+#%{__cp} @CMAKE_CURRENT_SOURCE_DIR@/redhat/rozofs-rozofsmount %{buildroot}%{_initrddir}/rozofs-rozofsmount
+%{__cp} @CMAKE_CURRENT_SOURCE_DIR@/redhat/rozofs-manager-agent %{buildroot}%{_initrddir}/rozofs-manager-agent
+%{__cp} @CMAKE_CURRENT_SOURCE_DIR@/redhat/rozofs-manager-agent.default %{buildroot}%{_sysconfdir}/sysconfig/rozofs-manager-agent
+%endif
 
 %clean
 %{__rm} -rf %{buildroot}
@@ -117,7 +131,12 @@ mkdir -p %{buildroot}/etc/default
 %{_bindir}/exportd
 %{_sysconfdir}/rozofs/export.conf
 %{_sysconfdir}/rozofs/export.conf.sample
+%if 0%{?rhel} > 7
 %{_unitdir}/rozofs-exportd.service
+%else
+%{_initrddir}/rozofs-exportd
+%endif
+%{_usr}/lib/ocf/resource.d/heartbeat/exportd
 %{_mandir}/man5/export.conf.5.gz
 %{_mandir}/man7/rozofs.7.gz
 %{_mandir}/man8/exportd.8.gz
@@ -130,7 +149,11 @@ mkdir -p %{buildroot}/etc/default
 %{_bindir}/storio_killer.sh
 %{_sysconfdir}/rozofs/storage.conf
 %{_sysconfdir}/rozofs/storage.conf.sample
+%if 0%{?rhel} > 7
 %{_unitdir}/rozofs-storaged.service
+%else
+%{_initrddir}/rozofs-storaged
+%endif
 %{_mandir}/man5/storage.conf.5.gz
 %{_mandir}/man8/storaged.8.gz
 
@@ -140,12 +163,11 @@ mkdir -p %{buildroot}/etc/default
 %{_bindir}/storcli
 %{_bindir}/storcli_starter.sh
 %{_bindir}/storcli_killer.sh
-%{_initrddir}/rozofs-rozofsmount
+/sbin/mount.rozofs
+#%if 0%{?rhel} < 7
+#%{_initrddir}/rozofs-rozofsmount
+#%endif
 %{_mandir}/man8/rozofsmount.8.gz
-
-%files rprof
-%defattr(-,root,root)
-%{_bindir}/rprof
 
 %files rozodiag
 %defattr(-,root,root)
@@ -153,39 +175,7 @@ mkdir -p %{buildroot}/etc/default
 
 %files manager-lib
 %defattr(-,root,root)
-%{python_sitearch}/rozofs/cli/agent.py
-%{python_sitearch}/rozofs/cli/__init__.py
-%{python_sitearch}/rozofs/cli/export.py
-%{python_sitearch}/rozofs/cli/exportd.py
-%{python_sitearch}/rozofs/cli/mount.py
-%{python_sitearch}/rozofs/cli/node.py
-%{python_sitearch}/rozofs/cli/output.py
-%{python_sitearch}/rozofs/cli/exceptions.py
-%{python_sitearch}/rozofs/cli/storaged.py
-%{python_sitearch}/rozofs/cli/volume.py
-%{python_sitearch}/rozofs/ext/__init__.py
-%{python_sitearch}/rozofs/ext/fstab.py
-%{python_sitearch}/rozofs/__init__.py
-%{python_sitearch}/rozofs/core/platform.py
-%{python_sitearch}/rozofs/core/agent.py
-%{python_sitearch}/rozofs/core/libconfig.py
-%{python_sitearch}/rozofs/core/storaged.py
-%{python_sitearch}/rozofs/core/__init__.py
-%{python_sitearch}/rozofs/core/_libconfig.so
-%{python_sitearch}/rozofs/core/daemon.py
-%{python_sitearch}/rozofs/core/configuration.py
-%{python_sitearch}/rozofs/core/constants.py
-%{python_sitearch}/rozofs/core/exportd.py
-%{python_sitearch}/rozofs/core/rozofsmount.py
-%exclude %{python_sitearch}/rozofs/cli/*.pyc
-%exclude %{python_sitearch}/rozofs/cli/*.pyo
-%exclude %{python_sitearch}/rozofs/ext/*.pyc
-%exclude %{python_sitearch}/rozofs/ext/*.pyo
-%exclude %{python_sitearch}/rozofs/__init__.pyc
-%exclude %{python_sitearch}/rozofs/__init__.pyo
-%exclude %{python_sitearch}/rozofs/core/*.pyc
-%exclude %{python_sitearch}/rozofs/core/*.pyo
-%exclude %{python_sitearch}/rozofs_manager-@VERSION@-py2.7.egg-info
+%{python_sitearch}/rozofs*
 
 %files manager-cli
 %defattr(-,root,root)
@@ -194,9 +184,14 @@ mkdir -p %{buildroot}/etc/default
 
 %files manager-agent
 %defattr(-,root,root)
+%if 0%{?rhel} > 7
 %{_unitdir}/rozofs-manager-agent.service
+%else
+%{_sysconfdir}/sysconfig/rozofs-manager-agent
+%{_initrddir}/rozofs-manager-agent
+%endif
 
-
+%if 0%{?rhel} > 7
 %post exportd
 %systemd_post rozofs-exportd.service
 
@@ -205,8 +200,17 @@ mkdir -p %{buildroot}/etc/default
 
 %postun exportd
 %systemd_postun_with_restart rozofs-exportd.service
+%else
+%post exportd
+if [ -x /usr/lib/lsb/install_initd ]; then
+  /usr/lib/lsb/install_initd /etc/init.d/rozofs-exportd
+elif [ -x /sbin/chkconfig ]; then
+  /sbin/chkconfig --add rozofs-exportd
+fi
+%endif
 
 
+%if 0%{?rhel} > 7
 %post storaged
 %systemd_post rozofs-storaged.service
 
@@ -216,11 +220,16 @@ mkdir -p %{buildroot}/etc/default
 %postun storaged
 %systemd_postun_with_restart rozofs-storaged.service
 
+%else
+%post storaged
+if [ -x /usr/lib/lsb/install_initd ]; then
+  /usr/lib/lsb/install_initd /etc/init.d/rozofs-storaged
+elif [ -x /sbin/chkconfig ]; then
+  /sbin/chkconfig --add rozofs-storaged
+fi
+%endif
 
-%post rozofsmount
-ln -sf /sbin/mount.fuse /sbin/mount.rozofs
-
-
+%if 0%{?rhel} > 7
 %post manager-agent
 %systemd_post rozofs-manager-agent.service
 
@@ -229,8 +238,19 @@ ln -sf /sbin/mount.fuse /sbin/mount.rozofs
 
 %postun manager-agent
 %systemd_postun_with_restart manager-agent.service
+%else
+%post manager-agent
+if [ -x /usr/lib/lsb/install_initd ]; then
+  /usr/lib/lsb/install_initd /etc/init.d/rozofs-manager-agent
+elif [ -x /sbin/chkconfig ]; then
+  /sbin/chkconfig --add rozofs-manager-agent
+fi
+%endif
 
 %changelog
+
+* Fri Apr 17 2015 RozoFS <devel@rozofs.org> 1.6.alpha3-1
+- Updated for RozoFS release 1.6.alpha3
 
 * Thu Nov 27 2014 RozoFS <devel@rozofs.org> 1.5.4-2
 - Missing dependencies.

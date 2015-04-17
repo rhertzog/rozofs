@@ -18,4 +18,4 @@ endif (INSTALL_ROOT)
 
 #cmake_policy (SET CMP0012 NEW)
 
-execute_process (COMMAND python2.7 ${SETUP} install ${EXTRA_ARGS} --prefix=${PREFIX} --record=${MANIFEST} ${INSTALL_ROOT_ARGS} WORKING_DIRECTORY ${WDIR})
+execute_process (COMMAND python ${SETUP} install ${EXTRA_ARGS} --prefix=${PREFIX} --record=${MANIFEST} ${INSTALL_ROOT_ARGS} WORKING_DIRECTORY ${WDIR})
