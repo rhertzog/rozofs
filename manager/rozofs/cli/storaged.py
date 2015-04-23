@@ -53,6 +53,11 @@ def option_list(platform, args):
     errors_l = {}
 
     for host, configuration in platform.get_configurations(args.nodes, Role.STORAGED).items():
+
+        # Node without storaged role
+        if not configuration:
+            continue
+
         sid_l[host] = []
 
         config = configuration[Role.STORAGED]
@@ -105,6 +110,10 @@ def option_get(platform, args):
     errors_l = {}
 
     for host, configuration in platform.get_configurations(args.nodes, Role.STORAGED).items():
+
+        # Node without storaged role
+        if not configuration:
+            continue
 
         sid_l[host] = []
         config = configuration[Role.STORAGED]
@@ -159,6 +168,10 @@ def option_set(platform, args):
     errors_l = {}
 
     for host, configuration in platform.get_configurations(args.nodes, Role.STORAGED).items():
+
+        # Node without storaged role
+        if not configuration:
+            continue
 
         sid_l[host] = []
         config = configuration[Role.STORAGED]
@@ -225,6 +238,10 @@ def listen_get(platform, args):
     sid_l={}
     for host, configuration in platform.get_configurations(args.nodes,
             Role.STORAGED).items():
+
+            # Node without storaged role
+            if not configuration:
+                continue
 
             sid_l[host]=[]
             lid_l={}
