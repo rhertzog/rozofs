@@ -60,7 +60,7 @@ def create(platform, args):
                 # Check exception
                 if isinstance(status['config'], Exception):
                     # Update standard output dict
-                    err_str = type(status['config']).__name__ + ' (' + status['config'].message + ')'
+                    err_str = type(status['config']).__name__ + ' (' + str(status['config']) + ')'
                     mountpoint_status.update({'configuration' : 'failed, ' + err_str })
                     # Update errors dict
                     mountpoint_error.update({'configuration' : 'failed, ' + err_str })
@@ -76,7 +76,7 @@ def create(platform, args):
                 # Check exception
                 if isinstance(status['service'], Exception):
                     # Update standard output dict
-                    err_str = type(status['service']).__name__ + ' (' + status['service'].message + ')'
+                    err_str = type(status['service']).__name__ + ' (' + str(status['service']) + ')'
                     mountpoint_status.update({'status' : 'failed, ' + err_str })
                     # Update errors dict
                     mountpoint_error.update({'status' : 'failed, ' + err_str })
@@ -146,7 +146,7 @@ def remove(platform, args):
                 # Check exception
                 if isinstance(status['config'], Exception):
                     # Update standard output dict
-                    err_str = type(status['config']).__name__ + ' (' + status['config'].message + ')'
+                    err_str = type(status['config']).__name__ + ' (' + str(status['config']) + ')'
                     mountpoint_status.update({'configuration' : 'failed, ' + err_str })
                     # Update errors dict
                     mountpoint_error.update({'configuration' : 'failed, ' + err_str })
@@ -162,7 +162,7 @@ def remove(platform, args):
                 # Check exception
                 if isinstance(status['service'], Exception):
                     # Update standard output dict
-                    err_str = type(status['service']).__name__ + ' (' + status['service'].message + ')'
+                    err_str = type(status['service']).__name__ + ' (' + str(status['service']) + ')'
                     mountpoint_status.update({'status' : 'failed, ' + err_str })
                     # Update errors dict
                     mountpoint_error.update({'status' : 'failed, ' + err_str })

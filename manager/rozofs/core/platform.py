@@ -567,7 +567,7 @@ class Platform(object):
         if isinstance(configuration[Role.EXPORTD], Exception):
             raise type(configuration[Role.EXPORTD])("%s: %s" % 
                                                     (self._active_export_host,
-                                                    configuration[Role.EXPORTD].message))
+                                                    str(configuration[Role.EXPORTD])))
 
         # Check if we can change the layout
         if len(configuration[Role.EXPORTD].volumes) != 0:
@@ -587,7 +587,7 @@ class Platform(object):
         if isinstance(configuration[Role.EXPORTD], Exception):
             raise type(configuration[Role.EXPORTD])("%s: %s" % 
                                                     (self._active_export_host,
-                                                    configuration[Role.EXPORTD].message))
+                                                    str(configuration[Role.EXPORTD])))
 
         return configuration[Role.EXPORTD].layout
 
@@ -947,7 +947,7 @@ class Platform(object):
         econfig = enode.get_configurations(Role.EXPORTD)
         # Check error
         if isinstance(econfig[Role.EXPORTD], Exception):
-            raise type(econfig[Role.EXPORTD])(econfig[Role.EXPORTD].message)
+            raise type(econfig[Role.EXPORTD])(str(econfig[Role.EXPORTD]))
 
         # Check hosts arg
         if hosts is not None:
@@ -1011,7 +1011,7 @@ class Platform(object):
                 # Check error
                 if isinstance(rconfig[Role.ROZOFSMOUNT], Exception):
                     # Update statuses
-                    statuses[h] = type(rconfig[Role.ROZOFSMOUNT])(rconfig[Role.ROZOFSMOUNT].message)
+                    statuses[h] = type(rconfig[Role.ROZOFSMOUNT])(str(rconfig[Role.ROZOFSMOUNT]))
                     continue
                 current_rconfig[h] = rconfig
 
@@ -1110,7 +1110,7 @@ class Platform(object):
         econfig = enode.get_configurations(Role.EXPORTD)
         # Check error
         if isinstance(econfig[Role.EXPORTD], Exception):
-            raise type(econfig[Role.EXPORTD])(econfig[Role.EXPORTD].message)
+            raise type(econfig[Role.EXPORTD])(str(econfig[Role.EXPORTD]))
 
         # Check hosts arg
         if hosts is not None:
