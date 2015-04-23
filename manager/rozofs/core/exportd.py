@@ -446,7 +446,7 @@ class ExportdAgent(Agent):
 class ExportdPacemakerAgent(ExportdAgent):
     """ exportd managed thru pacemaker """
 
-    def __init__(self, config='/etc/rozofs/export.conf', daemon='/usr/bin/exportd', resource='exportd_rozofs'):
+    def __init__(self, config='/etc/rozofs/export.conf', daemon='/usr/bin/exportd', resource='exportd-rozofs'):
         ExportdAgent.__init__(self, config, daemon)
         self._resource = resource
 
