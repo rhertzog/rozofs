@@ -129,7 +129,7 @@ mkdir -p %{buildroot}%{_initrddir}
 %files exportd
 %defattr(-,root,root)
 %{_bindir}/exportd
-%%config(noreplace) {_sysconfdir}/rozofs/export.conf
+%config(noreplace) %{_sysconfdir}/rozofs/export.conf
 %{_sysconfdir}/rozofs/export.conf.sample
 %if 0%{?rhel} > 7
 %{_unitdir}/rozofs-exportd.service
