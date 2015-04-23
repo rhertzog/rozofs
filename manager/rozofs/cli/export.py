@@ -47,7 +47,7 @@ def get(platform, args):
 
     # Check exception
     if isinstance(configuration, Exception):
-        raise type(configuration)(configuration.message)
+        raise type(configuration)(str(configuration))
 
     eids_l = []
     if not args.eids:

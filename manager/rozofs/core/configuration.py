@@ -55,7 +55,7 @@ class ConfigurationReader(object):
             self._parser.unparse(c, configuration)
         except SyntaxError as e:
                 raise type(e)("Syntax error in file %s (%s)" 
-                              % (self._file, e.message))
+                              % (self._file, str(e)))
         finally:
             config_destroy(c)
 

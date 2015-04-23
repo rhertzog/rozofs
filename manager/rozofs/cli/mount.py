@@ -38,7 +38,7 @@ def create(platform, args):
         # Check exception
         if isinstance(s, Exception):
             # Update standard output dict
-            err_str = type(s).__name__ + ' (' + s.message + ')'
+            err_str = type(s).__name__ + ' (' + str(s) + ')'
             host_statuses_l.update({str(h): err_str})
             host_errors_l.update({str(h) : err_str})
             continue
@@ -117,7 +117,7 @@ def remove(platform, args):
         # Check exception
         if isinstance(s, Exception):
             # Update standard output dict
-            err_str = type(s).__name__ + ' (' + s.message + ')'
+            err_str = type(s).__name__ + ' (' + str(s) + ')'
             host_statuses_l.update({str(h): err_str})
             host_errors_l.update({str(h) : err_str})
             continue

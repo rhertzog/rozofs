@@ -161,13 +161,13 @@ class RozofsMountAgent(Agent):
             try:
                 self._add_mountpoint(config, instance)
             except Exception as e:
-                mnt_statuses['config'] = type(e)(e.message)
+                mnt_statuses['config'] = type(e)(str(e))
             # Mount it
             if mnt_statuses['config'] is True:
                 try:
                     self._mount(config.mountpoint)
                 except Exception as e:
-                    mnt_statuses['service'] = type(e)(e.message)
+                    mnt_statuses['service'] = type(e)(str(e))
             else:
                 mnt_statuses['service'] = False
 
@@ -184,13 +184,13 @@ class RozofsMountAgent(Agent):
             try:
                 self._umount(config.mountpoint)
             except Exception as e:
-                mnt_statuses['service'] = type(e)(e.message)
+                mnt_statuses['service'] = type(e)(str(e))
             # Remove it from fstab
             if mnt_statuses['service'] is True:
                 try:
                     self._remove_mountpoint(config)
                 except Exception as e:
-                    mnt_statuses['config'] = type(e)(e.message)
+                    mnt_statuses['config'] = type(e)(str(e))
             else:
                 mnt_statuses['config'] = False
             # Add mnt statuses to response

@@ -72,7 +72,7 @@ def status(platform, args):
             # Check exception
             if isinstance(status, Exception):
                 # Update standard output dict
-                err_str = type(status).__name__ + ' (' + status.message + ')'
+                err_str = type(status).__name__ + ' (' + str(status) + ')'
                 role_l.append({ROLES_STR[role]: err_str})
                 # Update errors dict
                 role_err_l.append({ROLES_STR[role]: err_str})
@@ -118,7 +118,7 @@ def start(platform, args):
             # Check exception
             if isinstance(change, Exception):
                 # Update standard output dict
-                err_str = type(change).__name__ + ' (' + change.message + ')'
+                err_str = type(change).__name__ + ' (' + str(change) + ')'
                 role_l.append({ROLES_STR[role]: 'failed, ' + err_str})
                 # Update errors dict
                 role_err_l.append({ROLES_STR[role]: err_str})
@@ -162,7 +162,7 @@ def stop(platform, args):
             # Check exception
             if isinstance(change, Exception):
                 # Update standard output dict
-                err_str = type(change).__name__ + ' (' + change.message + ')'
+                err_str = type(change).__name__ + ' (' + str(change) + ')'
                 role_l.append({ROLES_STR[role]: 'failed, ' + err_str})
                 # Update errors dict
                 role_err_l.append({ROLES_STR[role]: err_str})
@@ -212,7 +212,7 @@ def config(platform, args):
             # Check exception
             if isinstance(config, Exception):
                 # Get error msg
-                err_str = type(config).__name__ + ' (' + config.message + ')'
+                err_str = type(config).__name__ + ' (' + str(config) + ')'
                 # Update standard output dict
                 role_l.append({ROLES_STR[role]: err_str})
                 host_l.update({'NODE: ' + str(h) : role_l})

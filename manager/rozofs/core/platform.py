@@ -159,7 +159,7 @@ class Node(object):
             except ProtocolError as e:
                 configurations[role] =  type(e)("rozofs-manager agent is not reachable")
             except Exception as e:
-                configurations[role] = type(e)(e.message)
+                configurations[role] = type(e)(str(e))
 
         return configurations
 
@@ -180,7 +180,7 @@ class Node(object):
                 except ProtocolError as e:
                     statuses[r] =  type(e)("rozofs-manager agent is not reachable")
                 except Exception as e:
-                    statuses[r] = type(e)(e.message)
+                    statuses[r] = type(e)(str(e))
         return statuses
 
     def get_statuses(self, roles=Role.EXPORTD | Role.STORAGED | Role.ROZOFSMOUNT):
@@ -200,7 +200,7 @@ class Node(object):
             except ProtocolError as e:
                 statuses[role] = type(e)("rozofs-manager agent is not reachable")
             except Exception as e:
-                statuses[role] = type(e)(e.message)
+                statuses[role] = type(e)(str(e))
 
         return statuses
 
@@ -223,7 +223,7 @@ class Node(object):
                 except ProtocolError as e:
                     changes[r] = type(e)("rozofs-manager agent is not reachable")
                 except Exception as e:
-                    changes[r] = type(e)(e.message)
+                    changes[r] = type(e)(str(e))
 
         return changes
 

@@ -60,7 +60,7 @@ def option_list(platform, args):
         # Check exception
         if isinstance(config, Exception):
             # Get error msg
-            err_str = type(config).__name__ + ' (' + config.message + ')'
+            err_str = type(config).__name__ + ' (' + str(config) + ')'
             # Update standard output dict
             sid_l.update({host: err_str})
             # Update errors dict
@@ -112,7 +112,7 @@ def option_get(platform, args):
         # Check exception
         if isinstance(config, Exception):
             # Get error msg
-            err_str = type(config).__name__ + ' (' + config.message + ')'
+            err_str = type(config).__name__ + ' (' + str(config) + ')'
             # Update standard output dict
             sid_l.update({host: err_str})
             # Update errors dict
@@ -166,7 +166,7 @@ def option_set(platform, args):
         # Check exception
         if isinstance(config, Exception):
             # Get error msg
-            err_str = type(config).__name__ + ' (' + config.message + ')'
+            err_str = type(config).__name__ + ' (' + str(config) + ')'
             # Update standard output dict
             sid_l.update({host: err_str})
             # Update errors dict
@@ -202,7 +202,7 @@ def option_set(platform, args):
         try:
             platform._get_nodes(e_host)[host].set_configurations(configuration)
         except Exception as e:
-            err = type(e).__name__ + ' (' + e.message + ')'
+            err = type(e).__name__ + ' (' + str(e) + ')'
             sid_l.update({host: err})
             continue
 
@@ -233,7 +233,7 @@ def listen_get(platform, args):
 
             if isinstance(config, Exception):
                 # Get error msg
-                err_str = type(config).__name__ + ' (' + config.message + ')'
+                err_str = type(config).__name__ + ' (' + str(config) + ')'
                 # Update standard output dict
                 sid_l.update({host: err_str})
                 # Update errors dict
@@ -273,7 +273,7 @@ def listen_add(platform, args):
         # Check exception
         if isinstance(config, Exception):
             # Get error msg
-            err_str = type(config).__name__ + ' (' + config.message + ')'
+            err_str = type(config).__name__ + ' (' + str(config) + ')'
             # Update standard output dict
             sid_l.update({host: err_str})
             ordered_puts(sid_l)
@@ -301,7 +301,7 @@ def listen_add(platform, args):
         try:
             platform._get_nodes(e_host)[host].set_configurations(configurations)
         except Exception as e:
-            err = type(e).__name__ + ' (' + e.message + ')'
+            err = type(e).__name__ + ' (' + str(e) + ')'
             sid_l.update({host: err})
             ordered_puts(sid_l)
             continue
@@ -339,7 +339,7 @@ def listen_remove(platform, args):
         # Check exception
         if isinstance(config, Exception):
             # Get error msg
-            err_str = type(config).__name__ + ' (' + config.message + ')'
+            err_str = type(config).__name__ + ' (' + str(config) + ')'
             # Update standard output dict
             sid_l.update({host: err_str})
             ordered_puts(sid_l)
@@ -368,7 +368,7 @@ def listen_remove(platform, args):
         try:
             platform._get_nodes(e_host)[host].set_configurations(configurations)
         except Exception as e:
-            err = type(e).__name__ + ' (' + e.message + ')'
+            err = type(e).__name__ + ' (' + str(e) + ')'
             sid_l.update({host: err})
             ordered_puts(sid_l)
             continue

@@ -53,7 +53,7 @@ def option_list(platform, args):
     # Check exception
     if isinstance(config, Exception):
         # Get error msg
-        err_str = type(config).__name__ + ' (' + config.message + ')'
+        err_str = type(config).__name__ + ' (' + str(config) + ')'
         # Update standard output dict
         export_l.update({e_host: err_str})
         # Update errors dict
@@ -87,7 +87,7 @@ def option_get(platform, args):
     # Check exception
     if isinstance(config, Exception):
         # Get error msg
-        err_str = type(config).__name__ + ' (' + config.message + ')'
+        err_str = type(config).__name__ + ' (' + str(config) + ')'
         # Update standard output dict
         export_l.update({e_host: err_str})
         # Update errors dict
@@ -123,7 +123,7 @@ def option_set(platform, args):
     # Check exception
     if isinstance(config, Exception):
         # Get error msg
-        err_str = type(config).__name__ + ' (' + config.message + ')'
+        err_str = type(config).__name__ + ' (' + str(config) + ')'
         # Update standard output dict
         export_l.update({e_host: err_str})
         # Update errors dict
