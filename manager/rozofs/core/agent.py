@@ -119,6 +119,20 @@ class AgentServer(object):
         if pid is not None:
             return
 
+        # Get hostname
+        try:
+            hostname = socket.gethostname()
+        except socket.error as e:
+            syslog.syslog("%s" % e)
+            raise e
+
+        # Check bind address
+        try:
+            socket.gethostbyname(hostname)
+        except socket.error as e:
+            syslog.syslog('Unable to bind on local address (no IP address found for hostname: %s)' % hostname)
+            raise type(e)('Unable to bind on local address (no IP address found for hostname: %s)' % hostname)
+
         # Start the _daemon
         self._daemonize()
 
@@ -171,4 +185,6 @@ class AgentServer(object):
             with open('/dev/null', 'w') as devnull:
                 subprocess.check_call("kill %s && sleep 1" % pid, shell=True,
                     stdout=devnull, stderr=devnull)
+            if os.path.exists(self._pidfile):
+                os.remove(self._pidfile)
 

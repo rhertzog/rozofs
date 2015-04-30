@@ -1,25 +1,24 @@
 #!/bin/sh
 ### BEGIN INIT INFO
 # Provides:          rozofs-manager-agent
-# Required-Start:    $local_fs $remote_fs $network
-# Required-Stop:     $local_fs $remote_fs
+# Required-Start:    $local_fs $network $syslog
+# Required-Stop:     
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
-# Short-Description: <Enter a short description of the sortware>
-# Description:       <Enter a long description of the software>
-#                    <...>
-#                    <...>
+# Short-Description: RozoFS manager agent
+# Description:       RozoFS is a scale-out NAS file system. This service
+#                    provides the rozofs-manager-agent functionality.
 ### END INIT INFO
 
 # Author: Fizians S.A.S. <devel@rozofs.com>
 
 # PATH should only include /usr/* if it runs after the mountnfs.sh script
 PATH=/sbin:/usr/sbin:/bin:/usr/bin
-DESC=rozo                   # Introduce a short description here
-NAME=rozofs-manager-agent   # Introduce the short server's name here
-DAEMON=/usr/bin/rozo        # Introduce the server's location here
-DAEMON_ARGS=""              # Arguments to run the daemon with
-PIDFILE=/var/run/$NAME.pid
+DESC="rozo manager agent"
+NAME=rozofs-manager-agent
+DAEMON=/usr/bin/rozo
+DAEMON_ARGS=""
+PIDFILE=/var/run/rozo-agent.pid
 SCRIPTNAME=$0
 
 # Exit if the package is not installed
@@ -51,7 +50,6 @@ if [ "$PACEMAKER" = 'auto' ] ; then
     fi
 fi
 
-
 # Load the VERBOSE setting and other rcS variables
 . /lib/init/vars.sh
 
@@ -59,26 +57,43 @@ fi
 # Depend on lsb-base (>= 3.0-6) to ensure that this file is present.
 . /lib/lsb/init-functions
 
+if [ -t 0 ] ; then
+  # Be verbose when called from a terminal
+  VERBOSE=yes
+fi
+
 #
 # Function that starts the daemon/service
 #
 do_start()
 {
-    # Return
-    #   0 if daemon has been started or was already running
-    #   1 if daemon could not be started
-    #start-stop-daemon -S -q -o -p $PIDFILE -n $NAME -a $DAEMON -- $DAEMON_ARGS
-    if [ "$PACEMAKER" = 'true' ] ; then
-    
-        if [ "$EXPORTD_RESOURCE_NAME" = 'auto' ] ; then
-           $DAEMON agent start -p -l $AGENTS
-        else
-           $DAEMON agent start -p ${EXPORTD_RESOURCE_NAME} -l $AGENTS
-        fi
+  # Return
+  #   0 if daemon has been started
+  #   1 if daemon was already running
+  #   2 if daemon could not be started
+
+  $DAEMON agent status > /dev/null 2>&1
+
+  if [ "$?" -eq 0 ] ; then
+    return 1
+  fi
+
+  if [ "$PACEMAKER" = 'true' ] ; then
+
+    if [ "$EXPORTD_RESOURCE_NAME" = 'auto' ] ; then
+      $DAEMON agent start -p -l ${AGENTS} > /dev/null 2>&1
     else
-      $DAEMON agent start -l $AGENTS
+      $DAEMON agent start -p ${EXPORTD_RESOURCE_NAME} -l ${AGENTS} > /dev/null 2>&1
     fi
-    return $?
+
+  else
+      $DAEMON agent start -l ${AGENTS} > /dev/null 2>&1
+  fi
+
+  case "$?" in
+    0) return 0 ;;
+    *) return 2 ;;
+  esac
 }
 
 #
@@ -86,82 +101,54 @@ do_start()
 #
 do_stop()
 {
-    # Return
-    #   0 if daemon has been stopped
-    #   1 if daemon could not be stopped
-    #start-stop-daemon -K -q -o -p $PIDFILE -n $NAME -R TERM/30/KILL/5 -a $DAEMON
-    #RETVAL="$?"
-    # Many daemons don't delete their pidfiles when they exit.
-    #rm -f $PIDFILE
-    #return "$RETVAL"
-    $DAEMON agent stop
-    return $?
-}
+  # Return
+  #   0 if daemon has been stopped
+  #   1 if daemon was already stopped
+  #   2 if daemon could not be stopped
 
-#
-# Function that sends a SIGHUP to the daemon/service
-#
-#do_reload() {
-#    start-stop-daemon -K -q -o -s HUP -p $PIDFILE -n $NAME
-#    return 0
-#}
+  $DAEMON agent status > /dev/null 2>&1
+
+  if [ "$?" -eq 2 ] ; then
+    return 1
+  fi
+
+  $DAEMON agent stop > /dev/null 2>&1
+  case "$?" in
+    0) return 0 ;;
+    *) return 2 ;;
+  esac
+}
 
 case "$1" in
   start)
     [ "$VERBOSE" != no ] && log_daemon_msg "Starting $DESC " "$NAME"
     do_start
     case "$?" in
-        0) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
-        1) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
+      0) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
+      1) [ "$VERBOSE" != no ] && log_progress_msg "(already started)" && log_end_msg 0 ;;
+      2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
     esac
   ;;
   stop)
     [ "$VERBOSE" != no ] && log_daemon_msg "Stopping $DESC" "$NAME"
     do_stop
     case "$?" in
-        0) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
-        1) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
+      0) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
+      1) [ "$VERBOSE" != no ] && log_progress_msg "(already stopped)" && log_end_msg 0 ;;
+      2) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
     esac
-    ;;
+  ;;
   status)
-       #status_of_proc "$DAEMON" "$NAME" && exit 0 || exit $?
-       $DAEMON agent status
-       return $?
-       ;;
-  #reload)
-    #
-    # If do_reload() is not implemented then leave this commented out
-    # and leave 'force-reload' as an alias for 'restart'.
-    #
-    #log_daemon_msg "Reloading $DESC" "$NAME"
-    #do_reload
-    #log_end_msg $?
-  #  ;;
+    status_of_proc -p "$PIDFILE" "$DAEMON" "$NAME" && return 0 || return $?
+  ;;
   restart|force-reload)
-    #
-    # If the "reload" option is implemented then remove the
-    # 'force-reload' alias
-    #
-    log_daemon_msg "Restarting $DESC" "$NAME"
-    do_stop
-    case "$?" in
-      0)
-        do_start
-        case "$?" in
-            0) log_end_msg 0 ;;
-            *) log_end_msg 1 ;; # Failed to start
-        esac
-        ;;
-      *)
-        # Failed to stop
-        log_end_msg 1
-        ;;
-    esac
-    ;;
+    $0 stop
+    $0 start
+  ;;
   *)
-    echo "Usage: $SCRIPTNAME {start|stop|status|restart}" >&2
+    echo "Usage: $SCRIPTNAME {start|stop|status|restart|force-reload}" >&2
     exit 3
-    ;;
+  ;;
 esac
 
 :
