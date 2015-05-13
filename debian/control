@@ -33,14 +33,6 @@ Description: RozoFS filesystem (mount utility)
  .
  RozoFS is a scale-out NAS using erasure coding.
 
-Package: rozofs-rprof
-Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: RozoFS filesystem (monitoring package)
- rprof allows profiling of RozoFS filesystems.
- .
- RozoFS is a scale-out NAS using erasure coding.
-
 Package: rozofs-rozodiag
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, libreadline6
