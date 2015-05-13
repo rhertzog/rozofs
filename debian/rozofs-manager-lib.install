@@ -3,7 +3,6 @@
 /usr/lib/python2.7/dist-packages/rozofs/cli/exceptions.py
 /usr/lib/python2.7/dist-packages/rozofs/cli/export.py
 /usr/lib/python2.7/dist-packages/rozofs/cli/exportd.py
-/usr/lib/python2.7/dist-packages/rozofs/cli/layout.py
 /usr/lib/python2.7/dist-packages/rozofs/cli/mount.py
 /usr/lib/python2.7/dist-packages/rozofs/cli/node.py
 /usr/lib/python2.7/dist-packages/rozofs/cli/output.py
