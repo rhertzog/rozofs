@@ -12,6 +12,8 @@ set(REDHAT_BUILDROOT "@CMAKE_CURRENT_BINARY_DIR@/rpm/BUILDROOT")
 
 set(BUILDROOT "@CMAKE_CURRENT_BINARY_DIR@/rpm/BUILDROOT")
 
+set(RET_VALUE 0)
+
 if(NOT EXISTS ${TGZ_PACKAGE})
     message(FATAL_ERROR "Cannot find ${TGZ_PACKAGE}: please run package_source target.")
 endif(NOT EXISTS ${TGZ_PACKAGE})
@@ -29,5 +31,10 @@ execute_process(COMMAND mkdir -p ${REDHAT_BUILDROOT})
 
 execute_process(COMMAND cp ${TGZ_PACKAGE} ${REDHAT_SOURCES})
 execute_process(COMMAND cp ${REDHAT_SPEC_FILE} ${REDHAT_SPECS})
-execute_process(COMMAND rpmbuild --define "_topdir @CMAKE_CURRENT_BINARY_DIR@/rpm/" --buildroot ${REDHAT_BUILDROOT} -bb rozofs.spec WORKING_DIRECTORY ${REDHAT_SPECS})
+
+execute_process(COMMAND rpmbuild --define "_topdir @CMAKE_CURRENT_BINARY_DIR@/rpm/" --buildroot ${REDHAT_BUILDROOT} -bb rozofs.spec WORKING_DIRECTORY ${REDHAT_SPECS} RESULT_VARIABLE RET_VALUE)
+if(NOT ${RET_VALUE} EQUAL 0)
+    MESSAGE( FATAL_ERROR "command rpmbuild failed, RET_VALUE=" ${RET_VALUE} )
+endif(NOT ${RET_VALUE} EQUAL 0)
+
 #execute_process(COMMAND cp "${REDHAT_RPMS}/${CMAKE_SYSTEM_PROCESSOR}/*.rpm" "@CMAKE_CURRENT_BINARY_DIR@")
