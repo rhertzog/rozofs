@@ -484,7 +484,20 @@ void rozofs_ll_lookup_cbk(void *this,void *param)
         
     if (ret.status_gw.status == EP_FAILURE) {
         errno = ret.status_gw.ep_mattr_ret_t_u.error;
-        xdr_free((xdrproc_t) decode_proc, (char *) &ret);    
+        xdr_free((xdrproc_t) decode_proc, (char *) &ret);   
+	
+	/*
+	** Case of non existent entry. 
+	** Tell FUSE to keep responding ENOENT for this name for a few seconds
+	*/
+	if (errno == ENOENT) {
+	  memset(&fep, 0, sizeof (fep));
+	  fep.ino = 0;
+	  fep.attr_timeout = rozofs_tmr_get(TMR_FUSE_ATTR_CACHE);
+	  fep.entry_timeout = rozofs_tmr_get(TMR_FUSE_ENTRY_CACHE);
+	  fuse_reply_entry(req, &fep);
+	  goto out;	
+	}
         goto error;
     }
             
