@@ -31,6 +31,7 @@
 #include <dirent.h>
 #include <signal.h>
 #include <errno.h>
+#include <sys/resource.h>
 #include <rozofs/common/log.h>
 #include <rozofs/core/rozofs_core_files.h>
 
@@ -198,6 +199,14 @@ void rozofs_clean_core(void) {
     if (dirItem->d_name[0] == '.') continue;
 
     sprintf(buff,"%s/%s", rozofs_core_file_path, dirItem->d_name); 
+    
+    /*
+    ** No core file
+    */
+    if (rozofs_max_core_files == 0) {
+      unlink(buff);	 
+      continue;
+    }     
 
     /* Get file date */ 
     if (stat(buff,&traceStat) < 0) {   
@@ -252,6 +261,8 @@ void rozofs_catch_error(int sig){
 
   if  (rozofs_fatal_error_processing != 0) raise (sig);
   rozofs_fatal_error_processing++;
+
+  signal (SIGTERM, SIG_IGN);
 
   /* Write the information in the trace file */
   info("Receive signal %d = %s", sig, rozofs_signal(sig));
@@ -320,6 +331,15 @@ void rozofs_signals_declare(char * application, int max_core_files) {
   rozofs_core_file_path[0] = 0;
   if (application == NULL) return;
   sprintf(rozofs_core_file_path,"%s/%s",ROZOFS_CORE_BASE_PATH,application);
+  
+  /*
+  ** Set no limit for the core file size
+  */
+  struct rlimit core_limit;
+  core_limit.rlim_cur = RLIM_INFINITY;
+  core_limit.rlim_max = RLIM_INFINITY;   
+  setrlimit(RLIMIT_CORE, &core_limit);
+ 
   
   /* Declare the fatal errors handler */
  
