@@ -27,6 +27,7 @@
 #define FILE_CHECK_WORD 0X46696c65
 
 extern int rozofs_bugwatch;
+extern uint64_t rozofs_opened_file;
 
 typedef enum 
 {
@@ -161,6 +162,8 @@ static inline void rozofs_file_working_var_init(file_t *file, void * ientry)
     file->write_block_req = 0;
     file->write_block_pending = 0;
     file->file2create = 0;
+
+    rozofs_opened_file++;
 }
 
 
@@ -173,6 +176,7 @@ static inline void rozofs_file_working_var_init(file_t *file, void * ientry)
  @retval 0  if pending
  */
 
+extern void rozofs_clear_ientry_write_pending(file_t *f);
 static inline int file_close(file_t * f) {
 
      f->closing = 1;
@@ -187,12 +191,19 @@ static inline int file_close(file_t * f) {
        return 0;
      }
      if (rozofs_bugwatch) severe("BUGROZOFSWATCH free_ctx(%p) ",f);
+     
+     /*
+     ** Release write_pending in ientry
+     ** when this file descriptor occupies it.
+     */
+     rozofs_clear_ientry_write_pending(f);
      /*
      ** Release all memory allocated
      */
      free(f->buffer);
      f->chekWord = 0;
      free(f);
+     rozofs_opened_file--;
     return 1;
 }
 

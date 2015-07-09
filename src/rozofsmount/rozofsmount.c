@@ -87,6 +87,11 @@ uint64_t hash_inode_collisions_count = 0;
 uint64_t hash_inode_max_collisions = 0;
 uint64_t hash_inode_cur_collisions;
 
+/*
+** Count the number of opened files
+*/
+uint64_t rozofs_opened_file;
+
 uint64_t   rozofs_client_hash=0;
 /**
 * fuse request/reponse trace parameters
@@ -99,7 +104,19 @@ int rozofs_trc_enabled = 0;  /**< assert to 1 when the trace is enable */
 int rozofs_trc_index = 0;
 rozofs_trace_t *rozofs_trc_buffer = NULL;  /**< pointer to the trace buffer */
 int rozofs_xattr_disable = 0; /**< assert to one to disable xattr for the exported file system */
+int rozofs_site_number;  /**< site number for geo-replication */
+/**______________________________________________________________________________
+*/
+/**
+*  get the current site number of the rozofsmount client
 
+*/
+void rozofs_clear_ientry_write_pending(file_t *f) {
+  ientry_t *ie = f->ie;     
+  if ((ie != NULL) && (ie->write_pending == f)) {
+    ie->write_pending = NULL;
+  }
+}   
 /**______________________________________________________________________________
 */
 /**
@@ -671,6 +688,7 @@ void show_profiler(char * argv[], uint32_t tcpRef, void *bufRef) {
 
     pChar += sprintf(pChar, "GPROFILER version %s uptime =  %d days, %d:%d:%d\n", gprofiler.vers,days, hours, mins, secs);
     pChar += sprintf(pChar, " - ientry counter: %llu\n", (long long unsigned int) rozofs_ientries_count);
+    pChar += sprintf(pChar, " - opened file   : %llu\n", (long long unsigned int) rozofs_opened_file);
     pChar += sprintf(pChar, "   procedure  |     count       |  time(us) | cumulated time(us) |     bytes       |\n");
     pChar += sprintf(pChar, "--------------+-----------------+-----------+--------------------+-----------------+\n");
     SHOW_PROFILER_PROBE(lookup);
