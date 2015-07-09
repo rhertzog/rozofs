@@ -364,6 +364,7 @@ void north_lbg_ctxInit(north_lbg_ctx_t *p, uint8_t creation) {
     p->rechain_when_lbg_gets_down = 0;
     p->active_lbg_entry = -1;
     p->active_standby_mode = 0;
+    p->local = 0;
 
     /*
      ** clear the state bitmap
