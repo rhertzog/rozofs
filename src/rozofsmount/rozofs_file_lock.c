@@ -110,6 +110,7 @@ void compute_effective_lock_range(struct ep_lock_t * lock) {
     lock->effective_range.offset_start = 0;  
     lock->effective_range.offset_stop = 0;
    lock->effective_range.size = EP_LOCK_TOTAL;   
+   return;
   }
     
   lock->effective_range.offset_start = lock->user_range.offset_start / ROZOFS_BSIZE;
@@ -122,7 +123,7 @@ void compute_effective_lock_range(struct ep_lock_t * lock) {
   }
   
 
-  if (lock->effective_range.offset_stop % ROZOFS_BSIZE == 0) {
+  if (lock->user_range.offset_stop % ROZOFS_BSIZE == 0) {
     lock->effective_range.offset_stop = lock->user_range.offset_stop / ROZOFS_BSIZE;
   }
   else {
