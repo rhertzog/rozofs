@@ -26,6 +26,7 @@
 #include <rozofs/rozofs.h>
 #include <rozofs/common/log.h>
 
+#include <rozofs/core/rozofs_ip_utilities.h>
 #include "rpcclt.h"
 
 int rpcclt_initialize(rpcclt_t * client, const char *host, unsigned long prog,
@@ -33,7 +34,6 @@ int rpcclt_initialize(rpcclt_t * client, const char *host, unsigned long prog,
         unsigned int recvsz, uint32_t port_num, struct timeval timeout) {
     int status = -1;
     struct sockaddr_in server;
-    struct hostent *hp;
     int one = 1;
     int port = 0;
     DEBUG_FUNCTION;
@@ -52,13 +52,11 @@ int rpcclt_initialize(rpcclt_t * client, const char *host, unsigned long prog,
     client->sock = -1;
     server.sin_family = AF_INET;
 
-    if ((hp = gethostbyname(host)) == 0) {
-        severe("gethostbyname failed for %s: %s", host, hstrerror(h_errno));
-        errno = EHOSTUNREACH;
+    if (rozofs_host2ip_netw((char*)host, &server.sin_addr.s_addr) != 0) {
+        severe("rozofs_host2ip failed for host : %s, %s", host,
+                strerror(errno));
         goto out;
     }
-
-    bcopy((char *) hp->h_addr, (char *) &server.sin_addr, hp->h_length);
 
     if (port_num == 0) {
         if ((port = pmap_getport(&server, prog, vers, IPPROTO_TCP)) == 0) {

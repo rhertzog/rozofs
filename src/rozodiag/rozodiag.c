@@ -39,6 +39,7 @@
 #include <readline/history.h>
 
 #include <rozofs/core/uma_dbg_msgHeader.h>
+#include <rozofs/core/rozofs_ip_utilities.h>
 #include <rozofs/rozofs.h>
 
 #define SILENT 1
@@ -357,24 +358,6 @@ void debug_run_command_list(int socketId) {
   }
 } 
 
-
-int expgw_host2ip(char *host,uint32_t *ipaddr_p)
-{
-    struct hostent *hp;    
-    /*
-    ** get the IP address of the storage node
-    */
-    if ((hp = gethostbyname(host)) == 0) {
-        printf("gethostbyname failed for host : %s, %s", host,
-                strerror(errno));
-        return -1;
-    }
-    bcopy((char *) hp->h_addr, (char *) ipaddr_p, hp->h_length);
-//    *ipaddr_p = ntohl(*ipaddr_p);
-    return 0;
-    
-}
-
 void read_parameters(argc, argv)
 int argc;
 char *argv[];
@@ -403,7 +386,7 @@ char *argv[];
 	syntax();
       }
 //      ipAddr = inet_addr(argv[idx]);
-      status = expgw_host2ip(argv[idx],&ipAddr[nbTarget]);
+      status = rozofs_host2ip_netw(argv[idx],&ipAddr[nbTarget]);
       if (status < 0) 
       {
         syntax();      

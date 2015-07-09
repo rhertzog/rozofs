@@ -40,6 +40,7 @@
 #include <rozofs/rpc/eclient.h>
 #include <rozofs/rpc/eproto.h>
 #include <rozofs/core/af_unix_socket_generic.h>
+#include <rozofs/core/rozofs_ip_utilities.h>
 #include "rpcclt.h"
 #include "storcli_lbg_prototypes.h"
 
@@ -84,17 +85,16 @@ static af_unix_socket_conf_t  af_inet_exportd_conf =
 */
 static int get_service_tcp_port(char *host ,unsigned long prog, unsigned long vers) {
   struct sockaddr_in server;
-  struct hostent *hp;
   int port = 0;
 
   server.sin_family = AF_INET;
 
-  if ((hp = gethostbyname(host)) == 0) {
-      severe("gethostbyname failed for host : %s, %s", host,strerror(errno));
+  if (rozofs_host2ip_netw((char*)host, &server.sin_addr.s_addr) != 0) {
+      severe("rozofs_host2ip failed for host : %s, %s", host,
+              strerror(errno));
       return 0;
   }
 
-  bcopy((char *) hp->h_addr, (char *) &server.sin_addr, hp->h_length);
   if ((port = pmap_getport(&server, prog, vers, IPPROTO_TCP)) == 0) {
     //warning("pmap_getport failed %s (%x:%d) %s",  host, (unsigned int)prog, (int)vers, clnt_spcreateerror(""));
     errno = EPROTO;
@@ -176,7 +176,6 @@ int export_lbg_initialize(exportclt_t *exportclt ,unsigned long prog,
 {
     int status = -1;
     struct sockaddr_in server;
-    struct hostent *hp;
     int port = 0;
     int lbg_size;
     int export_index=0;
@@ -193,14 +192,12 @@ int export_lbg_initialize(exportclt_t *exportclt ,unsigned long prog,
 
         pHost = rozofs_host_list_get_host(export_index);
 	    if (pHost == NULL) break;
-	
-        if ((hp = gethostbyname(pHost)) == 0) {
-            severe("gethostbyname failed for host : %s, %s", pHost,
+	if (rozofs_host2ip_netw((char*)pHost, &server.sin_addr.s_addr) != 0) {
+            severe("rozofs_host2ip failed for host : %s, %s", pHost,
                     strerror(errno));
             continue;
-	 }
+	}
 
-	 bcopy((char *) hp->h_addr, (char *) &server.sin_addr, hp->h_length);
 	 if (port_num == 0) {
          if ((port = pmap_getport(&server, prog, vers, IPPROTO_TCP)) == 0) {
              warning("pmap_getport failed%s", clnt_spcreateerror(""));

@@ -24,11 +24,52 @@
 #include <netdb.h>
 #include <rozofs/common/log.h>
 
+#include <stdlib.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif /*__cplusplus*/
+/*
+**______________________________________________________________________________
+*/
+/**
+*  Convert a hostname into an IP v4 address in network format 
 
+@param host : hostname
+@param ipaddr_p : return IP V4 address arreay
+
+@retval 0 on success
+@retval -1 on error (see errno faor details
+*/
+static inline int rozofs_host2ip_netw(char *host, uint32_t *ipaddr_p) {
+  struct addrinfo *servinfo=NULL;
+  struct addrinfo *p;
+  struct addrinfo hints;
+  int    rv;
+  int    result=-1;
+
+  memset(&hints, 0, sizeof(hints));
+  hints.ai_family   = AF_INET; 
+  hints.ai_socktype = SOCK_STREAM;
+
+  if ((rv = getaddrinfo(host, NULL, &hints, &servinfo)) != 0) {
+    severe("getaddrinfo failed for host : %s, %s", host, gai_strerror(rv));
+    goto out;
+  }
+
+  // loop through all the results and connect to the first we can
+  for(p = servinfo; p != NULL; p = p->ai_next) {
+    if (p->ai_family != AF_INET) continue;  
+    struct sockaddr_in * psock =  (struct sockaddr_in *) p->ai_addr;
+    *ipaddr_p = psock->sin_addr.s_addr;   
+    result = 0;
+    break;
+  }
+  
+out:
+  if (servinfo) freeaddrinfo(servinfo);
+  return result;
+}
 /*
 **______________________________________________________________________________
 */
@@ -42,21 +83,32 @@ extern "C" {
 @retval -1 on error (see errno faor details
 */
 static inline int rozofs_host2ip(char *host, uint32_t *ipaddr_p) {
-  struct hostent *hp;    
-  /*
-  ** get the IP address of the storage node
-  */
-  if ((hp = gethostbyname(host)) == 0) {
-    severe("gethostbyname failed for host : %s, %s", host, strerror(errno));
-    return -1;
+  struct addrinfo *servinfo=NULL;
+  struct addrinfo *p;
+  struct addrinfo hints;
+  int    rv;
+  int    result=-1;
+
+  memset(&hints, 0, sizeof(hints));
+  hints.ai_family   = AF_INET; 
+  hints.ai_socktype = SOCK_STREAM;
+
+  if ((rv = getaddrinfo(host, NULL, &hints, &servinfo)) != 0) {
+    severe("getaddrinfo failed for host : %s, %s", host, gai_strerror(rv));
+    goto out;
   }
-  if (hp->h_length != 4) {
-    severe("rozofs_host2ip address length is %d", hp->h_length);
-    return -1;
-  }  
-  bcopy((char *) hp->h_addr, (char *) ipaddr_p, hp->h_length);
-  *ipaddr_p = ntohl(*ipaddr_p);
-  return 0;
+  // loop through all the results and connect to the first we can
+  for(p = servinfo; p != NULL; p = p->ai_next) {
+    if (p->ai_family != AF_INET) continue;  
+    struct sockaddr_in * psock =  (struct sockaddr_in *) p->ai_addr;
+    *ipaddr_p = ntohl(psock->sin_addr.s_addr);    
+    result = 0;
+    break;
+  }
+  
+out:
+  if (servinfo) freeaddrinfo(servinfo);
+  return result;
 }
 /*
 **______________________________________________________________________________

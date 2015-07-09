@@ -26,6 +26,7 @@
 #include <rozofs/common/log.h>
 #include <rozofs/rpc/eproto.h>
 #include <rozofs/core/expgw_common.h>
+#include <rozofs/core/rozofs_ip_utilities.h>
 #include "export_expgateway_conf.h"
 
 
@@ -63,35 +64,6 @@ static af_unix_socket_conf_t  af_inet_exportd_conf =
   NULL   //    *recvPool; /* user pool reference or -1 */
 };
 
-
-/*
-**______________________________________________________________________________
-*/
-/**
-*  Convert a hostname into an IP v4 address in host format 
-
-@param host : hostname
-@param ipaddr_p : return IP V4 address arreay
-
-@retval 0 on success
-@retval -1 on error (see errno faor details
-*/
-static int host2ip(char *host,uint32_t *ipaddr_p)
-{
-    struct hostent *hp;    
-    /*
-    ** get the IP address of the storage node
-    */
-    if ((hp = gethostbyname(host)) == 0) {
-        severe("gethostbyname failed for host : %s, %s", host,
-                strerror(errno));
-        return -1;
-    }
-    bcopy((char *) hp->h_addr, (char *) ipaddr_p, hp->h_length);
-    *ipaddr_p = ntohl(*ipaddr_p);
-    return 0;
-    
-}
 
 
 /*__________________________________________________________________________
@@ -183,7 +155,7 @@ int export_expgw_conf_ctx_create(int rank,char *hostname,uint16_t port)
   ** create the load balancing group
   */
   strncpy(p->hostname, hostname, ROZOFS_HOSTNAME_MAX);
-  if (host2ip(hostname,&p->ipaddr) < 0)
+  if (rozofs_host2ip(hostname,&p->ipaddr) < 0)
   {
     return -1;  
   }

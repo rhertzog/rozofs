@@ -53,6 +53,7 @@
 #include <rozofs/core/ruc_list.h>
 #include <rozofs/core/af_unix_socket_generic_api.h>
 #include <rozofs/core/rozofs_rpc_non_blocking_generic_srv.h>
+#include <rozofs/core/rozofs_ip_utilities.h>
 #include <rozofs/rpc/eproto.h>
 #include <rozofs/rpc/epproto.h>
 
@@ -259,35 +260,6 @@ unsigned long long Global_timeBefore, Global_timeAfter;
 
 
 /*
- **______________________________________________________________________________
- */
-
-/**
- *  Convert a hostname into an IP v4 address in host format 
-
-@param host : hostname
-@param ipaddr_p : return IP V4 address arreay
-
-@retval 0 on success
-@retval -1 on error (see errno faor details
- */
-static int host2ip(char *host, uint32_t *ipaddr_p) {
-    struct hostent *hp;
-    /*
-     ** get the IP address of the storage node
-     */
-    if ((hp = gethostbyname(host)) == 0) {
-        severe("gethostbyname failed for host : %s, %s", host,
-                strerror(errno));
-        return -1;
-    }
-    bcopy((char *) hp->h_addr, (char *) ipaddr_p, hp->h_length);
-    *ipaddr_p = ntohl(*ipaddr_p);
-    return 0;
-
-}
-
-/*
  **
  */
 
@@ -315,7 +287,7 @@ uint32_t ruc_init(uint32_t test, storaged_start_conf_param_t *arg_p) {
     uint32_t        mx_af_unix_ctx = 1024;
 
     if (arg_p->hostname[0] != 0) {
-        host2ip(arg_p->hostname, &local_ip);
+        rozofs_host2ip(arg_p->hostname, &local_ip);
     }
 
     //#warning TCP configuration ressources is hardcoded!!

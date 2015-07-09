@@ -26,6 +26,7 @@
 #include <rozofs/common/log.h>
 #include <rozofs/rpc/eproto.h>
 #include <rozofs/core/rozofs_host_list.h>
+#include <rozofs/core/rozofs_ip_utilities.h>
 #include "expgw_common.h"
 
 
@@ -63,37 +64,6 @@ static af_unix_socket_conf_t  af_inet_exportd_conf =
   NULL,  //    *xmitPool; /* user pool reference or -1 */
   NULL   //    *recvPool; /* user pool reference or -1 */
 };
-
-/*
-**______________________________________________________________________________
-*/
-/**
-*  Convert a hostname into an IP v4 address in host format 
-
-@param host : hostname
-@param ipaddr_p : return IP V4 address arreay
-
-@retval 0 on success
-@retval -1 on error (see errno faor details
-*/
-int expgw_host2ip(char *host,uint32_t *ipaddr_p)
-{
-    struct hostent *hp;    
-    /*
-    ** get the IP address of the storage node
-    */
-    if ((hp = gethostbyname(host)) == 0) {
-        severe("gethostbyname failed for host : %s, %s", host,
-                strerror(errno));
-        return -1;
-    }
-    bcopy((char *) hp->h_addr, (char *) ipaddr_p, hp->h_length);
-    *ipaddr_p = ntohl(*ipaddr_p);
-    return 0;
-    
-}
-
-
 
 
 /*
@@ -155,17 +125,16 @@ int expgw_expgateway_lbg_initialize(expgw_expgw_ctx_t *exportclt)
 */
 static int get_service_tcp_port(char *host ,unsigned long prog, unsigned long vers) {
   struct sockaddr_in server;
-  struct hostent *hp;
   int port = 0;
 
   server.sin_family = AF_INET;
 
-  if ((hp = gethostbyname(host)) == 0) {
-      severe("gethostbyname failed for host : %s, %s", host,strerror(errno));
+  if (rozofs_host2ip_netw(host, &server.sin_addr.s_addr) != 0) {
+      severe("rozofs_host2ip failed for host : %s, %s", host,
+              strerror(errno));
       return 0;
   }
 
-  bcopy((char *) hp->h_addr, (char *) &server.sin_addr, hp->h_length);
   if ((port = pmap_getport(&server, prog, vers, IPPROTO_TCP)) == 0) {
     //warning("pmap_getport failed %s (%x:%d) %s",  host, (unsigned int)prog, (int)vers, clnt_spcreateerror(""));
     errno = EPROTO;
@@ -243,7 +212,6 @@ int expgw_export_lbg_initialize(expgw_exportd_ctx_t *exportclt ,unsigned long pr
         unsigned long vers,uint32_t port_num,af_stream_poll_CBK_t supervision_callback) {
     int status = -1;
     struct sockaddr_in server;
-    struct hostent *hp;
     int port = 0;
     int lbg_size;
     int export_index=0;
@@ -258,14 +226,12 @@ int expgw_export_lbg_initialize(expgw_exportd_ctx_t *exportclt ,unsigned long pr
 
         pHost = rozofs_host_list_get_host(export_index);
 	if (pHost == NULL) break;
-    
-	if ((hp = gethostbyname(pHost)) == 0) {
-            severe("gethostbyname failed for host : %s, %s", pHost,
+	if (rozofs_host2ip_netw((char*)pHost, &server.sin_addr.s_addr) != 0) {
+            severe("rozofs_host2ip failed for host : %s, %s", pHost,
                     strerror(errno));
             continue;
 	}
 
-	bcopy((char *) hp->h_addr, (char *) &server.sin_addr, hp->h_length);
 	if (port_num == 0) {
             if ((port = pmap_getport(&server, prog, vers, IPPROTO_TCP)) == 0) {
         	warning("pmap_getport failed%s", clnt_spcreateerror(""));
@@ -512,7 +478,7 @@ int expgw_export_add_eid(uint16_t exportd_id, uint16_t eid, char *hostname,
   }
   expgw_exportd_table[exportd_id].exportd_id  = exportd_id;  
   strcpy(expgw_exportd_table[exportd_id].hostname, hostname);
-  if (expgw_host2ip(hostname,&expgw_exportd_table[exportd_id].ipaddr) < 0)
+  if (rozofs_host2ip(hostname,&expgw_exportd_table[exportd_id].ipaddr) < 0)
   {
     return -1;  
   }
@@ -577,7 +543,7 @@ int expgw_add_export_gateway(uint16_t exportd_id, char *hostname,
   ** save the hostname and then get the associated IP address
   */
   strncpy(Pgw->hostname, hostname, ROZOFS_HOSTNAME_MAX);
-  if (expgw_host2ip(hostname,&ipaddr) < 0)
+  if (rozofs_host2ip(hostname,&ipaddr) < 0)
   {
     errno = EINVAL;
     return -1;  
