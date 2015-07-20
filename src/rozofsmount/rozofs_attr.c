@@ -476,9 +476,20 @@ void rozofs_ll_setattr_nb(fuse_req_t req, fuse_ino_t ino, struct stat *stbuf,
       */
       return;
     }
+    
+    /*
+    ** The size is not given as argument of settattr, 
+    ** nevertheless a size modification is pending.
+    ** so let's send the size modification along with 
+    ** the other modified attributes
+    */
+    if (ie->file_extend_pending) {
+      to_set &= FUSE_SET_ATTR_SIZE;
+      attr.size = ie->attrs.size;
+    }  
     /*
     ** set the argument to encode
-    */
+    */ 
     arg.arg_gw.eid = exportclt.eid;
     memcpy(&arg.arg_gw.attrs, &attr, sizeof (mattr_t));
     memcpy(arg.arg_gw.attrs.fid, ie->fid, sizeof (fid_t));
@@ -498,7 +509,13 @@ void rozofs_ll_setattr_nb(fuse_req_t req, fuse_ino_t ino, struct stat *stbuf,
 #endif
 
     if (ret < 0) goto error;
-    
+    /*
+    ** Request has been sent, and size modification has been added to the messages
+    */
+    if (ie->file_extend_pending) {
+      ie->file_extend_running = 1;
+      ie->file_extend_pending = 0; 
+    }     
     /*
     ** no error just waiting for the answer
     */
