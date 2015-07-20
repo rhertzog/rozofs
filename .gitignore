@@ -18,6 +18,8 @@ rozofs.spec
 profile_wrap.c
 libconfig_wrap.c
 
+debian/changelog
+
 manager/build/
 manager/timestamp
 src/exportd/exportd

@@ -2,8 +2,17 @@ Source: rozofs
 Section: admin
 Priority: optional
 Maintainer: Fizians S.A.S. <devel@rozofs.com>
-Build-Depends: debhelper (>= 8), cmake, libfuse-dev (>= 2.9.0), libattr1-dev, uuid-dev, libconfig-dev, python-all-dev, libreadline-dev, swig
-Standards-Version: 3.9.4
+Build-Depends: 	debhelper (>= 9),
+				,dh-python
+				,cmake
+				,libfuse-dev (>= 2.9.0)
+				,libattr1-dev
+				,uuid-dev
+				,libconfig-dev
+				,python-all-dev
+				,libreadline-dev
+				,swig
+Standards-Version: 3.9.6
 X-Python-Version: = 2.7 << 3.0
 Homepage: http://www.rozofs.com
 Vcs-Git: https://github.com/rozofs/rozofs.git
@@ -11,7 +20,11 @@ Vcs-Browser: https://github.com/rozofs/rozofs
 
 Package: rozofs-exportd
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, portmap | rpcbind, libattr1, libuuid1, libconfig8 | libconfig9
+Depends: ${shlibs:Depends}, ${misc:Depends}
+		,portmap | rpcbind
+		,libattr1
+		,libuuid1
+		,libconfig8 | libconfig9
 Description: RozoFS filesystem (export daemon)
  RozoFS exportd daemon manages metadata for the RozoFS filesystems.
  .
@@ -19,7 +32,10 @@ Description: RozoFS filesystem (export daemon)
 
 Package: rozofs-storaged
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, portmap | rpcbind, libuuid1, libconfig8 | libconfig9
+Depends: ${shlibs:Depends}, ${misc:Depends}
+		,portmap | rpcbind
+		,libuuid1
+		,libconfig8 | libconfig9
 Description: RozoFS filesystem (storage daemon)
  RozoFS storaged daemon stores encoded data for the RozoFS filesystems.
  .
@@ -42,8 +58,12 @@ Description: RozoFS filesystem (debugging tools)
  RozoFS is a scale-out NAS using erasure coding.
 
 Package: rozofs-manager-lib
+Section: python
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, libconfig8 | libconfig9, pyro, python-support (>= 0.90), python-argparse, python-yaml, psmisc
+Depends: ${shlibs:Depends}, ${misc:Depends}, ${python:Depends}
+		,pyro
+		,python-argparse
+		,python-yaml
 Description: RozoFS filesystem (management library)
  Python management libraries for RozoFS.
  .
@@ -51,7 +71,8 @@ Description: RozoFS filesystem (management library)
 
 Package: rozofs-manager-cli
 Architecture: any
-Depends: ${misc:Depends}, rozofs-manager-lib, python2.7
+Depends: ${misc:Depends}, ${python:Depends}
+		,rozofs-manager-lib  (>= ${source:Version})
 Description: RozoFS filesystem (management cli)
  Management command-line for RozoFS.
  .
@@ -59,7 +80,9 @@ Description: RozoFS filesystem (management cli)
 
 Package: rozofs-manager-agent
 Architecture: any
-Depends: ${misc:Depends}, rozofs-manager-lib, rozofs-manager-cli
+Depends: ${misc:Depends}
+		,rozofs-manager-lib  (>= ${source:Version})
+		,rozofs-manager-cli
 Description: RozoFS filesystem (management daemon)
  Management daemon for RozoFS.
  .
@@ -69,7 +92,10 @@ Package: rozofs-dbg
 Section: debug
 Priority: extra
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, rozofs-rozofsmount (= ${binary:Version}) | rozofs-storaged (= ${binary:Version}) | rozofs-exportd (= ${binary:Version})
+Depends: ${misc:Depends}
+		, rozofs-rozofsmount (= ${binary:Version}) |
+		 rozofs-storaged (= ${binary:Version}) |
+		 rozofs-exportd (= ${binary:Version})
 Description: RozoFS filesystem (debugging symbols)
  Provide debugging information for the various rozofs packages.
  Install it to get a better backtrace in the event of a crash, or to test.
@@ -80,7 +106,9 @@ Package: nagios-plugins-rozofs
 Section: net
 Priority: extra
 Architecture: all
-Depends: ${shlibs:Depends}, ${misc:Depends}, rozofs-rozodiag (= ${binary:Version})
+Multi-Arch: foreign
+Depends: ${misc:Depends}
+		, rozofs-rozodiag (>= ${binary:Version})
 Description: RozoFS filesystem (Nagios plugins)
  Provide monitoring information for the various rozofs packages.
  .

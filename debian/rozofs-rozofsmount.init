@@ -1,8 +1,8 @@
 #! /bin/sh
 ### BEGIN INIT INFO
 # Provides:          rozofs-rozofsmount
-# Required-Start:    $network $local_fs
-# Required-Stop:
+# Required-Start:    $network $local_fs $remote_fs
+# Required-Stop:     $remote_fs
 # Should-Start:      rozofs-storaged corosync pacemaker rozofs-exportd
 # Should-Stop:       rozofs-storaged corosync pacemaker rozofs-exportd
 # Default-Start:     2 3 4 5

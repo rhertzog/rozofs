@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LIST="date commit branch mojette"
+LIST="date commit branch mojette bpo"
 
 syntax() {
   usage="Usage : cmake_get.sh <source directory> ["
@@ -32,6 +32,34 @@ rozo_mojette() {
     *)  ROZO_MOJETTE="FSX";;
   esac
   printf "%s" "${ROZO_MOJETTE}"   
+}
+# Get bpo version to append on each debian packages builded
+rozo_bpo() {
+  [ -x "/usr/bin/lsb_release" ] || exit 0
+  lsb_release=`lsb_release -c | sed 's/Codename://g' | sed 's/^[ \t]*//;s/[ \t]*$//'` 
+
+  ROZO_BPO=""
+  case $lsb_release in
+    wheezy)
+      ROZO_BPO="~bpo70+1"
+    ;;
+    jessie)
+      ROZO_BPO="~bpo8+1"
+    ;;
+    trusty)
+      ROZO_BPO="~trusty0+1"
+    ;;
+    utopic)
+      ROZO_BPO="~utopic0+1"
+    ;;
+    vivid)
+      ROZO_BPO="~vivid0+1"
+    ;;
+    *)
+      ROZO_BPO=""
+    ;;
+  esac
+  printf "%s" "${ROZO_BPO}"
 }
 rozo_param() {
   lower=`echo "$1" | tr '[:upper:]' '[:lower:]'`
