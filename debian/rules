@@ -15,6 +15,9 @@ CMAKE_EXTRA_FLAGS += -DCMAKE_SKIP_RPATH=ON \
 %:
 	dh $@ --buildsystem=cmake --with python2
 
+override_dh_python2:
+	dh_python2 --no-guessing-versions
+
 override_dh_auto_configure:
 	dh_auto_configure -- $(CMAKE_EXTRA_FLAGS)
 
