@@ -5,7 +5,7 @@ Installing RozoFS
 Installing RozoFS from Binary Packages
 ======================================
 
-Fizians SAS provides **binary packages** for every component of RozoFS
+Rozo Systems SAS provides **binary packages** for every component of RozoFS
 and various GNU/Linux distributions based on Debian (``.deb``) and
 Redhat (``.rpm``) package format. Using binary packages brings you
 benefits. First, you do not need a full development environment and
@@ -15,27 +15,37 @@ See help of your favorite GNU/Linux distribution's package manager for
 package installation. According to their roles, nodes should have at
 least one these packages installed :
 
--  ``rozofs-storaged_<version>_<arch>.<deb|rpm>``
+-  ``rozofs-storaged``
 
--  ``rozofs-exportd_<version>_<arch>.<deb|rpm>``
+-  ``rozofs-exportd``
 
--  ``rozofs-rozofsmount_<version>_<arch>.<deb|rpm>``
+-  ``rozofs-rozofsmount``
 
 To help and automate management, the following optional packages should
 be installed on each node involved in a RozoFS platform:
 
--  ``rozofs-manager-lib_<version>_<arch>.<deb|rpm>``
+-  ``rozofs-manager-lib``
 
--  ``rozofs-manager-cli_<version>_<arch>.<deb|rpm>``
+-  ``rozofs-manager-cli``
 
--  ``rozofs-manager-agent_<version>_<arch>.<deb|rpm>``
+-  ``rozofs-manager-agent``
 
--  ``rozofs-rprof_<version>_<arch>.<deb|rpm>``
+To monitor and to get statistics about each RozoFS component,
+the following optional packages should be installed on each node involved in a RozoFS platform:
 
--  ``rozofs-rozodiag_<version>_<arch>.<deb|rpm>``
+-  ``rozofs-rozodiag``
 
-Advance Package Tool (APT) for Debian Wheezy
+-  ``nagios-plugins-rozofs``
+
+
+Advance Package Tool (APT) for Debian/Ubuntu
 --------------------------------------------
+
+Tested on the following OS:\
+
+-  Debian 7 (*wheezy*), 8 (*jessie*)
+-  Ubuntu 14.04 (*trusty*)
+
 
 Install Release Key
 ~~~~~~~~~~~~~~~~~~~
@@ -44,16 +54,16 @@ Install Release Key
 
     $ wget -O - http://dl.rozofs.org/deb/devel@rozofs.com.gpg.key | apt-key add -
 
-Add Release Packages
-~~~~~~~~~~~~~~~~~~~~
+Add the repository
+~~~~~~~~~~~~~~~~~~
 
-For the lastest stable release :
+For the lastest stable release:
 
 .. code-block:: bash
 
     $ echo deb http://dl.rozofs.org/deb/master $(lsb_release -sc) main | tee /etc/apt/sources.list.d/rozofs.list
 
-For the lastest development release :
+For the lastest development release:
 
 .. code-block:: bash
 
@@ -70,8 +80,7 @@ On each node involved in a RozoFS platform:
     $ apt-get install rozofs-storaged
     $ apt-get install rozofs-exportd
     $ apt-get install rozofs-rozofsmount
-    $ apt-get install rozofs-rprof
-    $ apt-get install rozofs-rozodiag
+
 
 To help and automate management:
 
@@ -81,23 +90,35 @@ To help and automate management:
     $ apt-get install rozofs-manager-cli
     $ apt-get install rozofs-manager-agent
 
-Yum for CentOS 7
-----------------
+To monitor and to get statistics:
 
-Install repository Package
+.. code-block:: bash
+
+    $ apt-get install rozofs-rozodiag
+    $ apt-get install nagios-plugins-rozofs
+
+Yum for CentOS (RHEL)
+---------------------
+
+Tested on the following OS:\
+
+-  CentOS 6 (*el6*), 7 (*el7*)
+
+
+Install repository package
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-For the lastest stable release :
+For the lastest stable release on *el7*:
 
 .. code-block:: bash
 
-    $ yum install http://dl.rozofs.org/rpms/master/el7/noarch/repo-rozofs-master-1.0-1.el7.centos.noarch.rpm
+    $ yum install http://dl.rozofs.org/rpms/master/el7/noarch/repo-rozofs-master-1.0-1.el7.noarch.rpm
 
-For the lastest development release :
+For the lastest development release on *el7*:
 
 .. code-block:: bash
 
-    $ yum install http://dl.rozofs.org/rpms/develop/el7/noarch/repo-rozofs-master-1.0-1.el7.centos.noarch.rpm
+    $ yum install http://dl.rozofs.org/rpms/develop/el7/noarch/repo-rozofs-develop-1.0-1.el7.noarch.rpm
 
 Install Packages
 ~~~~~~~~~~~~~~~~
@@ -109,8 +130,6 @@ On each node involved in a RozoFS platform:
     $ yum install rozofs-storaged
     $ yum install rozofs-exportd
     $ yum install rozofs-rozofsmount
-    $ yum install rozofs-rprof
-    $ yum install rozofs-rozodiag
 
 To help and automate management:
 
@@ -119,6 +138,11 @@ To help and automate management:
     $ yum install rozofs-manager-lib
     $ yum install rozofs-manager-cli
     $ yum install rozofs-manager-agent
+
+To monitor and to get statistics:
+
+.. code-block:: bash
+    $ yum install rozofs-rozodiag
 
 
 Building and Installing from Sources
