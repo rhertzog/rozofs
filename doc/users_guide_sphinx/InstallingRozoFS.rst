@@ -142,6 +142,7 @@ To help and automate management:
 To monitor and to get statistics:
 
 .. code-block:: bash
+
     $ yum install rozofs-rozodiag
 
 
