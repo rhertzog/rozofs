@@ -690,13 +690,14 @@ void rozofs_ll_setattr_cbk(void *this,void *param)
         goto error;
     }
     /*
-    ** update the attributes in the ientry
-    */
-    rozofs_ientry_update(ie,&attr);    
-    /*
     ** clear the running flag
     */
     ie->file_extend_running = 0;
+    /*
+    ** update the attributes in the ientry
+    */
+    rozofs_ientry_update(ie,&attr);    
+
     /*
     ** update the size in the buffer returned to fuse
     */
