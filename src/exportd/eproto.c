@@ -91,10 +91,10 @@ int exportd_init_storage_configuration_message()
   */
   storage_cnf_p = exportd_storage_host_table;
   export_storage_conf.status_gw.ep_conf_ret_t_u.export.storage_nodes.storage_nodes_val = storage_cnf_p ;
-  char* host;
+  //char* host;
   
-  host = malloc( ROZOFS_HOSTNAME_MAX+1);
-  storage_cnf_p->host = host;
+  //host = malloc( ROZOFS_HOSTNAME_MAX+1);
+  //storage_cnf_p->host = host;
 
   
 
