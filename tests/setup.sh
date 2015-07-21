@@ -113,7 +113,11 @@ gen_storage_conf ()
 
             echo "#${NAME_LABEL}" >> $FILE
             echo "#${DATE_LABEL}" >> $FILE
-
+	    
+            printf "crc32c_check         = True;\n" >> $FILE
+            printf "crc32c_generate      = True;\n" >> $FILE
+            printf "crc32c_hw_forced     = True;\n" >> $FILE
+    
             printf "threads = $NB_DISK_THREADS;\n" >> $FILE
             printf "nbCores = $NB_CORES;\n" >> $FILE
             printf "storio  = \"$STORIO_MODE\";" >> $FILE

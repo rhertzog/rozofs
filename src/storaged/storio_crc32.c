@@ -45,6 +45,14 @@
 #include <rozofs/common/log.h>
 #include <rozofs/rozofs_srv.h>
 #include <rozofs/core/uma_dbg_api.h>
+/*
+**__________________________________________________________________
+*/
+int crc32c_hw_supported = 0;
+int crc32c_generate_enable = 0;  /**< assert to 1 for CRC generation  */
+int crc32c_check_enable = 0;  /**< assert to 1 for CRC generation  */
+uint64_t storio_crc_error= 0;
+
 
 /* CRC-32C (iSCSI) polynomial in reversed bit order. */
 #define POLY 0x82f63b78
@@ -240,6 +248,16 @@ static void crc32c_init_hw(void)
     crc32c_zeros(crc32c_short, SHORT);
 }
 
+
+#ifdef COMPILE_FOR_32_BITS
+/*
+** For 32 bits targets only use CRC32 in software mode
+*/
+uint32_t crc32c(uint32_t crc, const void *buf, size_t len)
+{
+    return crc32c_sw(crc, buf, len);
+}  
+#else
 /* Compute CRC-32C using the Intel hardware instruction. */
 static uint32_t crc32c_hw(uint32_t crc, const void *buf, size_t len)
 {
@@ -330,13 +348,6 @@ static uint32_t crc32c_hw(uint32_t crc, const void *buf, size_t len)
     return (uint32_t)crc0 ^ 0xffffffff;
 }
 
-/*
-**__________________________________________________________________
-*/
-int crc32c_hw_supported = 0;
-int crc32c_generate_enable = 0;  /**< assert to 1 for CRC generation  */
-int crc32c_check_enable = 0;  /**< assert to 1 for CRC generation  */
-uint64_t storio_crc_error= 0;
 
 
 /* Check for SSE 4.2.  SSE 4.2 was first supported in Nehalem processors
@@ -361,6 +372,7 @@ uint32_t crc32c(uint32_t crc, const void *buf, size_t len)
 {
     return (crc32c_hw_supported==1) ? crc32c_hw(crc, buf, len) : crc32c_sw(crc, buf, len);
 }
+#endif
 
 
 /*
@@ -556,7 +568,11 @@ static void show_data_integrity(char * argv[], uint32_t tcpRef, void *bufRef)
      pChar += sprintf(pChar,"Data integrity :\n");
      pChar += sprintf(pChar,"  crc32c generation      : %s\n",(crc32c_generate_enable==0)?"DISABLED":"ENABLED");
      pChar += sprintf(pChar,"  crc32c control         : %s\n",(crc32c_check_enable==0)?"DISABLED":"ENABLED");
+#ifdef COMPILE_FOR_32_BITS
+     pChar += sprintf(pChar,"  crc32c computing mode  : %s (32BITS)\n",(crc32c_hw_supported==0)?"SOFTWARE":"HARDWARE");
+#else
      pChar += sprintf(pChar,"  crc32c computing mode  : %s\n",(crc32c_hw_supported==0)?"SOFTWARE":"HARDWARE");
+#endif     
      pChar += sprintf(pChar,"  crc32c error counter   : %llu\n",(unsigned long long int)storio_crc_error);
 
     uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
@@ -566,6 +582,19 @@ static void show_data_integrity(char * argv[], uint32_t tcpRef, void *bufRef)
 /*
 **__________________________________________________________________
 */
+#ifdef COMPILE_FOR_32_BITS
+void crc32c_init(int generate_enable,int check_enable,int hw_forced)
+{
+  crc32c_hw_supported = 0;
+  crc32c_check_enable = 0;
+  crc32c_generate_enable = generate_enable;
+  if ((check_enable) && (generate_enable))
+  {
+    crc32c_check_enable = check_enable;    
+  }
+  uma_dbg_addTopic("data_integrity", show_data_integrity);
+}
+#else
 void crc32c_init(int generate_enable,int check_enable,int hw_forced)
 {
     int sse42;
@@ -583,3 +612,4 @@ void crc32c_init(int generate_enable,int check_enable,int hw_forced)
     }
     uma_dbg_addTopic("data_integrity", show_data_integrity);
 }
+#endif
