@@ -265,7 +265,8 @@ uint32_t rozofs_tx_module_init(uint32_t transaction_count,
 */
 static inline uint32_t rozofs_tx_alloc_xid(rozofs_tx_ctx_t *tx_p)
 {
-  uint32_t  xid = (tx_p->xid_low++) & (0xffff);
+  tx_p->xid_low++;
+  uint32_t  xid = (tx_p->xid_low & 0xffff);
   if (xid == 0) 
   {
     xid = 1;
@@ -275,7 +276,6 @@ static inline uint32_t rozofs_tx_alloc_xid(rozofs_tx_ctx_t *tx_p)
   return  tx_p->xid;
 
 }
-
 /*
 *________________________________________________________
 */
