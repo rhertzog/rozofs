@@ -484,7 +484,7 @@ void rozofs_ll_setattr_nb(fuse_req_t req, fuse_ino_t ino, struct stat *stbuf,
     ** the other modified attributes
     */
     if (ie->file_extend_pending) {
-      to_set &= FUSE_SET_ATTR_SIZE;
+      to_set |= FUSE_SET_ATTR_SIZE;
       attr.size = ie->attrs.size;
     }  
     /*
