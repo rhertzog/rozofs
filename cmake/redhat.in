@@ -32,7 +32,7 @@ execute_process(COMMAND mkdir -p ${REDHAT_BUILDROOT})
 execute_process(COMMAND cp ${TGZ_PACKAGE} ${REDHAT_SOURCES})
 execute_process(COMMAND cp ${REDHAT_SPEC_FILE} ${REDHAT_SPECS})
 
-execute_process(COMMAND rpmbuild --define "_topdir @CMAKE_CURRENT_BINARY_DIR@/rpm/" --buildroot ${REDHAT_BUILDROOT} -bb rozofs.spec WORKING_DIRECTORY ${REDHAT_SPECS} RESULT_VARIABLE RET_VALUE)
+execute_process(COMMAND rpmbuild --define "_topdir @CMAKE_CURRENT_BINARY_DIR@/rpm/" --buildroot ${REDHAT_BUILDROOT} -bb rozafs.spec WORKING_DIRECTORY ${REDHAT_SPECS} RESULT_VARIABLE RET_VALUE)
 if(NOT ${RET_VALUE} EQUAL 0)
     MESSAGE( FATAL_ERROR "command rpmbuild failed, RET_VALUE=" ${RET_VALUE} )
 endif(NOT ${RET_VALUE} EQUAL 0)
