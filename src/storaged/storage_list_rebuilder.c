@@ -709,8 +709,6 @@ int storaged_rebuild_list(char * fid_list) {
     REBUILD_MSG("   -> %s rebuild start",fid_list);
   }
   
-
-
   nbJobs    = 0;
   nbSuccess = 0;
   offset = sizeof(rozofs_rebuild_header_file_t);
@@ -798,8 +796,9 @@ int storaged_rebuild_list(char * fid_list) {
     if (ret == 0) {
       nbSuccess++;
 
-      // Update counters in header file      
+      // Update counters in header file 
       st2rebuild.counters.done_files++;
+      
       if (spare == 1) {
         st2rebuild.counters.written_spare += size_written;
 	st2rebuild.counters.read_spare    += size_read;
@@ -854,7 +853,6 @@ int storaged_rebuild_list(char * fid_list) {
   fd = -1;   
 
   if (nbSuccess == nbJobs) {
-    unlink(fid_list);
     REBUILD_MSG("  <-  %s rebuild success of %d files",fid_list,nbSuccess);    
     return 0;
   }

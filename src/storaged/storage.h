@@ -278,7 +278,7 @@ typedef struct bins_file_rebuild {
 ** Structures of the FID to rebuild file
 */
 typedef struct  _rozofs_rbs_counters_t {
-  uint32_t      done_files;
+  uint64_t      done_files;
   uint64_t      written;
   uint64_t      written_spare; 
   uint64_t      read;
