@@ -1841,6 +1841,43 @@ int rozofs_mountpoint_check(const char * mntpoint) {
     return 0;
 }
 
+/** Check that no other rozofsmount with the same instance is
+ * running on the smae host
+ *
+ * @param instance: the instance number of this rozofsmount
+ *
+ * @retval: 0 when no other such instance is running
+ */
+int rozofs_check_instance(int instance) {
+  char   cmd[256];
+  char   fname[64];
+  FILE * fp=NULL;
+  int    ret;
+  int    val=-1;
+  int    status = 0;
+  
+  sprintf(fname,"/tmp/rozofsmount.%d.ps", getpid());
+  
+  sprintf(cmd,"ps -o cmd -C rozofsmount | grep instance=%d | wc -l > %s",
+          instance, fname);
+	  
+  ret = system(cmd);
+  if (ret < 0) goto out;	  
+  
+  fp = fopen(fname,"r");
+  if (fp == NULL) goto out;
+  
+  ret = fscanf(fp, "%d", &val);
+  if (ret != 1) goto out;
+  
+  if (val > 1) {
+    status = -1;
+  } 
+out:
+  if (fp) fclose(fp);   
+  unlink(fname); 
+  return status;
+}
 int main(int argc, char *argv[]) {
     struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
     int fg = 0;
@@ -2049,6 +2086,15 @@ int main(int argc, char *argv[]) {
     // Check the mountpoint
     if (rozofs_mountpoint_check(mountpoint) != 0) {
         return 1;
+    }
+
+    /*
+    ** Check whether such instance of rozofsmount is already running
+    */
+    if (rozofs_check_instance(conf.instance)) {
+        fprintf(stderr, "Can not mount %s\n", mountpoint);
+        fprintf(stderr, "A RozoFS mount point is already mounted with the same instance number (%d)\n", conf.instance);
+        return 1;    
     }
 
     /*

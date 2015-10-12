@@ -594,7 +594,7 @@ deploy_clients_local ()
     else
 
         NB_EXPORTS=`grep eid ${LOCAL_CONF}${LOCAL_EXPORT_CONF_FILE} | wc -l`
-
+        INSTANCE=0
         for j in $(seq ${NB_EXPORTS}); do
 
 
@@ -623,8 +623,8 @@ deploy_clients_local ()
 #		    option="$option -o mojThreadRead=1"		    
 #		    option="$option -o mojThreadWrite=0"		    		    
 #		    option="$option -o mojThreadThreshold=8"		    		    
-                    let "INSTANCE=${idx_client}-1"
                     option="$option -o instance=$INSTANCE"
+                    INSTANCE=$((INSTANCE+1))
 
                     echo ${LOCAL_BINARY_DIR}/rozofsmount/${LOCAL_ROZOFS_CLIENT} -H ${EXPORT_HOST} -E ${LOCAL_EXPORTS_ROOT}_${j} \
                             ${LOCAL_MNT_ROOT}${j}_${idx_client} ${option}
