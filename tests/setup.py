@@ -159,10 +159,8 @@ class host_class:
       cmd_system("pstree %s %s"%(opt,pid))
     return
     
-  def rebuild(self,argv):  
-    param=""
-    for i in range(5,len(argv)): param += " %s"%(argv[i]) 
-    cmd_system("storage_rebuild -c %s -H localhost%s -r %s -l 3 %s"%(self.get_config_name(),self.number,exportd.export_host,param))  
+  def rebuild(self):  
+    cmd_system("storage_rebuild -c %s -H localhost%s -r %s -l 8"%(self.get_config_name(),self.number,exportd.export_host))  
 
 #____________________________________
 # Class sid
@@ -324,7 +322,14 @@ class sid_class:
       try: os.makedirs(path)
       except: pass 
       self.mount_device_file(device)
-                
+      
+  def rebuild(self,device=None):
+    h = self.host[0] 
+    if device == None:  
+      cmd_system("storage_rebuild -c %s -H localhost%s -r %s -s %d/%d -l 8"%(h.get_config_name(),h.number,exportd.export_host,self.cid.cid,self.sid,))  
+    else:
+      cmd_system("storage_rebuild -c %s -H localhost%s -r %s -s %d/%d -l 8 -d %s"%(h.get_config_name(),h.number,exportd.export_host,self.cid.cid,self.sid,device))  
+                      
   def info(self):
     print "cid = %s"%(self.cid.cid)
     print "sid = %s"%(self.sid)
@@ -1192,7 +1197,7 @@ def syntax_mount() :
   print  "./setup.py \tmount   \tall|<instance> start|stop|reset|pid|info"
 #_____________________________________________  
 def syntax_storage() :
-  print  "./setup.py \tstorage \tall|<host> <idx> start|stop|reset|pid"
+  print  "./setup.py \tstorage \tall|<host> <idx> start|stop|reset|rebuild|pid"
   print  "./setup.py \tstorage \tall|<host> <idx> ifup|ifdown <if#>"
   
 #_____________________________________________  
@@ -1205,7 +1210,7 @@ def syntax_config() :
 def syntax_sid() :
   print  "./setup.py \tsid     \t<cid> <sid>\tdevice-delete all|<device>"
   print  "./setup.py \tsid     \t<cid> <sid>\tdevice-create all|<device>"
-  print  "./setup.py \tsid     \t<cid> <sid>\trebuild..."
+  print  "./setup.py \tsid     \t<cid> <sid>\trebuild [device]"
   print  "./setup.py \tsid     \t<cid> <sid>\tinfo"
 #_____________________________________________  
 def syntax_if() :
@@ -1443,6 +1448,7 @@ def test_parse(command, argv):
 	 if argv[3] == "stop"        : obj.stop()
 	 if argv[3] == "start"       : obj.start()     
 	 if argv[3] == "reset"       : obj.reset() 
+	 if argv[3] == "rebuild"     : obj.rebuild() 
 	 if argv[3] == "ifdown"      :
 	   if len(argv) <= 4: syntax("Missing interface#","storage")
 	   
@@ -1483,7 +1489,8 @@ def test_parse(command, argv):
 	 if len(argv) <= 5: syntax("sid device-create requires a device number","sid")
 	 s.create_device(argv[5]) 
        if argv[4] == "rebuild":
-	 s.host[0].rebuild(argv)              
+         try:    s.rebuild(argv[5])
+	 except: s.rebuild(None)              
        if argv[4] == "info"          : s.info()
 
   elif command == "config":
