@@ -1,0 +1,67 @@
+.TH rozo_repquota 8
+.SH NAME
+rozo_reqquota \- summarize quotas for a RozoFS filesystem
+.SH SYNOPSIS
+.B rozo_repquota
+[
+.B \-vspug
+]
+[
+.B \-c
+|
+.B \-C
+]
+[
+.B \-t
+|
+.B \-n
+]
+[
+.B \-f
+.I exportconf
+]
+.B eid
+.SH DESCRIPTION
+.B rozo_repquota
+prints a summary of the disc usage and quotas for the RozoFS file system specified by 
+.B eid.
+For each user the current number of files and amount of space (in kilobytes) is printed, along with any quotas created with rozo_setquota(8).
+.SH OPTIONS
+.TP
+.B -f, --file=\f2exportconf\f1
+Full pathname of the exportd configuration file that contains all the filesystem identifiers associated with the exportd.
+.TP
+.B -v, --verbose
+Report all quotas, even if there is no usage. Be also more verbose about quotafile information.
+.TP
+.B -s, --human-readable
+Try to report used space, number of used inodes and limits in more appropriate units than the default ones.
+.TP
+.B -p, --raw-grace
+When user is in grace period, report time in seconds since epoch when his grace time runs out (or has run out). Field is '0' when no grace time is in effect. This is especially useful when parsing output by a script.
+.TP
+.B -u, --user
+Report quotas for users. This is the default.
+.TP
+.B -g, --group
+Report quotas for groups.
+ .TP
+.B -c, --batch-translation     
+Cache entries to report and translate uids/gids to names in big chunks by scanning all users (default). This is good (fast) behaviour when using /etc/passwd file.
+.TP
+.B -C, --no-batch-translation  
+Translate individual entries. This is faster when you have users stored in database.
+.TP
+.B -t, --truncate-names
+ Truncate user/group names longer than 9 characters. This results in nicer output when there are such names.
+ .TP
+.B -n, --no-names
+Don't resolve UIDs/GIDs to names. This can speedup printing a lot.
+.SH FILES
+.TP
+.B /etc/rozofs/exportd.conf
+default exportd configuration file
+.PD
+.SH SEE ALSO
+.BR rozo_quotaon (8),
+.BR rozo_setquota (8)
