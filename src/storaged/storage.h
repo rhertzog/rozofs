@@ -279,6 +279,7 @@ typedef struct bins_file_rebuild {
 */
 typedef struct  _rozofs_rbs_counters_t {
   uint64_t      done_files;
+  uint64_t      deleted;
   uint64_t      written;
   uint64_t      written_spare; 
   uint64_t      read;

@@ -106,6 +106,7 @@ typedef struct rbs_monitor_s {
   uint8_t  layout;
   uint32_t nb_files;
   uint32_t done_files;
+  uint32_t deleted;  
   uint64_t written_spare;
   uint64_t written;
   uint64_t read_spare;
@@ -280,6 +281,7 @@ int rbs_monitor_file_update(void) {
     int i;
     uint32_t nb_files=0;
     uint32_t done_files=0;
+    uint32_t deleted=0;
     uint64_t written=0;
     uint64_t written_spare=0;
     uint64_t read_spare=0;
@@ -361,6 +363,11 @@ int rbs_monitor_file_update(void) {
         pt += rozofs_u32_append(pt, rbs_monitor[i].done_files*100/rbs_monitor[i].nb_files);       
         pt += rozofs_string_append(pt, "%)");
       }
+      
+      pt += rozofs_string_append(pt, "\n            - deleted  : ");  
+      pt += rozofs_u32_append(pt, rbs_monitor[i].deleted);
+      deleted += rbs_monitor[i].deleted;
+
 
       pt += rozofs_string_append(pt, "\n            - written  : ");
       pt += rozofs_bytes_padded_append(pt, 7, (long long unsigned int)rbs_monitor[i].written);
@@ -391,6 +398,8 @@ int rbs_monitor_file_update(void) {
     pt += rozofs_u32_append(pt, done_files);
     *pt++ = '/';    
     pt += rozofs_u32_append(pt, nb_files); 
+    pt += rozofs_string_append(pt, "\n            - deleted  : ");
+    pt += rozofs_u32_append(pt, deleted);
 
 #if 0          
     if (nb_files) {
@@ -1154,6 +1163,7 @@ int rbs_do_list_rebuild(int cid, int sid) {
      
     memcpy(&stat,&rbs_monitor[rbs_index], sizeof(stat));  
     stat.done_files      = 0;
+    stat.deleted         = 0;    
     stat.written         = 0;
     stat.written_spare   = 0;
     stat.read            = 0;
@@ -1162,6 +1172,7 @@ int rbs_do_list_rebuild(int cid, int sid) {
     for (i=0; i< total; i++) {
       if (pread(fd[i], &counters, sizeof(counters), 0) == sizeof(counters)) {
         stat.done_files      += counters.done_files;
+        stat.deleted         += counters.deleted;
         stat.written         += counters.written;
         stat.written_spare   += counters.written_spare;	
 	stat.read            += counters.read;
@@ -1601,7 +1612,6 @@ static inline int rebuild_storage_thread(rbs_stor_config_t *stor_confs) {
 	    continue;				
 	  }
 
-
 	/*
 	** Try or retry to rebuild the job list
 	*/ 
@@ -1769,6 +1779,7 @@ static inline int rbs_process_initialize() {
         rbs_monitor[nb_rbs_entry].sid        = sc->sid;
         rbs_monitor[nb_rbs_entry].nb_files   = 0;	
         rbs_monitor[nb_rbs_entry].done_files = 0;
+        rbs_monitor[nb_rbs_entry].deleted    = 0;	
 	rbs_monitor[nb_rbs_entry].layout     = 0xFF;
 	strcpy(rbs_monitor[nb_rbs_entry].status,"to do");
 	

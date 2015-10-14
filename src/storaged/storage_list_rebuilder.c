@@ -53,6 +53,7 @@
 #include <rozofs/core/rozofs_ip_utilities.h>
 #include <rozofs/core/uma_dbg_api.h>
 #include <rozofs/rozofs_timer_conf.h>
+#include <rozofs/core/rozofs_fid_string.h>
 
 #include "config.h"
 #include "sconfig.h"
@@ -274,7 +275,17 @@ int rbs_restore_one_spare_entry(storage_t       * st,
               goto out;
           }
 
-	  if (nb_blocks_read_distant == 0) break; // End of chunk	
+	  if (nb_blocks_read_distant == 0) break; // End of chunk
+	  
+          if (nb_blocks_read_distant == -1) {
+	     /*
+	     ** File has been deleted
+	     */
+	     status = 1;
+	     goto out;
+	     errno = ENOENT;
+	     break;
+          }	  	
 
 	  // Loop on the received blocks
           pBlock = &working_ctx.block_ctx_table[0];	
@@ -539,7 +550,11 @@ int rbs_restore_one_rb_entry(storage_t       * st,
 
         if (ret != 0) goto out;
         if (nb_blocks_read_distant == 0) break; // End of file
-
+        if (nb_blocks_read_distant == -1) { // File deleted
+	   status = 1;
+	   break;
+        }
+	
         /*
 	** Check whether the projection to rebuild has been read
 	*/
@@ -793,11 +808,14 @@ int storaged_rebuild_list(char * fid_list) {
     /* 
     ** Rebuild is successfull
     */	     
-    if (ret == 0) {
+    if (ret >= 0) {
       nbSuccess++;
 
       // Update counters in header file 
       st2rebuild.counters.done_files++;
+      
+      // Case of the deleted files
+      if (ret == 1) st2rebuild.counters.deleted++;
       
       if (spare == 1) {
         st2rebuild.counters.written_spare += size_written;

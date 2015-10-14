@@ -316,7 +316,15 @@ static int rbs_read_proj_set(sclient_t **storages, int local_idx, uint8_t layout
                     stor_idx, layout, bsize, dist_set, fid, first_block_idx,
                     nb_blocks_2_read, &curr_nb_blocks_read,
                     &working_ctx_p->prj_ctx[stor_idx], size_read) != 0) {
-                continue; // Problem; try with the next storage;
+		if (errno == ENOENT) {
+		  /*
+		  ** In case the file does not exist set the size to -1
+		  */
+		  curr_nb_blocks_read = -1;
+		}
+		else {
+                  continue; // Problem; try with the next storage;
+		}  
             }	    
 
             // If it's the first request received
@@ -349,12 +357,12 @@ static int rbs_read_proj_set(sclient_t **storages, int local_idx, uint8_t layout
                         // Check if we have enough responses to rebuild block
                         if (rbs_blocks_recv_tb[i].count >= rozofs_inverse) {
                             *nb_blocks_read =
-                                    rbs_blocks_recv_tb[i].nb_blocks_recv;
+                                    rbs_blocks_recv_tb[i].nb_blocks_recv;		            
                             status = 0; // OK return
                             goto out;
                         }
                         // No enough responses to rebuild
-                        // send another read request
+                        // send another read request    
                         break;
                     }
                 }
@@ -418,7 +426,12 @@ int rbs_read_all_available_proj(sclient_t **storages, int spare_idx, uint8_t lay
                 nb_blocks_2_read, &curr_nb_blocks_read,
                 &working_ctx_p->prj_ctx[stor_idx],
 		size_read) != 0) {
+	  if (errno == ENOENT) {
+	    curr_nb_blocks_read = -1;
+	  }
+	  else {	
             continue; // Problem; try with the next storage;
+	  }  
         }
 	
 	success++;
@@ -468,7 +481,14 @@ int rbs_read_all_available_proj(sclient_t **storages, int spare_idx, uint8_t lay
     
     for (i = 0; i < nb_diff_nb_blocks_recv; i++) {
       if (rbs_blocks_recv_tb[i].count >= rozofs_inverse) {
-        if (rbs_blocks_recv_tb[i].nb_blocks_recv >= *nb_blocks_read) {
+        if (rbs_blocks_recv_tb[i].nb_blocks_recv == -1) {
+	  /*
+	  ** File has been deleted 
+	  */
+	  *nb_blocks_read = -1;
+	  status = 0;
+	}
+        else if (rbs_blocks_recv_tb[i].nb_blocks_recv >= *nb_blocks_read) {
 	  *nb_blocks_read = rbs_blocks_recv_tb[i].nb_blocks_recv;
 	  status = 0;
 	}  
@@ -503,6 +523,14 @@ int rbs_read_blocks(sclient_t **storages, int local_idx, uint8_t layout, uint32_
         // There is no enough projection(s) to rebuild blocks
         errno = EIO;
         goto out;
+    }
+
+
+    // File has been deleted
+    if (real_nb_blocks_read == -1) {
+      *nb_blocks_read = real_nb_blocks_read;
+      status = 0;
+      goto out;
     }
 
     // Check the numbers of blocks read
