@@ -173,6 +173,7 @@ mkdir -p %{buildroot}%{_initrddir}
 %{_mandir}/man8/rozo_quotaon.8.gz
 %{_mandir}/man8/rozo_warnquota.8.gz
 %{_mandir}/man8/rozo_setquota.8.gz
+%{_mandir}/man8/rozo_repquota.8.gz
 
 %files storaged
 %defattr(-,root,root)
