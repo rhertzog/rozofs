@@ -22,57 +22,13 @@
 #include <uuid/uuid.h>
 #include <stdint.h>
 #include <stdio.h>
-
+#include <rozofs/core/rozofs_string.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif /*__cplusplus*/
 
-/*
-**___________________________________________________________
-** Parse a 2 character string representing an hexadecimal
-** value.
-**
-** @param pChar   The starting of the 2 characters
-** @param hexa    Where to return the hexadecimal value
-**
-** @retval The next place to parse in the string or NULL
-**         when the 2 characters do not represent an hexadecimal 
-**         value
-*/
-static inline char * rozofs_2char2uint8(char * pChar, uint8_t * hexa) {
-  uint8_t val;
-  
-  if ((*pChar >= '0')&&(*pChar <= '9')) {
-    val = *pChar++ - '0';
-  }  
-  else if ((*pChar >= 'a')&&(*pChar <= 'f')) {
-    val = *pChar++ - 'a' + 10; 
-  }
-  else if ((*pChar >= 'A')&&(*pChar <= 'F')) {
-    val = *pChar++ - 'A' + 10; 
-  }
-  else {
-    return NULL;
-  }
-  
-  val = val << 4;
-  
-  if ((*pChar >= '0')&&(*pChar <= '9')) {
-    val += *pChar++ - '0';
-  }  
-  else if ((*pChar >= 'a')&&(*pChar <= 'f')) {
-    val += *pChar++ - 'a' + 10; 
-  }
-  else if ((*pChar >= 'A')&&(*pChar <= 'F')) {
-    val += *pChar++ - 'A' +10; 
-  }
-  else {
-    return NULL;
-  }  
-  *hexa = val;
-  return pChar;
-}
+
 /*
 **___________________________________________________________
 ** Parse a string representing an FID
@@ -134,25 +90,6 @@ static inline char * rozofs_string2fid(char * pChar, uuid_t fid) {
   return pChar;
 }
 
-/*
-**___________________________________________________________
-** Get the a byte value and translate into 2 ASCII chars
-**
-** @param hexa    The byte value to display
-** @param pChar   Where to write the ASCII translation
-**
-*/
-static inline char * rozofs_u8_2_char(uint8_t hexa, char * pChar) {
-  uint8_t high = hexa >> 4;
-  if (high < 10) *pChar++ = high + '0';
-  else           *pChar++ = (high-10) + 'a';
-  
-  hexa = hexa & 0x0F;
-  if (hexa < 10) *pChar++ = hexa + '0';
-  else           *pChar++ = (hexa-10) + 'a';
-  
-  return pChar;
-}
 /*
 **___________________________________________________________
 ** Get a FID value and display it as a string. An end of string
