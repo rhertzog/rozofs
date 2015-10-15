@@ -1854,9 +1854,17 @@ int rozofs_check_instance(int instance) {
   
   sprintf(fname,"/tmp/rozofsmount.%d.ps", getpid());
   
-  sprintf(cmd,"ps -o cmd -C rozofsmount | grep instance=%d | wc -l > %s",
-          instance, fname);
-	  
+  /* Default instance number is 0. So get also the number of 
+  ** rozofsmount started without instance number in its parameters */  
+  if (instance==0) {
+    sprintf(cmd,"ps -o cmd= -C rozofsmount | awk '!/instance/||/instance=0/' | wc -l > %s",
+            fname);  
+  }
+  else {
+    sprintf(cmd,"ps -o cmd= -C rozofsmount | awk '/instance=%d/' | wc -l > %s",
+            instance, fname);
+  }	  
+  
   ret = system(cmd);
   if (ret < 0) goto out;	  
   
@@ -1869,6 +1877,7 @@ int rozofs_check_instance(int instance) {
   if (val > 1) {
     status = -1;
   } 
+   
 out:
   if (fp) fclose(fp);   
   unlink(fname); 
