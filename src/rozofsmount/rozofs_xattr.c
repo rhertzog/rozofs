@@ -87,6 +87,12 @@ void rozofs_ll_setxattr_nb(fuse_req_t req, fuse_ino_t ino, const char *name, con
     if ((strcmp(name,ROZOFS_XATTR)==0)||(strcmp(name,ROZOFS_USER_XATTR)==0)||(strcmp(name,ROZOFS_ROOT_XATTR)==0)) {
         ie->timestamp=0;
     }
+    
+    /*
+    ** Set xattr indicator in ientry
+    */
+    rozofs_set_xattr_flag(&ie->attrs.mode);
+    
     /*
     ** fill up the structure that will be used for creating the xdr message
     */    
@@ -329,17 +335,28 @@ void rozofs_ll_getxattr_nb(fuse_req_t req, fuse_ino_t ino, const char *name, siz
         errno = ENOENT;
         goto error;
     } 
+    
     /*
-    ** Check if the i-node has extended attributs that are not the rozofs extended attributes
+    ** Check whether ientry is still valid 
     */
-    if (rozofs_has_xattr(ie->attrs.mode)==0)
-    {
-      if ((strncmp(name,ROZOFS_XATTR,6)!=0)&&(strncmp(name,ROZOFS_USER_XATTR,11)!=0)&&(strncmp(name,ROZOFS_ROOT_XATTR,14)!=0))  
+    if ((rozofs_mode == 1) || 
+         (((ie->timestamp+rozofs_tmr_get(TMR_FUSE_ATTR_CACHE)*1000000) > rozofs_get_ticker_us())&&(S_ISREG(ie->attrs.mode))) ||
+	 (((ie->timestamp+500) > rozofs_get_ticker_us())&&(S_ISDIR(ie->attrs.mode)))
+	 )
+    {	 
+      /*
+      ** Check if the i-node has extended attributs that are not the rozofs extended attributes
+      */
+      if (rozofs_has_xattr(ie->attrs.mode)==0)
       {
-        errno = ENODATA;
-        goto error;  
+	if ((strncmp(name,ROZOFS_XATTR,6)!=0)&&(strncmp(name,ROZOFS_USER_XATTR,11)!=0)&&(strncmp(name,ROZOFS_ROOT_XATTR,14)!=0))  
+	{
+          errno = ENODATA;
+          goto error;  
+	}
       }
-    }
+    }  
+    
     /*
     ** fill up the structure that will be used for creating the xdr message
     */    
