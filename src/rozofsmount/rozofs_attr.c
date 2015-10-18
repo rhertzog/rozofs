@@ -404,12 +404,26 @@ void rozofs_ll_setattr_nb(fuse_req_t req, fuse_ino_t ino, struct stat *stbuf,
       */
 
       // Check file size 
-      if (attr.size < ROZOFS_FILESIZE_MAX) {
-        ie->attrs.size = attr.size;
-      }else{
+      if (attr.size >= ROZOFS_FILESIZE_MAX) {
         errno = EFBIG;
         goto error;
       } 
+
+      /*
+      ** Check quota are respected
+      */
+      if (!eid_check_free_quota(exportclt.bsize, ie->attrs.size, attr.size)) {
+        goto error;// errno is already set
+      }         
+
+      /*
+      ** indicates that there is a pending file size update
+      */
+      ie->file_extend_pending  = 1;      
+      ie->file_extend_size     = (ie->attrs.size - attr.size);       
+      ie->attrs.size           = attr.size;
+      
+      
       /*
       ** Flush on disk any pending data in any buffer open on this file 
       ** before reading.
@@ -472,10 +486,7 @@ void rozofs_ll_setattr_nb(fuse_req_t req, fuse_ino_t ino, struct stat *stbuf,
                                   STORCLI_TRUNCATE,(xdrproc_t) xdr_storcli_truncate_arg_t,(void *)&args,
                                   rozofs_ll_truncate_cbk,buffer_p,storcli_idx,ie->fid); 
 	if (ret < 0) goto error;
-	/*
-	** indicates that there is a pending file size update
-	*/
-	ie->file_extend_pending = 1;
+
 	/*
 	** all is fine, wait from the response of the storcli and then updates the exportd upon
 	** receiving the answer from storcli
@@ -492,7 +503,7 @@ void rozofs_ll_setattr_nb(fuse_req_t req, fuse_ino_t ino, struct stat *stbuf,
     */
     if (ie->file_extend_pending) {
       to_set |= FUSE_SET_ATTR_SIZE;
-      attr.size = ie->attrs.size;
+      attr.size = ie->attrs.size;       
     }  
     /*
     ** set the argument to encode
@@ -522,6 +533,7 @@ void rozofs_ll_setattr_nb(fuse_req_t req, fuse_ino_t ino, struct stat *stbuf,
     if (ie->file_extend_pending) {
       ie->file_extend_running = 1;
       ie->file_extend_pending = 0; 
+      ie->file_extend_size    = 0;        
     }     
     /*
     ** no error just waiting for the answer
@@ -774,6 +786,7 @@ void rozofs_ll_truncate_cbk(void *this,void *param)
     if (ie != NULL)
     {
       ie->file_extend_pending = 0;
+      ie->file_extend_size    = 0;       
     }
     /*
     ** get the pointer to the transaction context:

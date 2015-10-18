@@ -751,6 +751,7 @@ static void *monitoring_thread(void *v) {
             continue;
         }
 
+#if 0
         if ((errno = pthread_rwlock_tryrdlock(&exports_lock)) != 0) {
             warning("can't lock exports, monitoring_thread deferred.");
             nanosleep(&ts, NULL);
@@ -770,7 +771,7 @@ static void *monitoring_thread(void *v) {
             severe("can't unlock exports, potential dead lock.");
             continue;
         }
-
+#endif
         nanosleep(&ts, NULL);
     }
     return 0;
@@ -805,6 +806,26 @@ static void *monitoring_thread_slave(void *v) {
 
         if ((errno = pthread_rwlock_unlock(&volumes_lock)) != 0) {
             severe("can't unlock volumes, potential dead lock.");
+            continue;
+        }
+
+        if ((errno = pthread_rwlock_tryrdlock(&exports_lock)) != 0) {
+            warning("can't lock exports, monitoring_thread deferred.");
+            nanosleep(&ts, NULL);
+            continue;
+        }
+
+        gprofiler.nb_exports = 0;
+
+        list_for_each_forward(p, &exports) {
+            if (monitor_export(&list_entry(p, export_entry_t, list)->export) != 0) {
+                severe("monitor thread failed: %s", strerror(errno));
+            }
+            gprofiler.nb_exports++;
+        }
+
+        if ((errno = pthread_rwlock_unlock(&exports_lock)) != 0) {
+            severe("can't unlock exports, potential dead lock.");
             continue;
         }
 

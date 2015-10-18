@@ -105,6 +105,7 @@ typedef struct ientry {
     fuse_ino_t inode; ///< value of the inode allocated by rozofs
     fid_t fid; ///< unique file identifier associated with the file or directory
 //    uint64_t size;   /**< size of the file */
+    int64_t file_extend_size; /**< The pending size extenstion */
     int  file_extend_pending; /**< assert to one when file is extended by not yet confirm on exportd */
     int  file_extend_running; /**< assert to one when file is extended by not yet confirm on exportd */
     dirbuf_t db; ///< buffer used for directory listing
@@ -182,6 +183,9 @@ static inline int eid_check_free_quota(uint32_t bsize, uint64_t oldSize, uint64_
   uint32_t bbytes = ROZOFS_BSIZE_BYTES(bsize);
 
   if (eid_free_quota == -1) return 1; // No quota so go on
+  
+  // File truncate is always good
+  if (newSize < oldSize) return 1;
 
   // Compute current number of blocks of the file
   oldBlocks = oldSize / bbytes;
@@ -197,8 +201,6 @@ static inline int eid_check_free_quota(uint32_t bsize, uint64_t oldSize, uint64_
   }  
   return 1;
 }
-
-
 
 
 static inline uint32_t fuse_ino_hash_fnv_with_len( void *key1) {
@@ -326,6 +328,7 @@ static inline ientry_t *alloc_ientry(fid_t fid) {
 	ie->nlookup = 0;
         ie->write_pending = NULL; 
         ie->read_consistency = 1;
+	ie->file_extend_size = 0;
 	ie->file_extend_pending = 0;
 	ie->file_extend_running = 0;
 	ie->timestamp_wr_block = 0;
@@ -348,6 +351,7 @@ static inline ientry_t *recycle_ientry(ientry_t * ie, fid_t fid) {
 	// ie->nlookup = 0;
         ie->write_pending = NULL; 
         ie->read_consistency = 1;
+	ie->file_extend_size = 0;	
 	ie->file_extend_pending = 0;
 	ie->file_extend_running = 0;
 	ie->timestamp_wr_block = 0;

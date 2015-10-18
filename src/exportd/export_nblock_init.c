@@ -1095,12 +1095,10 @@ int expgwc_start_nb_blocking_th(void *args) {
     /*
     ** do not provide volume stats for the case of the slaves
     */
-    if (args_p->slave == 0)
-    {
+
       uma_dbg_addTopic("vstor",show_vstor);
       uma_dbg_addTopic("vfstat_exp",show_vfstat_eid);
 
-    }
     uma_dbg_addTopic("lv2_cache",show_lv2_attribute_cache);
     uma_dbg_addTopic("flock",    show_flock);  
     uma_dbg_addTopic("clients",show_flock_clients); 

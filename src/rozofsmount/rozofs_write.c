@@ -1095,12 +1095,12 @@ void rozofs_ll_write_nb(fuse_req_t req, fuse_ino_t ino, const char *buf,
       }
     }
     if (ie->attrs.size < (off + size)) {
-
+    
         /*
 	** Check whether the size extension is compatible 
 	** with the export hard quota
 	*/
-        if (! eid_check_free_quota(exportclt.bsize, ie->attrs.size,off + size)) {
+        if (! eid_check_free_quota(exportclt.bsize, ie->attrs.size - ie->file_extend_size, off + size)) {
           goto error; // errno is already set	  
 	}
 	/*
@@ -1113,7 +1113,8 @@ void rozofs_ll_write_nb(fuse_req_t req, fuse_ino_t ino, const char *buf,
 	  file->file2create = 1;
 	}
 	ie->file_extend_pending = 1;
-        ie->attrs.size = (off + size);
+	ie->file_extend_size   += ((off + size) - ie->attrs.size);
+        ie->attrs.size          = (off + size);
     }
 
     /*
@@ -2360,7 +2361,8 @@ int export_write_block_asynchrone(void *fuse_ctx_p, file_t *file_p, sys_recv_pf_
     */
     if ((buf_flush_offset + buf_flush_len) > ie->attrs.size)
     {
-      ie->attrs.size = buf_flush_offset + buf_flush_len;
+      ie->file_extend_size   += ((buf_flush_offset + buf_flush_len) - ie->attrs.size);    
+      ie->attrs.size          = buf_flush_offset + buf_flush_len;
       ie->file_extend_pending = 1;
     }
     int trc_idx = rozofs_trc_req_io(srv_rozofs_ll_ioctl,(fuse_ino_t)file_p,file_p->fid, ie->attrs.size,0);
@@ -2403,6 +2405,7 @@ int export_write_block_asynchrone(void *fuse_ctx_p, file_t *file_p, sys_recv_pf_
       if (ie->file_extend_pending )       
       {
         ie->file_extend_pending = 0;
+	ie->file_extend_size    = 0;
         ie->file_extend_running = 1;
      } 
     }    
@@ -2441,7 +2444,8 @@ void export_write_block_nb(void *fuse_ctx_p, file_t *file_p)
     */
     if ((buf_flush_offset + buf_flush_len) > ie->attrs.size)
     {
-      ie->attrs.size = buf_flush_offset + buf_flush_len;
+      ie->file_extend_size   += ((buf_flush_offset + buf_flush_len) - ie->attrs.size);        
+      ie->attrs.size          = buf_flush_offset + buf_flush_len;
       ie->file_extend_pending = 1;
     }
     /*
@@ -2452,7 +2456,7 @@ void export_write_block_nb(void *fuse_ctx_p, file_t *file_p)
        if ((rozofs_get_ticker_us()-ie->timestamp_wr_block) > rozofs_tmr_get(TMR_WR_BLOCK)*1000)
        {
          file_p->write_block_req = 1;
-	     file_p->write_block_pending = 1;
+	 file_p->write_block_pending = 1;
        }
     
     }

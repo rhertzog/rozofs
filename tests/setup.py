@@ -859,7 +859,12 @@ class rozofs_class:
     self.storio_slice = 8
     self.spin_down_allowed = False
     self.file_distribution = 1
+    self.fid_recycle = False
+    self.trash_threshold = 10
     
+  def set_fid_recycle(self,threshold=10): 
+    self.fid_recycle = True 
+    self.trash_threshold = threshold     
   def allow_disk_spin_down(self): self.spin_down_allowed = True    
   def set_trace(self): self.trace = True
   def storio_mode_single(self):self.storio_mode = "single"  
@@ -933,8 +938,9 @@ class rozofs_class:
     else:                              print "storio_multiple_mode = False;"
     if rozofs.spin_down_allowed == True: print "allow_disk_spin_down = True;"
     print "file_distribution_rule= %s;"%(self.file_distribution)
-    print "fid_recycle          = True;"
-    print "trash_high_threshold = 10;"
+    if self.fid_recycle == True: 
+      print "fid_recycle          = True;"
+      print "trash_high_threshold = %s;"%(self.trash_threshold)
 
 
   def create_common_config(self):
