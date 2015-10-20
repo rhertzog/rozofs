@@ -281,10 +281,9 @@ int rbs_restore_one_spare_entry(storage_t       * st,
 	     /*
 	     ** File has been deleted
 	     */
+	     errno = ENOENT;
 	     status = 1;
 	     goto out;
-	     errno = ENOENT;
-	     break;
           }	  	
 
 	  // Loop on the received blocks
