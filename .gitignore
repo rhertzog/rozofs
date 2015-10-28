@@ -27,6 +27,9 @@ debian/changelog
 
 manager/build/
 manager/timestamp
+manager/rozofs/__init__.py
+manager/rozofs/core/libconfig.py
+
 tests/SIMU
 tests/fs_ops/fileop/fileop
 tests/fs_ops/pjd-fstest/fstest
