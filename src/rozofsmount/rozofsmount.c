@@ -618,7 +618,7 @@ void show_ientry(char * argv[], uint32_t tcpRef, void *bufRef) {
   pChar += sprintf(pChar, "%-15s : %llu\n", "timestamp", (long long unsigned int)ie->timestamp);
   pChar += sprintf(pChar, "%-15s : %s\n", "write_pending", ie->write_pending?"yes":"no"); 
   pChar += sprintf(pChar, "%-15s : %s\n", "extend_pending", ie->file_extend_pending?"yes":"no"); 
-  pChar += sprintf(pChar, "%-15s : %lld\n", "pending size", ie->file_extend_size); 
+  pChar += sprintf(pChar, "%-15s : %lld\n", "pending size", (long long int)ie->file_extend_size); 
   pChar += sprintf(pChar, "%-15s : %s\n", "extend_running", ie->file_extend_running?"yes":"no"); 
   pChar += sprintf(pChar, "%-15s : %llu\n", "attrs ctime", (long long unsigned int)ie->attrs.ctime);  
   pChar += sprintf(pChar, "%-15s : %llu\n", "attrs atime", (long long unsigned int)ie->attrs.atime);  

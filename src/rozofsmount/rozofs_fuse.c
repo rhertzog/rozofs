@@ -17,7 +17,7 @@
  */
 
 #include <assert.h>
-
+#include <sys/ioctl.h>
 #include <rozofs/core/ruc_buffer_debug.h>
 
 #include "rozofs_fuse.h"
@@ -641,7 +641,6 @@ void rozofs_fuse_show(char * argv[], uint32_t tcpRef, void *bufRef) {
   uint32_t            buffer_count=0;
   char                status[16];
   int   new_val; 
-  int   ret;  
   
   char *pChar = uma_dbg_get_buffer();
 
@@ -652,7 +651,7 @@ void rozofs_fuse_show(char * argv[], uint32_t tcpRef, void *bufRef) {
 	 if (rozofs_fuse_ctx_p->ioctl_supported)
 	 {
 	   ioctl(rozofs_fuse_ctx_p->fd,100,NULL);  
-           pChar += sprintf(pChar, "check result in dmesg: ROZOFS_FUSE...\n",argv[2]);
+           pChar += sprintf(pChar, "check result in dmesg: ROZOFS_FUSE...\n");
 	 } 
 	 else
 	 { 
