@@ -270,10 +270,8 @@ void static inline rbs_status_file_name(char * given_name) {
 
   }		   
   ctime_r(&loc_time,initial_date);  
-  info("%s",rbs_monitor_file_path);
 }
 static char rebuild_status[32];
-static int  rebuild_monitor_period=0;
 static char myFormatedString[1024];
 int rbs_monitor_file_update(void) {
     int status = -1;

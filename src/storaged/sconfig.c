@@ -122,7 +122,7 @@ int sconfig_read(sconfig_t *config, const char *fname, int cluster_id) {
     selfHealing = -1;
 
     if (config_lookup_int(&cfg, SSELF_HEALING, &selfHealing)) {
-        if (selfHealing > 0) {
+        if ((selfHealing > 0)||(selfHealing==-2)) {
             /*
              ** Export hosts list has to be configured too
              */

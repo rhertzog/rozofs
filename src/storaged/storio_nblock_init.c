@@ -444,7 +444,7 @@ int storio_start_nb_th(void *args) {
       int ret= 0;
 
       pthread_getschedparam(pthread_self(),&policy,&my_priority);
-          info("storio main thread Scheduling policy   = %s\n",
+          DEBUG("storio main thread Scheduling policy   = %s\n",
                     (policy == SCHED_OTHER) ? "SCHED_OTHER" :
                     (policy == SCHED_FIFO)  ? "SCHED_FIFO" :
                     (policy == SCHED_RR)    ? "SCHED_RR" :

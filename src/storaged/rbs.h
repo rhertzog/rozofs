@@ -33,8 +33,8 @@
 
 
 
-#define DEFAULT_PARALLEL_REBUILD_PER_SID 3
-#define MAXIMUM_PARALLEL_REBUILD_PER_SID 16
+#define DEFAULT_PARALLEL_REBUILD_PER_SID 8
+#define MAXIMUM_PARALLEL_REBUILD_PER_SID 64
 
 
 #define REBUILD_MSG(fmt, ...) { logmsg(EINFO, fmt, ##__VA_ARGS__); if (!quiet) printf(fmt"\n", ##__VA_ARGS__); }

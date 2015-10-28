@@ -44,10 +44,18 @@ extern "C" {
 #include <rozofs/core/ruc_list.h>
 #include <rozofs/core/rozofs_string.h>
 
-#include "storage.h"
 #include "storio_fid_cache.h"
 
-
+//__Specific values in the chunk to device array
+// Used in the interface When the FID is not inserted in the cache and so the
+// header file will have to be read from disk.
+#define ROZOFS_UNKNOWN_CHUNK  255
+// Used in the device per chunk array when no device has been allocated 
+// because the chunk is after the end of file
+#define ROZOFS_EOF_CHUNK      254
+// Used in the device per chunk array when no device has been allocated 
+// because it is included in a whole of the file
+#define ROZOFS_EMPTY_CHUNK    253
 
 /**
 * Attributes cache constants
@@ -62,6 +70,13 @@ extern uint32_t STORIO_DEVICE_PERIOD;
 
 void storio_clear_faulty_fid();
 int storio_device_mapping_monitor_thread_start();
+
+/*
+** Possible values for reloacte field
+*/
+#define RBS_NO_RELOCATE 0
+#define RBS_TO_RELOCATE 1
+#define RBS_RELOCATED   2
 
 typedef struct storio_rebuild_t {
   ruc_obj_desc_t      link;
@@ -161,7 +176,8 @@ static inline uint32_t storio_device_mapping_hash32bits_compute(storio_device_ma
   rozofs_inode_t * fake_inode_p;
   
   fake_inode_p = (rozofs_inode_t*)usr_key->fid;
-  fake_inode_p->s.recycle_cpt = 0;
+  rozofs_reset_recycle_on_fid(fake_inode_p);
+//  fake_inode_p->s.recycle_cpt = 0;
   
   /*
    ** hash on fid
@@ -427,6 +443,7 @@ static inline void storio_device_mapping_ctx_distributor_init() {
     p = storio_device_mapping_ctx_retrieve(idx);
     p->index  = idx;
     p->status = STORIO_FID_FREE;
+    storio_device_mapping_ctx_reset(p);
   }  
 }
 
@@ -451,13 +468,15 @@ static inline storio_device_mapping_t * storio_device_mapping_insert(uint8_t cid
   */
   p = storio_device_mapping_ctx_allocate();
   if (p == NULL) {
+    errno = ENOMEM;
     return NULL;
   }
   fake_inode_p = (rozofs_inode_t*)fid;
   p->key.cid = cid;
   p->key.sid = sid;  
   memcpy(&p->key.fid,fid,sizeof(fid_t));
-  p->recycle_cpt = fake_inode_p->s.recycle_cpt;
+  p->recycle_cpt = rozofs_get_recycle_from_fid(fake_inode_p);
+//  p->recycle_cpt = fake_inode_p->s.recycle_cpt;
 
   hash = storio_device_mapping_hash32bits_compute(&p->key);  
   if (storio_fid_cache_insert(hash, p->index) != 0) {
@@ -469,16 +488,18 @@ static inline storio_device_mapping_t * storio_device_mapping_insert(uint8_t cid
 }
 /*
 **______________________________________________________________________________
-*/
-/**
-* Search an entry in the cache 
+* Search an entry in the FID cache 
 * 
-*  @param fid the FID
+*
+*  @param cid  The cluster identifier
+*  @param sid  The storage identifier within the cluster
+*  @param fid  the FID
+*  @param same whether the recycling counter is the same or not in the context
+*              as the given one
 *
 *  @retval found entry or NULL
-*
 */
-static inline storio_device_mapping_t * storio_device_mapping_search(uint8_t cid, uint8_t sid, void * fid) {
+static inline storio_device_mapping_t * storio_device_mapping_search(uint8_t cid, uint8_t sid, void * fid, int * same) {
   storio_device_mapping_t   * p;  
   uint32_t hash;
   uint32_t index;
@@ -501,45 +522,16 @@ static inline storio_device_mapping_t * storio_device_mapping_search(uint8_t cid
   p = storio_device_mapping_ctx_retrieve(index);
 
   /*
-  ** Check whether the file is being recycled
+  ** Check whether the recycle counter is the same
   */
-  rozofs_inode_t * fake_inode_p = (rozofs_inode_t *) fid;
-  if (fake_inode_p->s.recycle_cpt != p->recycle_cpt) {
-    /* 
-    ** This is an old file that is being recycled.
-    ** Let's clear the chunk distribution to force a header file read
-    */
-    memset(p->device,ROZOFS_UNKNOWN_CHUNK,ROZOFS_STORAGE_MAX_CHUNK_PER_FILE); 
-    p->recycle_cpt =  fake_inode_p->s.recycle_cpt;
+  if (rozofs_get_recycle_from_fid(fid) != p->recycle_cpt) {
+    *same = 0;
   }
- 
+  else {
+    *same = 1;
+  } 
   return p;
-  
-#if 0  
-  /*
-  ** Check the entry is conistent
-  */
-  if (p->consistency == storio_device_mapping_stat.consistency) {
-    return p;
-  }
-
-  /*
-  ** The entry is inconsistent and must be removed 
-  */
-  storio_device_mapping_stat.inconsistent++; 
-  storio_device_mapping_release_entry(p);  
-  return NULL;
-#endif  
 }
-/*
-**____________________________________________________
-*/
-/*
-  Allocate a device for a file
-  
-   @param st: storage context
-*/
-uint32_t storio_device_mapping_allocate_device(storage_t * st);
 /*
 **______________________________________________________________________________
 */
@@ -602,7 +594,7 @@ static inline void storio_rebuild_ctx_reset(STORIO_REBUILD_T * p) {
   ruc_objRemove(&p->link);  
   p->rebuild_ts  = 0;
   p->spare       = 0;
-  p->relocate    = 0;
+  p->relocate    = RBS_NO_RELOCATE;
   p->chunk       = ROZOFS_UNKNOWN_CHUNK;
   p->old_device  = ROZOFS_UNKNOWN_CHUNK;
   p->start_block = 0;

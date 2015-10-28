@@ -467,32 +467,38 @@ void storio_device_monitor(uint32_t allow_disk_spin_down) {
     if (share->monitoring_period != STORIO_DEVICE_PERIOD) {
       share->monitoring_period = STORIO_DEVICE_PERIOD;
     }  
- 
+
     if (st->selfHealing == -1) {
       /* No self healing configured */
       max_failures = -1;
       rebuilding   = 1; /* Prevents going on rebuilding */
     }
     else {
-
-      /*
-      ** Compute the maximium number of failures before relocation
-      */
-      max_failures = (st->selfHealing * 60)/STORIO_DEVICE_PERIOD;
-
+      
+     if (st->selfHealing < 0) {
+	/* No self healing configured */
+	max_failures = 1;
+      }
+      else {    
+        /*
+        ** Compute the maximium number of failures before relocation
+        */
+        max_failures = (st->selfHealing * 60)/STORIO_DEVICE_PERIOD;
+      }
+    
       /*
       ** Check whether some device is already in relocating status
       */
       rebuilding = 0;       
       for (dev = 0; dev < st->device_number; dev++) {
-        pDev = &st->device_ctx[dev];
+	pDev = &st->device_ctx[dev];
 	if (pDev->status == storage_device_status_relocating) {
 	  rebuilding = 1; /* No more than 1 rebuild at a time */
 	  break;
 	}
       }             
     }  
-
+    
     /*
     ** Monitor errors on devices
     */
