@@ -10,6 +10,7 @@ Contents:
    InstallingRozoFS
    SettingUpRozoFS
    WorkingWithRozoFS
+   ConfiguringRozoFSWithRozoCLI
    Monitoring
 
 Indices and tables
