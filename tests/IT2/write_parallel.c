@@ -220,7 +220,7 @@ int loop_reader() {
         printf("WRITER - ERROR !!! close(%s) %s\n", FILENAME,strerror(errno));
         return -1;  
   }  
-  if (res == 0) printf("SUCCESS\n");
+  //if (res == 0) printf("SUCCESS\n");
   return res;
 }  
 int start_thread_create(test_ctx_t * ctx) {

@@ -171,6 +171,38 @@ static void storaged_release() {
     }
 }
 
+typedef struct rbs_error_t {
+  uint64_t spare_start;
+  uint64_t spare_read;
+  uint64_t spare_read_enoent;
+  uint64_t spare_read_no_enough;
+  uint64_t spare_write_empty;
+  uint64_t spare_write_proj;
+  uint64_t nom_start;
+  uint64_t nom_read;
+  uint64_t nom_read_enoent;
+  uint64_t nom_transform;
+  uint64_t nom_write;  
+} RBS_ERROR_T;
+
+static RBS_ERROR_T rbs_error = {0};
+
+#define RBS_DISPLAY_ERROR(x) {if (rbs_error.x) REBUILD_MSG("%20s = %llu", #x, (long long unsigned int) rbs_error.x);}
+
+void display_rbs_errors() {
+  RBS_DISPLAY_ERROR(spare_start);
+  RBS_DISPLAY_ERROR(spare_read);
+  RBS_DISPLAY_ERROR(spare_read_enoent);
+  RBS_DISPLAY_ERROR(spare_read_no_enough);
+  RBS_DISPLAY_ERROR(spare_write_empty);
+  RBS_DISPLAY_ERROR(spare_write_proj);
+  RBS_DISPLAY_ERROR(nom_start);
+  RBS_DISPLAY_ERROR(nom_read);
+  RBS_DISPLAY_ERROR(nom_read_enoent);
+  RBS_DISPLAY_ERROR(nom_transform);
+  RBS_DISPLAY_ERROR(nom_write); 
+}
+
 int rbs_restore_one_spare_entry(storage_t       * st, 
                                 int               local_idx, 
 			        int               relocate,
@@ -235,6 +267,7 @@ int rbs_restore_one_spare_entry(storage_t       * st,
 					      *block_start, block_end);
       if (rebuild_ref == 0) {
 	remove_file = 0;
+	rbs_error.spare_start++;
 	goto out;
       }     
 
@@ -271,7 +304,8 @@ int rbs_restore_one_spare_entry(storage_t       * st,
 	  // Reading at least inverse projection has failed				  
           if (ret != 0) {
               remove_file = 0;// Better keep the file	
-              errno = EIO;	
+              errno = EIO;
+ 	      rbs_error.spare_read++;	      	
               goto out;
           }
 
@@ -282,6 +316,7 @@ int rbs_restore_one_spare_entry(storage_t       * st,
 	     ** File has been deleted
 	     */
 	     errno = ENOENT;
+	     rbs_error.spare_read_enoent++;
 	     status = 1;
 	     goto out;
           }	  	
@@ -299,7 +334,8 @@ int rbs_restore_one_spare_entry(storage_t       * st,
 	      // from what has been read				   	
 	      if (count < 0) {
                   remove_file = 0;// Better keep the file	    
-        	  errno = EIO;	
+        	  errno = EIO;
+		  rbs_error.spare_read_no_enough++;
         	  goto out;	      
 	      }
 
@@ -324,11 +360,12 @@ int rbs_restore_one_spare_entry(storage_t       * st,
 					 rebuild_ref);
         	 remove_file = 0;	// This file must exist   
         	 if (ret < 0) {
+		     rbs_error.spare_write_empty++;
                      goto out;
         	 }	
 	         *size_written += disk_block_size;
 		 continue;
-	      }  		
+	      } 
 
 	      // Need to regenerate a projection and need 1rst to regenerate initial data.	
 
@@ -414,6 +451,7 @@ int rbs_restore_one_spare_entry(storage_t       * st,
 				      rebuild_ref);
               remove_file = 0;// This file must exist		   
               if (ret < 0) {
+	          rbs_error.spare_write_proj++;
         	  severe("sclient_write_rbs failed %s", strerror(errno));
         	  goto out;
               }	
@@ -433,6 +471,7 @@ int rbs_restore_one_spare_entry(storage_t       * st,
       if (rebuild_ref != 0) {
 	sclient_rebuild_stop_rbs(re->storages[local_idx], st->cid, st->sid, re->fid, 
 	                         rebuild_ref, SP_SUCCESS);
+				 
 	rebuild_ref = 0;
       } 
       
@@ -493,6 +532,7 @@ out:
 	}\
         memset(&working_ctx, 0, sizeof (working_ctx));
 	
+
 int rbs_restore_one_rb_entry(storage_t       * st, 
                              int               local_idx, 
 			     int               relocate,
@@ -527,6 +567,7 @@ int rbs_restore_one_rb_entry(storage_t       * st,
                                             relocate?SP_NEW_DEVICE:SP_SAME_DEVICE, chunk, 0 /* spare */,  
 					    *block_start, block_end);
     if (rebuild_ref == 0) {
+      rbs_error.nom_start++;
       goto out;
     }
         
@@ -547,10 +588,14 @@ int rbs_restore_one_rb_entry(storage_t       * st,
                 	      &working_ctx,
 			      size_read);
 
-        if (ret != 0) goto out;
+        if (ret != 0) {
+	  rbs_error.nom_read++;
+	  goto out;
+	}
         if (nb_blocks_read_distant == 0) break; // End of file
         if (nb_blocks_read_distant == -1) { // File deleted
 	   status = 1;
+	   rbs_error.nom_read_enoent++;
 	   break;
         }
 	
@@ -579,6 +624,7 @@ int rbs_restore_one_rb_entry(storage_t       * st,
                 			     working_ctx.data_read_p);
         if (ret != 0) {
             severe("rbs_transform_forward_one_proj failed: %s",strerror(errno));
+	    rbs_error.nom_transform++;
             goto out;
         }
 	
@@ -606,6 +652,7 @@ int rbs_restore_one_rb_entry(storage_t       * st,
 				rebuild_ref);
 	if (ret < 0) {
             severe("sclient_write_rbs failed: %s", strerror(errno));
+	    rbs_error.nom_write++;
             goto out;
         }
 	*size_written += (nb_blocks_read_distant * (rozofs_disk_psize+3) * 8);
@@ -878,7 +925,7 @@ int storaged_rebuild_list(char * fid_list) {
   
 error: 
   REBUILD_MSG("  !!! %s rebuild failed %d/%d",fid_list,nbJobs-nbSuccess,nbJobs);
-
+  display_rbs_errors();
   if (fd != -1) close(fd);   
   return 1;
 }

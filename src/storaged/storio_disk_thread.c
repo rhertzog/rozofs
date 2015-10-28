@@ -193,7 +193,7 @@ static inline void storio_disk_rebuild_stop(rozofs_disk_thread_ctx_t *thread_ctx
   sp_rebuild_stop_ret_t    ret;
   storio_device_mapping_t * fidCtx;
   int                       rebuildIdx;
-  STORIO_REBUILD_T        * pRebuild;
+  STORIO_REBUILD_T        * pRebuild=NULL;
     
   gettimeofday(&timeDay,(struct timezone *)0);  
   timeBefore = MICROLONG(timeDay);
@@ -245,6 +245,7 @@ static inline void storio_disk_rebuild_stop(rozofs_disk_thread_ctx_t *thread_ctx
 
   ret.status = SP_SUCCESS;
 
+
   /* 
   ** well ? Nothing to do
   */
@@ -253,27 +254,35 @@ static inline void storio_disk_rebuild_stop(rozofs_disk_thread_ctx_t *thread_ctx
   }    
   
   /*
+  ** This is not the same recycle counter, so better not touch anything
+  ** since this rebuild is no more the owner of the file !!!
+  */
+  if (fidCtx->recycle_cpt != rozofs_get_recycle_from_fid(args->fid)) {
+    goto out;
+  }
+   
+  /*
   ** Depending on the rebuild result one has to remove 
   ** old or new data file
   */
   if (args->status == SP_SUCCESS) {   
 
    /*
-    ** Do not test return code, since the device is probably reachable
+    ** Do not test return code, since the device is probably unreachable
     ** or un writable, and so the unlink will probably fail...
     */
     storage_rm_data_chunk(st, pRebuild->old_device, (unsigned char*)args->fid, pRebuild->spare, pRebuild->chunk,0/* No errlog*/);        
-    
+
     goto out;
-  }  
-  
+  }   
+
   /*
   ** The rebuild is failed, so let's remove the newly created file 
   ** and restore the old device 
   */
   storage_restore_chunk(st, fidCtx->device,(unsigned char*)args->fid, pRebuild->spare, 
                                  pRebuild->chunk, pRebuild->old_device);
-				 
+
 out:           
   
   storio_encode_rpc_response(rpcCtx,(char*)&ret);  
@@ -286,106 +295,7 @@ out:
   timeAfter = MICROLONG(timeDay);
   thread_ctx_p->stat.rebStop_time +=(timeAfter-timeBefore);  
 }  
-/*__________________________________________________________________________
-*/
-/**
-*  Rebuild start with chunk reloation on an other device
 
-  @param thread_ctx_p: pointer to the thread context
-  @param msg         : address of the message received
-  
-  @retval: none
-*/
-static inline void storio_disk_rebuild_start(rozofs_disk_thread_ctx_t *thread_ctx_p,storio_disk_thread_msg_t * msg) {
-  struct timeval     timeDay;
-  unsigned long long timeBefore, timeAfter;
-  storage_t *st = 0;
-  sp_rebuild_start_arg_t * args;
-  rozorpc_srv_ctx_t      * rpcCtx;
-  sp_rebuild_start_ret_t   ret;
-  storio_device_mapping_t * fidCtx;
-  int                       rebuildIdx;
-  STORIO_REBUILD_T        * pRebuild;
-  int                       res;  
-  
-  gettimeofday(&timeDay,(struct timezone *)0);  
-  timeBefore = MICROLONG(timeDay);
-
-  ret.status = SP_FAILURE;          
-  
-  /*
-  ** update statistics
-  */
-  thread_ctx_p->stat.rebStart_count++;
-  
-  rpcCtx = msg->rpcCtx;
-  args   = (sp_rebuild_start_arg_t*) ruc_buf_getPayload(rpcCtx->decoded_arg);
-
-  /*
-  ** Retrieve the FID context
-  */
-  fidCtx = storio_device_mapping_ctx_retrieve(msg->fidIdx);
-  if (fidCtx == NULL) {
-    ret.sp_rebuild_start_ret_t_u.error = EIO;
-    severe("Bad FID ctx index %d",msg->fidIdx); 
-    thread_ctx_p->stat.rebStart_error++ ;   
-    goto out;
-  } 
-  
-  /*
-  ** Retrieve the rebuild context from the index hiden in the device field
-  */
-  rebuildIdx = args->device;
-  if (rebuildIdx >= MAX_FID_PARALLEL_REBUILD) {
-    ret.sp_rebuild_start_ret_t_u.error = EIO;
-    severe("Bad rebuild index %d",rebuildIdx); 
-    thread_ctx_p->stat.rebStart_error++ ;   
-    goto out;
-  } 
-  
-  pRebuild = storio_rebuild_ctx_retrieve(fidCtx->storio_rebuild_ref.u8[rebuildIdx],(char*)args->fid);
-  if (pRebuild == NULL) {
-    ret.sp_rebuild_start_ret_t_u.error = EIO;
-    severe("Bad rebuild context %d",rebuildIdx); 
-    thread_ctx_p->stat.rebStart_error++ ;   
-    goto out;    
-  }
-
-
-  // Get the storage for the couple (cid;sid)
-  if ((st = storaged_lookup(args->cid, args->sid)) == 0) {
-    ret.sp_rebuild_start_ret_t_u.error = errno;
-    thread_ctx_p->stat.rebStart_badCidSid++ ;   
-    goto out;
-  }
-  
-  
-  /*
-  ** Remove the device of this chunk, but keep the data on disk
-  */
-  pRebuild->chunk = args->chunk;
-  res = storage_relocate_chunk(st, fidCtx->device,(unsigned char *)args->fid, args->spare, 
-                               args->chunk, &pRebuild->old_device);
-  if (res != 0)  {
-    ret.sp_rebuild_start_ret_t_u.error = errno;
-    thread_ctx_p->stat.rebStart_error++;   
-    goto out;
-  }
-    
-  ret.status = SP_SUCCESS;  
-  ret.sp_rebuild_start_ret_t_u.rebuild_ref = rebuildIdx+1;
-
-out:           
-  storio_encode_rpc_response(rpcCtx,(char*)&ret);  
-  storio_send_response(thread_ctx_p,msg,0);
-
-  /*
-  ** Update statistics
-  */
-  gettimeofday(&timeDay,(struct timezone *)0);  
-  timeAfter = MICROLONG(timeDay);
-  thread_ctx_p->stat.rebStart_time +=(timeAfter-timeBefore);  
-}
 /*__________________________________________________________________________
 */
 /**
@@ -437,6 +347,20 @@ static inline void storio_disk_read(rozofs_disk_thread_ctx_t *thread_ctx_p,stori
     storio_send_response(thread_ctx_p,msg,-1);
     return;
   }
+  
+  // Check whether this is exactly the same FID
+  // This is to handle the case when the read request has been serialized
+  // After serialization, the recycling counter may not be the same !!!
+  if (fidCtx->device[0] != ROZOFS_UNKNOWN_CHUNK) {
+    if (rozofs_get_recycle_from_fid(args->fid) != fidCtx->recycle_cpt) {
+      // This is not the same recycling counter, so not the same file
+      ret.sp_read_ret_t_u.error = ENOENT;
+      storio_encode_rpc_response(rpcCtx,(char*)&ret); 
+      thread_ctx_p->stat.read_nosuchfile++ ;          
+      storio_send_response(thread_ctx_p,msg,-1);
+      return;
+    }
+  }  
     
   /*
   ** set the pointer to the bins
@@ -459,7 +383,7 @@ static inline void storio_disk_read(rozofs_disk_thread_ctx_t *thread_ctx_p,stori
 
   // Lookup for the device id for this FID
   // Read projections
-  if (storage_read(st, fidCtx->device, args->layout, args->bsize,(sid_t *) args->dist_set, args->spare,
+  if (storage_read(st, fidCtx, args->layout, args->bsize,(sid_t *) args->dist_set, args->spare,
             (unsigned char *) args->fid, args->bid, args->nb_proj,
             (bin_t *) ret.sp_read_ret_t_u.rsp.bins.bins_val,
             (size_t *) & ret.sp_read_ret_t_u.rsp.bins.bins_len,
@@ -534,7 +458,7 @@ static inline void storio_disk_write(rozofs_disk_thread_ctx_t *thread_ctx_p,stor
     ret.sp_write_ret_t_u.error = EIO;
     severe("Bad FID ctx index %d",msg->fidIdx); 
     storio_encode_rpc_response(rpcCtx,(char*)&ret);  
-    thread_ctx_p->stat.read_error++ ;   
+    thread_ctx_p->stat.write_error++ ;   
     storio_send_response(thread_ctx_p,msg,-1);
     return;
   }  
@@ -590,7 +514,7 @@ static inline void storio_disk_write(rozofs_disk_thread_ctx_t *thread_ctx_p,stor
   
   
   // Write projections
-  size =  storage_write(st, fidCtx->device, args->layout, args->bsize, (sid_t *) args->dist_set, args->spare,
+  size =  storage_write(st, fidCtx, args->layout, args->bsize, (sid_t *) args->dist_set, args->spare,
           (unsigned char *) args->fid, args->bid, args->nb_proj, version,
           &ret.sp_write_ret_t_u.file_size,(bin_t *) pbuf, &is_fid_faulty);
   if (size <= 0)  {
@@ -625,6 +549,114 @@ static inline void storio_disk_write(rozofs_disk_thread_ctx_t *thread_ctx_p,stor
   timeAfter = MICROLONG(timeDay);
   thread_ctx_p->stat.write_time +=(timeAfter-timeBefore);  
 } 
+/*__________________________________________________________________________
+*/
+/**
+*  1rst write within a rebuild with relocation. The header re-write must
+   be done now.
+
+  @param thread_ctx_p: pointer to the thread context
+  @param msg         : address of the message received
+  
+  @retval: none
+*/
+static inline void storio_disk_rebuild_start(rozofs_disk_thread_ctx_t *thread_ctx_p,storio_disk_thread_msg_t * msg) {
+  struct timeval     timeDay;
+  unsigned long long timeBefore, timeAfter;
+  storage_t *st = 0; 
+  sp_write_arg_no_bins_t * args;
+  rozorpc_srv_ctx_t       * rpcCtx;
+  sp_write_ret_t            ret;
+  storio_device_mapping_t * fidCtx;
+  int                       rebuildIdx;
+  STORIO_REBUILD_T        * pRebuild;
+  int                       res;  
+  
+  gettimeofday(&timeDay,(struct timezone *)0);  
+  timeBefore = MICROLONG(timeDay);
+
+  ret.status = SP_FAILURE;          
+  
+  /*
+  ** update statistics
+  */
+  thread_ctx_p->stat.rebStart_count++;
+  
+  rpcCtx = msg->rpcCtx;
+  args   = (sp_write_arg_no_bins_t*) ruc_buf_getPayload(rpcCtx->decoded_arg);
+
+  /*
+  ** Retrieve the FID context
+  */
+  fidCtx = storio_device_mapping_ctx_retrieve(msg->fidIdx);
+  if (fidCtx == NULL) {
+    ret.sp_write_ret_t_u.error = EIO;
+    severe("Bad FID ctx index %d",msg->fidIdx); 
+    thread_ctx_p->stat.rebStart_error++ ;   
+    goto out;
+  } 
+  
+  /*
+  ** Retrieve the rebuild context from the index hiden in the device field
+  */
+  rebuildIdx = args->rebuild_ref-1;
+  if (rebuildIdx >= MAX_FID_PARALLEL_REBUILD) {
+    ret.sp_write_ret_t_u.error = EIO;
+    severe("Bad rebuild index %d",rebuildIdx); 
+    thread_ctx_p->stat.rebStart_error++ ;   
+    goto out;
+  } 
+  
+  pRebuild = storio_rebuild_ctx_retrieve(fidCtx->storio_rebuild_ref.u8[rebuildIdx],(char*)args->fid);
+  if (pRebuild == NULL) {
+    ret.sp_write_ret_t_u.error = EIO;
+    severe("Bad rebuild context %d",rebuildIdx); 
+    thread_ctx_p->stat.rebStart_error++ ;   
+    goto out;    
+  }
+
+
+  // Get the storage for the couple (cid;sid)
+  if ((st = storaged_lookup(args->cid, args->sid)) == 0) {
+    ret.sp_write_ret_t_u.error = errno;
+    thread_ctx_p->stat.rebStart_badCidSid++ ;   
+    goto out;
+  }
+  
+  if (pRebuild->relocate == RBS_TO_RELOCATE) {
+  
+    int block_per_chunk = ROZOFS_STORAGE_NB_BLOCK_PER_CHUNK(args->bsize);
+    int chunk           = args->bid/block_per_chunk;
+      
+    res = storage_relocate_chunk(st, fidCtx->device,(unsigned char *)args->fid, args->spare, 
+                                 chunk, &pRebuild->old_device);
+    if (res != 0)  {
+      ret.sp_write_ret_t_u.error = errno;
+      thread_ctx_p->stat.rebStart_error++;   
+      goto out;
+    }
+    
+    pRebuild->relocate = RBS_RELOCATED;
+    pRebuild->chunk    = chunk;    
+  }
+
+  
+  /*
+  ** Process to the write now
+  */
+  return storio_disk_write(thread_ctx_p,msg);   
+
+out:           
+  storio_encode_rpc_response(rpcCtx,(char*)&ret);  
+  storio_send_response(thread_ctx_p,msg,0);
+
+  /*
+  ** Update statistics
+  */
+  gettimeofday(&timeDay,(struct timezone *)0);  
+  timeAfter = MICROLONG(timeDay);
+  thread_ctx_p->stat.rebStart_time +=(timeAfter-timeBefore);  
+}
 /*__________________________________________________________________________
 */
 /**
@@ -785,7 +817,7 @@ static inline void storio_disk_truncate(rozofs_disk_thread_ctx_t *thread_ctx_p,s
   }
 
   // Truncate bins file
-  result = storage_truncate(st, fidCtx->device, args->layout, args->bsize, (sid_t *) args->dist_set,
+  result = storage_truncate(st, fidCtx, args->layout, args->bsize, (sid_t *) args->dist_set,
         		    args->spare, (unsigned char *) args->fid, args->proj_id,
         		    args->bid,version,args->last_seg,args->last_timestamp,
 			    args->len, pbuf, &is_fid_faulty);
@@ -981,7 +1013,7 @@ void *storio_disk_thread(void *arg) {
       int ret= 0;
 
      pthread_getschedparam(pthread_self(),&policy,&my_priority);
-          info("storio main thread Scheduling policy   = %s\n",
+          DEBUG("storio main thread Scheduling policy   = %s\n",
                     (policy == SCHED_OTHER) ? "SCHED_OTHER" :
                     (policy == SCHED_FIFO)  ? "SCHED_FIFO" :
                     (policy == SCHED_RR)    ? "SCHED_RR" :

@@ -36,6 +36,8 @@
 #include <rozofs/core/rozofs_string.h>
 #include <rozofs/core/rozofs_share_memory.h>
 
+#include "storio_device_mapping.h"
+
 #define ROZOFS_MAX_DISK_THREADS  32
 
 /* Storage config to be configured in cfg file */
@@ -80,7 +82,8 @@ static inline uint32_t fid2crc32(uint32_t * fid) {
     uint32_t *fid_p;
     rozofs_inode_t fake_inode;
     memcpy(&fake_inode,fid,sizeof(fake_inode));
-    fake_inode.s.recycle_cpt =0;
+    rozofs_reset_recycle_on_fid(&fake_inode);
+//    fake_inode.s.recycle_cpt =0;
     fid_p = (uint32_t*)&fake_inode;
     return (fid_p[0] ^ fid_p[1] ^ fid_p[2] ^ fid_p [3]);
 }
@@ -232,19 +235,7 @@ typedef struct storage {
 /**
  *  Header structure for one file bins
  */
- 
 
-//__Specific values in the chunk to device array
-// Used in the interface When the FID is not inserted in the cache and so the
-// header file will have to be read from disk.
-#define ROZOFS_UNKNOWN_CHUNK  255
-// Used in the device per chunk array when no device has been allocated 
-// because the chunk is after the end of file
-#define ROZOFS_EOF_CHUNK      254
-// Used in the device per chunk array when no device has been allocated 
-// because it is included in a whole of the file
-#define ROZOFS_EMPTY_CHUNK    253
- 
 
 typedef struct rozofs_stor_bins_file_hdr {
   struct {
@@ -355,7 +346,8 @@ static inline char * trace_device(uint8_t * device, char * pChar) {
     }  
     else {
       pChar += rozofs_u32_append(pChar,device[idx]);
-    }  
+    }
+    if (idx%32==31) pChar += rozofs_eol(pChar);  
   }
   *pChar++ = '/';  
   return pChar;
@@ -376,7 +368,8 @@ static inline void rozofs_uuid_unparse_no_recycle(uuid_t fid, char * pChar) {
   rozofs_inode_t fake_inode;
   
   memcpy(&fake_inode,fid,sizeof(fid_t));
-  fake_inode.s.recycle_cpt = 0;
+  rozofs_reset_recycle_on_fid(&fake_inode);
+//  fake_inode.s.recycle_cpt = 0;
   pFid = (uint8_t *)&fake_inode;
   
   pChar = rozofs_u8_2_char(*pFid++,pChar);
@@ -674,7 +667,7 @@ void storage_release(storage_t * st);
 /** Write nb_proj projections
  *
  * @param st: the storage to use.
- * @param device: Array of device allocated for the 128 chunks
+ * @param fidCtx: FID context that contains the array of devices allocated for the 128 chunks
  * @param layout: layout used for store this file.
  * @param bsize: Block size from enum ROZOFS_BSIZE_E
  * @param dist_set: storages nodes used for store this file.
@@ -690,11 +683,11 @@ void storage_release(storage_t * st);
  * @return: 0 on success -1 otherwise (errno is set)
  */
 
-int storage_write_chunk(storage_t * st, uint8_t * device_id, uint8_t layout, uint32_t bsize, sid_t * dist_set,
+int storage_write_chunk(storage_t * st, storio_device_mapping_t * fidCtx, uint8_t layout, uint32_t bsize, sid_t * dist_set,
         uint8_t spare, fid_t fid, uint8_t chunk, bid_t bid, uint32_t nb_proj, uint8_t version,
         uint64_t *file_size, const bin_t * bins, int * is_fid_faulty);
 	 
-static inline int storage_write(storage_t * st, uint8_t * device, uint8_t layout, uint32_t bsize, sid_t * dist_set,
+static inline int storage_write(storage_t * st, storio_device_mapping_t * fidCtx, uint8_t layout, uint32_t bsize, sid_t * dist_set,
         uint8_t spare, fid_t fid, bid_t input_bid, uint32_t input_nb_proj, uint8_t version,
         uint64_t *file_size, const bin_t * bins, int * is_fid_faulty) {
     int ret1,ret2;
@@ -718,7 +711,7 @@ static inline int storage_write(storage_t * st, uint8_t * device, uint8_t layout
       /*
       ** Every block can be written in one time in the same chunk
       */
-      ret1 = storage_write_chunk(st, device, layout, bsize, dist_set,
+      ret1 = storage_write_chunk(st, fidCtx, layout, bsize, dist_set,
         			 spare, fid, chunk, bid, input_nb_proj, version,
         			 file_size, bins, is_fid_faulty);
       if (ret1 == -1) {
@@ -739,7 +732,7 @@ static inline int storage_write(storage_t * st, uint8_t * device, uint8_t layout
     // 1rst chunk
     nb_proj = block_per_chunk-bid;
     pBins = (char *) bins;    
-    ret1 = storage_write_chunk(st, device, layout, bsize, dist_set,
+    ret1 = storage_write_chunk(st, fidCtx, layout, bsize, dist_set,
         		      spare, fid, chunk, bid, nb_proj, version,
         		      file_size, (bin_t*)pBins, is_fid_faulty); 
     if (ret1 == -1) {
@@ -753,7 +746,7 @@ static inline int storage_write(storage_t * st, uint8_t * device, uint8_t layout
     bid     = 0;
     nb_proj = input_nb_proj - nb_proj;
     pBins += ret1;  
-    ret2 = storage_write_chunk(st, device, layout, bsize, dist_set,
+    ret2 = storage_write_chunk(st, fidCtx, layout, bsize, dist_set,
         		      spare, fid, chunk, bid, nb_proj, version,
         		      file_size, (bin_t*)pBins, is_fid_faulty); 
     if (ret2 == -1) {
@@ -867,7 +860,7 @@ static inline int storage_write_repair(storage_t * st, uint8_t * device, uint8_t
 /** Read nb_proj projections
  *
  * @param st: the storage to use.
- * @param device: Array of device allocated for the 128 chunks
+ * @param fidCtx: FID context that contains the array of devices allocated for the 128 chunks
  * @param layout: layout used by this file.
  * @param bsize: Block size from enum ROZOFS_BSIZE_E
  * @param dist_set: storages nodes used for store this file.
@@ -882,10 +875,10 @@ static inline int storage_write_repair(storage_t * st, uint8_t * device, uint8_t
  *
  * @return: 0 on success -1 otherwise (errno is set)
  */
-int storage_read_chunk(storage_t * st, uint8_t * device, uint8_t layout, uint32_t bsize, sid_t * dist_set,
+int storage_read_chunk(storage_t * st, storio_device_mapping_t * fidCtx, uint8_t layout, uint32_t bsize, sid_t * dist_set,
         uint8_t spare, fid_t fid, uint8_t chunk, bid_t bid, uint32_t nb_proj,
         bin_t * bins, size_t * len_read, uint64_t *file_size,int * is_fid_faulty) ;
-static inline int storage_read(storage_t * st, uint8_t * device, uint8_t layout, uint32_t bsize, sid_t * dist_set,
+static inline int storage_read(storage_t * st, storio_device_mapping_t * fidCtx, uint8_t layout, uint32_t bsize, sid_t * dist_set,
         uint8_t spare, fid_t fid, bid_t input_bid, uint32_t input_nb_proj,
         bin_t * bins, size_t * len_read, uint64_t *file_size,int * is_fid_faulty) {
     bid_t    bid;
@@ -909,7 +902,7 @@ static inline int storage_read(storage_t * st, uint8_t * device, uint8_t layout,
       /*
       ** All the blocks can be read in one time in the same chunk
       */
-      ret1 = storage_read_chunk(st, device, layout, bsize, dist_set,
+      ret1 = storage_read_chunk(st, fidCtx, layout, bsize, dist_set,
         			spare, fid, chunk, bid, input_nb_proj,
         			bins, len_read, file_size,is_fid_faulty);
       if (ret1 == -1) {
@@ -923,7 +916,7 @@ static inline int storage_read(storage_t * st, uint8_t * device, uint8_t layout,
       if (*len_read < ret1) {
         chunk++;
         if (chunk<ROZOFS_STORAGE_MAX_CHUNK_PER_FILE) {          
-          if (device[chunk] != ROZOFS_EOF_CHUNK) {
+          if (fidCtx->device[chunk] != ROZOFS_EOF_CHUNK) {
 	    pBins += *len_read;
 	    memset(pBins,0,ret1-*len_read);
 	    *len_read = ret1;
@@ -944,7 +937,7 @@ static inline int storage_read(storage_t * st, uint8_t * device, uint8_t layout,
     */
     nb_proj = (block_per_chunk-bid);
 
-    ret1 = storage_read_chunk(st, device, layout, bsize, dist_set,
+    ret1 = storage_read_chunk(st, fidCtx, layout, bsize, dist_set,
         		      spare, fid, chunk, bid, nb_proj,
         		      (bin_t*) pBins, &len_read1, file_size,is_fid_faulty);
     if (ret1 == -1) {
@@ -962,7 +955,7 @@ static inline int storage_read(storage_t * st, uint8_t * device, uint8_t layout,
       return 0;	
     }
     
-    if (device[chunk] == ROZOFS_EOF_CHUNK) {
+    if (fidCtx->device[chunk] == ROZOFS_EOF_CHUNK) {
       *len_read = len_read1;
       dbg("read success len %d",*len_read);			           	
       return 0;	
@@ -986,7 +979,7 @@ static inline int storage_read(storage_t * st, uint8_t * device, uint8_t layout,
     nb_proj = input_nb_proj - nb_proj;  
     pBins = (char *) bins;
     pBins += ret1;  
-    ret2 = storage_read_chunk(st, device, layout, bsize, dist_set,
+    ret2 = storage_read_chunk(st, fidCtx, layout, bsize, dist_set,
         		      spare, fid, chunk, bid, nb_proj,
         		      (bin_t*) pBins, &len_read2, file_size,is_fid_faulty);
     if (ret2 == -1) {
@@ -1004,7 +997,7 @@ static inline int storage_read(storage_t * st, uint8_t * device, uint8_t layout,
       return 0;	
     }
     
-    if (device[chunk] == ROZOFS_EOF_CHUNK) {
+    if (fidCtx->device[chunk] == ROZOFS_EOF_CHUNK) {
       *len_read = len_read1 + len_read2;
       dbg("read success len %d",*len_read);			           	
       return 0;	
@@ -1044,7 +1037,7 @@ int storage_relocate_chunk(storage_t * st, uint8_t * device,fid_t fid, uint8_t s
 /** Truncate a bins file (not used yet)
  *
  * @param st: the storage to use.
- * @param device: Array of device allocated for the 128 chunks
+ * @param fidCtx: FID context that contains the array of devices allocated for the 128 chunks
  * @param layout: layout used by this file.
  * @param bsize: Block size from enum ROZOFS_BSIZE_E
  * @param dist_set: storages nodes used for store this file.
@@ -1061,7 +1054,7 @@ int storage_relocate_chunk(storage_t * st, uint8_t * device,fid_t fid, uint8_t s
  *
  * @return: 0 on success -1 otherwise (errno is set)
  */
-int storage_truncate(storage_t * st, uint8_t * device, uint8_t layout, uint32_t bsize, sid_t * dist_set,
+int storage_truncate(storage_t * st, storio_device_mapping_t * fidCtx, uint8_t layout, uint32_t bsize, sid_t * dist_set,
         uint8_t spare, fid_t fid, tid_t proj_id,bid_t bid,uint8_t version,
          uint16_t last_seg,uint64_t last_timestamp,u_int len, char * data,int * is_fid_faulty);
 
@@ -1172,10 +1165,10 @@ void static inline storage_dev_map_distribution_remove(storage_t * st, fid_t fid
 typedef enum { 
   STORAGE_READ_HDR_OK,
   STORAGE_READ_HDR_NOT_FOUND,
-  STORAGE_READ_HDR_ERRORS    
+  STORAGE_READ_HDR_ERRORS,
+  STORAGE_READ_HDR_OTHER_RECYCLING_COUNTER
 } STORAGE_READ_HDR_RESULT_E;
 
-STORAGE_READ_HDR_RESULT_E storage_read_header_file(storage_t * st, fid_t fid, uint8_t spare, rozofs_stor_bins_file_hdr_t * hdr);
 
 int storage_rm_chunk(storage_t * st, uint8_t * device, 
                      uint8_t layout, uint8_t bsize, uint8_t spare, 
@@ -1205,5 +1198,8 @@ static inline void storio_pid_file(char * pidfile, char * storaged_hostname, int
 ** Reset memory log off encountered errors
 */
 void storio_device_error_log_reset();
+
+
+uint32_t storio_device_mapping_allocate_device(storage_t * st);
 #endif
 

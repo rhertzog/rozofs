@@ -6,6 +6,8 @@
 # Change number of core files
 # rozofs.set_nb_core_file(1);
 
+# Enable FID recycling
+rozofs.set_fid_recycle(10)
 #--------------STORIO GENERAL
 
 # Set original RozoFS file distribution
@@ -62,9 +64,10 @@ layout = rozofs.layout_4_6_8()
 
 
 #-------------- NB devices
-devices    = 4
+devices    = 3
 mapper     = 2
 redundancy = 2
+
 
 # Create a volume
 v1 = volume_class(layout,rozofs.failures(layout))
@@ -72,20 +75,25 @@ v1 = volume_class(layout,rozofs.failures(layout))
 # Create 2 clusters on this volume
 c1 = v1.add_cid(devices,mapper,redundancy)  
 c2 = v1.add_cid(devices,mapper,redundancy)  
+#c3 = v1.add_cid(devices,mapper,redundancy)  
+#c4 = v1.add_cid(devices,mapper,redundancy)  
 
 # Create the required number of sid on each cluster
 # The 2 clusters use the same host for a given sid number
 for s in range(rozofs.min_sid(layout)):
   c1.add_sid_on_host(s+1)
   c2.add_sid_on_host(s+1)
-  	  
+#  c3.add_sid_on_host(s+1)
+#  c4.add_sid_on_host(s+1)    	  
 # Create on export for 4K, and one moun point
 e1 = v1.add_export(rozofs.bsize4K())
+#e1.set_squota("1G")
+#e1.set_hquota("3G")
 m1 = e1.add_mount()
 
 # Create on export for 8K, and one moun point
-e2 = v1.add_export(rozofs.bsize8K())
-m2 = e2.add_mount()
+#e2 = v1.add_export(rozofs.bsize8K())
+#m2 = e2.add_mount()
 
 # Set host 1 faulty
 #h1 = host_class.get_host(1)

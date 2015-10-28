@@ -231,8 +231,8 @@ int sclient_remove_chunk_rbs(sclient_t * clt, cid_t cid, sid_t sid, uint8_t layo
         errno = ret->sp_status_ret_t_u.error;
         if (errno != ENOENT) {
             severe("sclient_remove_chunk_rbs failed (error from %s): (%s)",
-                    clt->host, strerror(errno));
-            goto out;
+                    clt->host, strerror(errno));		    
+            goto out;	    
         }
     }
     status = 0;
@@ -271,8 +271,10 @@ uint32_t sclient_rebuild_start_rbs(sclient_t * clt, cid_t cid, sid_t sid, fid_t 
     if (ret->status != 0) {
         errno = ret->sp_rebuild_start_ret_t_u.error;
         if (errno != ENOENT) {
+#if 0	
             severe("sclient_rebuild_start_rbs failed (error from %s): (%s)",
                     clt->host, strerror(errno));
+#endif		    
             goto out;
         }
     }

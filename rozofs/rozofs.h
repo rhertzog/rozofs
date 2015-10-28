@@ -232,6 +232,48 @@ typedef union
    } meta;
 } rozofs_inode_t;
 
+
+/*
+**__________________________________________
+** Extract the recycle counter from the FID
+** @param fid : the FID
+** @retval the recycle counter value
+*/
+static inline int rozofs_get_recycle_from_fid(void * fid) {
+  rozofs_inode_t * inode = (rozofs_inode_t *) fid; 
+  return inode->s.recycle_cpt;
+}
+/*
+**__________________________________________
+** Set the recycle counter in the FID
+** @param fid : the FID
+** @param value: the value to set
+** 
+*/
+static inline void rozofs_set_recycle_on_fid(void * fid, int value) {
+  rozofs_inode_t * inode = (rozofs_inode_t *) fid; 
+  inode->s.recycle_cpt = value;
+}
+/*
+**__________________________________________
+** reset the recycle counter in the FID
+** @param fid : the FID
+** @retval the recycle counter value
+*/
+static inline void rozofs_reset_recycle_on_fid(void * fid) {
+  rozofs_set_recycle_on_fid(fid,0);
+}
+/*
+**__________________________________________
+** reset the recycle counter in the FID
+** @param fid : the FID
+** @retval the recycle counter value
+*/
+static inline void rozofs_inc_recycle_on_fid(void * fid) {
+  rozofs_inode_t * inode = (rozofs_inode_t *) fid; 
+  inode->s.recycle_cpt++;
+}
+
 // storage stat
 
 typedef struct sstat {

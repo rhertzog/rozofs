@@ -13,7 +13,7 @@
 
  You should have received a copy of the GNU General Public License
  along with this program.  If not, see
- <http://www.gnu.org/licenses/>.
+ <http://www.storage_fid_debuggnu.org/licenses/>.
  */
 #define _XOPEN_SOURCE 500
 
@@ -131,7 +131,6 @@ void storio_register_faulty_fid(int threadNb, uint8_t cid, uint8_t sid, fid_t fi
 * Debug 
   
 */
-  
 void storage_fid_debug(char * argv[], uint32_t tcpRef, void *bufRef) {
   char                         * pChar=uma_dbg_get_buffer();
   uint8_t                        nb_rebuild;
