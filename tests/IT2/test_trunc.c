@@ -298,7 +298,7 @@ int loop_test_process() {
     ERROR("check_size %s\n",strerror(errno));
     return ret; 
   }
-  return ret;
+
   count = 0;
   
   while (1) {

@@ -10,6 +10,7 @@ import shlex
 import datetime
 import shutil
 from adaptative_tbl import *
+import syslog
 
 
 # Read configuratino file
@@ -159,8 +160,11 @@ class host_class:
       cmd_system("pstree %s %s"%(opt,pid))
     return
     
-  def rebuild(self):  
-    cmd_system("storage_rebuild -c %s -H localhost%s -r %s -l 8"%(self.get_config_name(),self.number,exportd.export_host))  
+  def rebuild(self,argv):  
+    param=""
+    for i in range(4,len(argv)): param += " %s"%(argv[i])
+    print param 
+    cmd_system("storage_rebuild -c %s -H localhost%s -r %s %s"%(self.get_config_name(),self.number,exportd.export_host,param))  
 
 #____________________________________
 # Class sid
@@ -438,6 +442,24 @@ class mount_point_class:
 	    string += " %s-%s-%s"%(h.number,s.cid.cid,s.sid)
     print "sids = %s"%(string)	    
 
+    string="ps -o pid=,cmd= -C rozofsmount"
+    parsed = shlex.split(string)
+    cmd = subprocess.Popen(parsed, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    for line in cmd.stdout:
+      if self.instance == 0:
+	if not "instance" in line:
+	  pid=line.split()[0]
+	  break	
+      if "instance=%s"%(self.instance) in line: 
+	if not "instance" in line:
+	  pid=line.split()[0]
+	  break	
+    try:
+      print "pid = %s"%(pid)
+    except:
+      pass          
+    return   
+    
   def get_mount_path(self):
     return "%s/mnt%s_eid%s_site%s"%(rozofs.get_config_path(),self.instance,self.eid.eid,self.site)
     
@@ -462,8 +484,8 @@ class mount_point_class:
     if rozofs.posix_lock == True: options += " -o posixlock"
     if rozofs.bsd_lock == True  : options += " -o bsdlock"
     options += " -o rozofsrotate=3"	
-    options += " -o site=%s"%(self.site)	    
-    options += " -o instance=%s"%(self.instance)
+    options += " -o site=%s"%(self.site)
+    if self.instance != 0: options += " -o instance=%s"%(self.instance)
     if rozofs.read_mojette_threads == True: options += " -o mojThreadRead=1"
     if rozofs.write_mojette_threads == False: options += " -o mojThreadWrite=0"
     if rozofs.mojette_threads_threshold != None: options += " -o mojThreadThreshold=%s"%(rozofs.mojette_threads_threshold)
@@ -517,6 +539,17 @@ class mount_point_class:
       print "\n_______________FS %s eid %s vid %s %s"%(self.instance,self.eid.eid,self.eid.volume.vid,self.get_mount_path())     
       cmd_system("pstree %s %s"%(opt,pid))
     return    
+    
+  def process(self,opt):
+    string="ps -fC rozofsmount"
+    parsed = shlex.split(string)
+    cmd = subprocess.Popen(parsed, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    for line in cmd.stdout:
+      if not "instance=%s"%(self.instance) in line: continue
+      pid=line.split()[1]
+      print "\n_______________FS %s eid %s vid %s %s"%(self.instance,self.eid.eid,self.eid.volume.vid,self.get_mount_path())     
+      cmd_system("pstree %s %s"%(opt,pid))
+    return        
 #____________________________________
 # Class export
 #____________________________________
@@ -844,7 +877,7 @@ class rozofs_class:
     self.threads = 4
     self.nb_core_file = 2
     self.crc32 = True
-    self.self_healing = 1
+    self.self_healing = -2
     self.nb_listen=2;
     self.storio_mode="multiple";
     self.interface = "eth0"
@@ -1018,7 +1051,9 @@ class rozofs_class:
     geomgr.stop()
     for m in mount_points: m.stop()
     for h in hosts: h.stop()
-    exportd.stop()
+    exportd.stop() 
+    time.sleep(1)
+    cmd_system("killall rozolauncher")
     self.delete_config()
 
   def stop(self):
@@ -1108,8 +1143,10 @@ class rozofs_class:
     sys.stdout.close()
     sys.stdout = save_stdout  
     cmd_system("./monitor.py 5 -c monitor.cfg")
-    
-     
+
+  def status(self,opt="-df"): 
+    cmd_system("../src/rozodiag/rozofs_status.py %s -e %s"%(opt,exportd.export_host))
+          
   def core(self,argv):
     if len(argv) == 2:
       for d in os.listdir(self.core_dir()):
@@ -1216,7 +1253,7 @@ def syntax_config() :
 def syntax_sid() :
   print  "./setup.py \tsid     \t<cid> <sid>\tdevice-delete all|<device>"
   print  "./setup.py \tsid     \t<cid> <sid>\tdevice-create all|<device>"
-  print  "./setup.py \tsid     \t<cid> <sid>\trebuild [device]"
+  print  "./setup.py \tsid     \t<cid> <sid>\trebuild..."
   print  "./setup.py \tsid     \t<cid> <sid>\tinfo"
 #_____________________________________________  
 def syntax_if() :
@@ -1229,6 +1266,8 @@ def syntax_all() :
   #print  "./setup.py \tsite    \t<0|1>"
   print  "./setup.py \t\t\tdisplay [conf. file]"
   print  "./setup.py \t\t\tstart|stop|pause|resume"
+  print  "./setup.py \t\t\tmonitor|diag|fulldiag"
+    
   syntax_export()
   syntax_geomgr()
   syntax_mount()
@@ -1374,6 +1413,8 @@ def test_parse(command, argv):
   elif command == "rebuild"            : cmd_system("./setup.sh rebuild")
   elif command == "clean"              : cmd_system("./setup.sh clean")
   elif command == "monitor"            : rozofs.monitor()
+  elif command == "diag"               : rozofs.status("-d")
+  elif command == "fulldiag"           : rozofs.status("-df")
 
   elif command == "ifup":
     itf=None 
@@ -1402,7 +1443,8 @@ def test_parse(command, argv):
   elif command == "core"               : rozofs.core(argv)  
 
   elif command == "exportd"             :
-       if len(argv) <= 2: syntax("export requires an action","export")     
+       if len(argv) <= 2: syntax("export requires an action","export")  
+       syslog.syslog("exportd %s"%(argv[2]))   
        if argv[2] == "stop"        : exportd.stop()
        if argv[2] == "start"       : exportd.start()     
        if argv[2] == "reset"       : exportd.reset() 
@@ -1430,6 +1472,7 @@ def test_parse(command, argv):
 	 first=instance
 	 last=instance+1
        for idx in range(first,last):
+         syslog.syslog("mount %s %s"%(idx,argv[3]))
 	 obj = mount_points[idx]       
 	 if argv[3] == "stop"        : obj.stop()
 	 if argv[3] == "start"       : obj.start()     
@@ -1451,10 +1494,11 @@ def test_parse(command, argv):
 	 last=instance
        for idx in range(first,last):
 	 obj = hosts[idx]     
+         syslog.syslog("storage %s %s"%(idx+1,argv[3]))
 	 if argv[3] == "stop"        : obj.stop()
 	 if argv[3] == "start"       : obj.start()     
 	 if argv[3] == "reset"       : obj.reset() 
-	 if argv[3] == "rebuild"     : obj.rebuild() 
+	 if argv[3] == "rebuild"     : obj.rebuild(argv) 
 	 if argv[3] == "ifdown"      :
 	   if len(argv) <= 4: syntax("Missing interface#","storage")
 	   
@@ -1488,6 +1532,9 @@ def test_parse(command, argv):
        sid-= 1         
        s = c.sid[sid]
 
+       
+       syslog.syslog("sid %s/%s %s"%(cid+1,sid+1,argv[4]))
+       
        if argv[4] == "device-delete" : 
 	 if len(argv) <= 5: syntax("sid device-delete requires a device number","sid")
 	 s.delete_device(argv[5])     
@@ -1495,8 +1542,7 @@ def test_parse(command, argv):
 	 if len(argv) <= 5: syntax("sid device-create requires a device number","sid")
 	 s.create_device(argv[5]) 
        if argv[4] == "rebuild":
-         try:    s.rebuild(argv[5])
-	 except: s.rebuild(None)              
+         s.host[0].rebuild(argv)         
        if argv[4] == "info"          : s.info()
 
   elif command == "config":

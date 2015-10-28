@@ -186,7 +186,7 @@ char *argv[];
 #define LOOP_NB  257
 #define BLKSIZE (1024*4)
 char    refblock[BLKSIZE];
-char    readblock[BLKSIZE];
+char    readblock[BLKSIZE*LOOP_NB];
 
 void update_block(int b) {
   char string[64];
@@ -251,28 +251,27 @@ int check() {
       printf("CHECK open(%s) %s\n", fname, strerror(errno));
       exit(-1);
     }
-	
-    for (loop=0; loop < LOOP_NB; loop++) {
 
-      ret = pread(fd, readblock, BLKSIZE, loop*BLKSIZE);
-      if (ret < 0) {
-	printf("CHECK pread(%s) offset %d %s\n", fname, loop, strerror(errno));
-	exit(-1);
-      }
-
-      update_block(loop);
-      
-      if (memcmp(readblock,refblock,BLKSIZE)!=0) {
-	printf("CHECK memcmp(%s) bad content loop %d\n", fname, loop);
-	exit(-1);  
-      } 
-    } 
+    ret = pread(fd, readblock, sizeof(readblock), 0);	
+    if (ret < 0) {
+      printf("CHECK pread(%s) %s\n", fname, strerror(errno));
+      exit(-1);
+    }
     
     ret = close(fd);
     if (ret < 0) { 	    
       printf("CHECK close(%s) %s\n", fname, strerror(errno));
-      exit(-1);
     } 
+      
+    for (loop=0; loop < LOOP_NB; loop++) {
+    
+      update_block(loop);
+      
+      if (memcmp(&readblock[loop*BLKSIZE],refblock,BLKSIZE)!=0) {
+	printf("CHECK memcmp(%s) bad content block %d\n", fname, loop);
+	exit(-1);  
+      } 
+    }     
   }        
 }
 int create() {
