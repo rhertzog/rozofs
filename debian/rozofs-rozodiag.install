@@ -1,2 +1,4 @@
 /usr/bin/rozodiag
 /usr/share/man/man8/rozodiag.8
+/usr/bin/rozofs_status.py
+/usr/share/man/man8/rozofs_status.py.8

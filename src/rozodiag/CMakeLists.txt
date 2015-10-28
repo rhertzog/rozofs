@@ -34,3 +34,4 @@ install(TARGETS rozodiag
     ARCHIVE DESTINATION lib
     COMPONENT rozodiag
 )
+install(PROGRAMS rozofs_status.py DESTINATION bin)

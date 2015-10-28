@@ -1,0 +1,70 @@
+.\" Process this file with
+.\" groff -man -Tascii rozofs_status.py.8
+.\"
+.TH ROZOSTATUS.PY 8 "OCTOBER 2015" RozoFS "User Manuals"
+.SH NAME
+rozofs_status.py \- RozoFS status utility
+.SH SYNOPSIS
+.B rozofs_status.py
+[
+.I -dfh
+]
+[
+.I -e <export host>
+]
+.B
+.SH DESCRIPTION
+.B rozofs_status.py
+is a diagnostic tool that interfaces RozoFS thank to rozodiag tool, to make some diagnostics of a RozoFS system. 
+This script returns an execution code that reflects the status of the RozoFS system:
+.IP "0 = OK"
+.RS
+RozoFS status is OK.
+.RE
+.IP "1 = WARNING"
+.RS
+RozoFS is providing service, but some errors have been detected that may eventually need a fix.
+.RE
+.IP "2 = ERROR"
+.RS
+Some errors that may prevent the good functionning of RozoFS have been detected. A fix is required.
+.RE
+.IP "-e <export host>"
+.RS
+<export host> is a '/' separated list of IP addresses or host names of the export nodes. Default is 127.0.0.1, and
+may be used when running the script on the host running the active exportd.
+.RE
+.IP "-h"
+.RS
+Print help. 
+.RE
+.IP "-d"
+.RS
+when this option is set the script displays the list of detected defaults.
+.RE
+.IP "-f"
+.RS
+when this option is set more diagnostic tests are run.
+.RE
+.\".SH ENVIRONMENT
+.\".SH DIAGNOSTICS
+.SH "REPORTING BUGS"
+Report bugs to <bugs@fizians.org>.
+.SH COPYRIGHT
+Copyright (c) 2013 Fizians SAS. <http://www.fizians.com>
+
+RozoFS is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published
+by the Free Software Foundation, version 2.
+
+RozoFS is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+.SH AUTHOR
+Fizians <http://www.fizians.org>
+.SH "SEE ALSO"
+.BR rozofs (7),
