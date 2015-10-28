@@ -209,6 +209,7 @@ mkdir -p %{buildroot}%{_initrddir}
 %{_bindir}/rozodiag
 %{_bindir}/rozofs_status.py
 %{_mandir}/man8/rozodiag.8.gz
+%{_mandir}/man8/rozofs_status.py.8.gz
 
 %files manager-lib
 %defattr(-,root,root)
