@@ -59,7 +59,7 @@ static inline uint32_t lv2_hash(void *key) {
     ** Clear recycle counter in key (which is a FID)
     */
     memcpy(&fake_inode,key,sizeof(rozofs_inode_t));
-    fake_inode.s.recycle_cpt = 0;
+    rozofs_reset_recycle_on_fid(&fake_inode);
 
     c = (uint8_t *) &fake_inode;
     for (i = 0; i < sizeof(rozofs_inode_t); c++,i++)
@@ -75,10 +75,10 @@ static inline int lv2_cmp(void *k1, void *k2) {
     ** Clear recycle counter in keys (which are FIDs)
     */
     memcpy(&fake_inode1,k1,sizeof(rozofs_inode_t));
-    fake_inode1.s.recycle_cpt = 0;
+    rozofs_reset_recycle_on_fid(&fake_inode1);
 
     memcpy(&fake_inode2,k2,sizeof(rozofs_inode_t));
-    fake_inode2.s.recycle_cpt = 0;
+    rozofs_reset_recycle_on_fid(&fake_inode2);
     
     return uuid_compare((uint8_t*)&fake_inode1, (uint8_t*)&fake_inode2);
 }
@@ -333,7 +333,7 @@ lv2_entry_t *lv2_cache_put(export_tracking_table_t *trk_tb_p,lv2_cache_t *cache,
     if (fake_inode->s.key == ROZOFS_REG)
     {
       fake_inode_attr = (rozofs_inode_t*)entry->attributes.s.attrs.fid;
-      if( fake_inode->s.recycle_cpt !=  fake_inode_attr->s.recycle_cpt)
+      if( rozofs_get_recycle_from_fid(fake_inode) !=  fake_inode_attr->s.recycle_cpt)
       {
          /*
 	 ** it correspond to the case where the fid has been recycled

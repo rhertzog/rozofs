@@ -2538,8 +2538,8 @@ int export_fid_recycle_attempt(export_t * e,lv2_entry_t *lv2)
    /*
    ** update the version of the fid in the attributes
    */
-   fake_inode_p =  (rozofs_inode_t *)lv2->attributes.s.attrs.fid;   
-   fake_inode_p->s.recycle_cpt +=1;
+   fake_inode_p =  (rozofs_inode_t *)lv2->attributes.s.attrs.fid;
+   rozofs_inc_recycle_on_fid(fake_inode_p);
    
    memcpy(recycle_entry.fid, lv2->attributes.s.attrs.fid, sizeof (fid_t));
    ret = exp_recycle_entry_create(e->trk_tb_p,fake_inode_p->s.usr_id,&recycle_entry); 
@@ -3120,12 +3120,17 @@ char *export_rm_bins_stats(char *pChar)
         (unsigned long long int) (export_rm_bins_reload_count+export_rm_bins_pending_count)-export_rm_bins_done_count);
 
 
-   pChar += sprintf(pChar,"recycle stats:\n");
-   pChar += sprintf(pChar,"  - reloaded = %llu\n", (unsigned long long int) export_fid_recycle_reload_count);
-   pChar += sprintf(pChar,"  - recycled = %llu\n", (unsigned long long int) export_recycle_pending_count);
-   pChar += sprintf(pChar,"  - done     = %llu\n", (unsigned long long int) export_recycle_done_count);
-   pChar += sprintf(pChar,"  - pending  = %llu\n", 
-        (unsigned long long int) (export_fid_recycle_reload_count+export_recycle_pending_count)-export_recycle_done_count);   
+   if (common_config.fid_recycle) {
+     pChar += sprintf(pChar,"recycle stats:\n");
+     pChar += sprintf(pChar,"  - reloaded = %llu\n", (unsigned long long int) export_fid_recycle_reload_count);
+     pChar += sprintf(pChar,"  - recycled = %llu\n", (unsigned long long int) export_recycle_pending_count);
+     pChar += sprintf(pChar,"  - done     = %llu\n", (unsigned long long int) export_recycle_done_count);
+     pChar += sprintf(pChar,"  - pending  = %llu\n", 
+          (unsigned long long int) (export_fid_recycle_reload_count+export_recycle_pending_count)-export_recycle_done_count);   
+   }
+   else {
+     pChar += sprintf(pChar,"No FID recycling.\n");     
+   }	  
    return pChar;
 }
 /*
@@ -4495,7 +4500,7 @@ static inline int get_rozofs_xattr(export_t *e, lv2_entry_t *lv2, char * value, 
   p += rozofs_string_append(p," fid_high=");
   p += rozofs_u64_append(p,fake_inode_p->s.fid_high);
   p += rozofs_string_append(p," recycle=");
-  p += rozofs_u64_append(p,fake_inode_p->s.recycle_cpt);  
+  p += rozofs_u64_append(p,rozofs_get_recycle_from_fid(fake_inode_p));  
   p += rozofs_string_append(p," opcode=");
   p += rozofs_u64_append(p,fake_inode_p->s.opcode);
   p += rozofs_string_append(p," exp_id=");
@@ -4560,7 +4565,7 @@ static inline int get_rozofs_xattr(export_t *e, lv2_entry_t *lv2, char * value, 
   
   DISPLAY_ATTR_TITLE("ST.NAME");
   memcpy(&inode,fake_inode_p,sizeof(rozofs_inode_t));
-  inode.s.recycle_cpt = 0;
+  rozofs_reset_recycle_on_fid(&inode);
   rozofs_uuid_unparse((unsigned char *)&inode,p);
   p += 36;
   *p++ = '\n';
