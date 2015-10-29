@@ -78,7 +78,7 @@ typedef struct uma_dbg_session_s {
 
 UMA_DBG_SESSION_S *uma_dbg_freeList = (UMA_DBG_SESSION_S*)NULL;
 UMA_DBG_SESSION_S *uma_dbg_activeList = (UMA_DBG_SESSION_S*)NULL;
-#define UMA_DBG_MAX_CMD_LEN 127
+#define UMA_DBG_MAX_CMD_LEN (4*1024)
 static char rcvCmdBuffer[UMA_DBG_MAX_CMD_LEN+1];
 
 char uma_dbg_temporary_buffer[UMA_DBG_MAX_SEND_SIZE];
