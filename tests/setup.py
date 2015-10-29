@@ -1053,7 +1053,7 @@ class rozofs_class:
     for h in hosts: h.stop()
     exportd.stop() 
     time.sleep(1)
-    cmd_system("killall rozolauncher")
+    cmd_system("killall rozolauncher 2>/dev/null")
     self.delete_config()
 
   def stop(self):
@@ -1175,10 +1175,16 @@ class rozofs_class:
     dir=argv[2].split('/')[0]
     exe=self.exe_from_core_dir(dir)
     if not os.path.exists(exe):
-      print "No such executable"
+      syntax("No such executable","debug")
       return
-    cmd_system("ddd %s -core %s"%(exe,os.path.join(self.core_dir(), argv[2])))   
-	
+    cmd_system("ddd %s -core %s"%(exe,os.path.join(self.core_dir(), argv[2]))) 
+     
+  def ddd(self,who):
+    exe=self.exe_from_core_dir(who)
+    if not os.path.exists(exe):
+      syntax("No such executable \"%s\""%(who),"debug")
+      return
+    cmd_system("ddd %s &"%(exe))
 	      
 #___________________________________________  
 def cmd_system (string):
@@ -1240,8 +1246,8 @@ def syntax_mount() :
   print  "./setup.py \tmount   \tall|<instance> start|stop|reset|pid|info"
 #_____________________________________________  
 def syntax_storage() :
-  print  "./setup.py \tstorage \tall|<host> <idx> start|stop|reset|rebuild|pid"
-  print  "./setup.py \tstorage \tall|<host> <idx> ifup|ifdown <if#>"
+  print  "./setup.py \tstorage \tall|<host idx> start|stop|reset|rebuild|pid"
+  print  "./setup.py \tstorage \tall|<host idx> ifup|ifdown <#if>"
   
 #_____________________________________________  
 def syntax_cou() :
@@ -1251,22 +1257,31 @@ def syntax_config() :
   print  "./setup.py \tconfig  \t<confFileName>"  
 #_____________________________________________  
 def syntax_sid() :
-  print  "./setup.py \tsid     \t<cid> <sid>\tdevice-delete all|<device>"
-  print  "./setup.py \tsid     \t<cid> <sid>\tdevice-create all|<device>"
+  print  "./setup.py \tsid     \t<cid> <sid>\tdevice-delete all|<#device>"
+  print  "./setup.py \tsid     \t<cid> <sid>\tdevice-create all|<#device>"
   print  "./setup.py \tsid     \t<cid> <sid>\trebuild..."
   print  "./setup.py \tsid     \t<cid> <sid>\tinfo"
 #_____________________________________________  
 def syntax_if() :
-  print  "./setup.py \tifup|ifdown  \t<if#>"    
-
-
+  print  "./setup.py \tifup|ifdown  \t<#if>"    
+#_____________________________________________  
+def syntax_monitor() :
+  print  "./setup.py \tmonitor|diag|fulldiag"  
+#_____________________________________________  
+def syntax_debug() :
+  print  "./setup.py \tddd     \t<module>"
+  print  "./setup.py \tcore    \tremove all|<coredir>/<corefile>"
+  print  "./setup.py \tcore    \t[<coredir>/<corefile>]"
+  
 #_____________________________________________  
 def syntax_all() :
   print  "Usage:"
   #print  "./setup.py \tsite    \t<0|1>"
-  print  "./setup.py \t\t\tdisplay [conf. file]"
-  print  "./setup.py \t\t\tstart|stop|pause|resume"
-  print  "./setup.py \t\t\tmonitor|diag|fulldiag"
+  print  "./setup.py \tdisplay\t\t[conf. file]"
+  print  "./setup.py \tstart|stop"
+  print  "./setup.py \tpause|resume"
+
+  syntax_monitor()
     
   syntax_export()
   syntax_geomgr()
@@ -1276,15 +1291,10 @@ def syntax_all() :
   syntax_cou() 
   syntax_config()  
   syntax_if()
-  print  "./setup.py \tcore    \tremove all|<coredir>/<corefile>"
-  print  "./setup.py \tcore    \t[<coredir>/<corefile>]"
+  syntax_debug()
   print  "./setup.py \tprocess \t[pid]"
-  print  "./setup.py \tit..."
-  print  "./setup.py \tmonitor"
-  #print  "./setup.py reload"
-  #print  "./setup.py build"
-  #print  "./setup.py rebuild"
-  #print  "./setup.py clean"
+  print  "./setup.py \tit ..."
+  print  "./setup.py \tbuild|rebuild|clean"
   sys.exit(-1)   
           
 #_____________________________________________  
@@ -1415,6 +1425,11 @@ def test_parse(command, argv):
   elif command == "monitor"            : rozofs.monitor()
   elif command == "diag"               : rozofs.status("-d")
   elif command == "fulldiag"           : rozofs.status("-df")
+  
+  elif command == "ddd": 
+    if len(argv) < 3:
+      syntax("Missing module to debug","debug")
+    rozofs.ddd(argv[2])
 
   elif command == "ifup":
     itf=None 
