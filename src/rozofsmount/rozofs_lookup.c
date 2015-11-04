@@ -346,7 +346,7 @@ lookup_objectmode:
     rozofs_inode_t * finode = (rozofs_inode_t *) nie->attrs.fid;
     fep.generation = finode->fid[0];    
     
-    fuse_reply_entry(req, &fep);
+    rz_fuse_reply_entry(req, &fep);
 
     rozofs_trc_rsp(srv_rozofs_ll_lookup,(nie==NULL)?0:nie->inode,(nie==NULL)?NULL:nie->attrs.fid,0,trc_idx);
     goto out;
@@ -495,7 +495,7 @@ void rozofs_ll_lookup_cbk(void *this,void *param)
 	  fep.ino = 0;
 	  fep.attr_timeout = rozofs_tmr_get(TMR_FUSE_ATTR_CACHE);
 	  fep.entry_timeout = rozofs_tmr_get(TMR_FUSE_ENTRY_CACHE);
-	  fuse_reply_entry(req, &fep);
+	  rz_fuse_reply_entry(req, &fep);
 	  goto out;	
 	}
         goto error;
@@ -545,7 +545,7 @@ void rozofs_ll_lookup_cbk(void *this,void *param)
     rozofs_inode_t * finode = (rozofs_inode_t *) nie->attrs.fid;
     fep.generation = finode->fid[0];  
     
-    fuse_reply_entry(req, &fep);
+    rz_fuse_reply_entry(req, &fep);
     goto out;
 error:
     fuse_reply_err(req, errno);

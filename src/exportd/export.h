@@ -190,7 +190,6 @@ extern int rozofs_no_site_file;
 extern uint64_t export_rm_bins_pending_count; /**< trash thread statistics  */
 extern uint64_t export_rm_bins_done_count ;  /**< trash thread statistics  */
 extern int export_limit_rm_files;
-
 /**
 *  trash statistics display
 
@@ -908,4 +907,28 @@ static inline uint8_t rozofs_get_export_host_id()
 {
   return rozofs_export_host_id;
 }
+
+/*
+**__________________________________________________________________
+*/
+/**
+*  Init of the attribute writeback thread
+
+   @param none
+   
+   @retval 0 on success
+   @retval -1 on error (see errno for details
+*/
+int export_wr_attr_th_init();
+/*
+ *_______________________________________________________________________
+ */
+/**
+*   Get the configuration file of the exportd
+
+    @param none
+    
+    @retval: pointer to the exportd configuration file (full path)
+*/
+char *export_get_config_file_path();
 #endif

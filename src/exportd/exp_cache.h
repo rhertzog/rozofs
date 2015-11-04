@@ -75,6 +75,7 @@ typedef struct lv2_entry {
  *
  * used to keep track of open file descriptors and corresponding attributes
  */
+ #define EXPORT_LV2_MAX_LOCK ROZOFS_HTABLE_MAX_LOCK
 typedef struct lv2_cache {
     int max;            ///< max entries in the cache
     int size;           ///< current number of entries
@@ -83,6 +84,12 @@ typedef struct lv2_cache {
     uint64_t   lru_del;
     list_t     lru;     ///< LRU 
     list_t     flock_list;
+    /*
+    ** case of multi-threads
+    */
+    list_t     lru_th[EXPORT_LV2_MAX_LOCK];     ///< LRU 
+    list_t     flock_list_th[EXPORT_LV2_MAX_LOCK];
+    uint64_t   hash_stats[EXPORT_LV2_MAX_LOCK];
     htable_t htable;    ///< entries hashing
 } lv2_cache_t;
 
@@ -149,6 +156,7 @@ void lv2_cache_del(lv2_cache_t *cache, fid_t fid) ;
 */
 
 lv2_entry_t *lv2_cache_put(export_tracking_table_t *trk_tb_p,lv2_cache_t *cache, fid_t fid);
+lv2_entry_t *lv2_cache_put_th(export_tracking_table_t *trk_tb_p,lv2_cache_t *cache, fid_t fid,uint32_t hash);
 
 /*
 **__________________________________________________________________
@@ -165,6 +173,7 @@ lv2_entry_t *lv2_cache_put(export_tracking_table_t *trk_tb_p,lv2_cache_t *cache,
 */
 
 lv2_entry_t *lv2_cache_put_forced(lv2_cache_t *cache, fid_t fid,ext_mattr_t *attr_p);
+lv2_entry_t *lv2_cache_put_forced_th(lv2_cache_t *cache, fid_t fid,ext_mattr_t *attr_p);
 
 /** Format statistics information about the lv2 cache
  *
@@ -206,7 +215,11 @@ static inline void lv2_cache_update_lru(lv2_cache_t *cache, lv2_entry_t *entry) 
  
   @return a pointer to lv2 entry or null on error (errno is set)
 */
+#define EXPORT_LOOKUP_FID export_lookup_fid
+
 lv2_entry_t *export_lookup_fid(export_tracking_table_t *trk_tb_p,lv2_cache_t *cache, fid_t fid);
+lv2_entry_t *export_lookup_fid_th(export_tracking_table_t *trk_tb_p,lv2_cache_t *cache, fid_t fid);
+
 /*
 **__________________________________________________________________
 */

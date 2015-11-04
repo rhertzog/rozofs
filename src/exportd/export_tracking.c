@@ -33,6 +33,7 @@
 #include <inttypes.h>
 #include <dirent.h>
 #include <time.h>
+#include <semaphore.h>
 
 #include <rozofs/common/log.h>
 #include <rozofs/common/xmalloc.h>
@@ -98,7 +99,248 @@ typedef struct _dirent_dir_root_idx_bitmap_t
 } dirent_dir_root_idx_bitmap_t;
 
 int export_recycle_remove_from_tracking_file(export_t * e,recycle_mem_t *entry);
+/*
+**__________________________________________________________________
 
+     A T T R I B U T E  W R I T E - B A C K    T H R E A D
+**__________________________________________________________________
+*/
+#define EXPORT_MAX_ATT_THREADS  8
+typedef struct _attr_writeback_ctx_t
+{
+  pthread_t               thrdId; 
+  int                     thread_idx;     
+  lv2_entry_t             *lv2; 
+  export_tracking_table_t *trk_tb_p;
+  uint64_t                 wakeup_count;
+  uint64_t                 err_count;
+  uint64_t                 busy_count;
+  sem_t                    export_attr_wr_ready;
+  sem_t                    export_attr_wr_rq;
+} attr_writeback_ctx_t;
+
+
+attr_writeback_ctx_t rozofs_attr_thread_ctx_tb[EXPORT_MAX_ATT_THREADS];
+
+
+static char *show_attr_thread_usage(char *pChar)
+{
+  pChar += sprintf(pChar,"usage:\n");
+  pChar += sprintf(pChar,"attr_thread <enable|disable> :enable/disable write behind attributes threads \n");
+  pChar += sprintf(pChar,"attr_thread                  :display threads statistics \n");
+  return pChar;
+}
+
+void show_attr_thread(char * argv[], uint32_t tcpRef, void *bufRef) 
+{
+    char *pChar = uma_dbg_get_buffer();
+    attr_writeback_ctx_t       *thread_ctx_p;
+    int i;
+    int value1,value2;
+    
+    if (argv[1] != NULL)
+    {
+      if (strcmp(argv[1],"enable")==0) 
+      {
+	 common_config.export_attr_thread = 1;
+         pChar += sprintf(pChar, "attribute threads are enabled\n");
+         uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
+	 return;   	     
+      }     
+      if (strcmp(argv[1],"disable")==0) 
+      {
+	 common_config.export_attr_thread = 0;
+         pChar += sprintf(pChar, "attribute threads are disabled\n");
+         uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
+	 return;   	     
+      }        
+      if (strcmp(argv[1],"?")==0) 
+      {
+        show_attr_thread_usage(pChar);
+	uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
+	return;   	     
+      }  
+      pChar += sprintf(pChar, "unsupported command: %s\n",argv[1]);
+      show_attr_thread_usage(pChar);
+      uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
+      return;    
+    }
+    
+    thread_ctx_p = rozofs_attr_thread_ctx_tb;
+    /*
+    ** search if the lv2 is already under the control of one thread
+    */
+    pChar +=sprintf(pChar," attribute threads state: %s\n",(common_config.export_attr_thread)?"ENABLED":"DISABLED");
+    pChar +=sprintf(pChar,"| thread | rdy |in_prg| wake-up cnt | err. cnt  |  busy cnt |\n");
+    pChar +=sprintf(pChar,"+--------+-----+------+-------------+-----------+-----------+\n");
+    for (i = 0; i < EXPORT_MAX_ATT_THREADS; i++,thread_ctx_p++)
+    { 
+       sem_getvalue(&thread_ctx_p->export_attr_wr_ready,&value1);
+       sem_getvalue(&thread_ctx_p->export_attr_wr_rq,&value2);
+       pChar +=sprintf(pChar,"|   %d    |  %d  |   %d  |  %8.8llu   | %8.8llu  | %8.8llu  |\n",
+               i,value1,value2,
+	       (unsigned long long int)thread_ctx_p->wakeup_count,
+	       (unsigned long long int)thread_ctx_p->err_count,
+	       (unsigned long long int)thread_ctx_p->busy_count);
+       thread_ctx_p->busy_count = 0;
+       thread_ctx_p->wakeup_count = 0;
+    }
+    pChar +=sprintf(pChar,"+--------+-----+------+-------------+-----------+-----------+\n");
+    uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   	     
+}
+/*
+**__________________________________________________________________
+*/
+/**
+*  Writeback thread used for storing attributes on disk
+
+   That thread uses the export_attr_writeback_p context that describes
+   the attributes to write back to disk: (child and/or parent attributes
+   
+   @param arg: pointer to the thread context
+*/
+void *export_wr_attr_th(void *arg) {    
+
+   attr_writeback_ctx_t * ctx_p = (attr_writeback_ctx_t*)arg;
+   char bufname[64];
+    int ret;
+    sprintf(bufname,"Attr. thread#%d",ctx_p->thread_idx);
+    uma_dbg_thread_add_self(bufname);
+    while(1)
+    {  
+      sem_post(&ctx_p->export_attr_wr_ready);
+      /*
+      ** wait for a command
+      */
+      sem_wait(&ctx_p->export_attr_wr_rq); 
+      /*
+      ** write the attributes of the child
+      */
+      if(ctx_p->lv2 != NULL)
+      {
+        ctx_p->wakeup_count++;
+	ret = export_lv2_write_attributes(ctx_p->trk_tb_p,ctx_p->lv2);
+	if (ret < 0)
+	{ 
+	  severe("failed while writing child attributes %s",strerror(errno));
+	  ctx_p->err_count++;
+	}
+	ctx_p->lv2 = NULL; 
+      }
+    }           
+}
+
+/*
+**__________________________________________________________________
+*/
+/**
+    Submit a write attribute to an attribute writeback thread
+    
+    @param lv2: level2 entry to write
+    @param trk_tb_p: pointer to the tracking context tale
+ 
+*/
+/*static inline */void export_attr_thread_submit(lv2_entry_t*lv2,export_tracking_table_t *trk_tb_p)
+{
+    int i;
+   attr_writeback_ctx_t       *thread_ctx_p;  
+    int found = -1;
+    int ret;
+    
+    /*
+    ** check if the writeback threads are enabled
+    */
+    if (common_config.export_attr_thread == 0)
+    {
+	ret = export_lv2_write_attributes(trk_tb_p,lv2);
+	if (ret < 0)
+	{ 
+	  severe("failed while writing child attributes %s",strerror(errno));
+	  rozofs_attr_thread_ctx_tb[0].err_count++;
+	}
+	return;        
+    }
+    
+    thread_ctx_p = rozofs_attr_thread_ctx_tb;
+    /*
+    ** search if the lv2 is already under the control of one thread
+    */
+    for (i = 0; i < EXPORT_MAX_ATT_THREADS; i++,thread_ctx_p++)
+    {
+       if (thread_ctx_p->lv2 == lv2)
+       {
+	  sem_wait(&thread_ctx_p->export_attr_wr_ready);
+	  thread_ctx_p->lv2 = lv2;
+	  thread_ctx_p->trk_tb_p = trk_tb_p;
+	  sem_post(&thread_ctx_p->export_attr_wr_rq); 
+	  return;             
+       } 
+       if ((found < 0) && (thread_ctx_p->lv2 == NULL)) found = i;          
+    }
+    thread_ctx_p = &rozofs_attr_thread_ctx_tb[(found <0)?0:found];
+    ret = sem_trywait(&thread_ctx_p->export_attr_wr_ready);
+    if (ret < 0)
+    {
+       thread_ctx_p->busy_count++;
+       sem_wait(&thread_ctx_p->export_attr_wr_ready);
+    }
+    thread_ctx_p->lv2 = lv2;
+    thread_ctx_p->trk_tb_p = trk_tb_p;
+    sem_post(&thread_ctx_p->export_attr_wr_rq);     
+}
+/*
+**__________________________________________________________________
+*/
+/**
+*  Init of the attribute writeback thread
+
+   @param none
+   
+   @retval 0 on success
+   @retval -1 on error (see errno for details
+*/
+int export_wr_attr_th_init()
+{
+   int status = 0;
+   pthread_attr_t             attr;
+   int                        i,err;
+   attr_writeback_ctx_t       *thread_ctx_p;  
+  /*
+  ** clear the thread table
+  */
+  memset(rozofs_attr_thread_ctx_tb,0,sizeof(rozofs_attr_thread_ctx_tb));
+  /*
+  ** Now create the threads
+  */
+  thread_ctx_p = rozofs_attr_thread_ctx_tb;
+  for (i = 0; i < EXPORT_MAX_ATT_THREADS ; i++,thread_ctx_p++) 
+  {
+     err = pthread_attr_init(&attr);
+     if (err != 0) {
+       fatal("attr thread: pthread_attr_init(%d) %s",i,strerror(errno));
+       return -1;
+     }  
+     /*
+     ** init of the semaphore
+     */
+     sem_init(&thread_ctx_p->export_attr_wr_ready, 0, 0);
+     sem_init(&thread_ctx_p->export_attr_wr_rq, 0, 0);       
+     thread_ctx_p->thread_idx = i;
+     err = pthread_create(&thread_ctx_p->thrdId,&attr,export_wr_attr_th,thread_ctx_p);
+     if (err != 0) {
+       fatal("attr thread: pthread_create(%d) %s",i, strerror(errno));
+       return -1;
+     }    
+  }
+  return status;
+} 
+ 
+/*
+**__________________________________________________________________
+
+     A T T R I B U T E  W R I T E - B A C K    T H R E A D  E N D
+**__________________________________________________________________
+*/
 /*
  **__________________________________________________________________
  */
@@ -392,15 +634,21 @@ static inline int export_lv2_resolve_path_internal(char *root_path, fid_t fid, c
     uint32_t slice;
     uint32_t subslice;
     char str[37];
-
+    fid_t fid_save;
+   
+    /*
+    ** clear the delete pending bit for path resolution
+    */
+    memcpy(fid_save,fid,sizeof(fid_t));
+    exp_metadata_inode_del_deassert(fid_save);
     /*
      ** extract the slice and subsclie from the fid
      */
-    mstor_get_slice_and_subslice(fid, &slice, &subslice);
+    mstor_get_slice_and_subslice(fid_save, &slice, &subslice);
     /*
      ** convert the fid in ascii
      */
-    rozofs_uuid_unparse(fid, str);
+    rozofs_uuid_unparse(fid_save, str);
     sprintf(path, "%s/%d/%s", root_path, slice, str);
     return 0;
 
@@ -1017,7 +1265,7 @@ int export_lookup(export_t *e, fid_t pfid, char *name, mattr_t *attrs,mattr_t *p
     int root_dirent_mask=0;
 
     // get the lv2 parent
-    if (!(plv2 = export_lookup_fid(e->trk_tb_p,e->lv2_cache, pfid))) {
+    if (!(plv2 = EXPORT_LOOKUP_FID(e->trk_tb_p,e->lv2_cache, pfid))) {
         goto out;
     }
     /*
@@ -1060,13 +1308,26 @@ int export_lookup(export_t *e, fid_t pfid, char *name, mattr_t *attrs,mattr_t *p
        status = 0;  
        goto out;      
     }
+    /*
+    ** check for root of delete pending object
+    */
+    if (strcmp(name,"@rozofs-del@") == 0)
+    {
+       /*
+       ** assert the del pending bit in the returned attributes of the parent and return the parent attributes
+       */
+       memcpy(attrs, &plv2->attributes.s.attrs, sizeof (mattr_t));
+       exp_metadata_inode_del_assert(attrs->fid);
+       status = 0;
+       goto out;    
+    }
 
     fdp = export_open_parent_directory(e,pfid);
     if (get_mdirentry(plv2->dirent_root_idx_p,fdp, pfid, name, child_fid, &child_type,&root_dirent_mask) != 0) {
         goto out;
     }
     // get the lv2
-    if (!(lv2 = export_lookup_fid(e->trk_tb_p,e->lv2_cache, child_fid))) {
+    if (!(lv2 = EXPORT_LOOKUP_FID(e->trk_tb_p,e->lv2_cache, child_fid))) {
         /*
          ** It might be possible that the file is still referenced in the dirent file but 
          ** not present on disk: its FID has been released (and the associated file deleted)
@@ -1090,6 +1351,21 @@ int export_lookup(export_t *e, fid_t pfid, char *name, mattr_t *attrs,mattr_t *p
         goto out;
     }
     memcpy(attrs, &lv2->attributes.s.attrs, sizeof (mattr_t));
+    /*
+    ** check if the file has the delete pending bit asserted: if it is the
+    ** case the file MUST be in READ only mode
+    */
+    if (exp_metadata_inode_is_del_pending(child_fid))
+    {
+       attrs->mode &=~(S_IWUSR|S_IWGRP|S_IWOTH);
+    }
+    /*
+    ** clear the delete pending bit of the i-node if it is not a directory
+    */
+    if (!S_ISDIR(lv2->attributes.s.attrs.mode))
+    {
+      exp_metadata_inode_del_deassert(attrs->fid);
+    }
     if (lv2->attributes.s.i_state == 0) rozofs_clear_xattr_flag(&attrs->mode);
     status = 0;
 out:
@@ -1122,7 +1398,7 @@ int export_getattr(export_t *e, fid_t fid, mattr_t *attrs) {
     START_PROFILING(export_getattr);
     uint64_t     ts;
 
-    if (!(lv2 = export_lookup_fid(e->trk_tb_p,e->lv2_cache, fid))) {
+    if (!(lv2 = EXPORT_LOOKUP_FID(e->trk_tb_p,e->lv2_cache, fid))) {
     
       ts = rdtsc();
       if (ts>last_export_getattr_log+5000000000UL) {
@@ -1135,7 +1411,21 @@ int export_getattr(export_t *e, fid_t fid, mattr_t *attrs) {
     }   
     memcpy(attrs, &lv2->attributes.s.attrs, sizeof (mattr_t));
     if (lv2->attributes.s.i_state == 0) rozofs_clear_xattr_flag(&attrs->mode);
-
+    /*
+    ** check if the file has the delete pending bit asserted: if it is the
+    ** case the file MUST be in READ only mode
+    */
+    if (exp_metadata_inode_is_del_pending(fid))
+    {
+       attrs->mode &=~(S_IWUSR|S_IWGRP|S_IWOTH);
+    }
+    /*
+    ** clear the delete pending bit of the i-node if it is not a directory
+    */
+    if (!S_ISDIR(lv2->attributes.s.attrs.mode))
+    {
+      exp_metadata_inode_del_deassert(attrs->fid);
+    }
     status = 0;
 out:
     STOP_PROFILING(export_getattr);
@@ -1165,8 +1455,16 @@ int export_setattr(export_t *e, fid_t fid, mattr_t *attrs, int to_set) {
        
     START_PROFILING(export_setattr);
 
-    if (!(lv2 = export_lookup_fid(e->trk_tb_p,e->lv2_cache, fid))) {
+    if (!(lv2 = EXPORT_LOOKUP_FID(e->trk_tb_p,e->lv2_cache, fid))) {
         goto out;
+    }
+    /*
+    ** reject the service if the directory has the delete pending bit asserted
+    */
+    if (exp_metadata_inode_is_del_pending(lv2->attributes.s.attrs.fid))
+    {
+       errno = EROFS;
+       goto out;
     }
 
     if ((to_set & EXPORT_SET_ATTR_SIZE) && S_ISREG(lv2->attributes.s.attrs.mode)) {
@@ -1259,7 +1557,7 @@ int export_link(export_t *e, fid_t inode, fid_t newparent, char *newname, mattr_
     START_PROFILING(export_link);
 
     // Get the lv2 inode
-    if (!(target = export_lookup_fid(e->trk_tb_p,e->lv2_cache, inode)))
+    if (!(target = EXPORT_LOOKUP_FID(e->trk_tb_p,e->lv2_cache, inode)))
         goto out;
 
     // Verify that the target is not a directory
@@ -1269,7 +1567,7 @@ int export_link(export_t *e, fid_t inode, fid_t newparent, char *newname, mattr_
     }
 
     // Get the lv2 parent
-    if (!(plv2 = export_lookup_fid(e->trk_tb_p,e->lv2_cache, newparent)))
+    if (!(plv2 = EXPORT_LOOKUP_FID(e->trk_tb_p,e->lv2_cache, newparent)))
         goto out;
     /*
     ** load the root_idx bitmap of the old parent
@@ -1410,7 +1708,7 @@ int export_mknod_multiple(export_t *e,uint32_t site_number,fid_t pfid, char *nam
     filename_p = name;
     
     // get the lv2 parent
-    if (!(plv2 = export_lookup_fid(e->trk_tb_p,e->lv2_cache, pfid)))
+    if (!(plv2 = EXPORT_LOOKUP_FID(e->trk_tb_p,e->lv2_cache, pfid)))
         goto error;
 
     /*
@@ -1627,9 +1925,11 @@ int export_mknod_multiple(export_t *e,uint32_t site_number,fid_t pfid, char *nam
     // Update children nb. and times of parent
     plv2->attributes.s.attrs.children += filecount+1;    
     plv2->attributes.s.attrs.mtime = plv2->attributes.s.attrs.ctime = time(NULL);
-    if (export_lv2_write_attributes(e->trk_tb_p,plv2) != 0) {
-        goto error;
-    } 
+    /*
+    ** write the attributes on disk
+    */
+    export_attr_thread_submit(plv2,e->trk_tb_p);
+
     // update export files
     export_update_files(e, filecount+1);
     
@@ -1723,7 +2023,7 @@ lv2_entry_t *  export_get_recycled_inode(export_t *e,fid_t pfid,ext_mattr_t *ext
    /*
    ** load up the entry in cache
    */
-   if (!(lv2 = export_lookup_fid(e->trk_tb_p,e->lv2_cache, rmfe->fid)))
+   if (!(lv2 = EXPORT_LOOKUP_FID(e->trk_tb_p,e->lv2_cache, rmfe->fid)))
    {
       severe("cannot find fid on disk");
       free(rmfe);
@@ -1756,6 +2056,7 @@ int export_mknod(export_t *e,uint32_t site_number,fid_t pfid, char *name, uint32
         uint32_t gid, mode_t mode, mattr_t *attrs,mattr_t *pattrs) {
     int status = -1;
     lv2_entry_t *plv2=NULL;
+    lv2_entry_t *lv2_child = NULL;
     fid_t node_fid;
     int xerrno = errno;
     uint32_t type;
@@ -1764,18 +2065,23 @@ int export_mknod(export_t *e,uint32_t site_number,fid_t pfid, char *name, uint32
     uint32_t pslice;
     int inode_allocated = 0;
     mdirent_fid_name_info_t fid_name_info;
-    rozofs_inode_t *fake_inode;
-    exp_trck_top_header_t *p = NULL;
-    int ret;
     int root_dirent_mask = 0;
     lv2_entry_t *lv2_recycle=NULL;
 
    
     START_PROFILING(export_mknod);
-
+    
+    /*
+    ** reject the service if the directory has the delete pending bit asserted
+    */
+    if (exp_metadata_inode_is_del_pending(pfid))
+    {
+       errno = EROFS;
+       goto error;
+    }
 
     // get the lv2 parent
-    if (!(plv2 = export_lookup_fid(e->trk_tb_p,e->lv2_cache, pfid)))
+    if (!(plv2 = EXPORT_LOOKUP_FID(e->trk_tb_p,e->lv2_cache, pfid)))
         goto error;
 
     if (strncmp(name,".@rozofs-mf@",12) == 0)
@@ -1808,13 +2114,6 @@ int export_mknod(export_t *e,uint32_t site_number,fid_t pfid, char *name, uint32
         xerrno = EIO;
         goto error_read_only;
     }
-#warning FDL-> mknod do not filter the inode mode
-#if 0
-    if (!S_ISREG(mode)) {
-        errno = ENOTSUP;
-        goto error;
-    }    
-#endif
     /*
     ** Check that some space os left for the new file in case a hard quota is set
     */
@@ -1921,31 +2220,33 @@ int export_mknod(export_t *e,uint32_t site_number,fid_t pfid, char *name, uint32
     /*
     ** flush the inode on disk
     */
-    fake_inode = (rozofs_inode_t*)ext_attrs.s.attrs.fid;
-    p = e->trk_tb_p->tracking_table[fake_inode->s.key];
-    ret = exp_metadata_write_attributes(p,fake_inode,&ext_attrs,sizeof(ext_mattr_t));
-    if (ret < 0)
-    { 
-      goto error;
-    }
     if (lv2_recycle == NULL)
     {  
-      lv2_cache_put_forced(e->lv2_cache,ext_attrs.s.attrs.fid,&ext_attrs);
+      lv2_child = lv2_cache_put_forced(e->lv2_cache,ext_attrs.s.attrs.fid,&ext_attrs);
     }
     else
     {
-      memcpy(&lv2_recycle->attributes,&ext_attrs,sizeof(ext_mattr_t));    
+      memcpy(&lv2_recycle->attributes,&ext_attrs,sizeof(ext_mattr_t));
+      lv2_child = lv2_recycle;    
     }
+    /*
+    ** write child attributes on disk
+    */
+    export_attr_thread_submit(lv2_child,e->trk_tb_p);
+
     // Update children nb. and times of parent
     plv2->attributes.s.attrs.children++;
     plv2->attributes.s.attrs.mtime = plv2->attributes.s.attrs.ctime = time(NULL);
-    if (export_lv2_write_attributes(e->trk_tb_p,plv2) != 0) {
-        goto error;
-    }
+    /*
+    ** write parent attributes on disk
+    */
+    export_attr_thread_submit(plv2,e->trk_tb_p);
+
     // update export files
     export_update_files(e, 1);
 
     rozofs_qt_inode_update(e->eid,uid,gid,1,ROZOFS_QT_INC);
+    
     status = 0;
     /*
     ** return the parent attributes and the child attributes
@@ -2013,11 +2314,16 @@ int export_mkdir(export_t *e, fid_t pfid, char *name, uint32_t uid,
     int root_dirent_mask = 0;
    
     START_PROFILING(export_mkdir);
-
+    
+    if (exp_metadata_inode_is_del_pending(pfid))
+    {    
+      errno = EROFS;
+      goto error;
+    }
     memset(&root_idx_bitmap,0,sizeof(dirent_dir_root_idx_bitmap_t));
 
     // get the lv2 parent
-    if (!(plv2 = export_lookup_fid(e->trk_tb_p,e->lv2_cache, pfid)))
+    if (!(plv2 = EXPORT_LOOKUP_FID(e->trk_tb_p,e->lv2_cache, pfid)))
         goto error;
     /*
     ** load the root_idx bitmap of the old parent
@@ -2353,7 +2659,7 @@ int export_unlink_multiple(export_t * e, fid_t parent, char *name, fid_t fid,mat
 	  continue;
       }
       // Get mattrs of child to delete
-      if (!(lv2 = export_lookup_fid(e->trk_tb_p,e->lv2_cache, child_fid)))
+      if (!(lv2 = EXPORT_LOOKUP_FID(e->trk_tb_p,e->lv2_cache, child_fid)))
       {
 	    unknown_fid++;
 	    /*
@@ -2517,6 +2823,8 @@ int export_fid_recycle_attempt(export_t * e,lv2_entry_t *lv2)
    rozofs_inode_t *fake_inode_p;
    recycle_disk_t  recycle_entry;
    uint64_t count;
+   rozofs_inode_t fake_inode; 
+
    int ret;
      
    if (common_config.fid_recycle == 0) return 0;
@@ -2538,7 +2846,7 @@ int export_fid_recycle_attempt(export_t * e,lv2_entry_t *lv2)
    /*
    ** update the version of the fid in the attributes
    */
-   fake_inode_p =  (rozofs_inode_t *)lv2->attributes.s.attrs.fid;
+   fake_inode_p =  (rozofs_inode_t *)lv2->attributes.s.attrs.fid;   
    rozofs_inc_recycle_on_fid(fake_inode_p);
    
    memcpy(recycle_entry.fid, lv2->attributes.s.attrs.fid, sizeof (fid_t));
@@ -2550,7 +2858,28 @@ int export_fid_recycle_attempt(export_t * e,lv2_entry_t *lv2)
       */
       severe("error on recycle insertion error %s",strerror(errno)); 
    }
-
+   /*
+   ** clear the creation time to indicate that the i-node is a recycled inode
+   */
+   lv2->attributes.s.cr8time = 0;
+   export_tracking_table_t *trk_tb_p;
+   
+   trk_tb_p = e->trk_tb_p;
+   /*
+   ** check the presence of the extended attributes block
+   */
+   if (lv2->attributes.s.i_file_acl)
+   {
+      /*
+      ** release the block used for extended attributes
+      ** note: don't care about the upper 64bits of the fid!!
+      */
+      fid_t fid;
+      fake_inode.fid[1] = lv2->attributes.s.i_file_acl;
+      memcpy(fid,&fake_inode.fid[0],sizeof(fid_t));
+      exp_attr_delete(trk_tb_p,fid);    
+      lv2->attributes.s.i_file_acl = 0;
+   }
    /*
    ** write back attributes on disk
    */ 
@@ -2577,7 +2906,183 @@ int export_fid_recycle_attempt(export_t * e,lv2_entry_t *lv2)
    return 1;
 }
 
+char *export_build_deleted_name(char *buffer,uint64_t *inode_val,char *name)
+{
+    time_t secondes;
+    struct tm instant;
+    char bufall[128];
+    
+    time(&secondes);
+    instant=*localtime(&secondes);
+    instant.tm_sec = 0;
+    instant.tm_min = 0;
+    secondes = mktime(&instant);
+    instant=*localtime(&secondes);
+    strftime(bufall,80,"%F-%I%p", &instant);
+    if (inode_val==NULL) sprintf(buffer,"@%s@@%s",bufall,name);
+    else sprintf(buffer,"@%s@%llx@%s",bufall,(unsigned long long int)*inode_val,name);
+    return buffer;
+}
+/*
+**__________________________________________________________________
+*/
+/** remove a file for which there was a duplicate fid
+    it is assumed that the fid has the delete pending bit asserted
+ 
+  @param e: the export managing the file
+  @param plv2: attributes of the parent
+  @param parent: the fid of parent
+  @param child: the fid of the removed file
+  
+  @revtal none
+*/
+void export_unlink_duplicate_fid(export_t * e,lv2_entry_t  *plv2,fid_t parent, fid_t child_fid)
+{
+  lv2_entry_t  *lv2=NULL;
+  int ret;
+  int fid_has_been_recycled = 0;  
+  rmfentry_disk_t trash_entry;
+  int quota_uid=-1;
+  int quota_gid=-1;
+  uint64_t quota_size = 0;
+  rozofs_inode_t *fake_inode_p;
+      
+  if (!(lv2 = EXPORT_LOOKUP_FID(e->trk_tb_p,e->lv2_cache, child_fid)))
+    return;
+  
+  if (!S_ISREG(lv2->attributes.s.attrs.mode))
+  {
+    severe("not a regular file");
+    return;
+  }
+   /*
+   ** clear the delete pending bit from the lv2 entry
+   */
+   exp_metadata_inode_del_deassert(lv2->attributes.s.attrs.fid);
+   /*
+   ** check the case of the fid recycle
+   */
+   fid_has_been_recycled = export_fid_recycle_attempt(e,lv2);
+   if (fid_has_been_recycled == 0)
+   {
+     // Compute hash value for this fid
+     uint32_t hash = rozofs_storage_fid_slice(lv2->attributes.s.attrs.fid);
 
+     /*
+     ** prepare the trash entry
+     */
+     trash_entry.size = lv2->attributes.s.attrs.size;
+     memcpy(trash_entry.fid, lv2->attributes.s.attrs.fid, sizeof (fid_t));
+     trash_entry.cid = lv2->attributes.s.attrs.cid;
+     memcpy(trash_entry.initial_dist_set, lv2->attributes.s.attrs.sids,
+             sizeof (sid_t) * ROZOFS_SAFE_MAX);
+     memcpy(trash_entry.current_dist_set, lv2->attributes.s.attrs.sids,
+             sizeof (sid_t) * ROZOFS_SAFE_MAX);
+     fake_inode_p =  (rozofs_inode_t *)parent;   
+     ret = exp_trash_entry_create(e->trk_tb_p,fake_inode_p->s.usr_id,&trash_entry); 
+     if (ret < 0)
+     {
+	/*
+	** error while inserting entry in trash file
+	*/
+	severe("error on trash insertion  error %s",strerror(errno)); 
+     }
+     /*
+     ** delete the metadata associated with the file
+     */
+     ret = exp_delete_file(e,lv2);
+     /*
+     * In case of geo replication, insert a delete request from the 2 sites 
+     */
+     if (e->volume->georep) 
+     {
+       /*
+       ** update the geo replication: set start=end=0 to indicate a deletion 
+       */
+       geo_rep_insert_fid(e->geo_replication_tb[0],
+                	  lv2->attributes.s.attrs.fid,
+			  0/*start*/,0/*end*/,
+			  e->layout,
+			  lv2->attributes.s.attrs.cid,
+			  lv2->attributes.s.attrs.sids);
+       /*
+       ** update the geo replication: set start=end=0 to indicate a deletion 
+       */
+       geo_rep_insert_fid(e->geo_replication_tb[1],
+                	  lv2->attributes.s.attrs.fid,
+			  0/*start*/,0/*end*/,
+			  e->layout,
+			  lv2->attributes.s.attrs.cid,
+			  lv2->attributes.s.attrs.sids);
+     }	
+     /*
+     ** Preparation of the rmfentry
+     */
+     rmfentry_t *rmfe = xmalloc(sizeof (rmfentry_t));
+     export_rm_bins_pending_count++;
+     memcpy(rmfe->fid, trash_entry.fid, sizeof (fid_t));
+     rmfe->cid = trash_entry.cid;
+     memcpy(rmfe->initial_dist_set, trash_entry.initial_dist_set,
+             sizeof (sid_t) * ROZOFS_SAFE_MAX);
+     memcpy(rmfe->current_dist_set, trash_entry.current_dist_set,
+             sizeof (sid_t) * ROZOFS_SAFE_MAX);
+     memcpy(rmfe->trash_inode,trash_entry.trash_inode,sizeof(fid_t));
+     list_init(&rmfe->list);
+     /* Acquire lock on bucket trash list
+     */
+     if ((errno = pthread_rwlock_wrlock
+             (&e->trash_buckets[hash].rm_lock)) != 0) {
+         severe("pthread_rwlock_wrlock failed: %s", strerror(errno));
+         // Best effort
+     }
+     /*
+     ** Check size of file 
+     */
+     if (hash >= common_config.storio_slice_number )
+     {	      
+       severe("bad hash value %d (max %d)",hash,common_config.storio_slice_number);
+     }
+     if (lv2->attributes.s.attrs.size >= RM_FILE_SIZE_TRESHOLD) {
+         // Add to front of list
+         list_push_front(&e->trash_buckets[hash].rmfiles, &rmfe->list);
+     } else {
+         // Add to back of list
+         list_push_back(&e->trash_buckets[hash].rmfiles, &rmfe->list);
+     }
+
+     if ((errno = pthread_rwlock_unlock
+             (&e->trash_buckets[hash].rm_lock)) != 0) {
+         severe("pthread_rwlock_unlock failed: %s", strerror(errno));
+         // Best effort
+     }
+   }
+   /*
+   ** Update the nb. of blocks
+   */
+   if (export_update_blocks(e,0,
+           (((int64_t) lv2->attributes.s.attrs.size + ROZOFS_BSIZE_BYTES(e->bsize) - 1)
+           / ROZOFS_BSIZE_BYTES(e->bsize))) != 0) {
+       severe("export_update_blocks failed: %s", strerror(errno));
+       // Best effort
+   }
+   /*
+   ** update the quota: only if file is really deleted
+   */
+   rozofs_qt_inode_update(e->eid,quota_uid,quota_gid,1,ROZOFS_QT_DEC);
+   rozofs_qt_block_update(e->eid,quota_uid,quota_gid,quota_size,ROZOFS_QT_DEC);
+   /*
+   ** Update export files
+   */
+   export_update_files(e, -1);
+   /*
+   ** Remove from the cache when deleted (will be closed and freed)
+   */
+   if (fid_has_been_recycled == 0)
+   {
+     lv2_cache_del(e->lv2_cache, child_fid);
+   }
+   plv2->attributes.s.hpc_reserved--;    
+}
 /*
 **__________________________________________________________________
 */
@@ -2605,11 +3110,14 @@ int export_unlink(export_t * e, fid_t parent, char *name, fid_t fid,mattr_t * pa
     int quota_uid=-1;
     int quota_gid=-1;
     uint64_t quota_size = 0;
-    
+    int update_children = 1;
+    int rename = 0;
+    int write_parent_attributes = 0;
+
     START_PROFILING(export_unlink);
 
     // Get the lv2 parent
-    if (!(plv2 = export_lookup_fid(e->trk_tb_p,e->lv2_cache, parent)))
+    if (!(plv2 = EXPORT_LOOKUP_FID(e->trk_tb_p,e->lv2_cache, parent)))
         goto out;
 
     if (strncmp(name,".@rozofs-mf@",12) == 0)
@@ -2621,6 +3129,20 @@ int export_unlink(export_t * e, fid_t parent, char *name, fid_t fid,mattr_t * pa
 	STOP_PROFILING(export_unlink);
 	return ret;
       }
+    }
+    /*
+    ** check for rename
+    */
+    if (exp_metadata_inode_is_del_pending(parent)==0)
+    {
+       if (common_config.export_versioning)rename = 1;
+       else rename = 0;
+       update_children = 1;
+    }
+    else
+    {
+       rename = 0;
+       update_children = 0;          
     }
     /*
     ** load the root_idx bitmap of the old parent
@@ -2637,12 +3159,24 @@ int export_unlink(export_t * e, fid_t parent, char *name, fid_t fid,mattr_t * pa
         errno = EISDIR;
         goto out;
     }
+    /*
+    ** check if the file has its delete pending bit asserted
+    */
+    if ((exp_metadata_inode_is_del_pending(child_fid)==1) && (rename==1))
+    {
+      /*
+      ** do not accept the rename of a file that has its delete pendng bit asserted
+      */
+      errno=EACCES;
+      goto out;    
+    }
+
     // Delete the mdirentry if exist
     if (del_mdirentry(plv2->dirent_root_idx_p,fdp, parent, name, child_fid, &child_type,root_dirent_mask) != 0)
         goto out;
 
     // Get mattrs of child to delete
-    if (!(lv2 = export_lookup_fid(e->trk_tb_p,e->lv2_cache, child_fid)))
+    if (!(lv2 = EXPORT_LOOKUP_FID(e->trk_tb_p,e->lv2_cache, child_fid)))
         goto out;
     /*
     ** get the user id/group id and size for quota management
@@ -2667,114 +3201,136 @@ int export_unlink(export_t * e, fid_t parent, char *name, fid_t fid,mattr_t * pa
         int fid_has_been_recycled = 0;
 
         if (S_ISREG(lv2->attributes.s.attrs.mode)) {
-	    /*
-	    ** check the case of the fid recycle
-	    */
-	    fid_has_been_recycled = export_fid_recycle_attempt(e,lv2);
-	    if (fid_has_been_recycled == 0)
-	    {
-              // Compute hash value for this fid
-              uint32_t hash = rozofs_storage_fid_slice(lv2->attributes.s.attrs.fid);
-
-              /*
-	      ** prepare the trash entry
-	      */
-	      trash_entry.size = lv2->attributes.s.attrs.size;
-              memcpy(trash_entry.fid, lv2->attributes.s.attrs.fid, sizeof (fid_t));
-              trash_entry.cid = lv2->attributes.s.attrs.cid;
-              memcpy(trash_entry.initial_dist_set, lv2->attributes.s.attrs.sids,
-                      sizeof (sid_t) * ROZOFS_SAFE_MAX);
-              memcpy(trash_entry.current_dist_set, lv2->attributes.s.attrs.sids,
-                      sizeof (sid_t) * ROZOFS_SAFE_MAX);
-	      fake_inode_p =  (rozofs_inode_t *)parent;   
-              ret = exp_trash_entry_create(e->trk_tb_p,fake_inode_p->s.usr_id,&trash_entry); 
-	      if (ret < 0)
-	      {
-		 /*
-		 ** error while inserting entry in trash file
-		 */
-		 severe("error on trash insertion name %s error %s",name,strerror(errno)); 
-              }
-              /*
-	      ** delete the metadata associated with the file
-	      */
-	      ret = exp_delete_file(e,lv2);
+	   /*
+	   ** if the file size is 0 clear the rename flag
+	   */
+	   if (lv2->attributes.s.attrs.size == 0)
+	   {
+	     rename = 0;
+	     update_children = 1;       	   
+	   }
+	   if (rename == 0)
+	   {
 	      /*
-	      * In case of geo replication, insert a delete request from the 2 sites 
+	      ** clear the delete pending bit from the lv2 entry
 	      */
-	      if (e->volume->georep) 
+	      exp_metadata_inode_del_deassert(lv2->attributes.s.attrs.fid);
+	      /*
+	      ** check the case of the fid recycle
+	      */
+	      fid_has_been_recycled = export_fid_recycle_attempt(e,lv2);
+	      if (fid_has_been_recycled == 0)
 	      {
-		/*
-		** update the geo replication: set start=end=0 to indicate a deletion 
-		*/
-		geo_rep_insert_fid(e->geo_replication_tb[0],
-                		   lv2->attributes.s.attrs.fid,
-				   0/*start*/,0/*end*/,
-				   e->layout,
-				   lv2->attributes.s.attrs.cid,
-				   lv2->attributes.s.attrs.sids);
-		/*
-		** update the geo replication: set start=end=0 to indicate a deletion 
-		*/
-		geo_rep_insert_fid(e->geo_replication_tb[1],
-                		   lv2->attributes.s.attrs.fid,
-				   0/*start*/,0/*end*/,
-				   e->layout,
-				   lv2->attributes.s.attrs.cid,
-				   lv2->attributes.s.attrs.sids);
-	      }	
-              /*
-	      ** Preparation of the rmfentry
-	      */
-              rmfentry_t *rmfe = xmalloc(sizeof (rmfentry_t));
-	      export_rm_bins_pending_count++;
-              memcpy(rmfe->fid, trash_entry.fid, sizeof (fid_t));
-              rmfe->cid = trash_entry.cid;
-              memcpy(rmfe->initial_dist_set, trash_entry.initial_dist_set,
-                      sizeof (sid_t) * ROZOFS_SAFE_MAX);
-              memcpy(rmfe->current_dist_set, trash_entry.current_dist_set,
-                      sizeof (sid_t) * ROZOFS_SAFE_MAX);
-              memcpy(rmfe->trash_inode,trash_entry.trash_inode,sizeof(fid_t));
-              list_init(&rmfe->list);
-              /* Acquire lock on bucket trash list
-	      */
-              if ((errno = pthread_rwlock_wrlock
-                      (&e->trash_buckets[hash].rm_lock)) != 0) {
-                  severe("pthread_rwlock_wrlock failed: %s", strerror(errno));
-                  // Best effort
-              }
-              /*
-	      ** Check size of file 
-	      */
-	      if (hash >= common_config.storio_slice_number )
-	      {	      
-	        severe("FDL bad hash value %d (max %d)",hash,common_config.storio_slice_number);
-	      }
-              if (lv2->attributes.s.attrs.size >= RM_FILE_SIZE_TRESHOLD) {
-                  // Add to front of list
-                  list_push_front(&e->trash_buckets[hash].rmfiles, &rmfe->list);
-              } else {
-                  // Add to back of list
-                  list_push_back(&e->trash_buckets[hash].rmfiles, &rmfe->list);
-              }
+        	// Compute hash value for this fid
+        	uint32_t hash = rozofs_storage_fid_slice(lv2->attributes.s.attrs.fid);
 
-              if ((errno = pthread_rwlock_unlock
-                      (&e->trash_buckets[hash].rm_lock)) != 0) {
-                  severe("pthread_rwlock_unlock failed: %s", strerror(errno));
+        	/*
+		** prepare the trash entry
+		*/
+		trash_entry.size = lv2->attributes.s.attrs.size;
+        	memcpy(trash_entry.fid, lv2->attributes.s.attrs.fid, sizeof (fid_t));
+        	trash_entry.cid = lv2->attributes.s.attrs.cid;
+        	memcpy(trash_entry.initial_dist_set, lv2->attributes.s.attrs.sids,
+                	sizeof (sid_t) * ROZOFS_SAFE_MAX);
+        	memcpy(trash_entry.current_dist_set, lv2->attributes.s.attrs.sids,
+                	sizeof (sid_t) * ROZOFS_SAFE_MAX);
+		fake_inode_p =  (rozofs_inode_t *)parent;   
+        	ret = exp_trash_entry_create(e->trk_tb_p,fake_inode_p->s.usr_id,&trash_entry); 
+		if (ret < 0)
+		{
+		   /*
+		   ** error while inserting entry in trash file
+		   */
+		   severe("error on trash insertion name %s error %s",name,strerror(errno)); 
+        	}
+        	/*
+		** delete the metadata associated with the file
+		*/
+		ret = exp_delete_file(e,lv2);
+		/*
+		* In case of geo replication, insert a delete request from the 2 sites 
+		*/
+		if (e->volume->georep) 
+		{
+		  /*
+		  ** update the geo replication: set start=end=0 to indicate a deletion 
+		  */
+		  geo_rep_insert_fid(e->geo_replication_tb[0],
+                		     lv2->attributes.s.attrs.fid,
+				     0/*start*/,0/*end*/,
+				     e->layout,
+				     lv2->attributes.s.attrs.cid,
+				     lv2->attributes.s.attrs.sids);
+		  /*
+		  ** update the geo replication: set start=end=0 to indicate a deletion 
+		  */
+		  geo_rep_insert_fid(e->geo_replication_tb[1],
+                		     lv2->attributes.s.attrs.fid,
+				     0/*start*/,0/*end*/,
+				     e->layout,
+				     lv2->attributes.s.attrs.cid,
+				     lv2->attributes.s.attrs.sids);
+		}	
+        	/*
+		** Preparation of the rmfentry
+		*/
+        	rmfentry_t *rmfe = xmalloc(sizeof (rmfentry_t));
+		export_rm_bins_pending_count++;
+        	memcpy(rmfe->fid, trash_entry.fid, sizeof (fid_t));
+        	rmfe->cid = trash_entry.cid;
+        	memcpy(rmfe->initial_dist_set, trash_entry.initial_dist_set,
+                	sizeof (sid_t) * ROZOFS_SAFE_MAX);
+        	memcpy(rmfe->current_dist_set, trash_entry.current_dist_set,
+                	sizeof (sid_t) * ROZOFS_SAFE_MAX);
+        	memcpy(rmfe->trash_inode,trash_entry.trash_inode,sizeof(fid_t));
+        	list_init(&rmfe->list);
+        	/* Acquire lock on bucket trash list
+		*/
+        	if ((errno = pthread_rwlock_wrlock
+                	(&e->trash_buckets[hash].rm_lock)) != 0) {
+                    severe("pthread_rwlock_wrlock failed: %s", strerror(errno));
+                    // Best effort
+        	}
+        	/*
+		** Check size of file 
+		*/
+		if (hash >= common_config.storio_slice_number )
+		{	      
+	          severe("FDL bad hash value %d (max %d)",hash,common_config.storio_slice_number);
+		}
+        	if (lv2->attributes.s.attrs.size >= RM_FILE_SIZE_TRESHOLD) {
+                    // Add to front of list
+                    list_push_front(&e->trash_buckets[hash].rmfiles, &rmfe->list);
+        	} else {
+                    // Add to back of list
+                    list_push_back(&e->trash_buckets[hash].rmfiles, &rmfe->list);
+        	}
+
+        	if ((errno = pthread_rwlock_unlock
+                	(&e->trash_buckets[hash].rm_lock)) != 0) {
+                    severe("pthread_rwlock_unlock failed: %s", strerror(errno));
+                    // Best effort
+        	}
+	      }
+	    }
+            /*
+	    ** Update the nb. of blocks: that action is taken only the the file is deleted
+	    */
+	    if (rename == 0)
+	    {
+              if (export_update_blocks(e,0,
+                      (((int64_t) lv2->attributes.s.attrs.size + ROZOFS_BSIZE_BYTES(e->bsize) - 1)
+                      / ROZOFS_BSIZE_BYTES(e->bsize))) != 0) {
+                  severe("export_update_blocks failed: %s", strerror(errno));
                   // Best effort
               }
 	    }
-            // Update the nb. of blocks
-            if (export_update_blocks(e,0,
-                    (((int64_t) lv2->attributes.s.attrs.size + ROZOFS_BSIZE_BYTES(e->bsize) - 1)
-                    / ROZOFS_BSIZE_BYTES(e->bsize))) != 0) {
-                severe("export_update_blocks failed: %s", strerror(errno));
-                // Best effort
-            }
         } else {
 	    /*
-	    ** release the inode entry: case of the symbolic link
+	    ** release the inode entry: case of the symbolic link: no delete defer for symbolic link
 	    */
+	    rename = 0;
+	    update_children = 1;
 	    quota_size = 0;
 	    if (exp_delete_file(e,lv2) < 0)
 	    {
@@ -2782,21 +3338,26 @@ int export_unlink(export_t * e, fid_t parent, char *name, fid_t fid,mattr_t * pa
 	    }
         }
 	/*
-	** update the quota
+	** update the quota: only if file is really deleted
 	*/
-         rozofs_qt_inode_update(e->eid,quota_uid,quota_gid,1,ROZOFS_QT_DEC);
-         rozofs_qt_block_update(e->eid,quota_uid,quota_gid,quota_size,ROZOFS_QT_DEC);
-       // Update export files
-        export_update_files(e, -1);
-	
-        // Remove from the cache when deleted (will be closed and freed)
-        if (fid_has_been_recycled == 0)
+	if (rename == 0)
 	{
-          lv2_cache_del(e->lv2_cache, child_fid);
-	}  
+           rozofs_qt_inode_update(e->eid,quota_uid,quota_gid,1,ROZOFS_QT_DEC);
+           rozofs_qt_block_update(e->eid,quota_uid,quota_gid,quota_size,ROZOFS_QT_DEC);
+           // Update export files
+          export_update_files(e, -1);
+
+          // Remove from the cache when deleted (will be closed and freed)
+          if (fid_has_been_recycled == 0)
+	  {
+            lv2_cache_del(e->lv2_cache, child_fid);
+	  } 
+        } 
     }
     // It's a hardlink
     if (nlink > 1) {
+        rename = 0;
+	update_children = 1;
         lv2->attributes.s.attrs.nlink--;
         lv2->attributes.s.attrs.ctime = time(NULL);
         export_lv2_write_attributes(e->trk_tb_p,lv2);
@@ -2806,22 +3367,126 @@ int export_unlink(export_t * e, fid_t parent, char *name, fid_t fid,mattr_t * pa
 
     // Update parent
     plv2->attributes.s.attrs.mtime = plv2->attributes.s.attrs.ctime = time(NULL);
-    plv2->attributes.s.attrs.children--;
+    if (update_children == 1) 
+    {
+      plv2->attributes.s.attrs.children--;
+    }
+    /*
+    ** check if the count of deleted file must be updated
+    */
+    if (rename == 1)
+    {
+      plv2->attributes.s.hpc_reserved++;    
+    }
+    else
+    {
+      /*
+      ** check if the directory is a deleted directory
+      */
+      if (exp_metadata_inode_is_del_pending(parent))
+      {
+         plv2->attributes.s.hpc_reserved--;          
+      }    
+    }
 
     // Write attributes of parents
-    if (export_lv2_write_attributes(e->trk_tb_p,plv2) != 0)
-        goto out;
+    write_parent_attributes = 1;
     /*
     ** return the parent attributes
     */
     memcpy(pattrs, &plv2->attributes.s.attrs, sizeof (mattr_t));
     status = 0;
-
+    /*
+    ** Check the case of the rename
+    */
+    if (rename)
+    {
+       mdirent_fid_name_info_t fid_name_info;
+       char            del_name[2048];
+       uint32_t        hash1,hash2;
+       int             root_idx;
+       int             len;  
+       rozofs_inode_t *inode_p;
+       uint64_t        key_del; 
+       fid_t           old_child_fid;
+       uint32_t        old_child_type;
+           
+       /*
+       ** Get the attributes of the object to remove
+       */
+       if (!(lv2 = EXPORT_LOOKUP_FID(e->trk_tb_p,e->lv2_cache, child_fid)))
+       {
+          goto out;
+       }       
+       inode_p = (rozofs_inode_t*)fid;
+       key_del= inode_p->s.file_id;
+       key_del = key_del<<11;
+       key_del |= inode_p->s.idx;
+       /*
+       ** append the delete pending prefix to the object name
+       */
+       export_build_deleted_name(del_name,NULL,name);
+//       sprintf(del_name,"@rozofs-del@%llx@@%s",(unsigned long long int)key_del,name);
+       /*
+       ** update the bit in the root_idx bitmap of the parent directory
+       */
+       hash1 = filename_uuid_hash_fnv(0, del_name,parent, &hash2, &len);    
+       lv2->attributes.s.hash1 = hash1;
+       lv2->attributes.s.hash2 = hash2;
+       root_idx = dirent_get_root_idx(plv2->attributes.s.attrs.children,hash1);
+       export_dir_update_root_idx_bitmap(plv2->dirent_root_idx_p,root_idx,1);
+       if (export_dir_flush_root_idx_bitmap(e,parent,plv2->dirent_root_idx_p) < 0)
+       {
+	  errno = EPROTO; 
+	  goto out;
+       }
+       /*
+       ** assert the delete pending bit in the i-node
+       */
+       exp_metadata_inode_del_assert(child_fid);
+       memcpy(lv2->attributes.s.attrs.fid,child_fid,sizeof(fid_t));
+       /*
+       **  Check if the deleted file is already in the dentry
+       */
+       if (get_mdirentry(plv2->dirent_root_idx_p,fdp, parent, del_name, old_child_fid, &old_child_type,&root_dirent_mask) == 0)
+       {
+         export_unlink_duplicate_fid(e,plv2,parent,old_child_fid);
+	 write_parent_attributes = 1;       
+       }
+       /*
+       **  update the parent
+       ** add the new child to the parent
+       */
+       if (put_mdirentry(plv2->dirent_root_idx_p,fdp, parent, del_name, 
+                	 child_fid, child_type,&fid_name_info,
+			 plv2->attributes.s.attrs.children,
+			 &root_dirent_mask) != 0) {
+           goto out;
+       } 
+       /*
+       ** update name in the inode structure
+       */
+       exp_store_fname_in_inode(&lv2->attributes.s.fname,del_name,&fid_name_info);           
+       /*
+       **  Write attributes of deleted file (pending)
+       */
+       export_lv2_write_attributes(e->trk_tb_p,lv2) ;
+    }
 out:
     /*
     ** check if parent root idx bitmap must be updated
     */
-    if (plv2 != NULL) export_dir_flush_root_idx_bitmap(e,parent,plv2->dirent_root_idx_p);
+    if (plv2 != NULL) 
+    {
+      if (write_parent_attributes) 
+      {
+        /*
+	** write parent attributes on disk
+	*/
+	export_attr_thread_submit(plv2,e->trk_tb_p);
+      }
+      export_dir_flush_root_idx_bitmap(e,parent,plv2->dirent_root_idx_p);
+    }
     
     if(fdp != -1) close(fdp);
     STOP_PROFILING(export_unlink);
@@ -3119,7 +3784,6 @@ char *export_rm_bins_stats(char *pChar)
    pChar += sprintf(pChar,"  - pending  = %llu\n", 
         (unsigned long long int) (export_rm_bins_reload_count+export_rm_bins_pending_count)-export_rm_bins_done_count);
 
-
    if (common_config.fid_recycle) {
      pChar += sprintf(pChar,"recycle stats:\n");
      pChar += sprintf(pChar,"  - reloaded = %llu\n", (unsigned long long int) export_fid_recycle_reload_count);
@@ -3130,7 +3794,7 @@ char *export_rm_bins_stats(char *pChar)
    }
    else {
      pChar += sprintf(pChar,"No FID recycling.\n");     
-   }	  
+   }   
    return pChar;
 }
 /*
@@ -3374,13 +4038,29 @@ int export_rmdir(export_t *e, fid_t pfid, char *name, fid_t fid,mattr_t * pattrs
     int fdp = -1;
     int root_dirent_mask = 0;
     int quota_uid,quota_gid;
-
+    int rename = 0;
+    int write_parent_attributes = 0;
+    int update_children = 0;
     
     START_PROFILING(export_rmdir);
 
     // get the lv2 parent
-    if (!(plv2 = export_lookup_fid(e->trk_tb_p,e->lv2_cache, pfid)))
+    if (!(plv2 = EXPORT_LOOKUP_FID(e->trk_tb_p,e->lv2_cache, pfid)))
         goto out;
+    /*
+    ** check for rename
+    */
+    if (exp_metadata_inode_is_del_pending(pfid)==0)
+    {
+       if (common_config.export_versioning)rename = 1;
+       else rename = 0;
+       update_children = 1;
+    }
+    else
+    {
+       rename = 0;
+       update_children = 0;          
+    }
     /*
     ** load the root_idx bitmap of the  parent
     */
@@ -3391,9 +4071,20 @@ int export_rmdir(export_t *e, fid_t pfid, char *name, fid_t fid,mattr_t * pattrs
     fdp = export_open_parent_directory(e,pfid);
     if (get_mdirentry(plv2->dirent_root_idx_p,fdp, pfid, name, fid, &fake_type,&root_dirent_mask) != 0)
         goto out;
+    /*
+    ** check if the file has its delete pending bit asserted
+    */
+    if ((exp_metadata_inode_is_del_pending(fid)==1) && (rename==1))
+    {
+      /*
+      ** do not accept the rename of a directory that has its delete pendng bit asserted
+      */
+      errno=EACCES;
+      goto out;    
+    }
 
     // get the lv2
-    if (!(lv2 = export_lookup_fid(e->trk_tb_p,e->lv2_cache, fid)))
+    if (!(lv2 = EXPORT_LOOKUP_FID(e->trk_tb_p,e->lv2_cache, fid)))
         goto out;
 
     /*
@@ -3412,31 +4103,49 @@ int export_rmdir(export_t *e, fid_t pfid, char *name, fid_t fid,mattr_t * pattrs
         errno = ENOTEMPTY;
         goto out;
     }
-
-    // remove lv2
-    if (export_lv2_resolve_path(e, fid, lv2_path) != 0)
-        goto out;
-    /*
-     ** once the attributes file has been removed 
-     ** consider that the directory is deleted, all the remaining is best effort
-     */
-    sprintf(lv3_path, "%s/%s", lv2_path, MDIR_ATTRS_FNAME);
-
-    if (unlink(lv3_path) != 0) {
-        if (errno != ENOENT) goto out;
-    }
-    // remove from the cache (will be closed and freed)
-    lv2_cache_del(e->lv2_cache, fid);
-    /*
-     ** rmdir is best effort since it might possible that some dirent file with empty entries remain
-     */
-    rmdir(lv2_path);
-    /**
-    * releas the inode allocated for storing the directory attributes
-    */
-    if (exp_attr_delete(e->trk_tb_p,fid) < 0)
+    if (rename == 0)
     {
-       severe("error on inode %s release : %s",name,strerror(errno));
+      if (lv2->attributes.s.hpc_reserved != 0) {
+          errno = ENOTEMPTY;
+          goto out;
+      }
+    }
+    /*
+    ** effective delete of the directory if that one is empty
+    */
+    if ((lv2->attributes.s.hpc_reserved == 0) && (rename==1))
+    {
+      rename = 0;
+      update_children = 1;    
+    }
+    
+    if (rename == 0)
+    {
+      // remove lv2
+      if (export_lv2_resolve_path(e, fid, lv2_path) != 0)
+          goto out;
+      /*
+       ** once the attributes file has been removed 
+       ** consider that the directory is deleted, all the remaining is best effort
+       */
+      sprintf(lv3_path, "%s/%s", lv2_path, MDIR_ATTRS_FNAME);
+
+      if (unlink(lv3_path) != 0) {
+          if (errno != ENOENT) goto out;
+      }
+      // remove from the cache (will be closed and freed)
+      lv2_cache_del(e->lv2_cache, fid);
+      /*
+       ** rmdir is best effort since it might possible that some dirent file with empty entries remain
+       */
+      rmdir(lv2_path);
+      /**
+      * releas the inode allocated for storing the directory attributes
+      */
+      if (exp_attr_delete(e->trk_tb_p,fid) < 0)
+      {
+	 severe("error on inode %s release : %s",name,strerror(errno));
+      }
     }
 
     // update parent:
@@ -3444,19 +4153,39 @@ int export_rmdir(export_t *e, fid_t pfid, char *name, fid_t fid,mattr_t * pattrs
      ** attributes of the parent must be updated first otherwise we can afce the situation where
      ** parent directory cannot be removed because the number of children is not 0
      */
+    if (update_children == 1) 
+    {
     if (plv2->attributes.s.attrs.children > 0) plv2->attributes.s.attrs.children--;
     plv2->attributes.s.attrs.nlink--;
+    }
+    if (rename==1)
+    {
+      plv2->attributes.s.hpc_reserved++;        
+    }
+    else
+    {
+      /*
+      ** check if the directory is a deleted directory
+      */
+      if (exp_metadata_inode_is_del_pending(pfid))
+      {
+         plv2->attributes.s.hpc_reserved--;          
+      }    
+    }
     plv2->attributes.s.attrs.mtime = plv2->attributes.s.attrs.ctime = time(NULL);
-    if (export_lv2_write_attributes(e->trk_tb_p,plv2) != 0)
-        goto out;
-
-    // update export nb files: best effort mode
-    export_update_files(e, -1);
     /*
-    ** update the quota
+    **  Write attributes of parent
     */
-    rozofs_qt_inode_update(e->eid,quota_uid,quota_gid,1,ROZOFS_QT_DEC);
-
+    write_parent_attributes = 1;
+    if (rename == 0)
+    {
+      // update export nb files: best effort mode
+      export_update_files(e, -1);
+      /*
+      ** update the quota
+      */
+      rozofs_qt_inode_update(e->eid,quota_uid,quota_gid,1,ROZOFS_QT_DEC);
+    }
     /*
      ** remove the entry from the parent directory: best effort
      */
@@ -3466,11 +4195,80 @@ int export_rmdir(export_t *e, fid_t pfid, char *name, fid_t fid,mattr_t * pattrs
     */
     memcpy(pattrs, &plv2->attributes.s.attrs, sizeof (mattr_t));
     status = 0;
+    /*
+    ** Check the case of the rename
+    */
+    if (rename)
+    {
+       mdirent_fid_name_info_t fid_name_info;
+       char del_name[2048];
+       uint32_t hash1,hash2;
+       int root_idx;
+       int len;   
+       rozofs_inode_t *inode_p;
+       uint64_t key_del;
+       
+       inode_p = (rozofs_inode_t*)fid;
+       key_del= inode_p->s.file_id;
+       key_del = key_del<<11;
+       key_del |= inode_p->s.idx;
+       
+       /*
+       ** append the delete pending prefix to the object name
+       */
+       export_build_deleted_name(del_name,&key_del,name);
+       /*
+       ** update the bit in the root_idx bitmap of the parent directory
+       */
+       hash1 = filename_uuid_hash_fnv(0, del_name,pfid, &hash2, &len);    
+       lv2->attributes.s.hash1 = hash1;
+       lv2->attributes.s.hash2 = hash2;
+       root_idx = dirent_get_root_idx(plv2->attributes.s.attrs.children,hash1);
+       export_dir_update_root_idx_bitmap(plv2->dirent_root_idx_p,root_idx,1);
+       if (export_dir_flush_root_idx_bitmap(e,pfid,plv2->dirent_root_idx_p) < 0)
+       {
+	  errno = EPROTO; 
+	  goto out;
+       }
+       /*
+       ** assert the delete pending bit in the i-node
+       */
+       exp_metadata_inode_del_assert(fid);
+       memcpy(lv2->attributes.s.attrs.fid,fid,sizeof(fid_t));
+       /*
+       **  update the parent
+       ** add the new child to the parent
+       */
+       if (put_mdirentry(plv2->dirent_root_idx_p,fdp, pfid, del_name, 
+                	 fid, fake_type,&fid_name_info,
+			 plv2->attributes.s.attrs.children,
+			 &root_dirent_mask) != 0) {
+           goto out;
+       } 
+       /*
+       ** update name in the inode structure
+       */
+       exp_store_fname_in_inode(&lv2->attributes.s.fname,del_name,&fid_name_info);           
+       /*
+       **  Write attributes of deleted file (pending)
+       */
+       export_lv2_write_attributes(e->trk_tb_p,lv2) ;
+       /*
+       ** update the parent attributes
+       */
+       write_parent_attributes = 1;
+       goto out;   
+    }
+
 out:
     /*
     ** check if parent root idx bitmap must be updated
     */
-    if (plv2 != NULL) export_dir_flush_root_idx_bitmap(e,pfid,plv2->dirent_root_idx_p);
+    if (plv2 != NULL) 
+    {
+       if (write_parent_attributes) export_lv2_write_attributes(e->trk_tb_p,plv2);
+       export_dir_flush_root_idx_bitmap(e,pfid,plv2->dirent_root_idx_p);
+    }
     
     if(fdp != -1) close(fdp);
     STOP_PROFILING(export_rmdir);
@@ -3510,9 +4308,16 @@ int export_symlink(export_t * e, char *link, fid_t pfid, char *name,
     int root_dirent_mask = 0;
         
     START_PROFILING(export_symlink);
-
+    /*
+    ** reject the service if the directory has the delete pending bit asserted
+    */
+    if (exp_metadata_inode_is_del_pending(pfid))
+    {
+       errno = EROFS;
+       goto error;
+    }
     // get the lv2 parent
-    if (!(plv2 = export_lookup_fid(e->trk_tb_p,e->lv2_cache, pfid)))
+    if (!(plv2 = EXPORT_LOOKUP_FID(e->trk_tb_p,e->lv2_cache, pfid)))
         goto error;
      /*
      ** load the root_idx bitmap of the parent
@@ -3688,7 +4493,7 @@ int export_readlink(export_t *e, fid_t fid, char *link) {
      
     START_PROFILING(export_readlink);
 
-    if (!(lv2 = export_lookup_fid(e->trk_tb_p,e->lv2_cache, fid))) {
+    if (!(lv2 = EXPORT_LOOKUP_FID(e->trk_tb_p,e->lv2_cache, fid))) {
         goto out;
     }
     /**
@@ -3779,11 +4584,12 @@ int export_rename(export_t *e, fid_t pfid, char *name, fid_t npfid,
     int root_dirent_mask_name= 0;
     int root_dirent_mask_newname =0;
     int xerrno = 0;
+    int deleted_object = 0;
     
     START_PROFILING(export_rename);
 
     // Get the lv2 entry of old parent
-    if (!(lv2_old_parent = export_lookup_fid(e->trk_tb_p,e->lv2_cache, pfid))) {
+    if (!(lv2_old_parent = EXPORT_LOOKUP_FID(e->trk_tb_p,e->lv2_cache, pfid))) {
         goto out;
     }
 
@@ -3792,7 +4598,24 @@ int export_rename(export_t *e, fid_t pfid, char *name, fid_t npfid,
         errno = ENOTDIR;
         goto out;
     }
-
+    /*
+    ** check if the new parent is a deleted directory: if it is the case
+    ** reject the service
+    */
+    if (exp_metadata_inode_is_del_pending(npfid))
+    {
+        errno = ENOTDIR;
+        goto out;    
+    }
+    /*
+    ** check that the destination name does not match with the rozofs-del prefix
+    */
+    if (strncmp(newname,"@rozofs-del@",10) == 0)
+    {
+        errno = EROFS;
+        goto out;            
+    }
+    
     /*
     ** load the root_idx bitmap of the old parent
     */
@@ -3807,7 +4630,7 @@ int export_rename(export_t *e, fid_t pfid, char *name, fid_t npfid,
         goto out;
 
     // Get the lv2 entry of file/dir to rename
-    if (!(lv2_to_rename = export_lookup_fid(e->trk_tb_p,e->lv2_cache, fid_to_rename)))
+    if (!(lv2_to_rename = EXPORT_LOOKUP_FID(e->trk_tb_p,e->lv2_cache, fid_to_rename)))
         goto out;
     /*
     ** open the fid to rename if it is a directory
@@ -3821,7 +4644,7 @@ int export_rename(export_t *e, fid_t pfid, char *name, fid_t npfid,
       export_open_parent_directory(e,fid_to_rename);
     }  
     // Get the lv2 entry of newparent
-    if (!(lv2_new_parent = export_lookup_fid(e->trk_tb_p,e->lv2_cache, npfid)))
+    if (!(lv2_new_parent = EXPORT_LOOKUP_FID(e->trk_tb_p,e->lv2_cache, npfid)))
         goto out;
 
     // Verify that the new parent is a directory
@@ -3846,7 +4669,7 @@ int export_rename(export_t *e, fid_t pfid, char *name, fid_t npfid,
         // We must delete the old entry
 
         // Get mattrs of entry to delete
-        if (!(lv2_to_replace = export_lookup_fid(e->trk_tb_p,e->lv2_cache, fid_to_replace)))
+        if (!(lv2_to_replace = EXPORT_LOOKUP_FID(e->trk_tb_p,e->lv2_cache, fid_to_replace)))
             goto out;
 	/*
 	** load the root_idx bitmap of the old parent
@@ -4036,7 +4859,12 @@ int export_rename(export_t *e, fid_t pfid, char *name, fid_t npfid,
         }
     }
 
-    // Put the mdirentry
+    /*
+    **  Put the mdirentry: need to clear the delete pending bit before insertion in dentry
+    */
+    deleted_object = exp_metadata_inode_is_del_pending(lv2_to_rename->attributes.s.attrs.fid);
+    exp_metadata_inode_del_deassert(lv2_to_rename->attributes.s.attrs.fid);
+    
     if (put_mdirentry(lv2_new_parent->dirent_root_idx_p,new_parent_fdp, npfid, newname, 
                       lv2_to_rename->attributes.s.attrs.fid,
 		      lv2_to_rename->attributes.s.attrs.mode,&fid_name_info,
@@ -4070,7 +4898,18 @@ int export_rename(export_t *e, fid_t pfid, char *name, fid_t npfid,
         if (export_lv2_write_attributes(e->trk_tb_p,lv2_old_parent) != 0)
             goto out;
     } else {
-
+	/*
+	** we have the same parent directory: check if the inode to move was a deleted inode:
+	** if it is the case we need to update the count of children and the nlink (if directory)
+	** of the parent directory.
+	*/
+	if (deleted_object)
+	{
+          lv2_new_parent->attributes.s.attrs.children++;
+          if (S_ISDIR(lv2_to_rename->attributes.s.attrs.mode)) {
+              lv2_new_parent->attributes.s.attrs.nlink++;
+          }              
+	}
         lv2_new_parent->attributes.s.attrs.mtime = lv2_new_parent->attributes.s.attrs.ctime = time(NULL);
 
         if (export_lv2_write_attributes(e->trk_tb_p,lv2_new_parent) != 0)
@@ -4091,6 +4930,7 @@ int export_rename(export_t *e, fid_t pfid, char *name, fid_t npfid,
       exp_store_fname_in_inode(&lv2_to_rename->attributes.s.fname,newname,&fid_name_info);           
     
     }
+    
     // Write attributes of renamed file
     if (export_lv2_write_attributes(e->trk_tb_p,lv2_to_rename) != 0)
         goto out;
@@ -4129,7 +4969,7 @@ int64_t export_read(export_t * e, fid_t fid, uint64_t offset, uint32_t len,
     START_PROFILING(export_read);
 
     // Get the lv2 entry
-    if (!(lv2 = export_lookup_fid(e->trk_tb_p,e->lv2_cache, fid))) {
+    if (!(lv2 = EXPORT_LOOKUP_FID(e->trk_tb_p,e->lv2_cache, fid))) {
         goto error;
     }
 
@@ -4179,7 +5019,7 @@ int export_read_block(export_t *e, fid_t fid, bid_t bid, uint32_t n, dist_t * d)
     START_PROFILING(export_read_block);
 
     // Get the lv2 entry
-    if (!(lv2 = export_lookup_fid(e->trk_tb_p,e->lv2_cache, fid)))
+    if (!(lv2 = EXPORT_LOOKUP_FID(e->trk_tb_p,e->lv2_cache, fid)))
         goto out;
 
     status = mreg_read_dist(&lv2->container.mreg, bid, n, d);
@@ -4193,7 +5033,7 @@ out:
 int64_t export_write(export_t *e, fid_t fid, uint64_t off, uint32_t len) {
     lv2_entry_t *lv2;
 
-    if (!(lv2 = export_lookup_fid(e->trk_tb_p,e->lv2_cache, fid))) {
+    if (!(lv2 = EXPORT_LOOKUP_FID(e->trk_tb_p,e->lv2_cache, fid))) {
         return -1;
     }
 
@@ -4246,7 +5086,7 @@ int64_t export_write_block(export_t *e, fid_t fid, uint64_t bid, uint32_t n,
     START_PROFILING(export_write_block);
 
     // Get the lv2 entry
-    if (!(lv2 = export_lookup_fid(e->trk_tb_p,e->lv2_cache, fid)))
+    if (!(lv2 = EXPORT_LOOKUP_FID(e->trk_tb_p,e->lv2_cache, fid)))
         goto out;
 
 
@@ -4269,8 +5109,10 @@ int64_t export_write_block(export_t *e, fid_t fid, uint64_t bid, uint32_t n,
 
     // Update mtime and ctime
     lv2->attributes.s.attrs.mtime = lv2->attributes.s.attrs.ctime = time(NULL);
-    if (export_lv2_write_attributes(e->trk_tb_p,lv2) != 0)
-        goto out;
+    /*
+    ** write inode attributes on disk
+    */
+    export_attr_thread_submit(lv2,e->trk_tb_p);
     /*
     ** return the parent attributes
     */
@@ -4319,7 +5161,7 @@ int export_readdir(export_t * e, fid_t fid, uint64_t * cookie,
     START_PROFILING(export_readdir);
 
     // Get the lv2 inode
-    if (!(parent = export_lookup_fid(e->trk_tb_p,e->lv2_cache, fid))) {
+    if (!(parent = EXPORT_LOOKUP_FID(e->trk_tb_p,e->lv2_cache, fid))) {
         severe("export_readdir failed: %s", strerror(errno));
         goto out;
     }
@@ -4513,6 +5355,8 @@ static inline int get_rozofs_xattr(export_t *e, lv2_entry_t *lv2, char * value, 
   p += rozofs_u64_append(p,fake_inode_p->s.file_id);
   p += rozofs_string_append(p," idx=");
   p += rozofs_u64_append(p,fake_inode_p->s.idx);
+  p += rozofs_string_append(p," del=");
+  p += rozofs_u64_append(p,fake_inode_p->s.del);
   p += rozofs_string_append(p," key=");
   p += rozofs_u64_append(p,fake_inode_p->s.key);
   p += rozofs_string_append(p," (");
@@ -4537,7 +5381,10 @@ static inline int get_rozofs_xattr(export_t *e, lv2_entry_t *lv2, char * value, 
   if (S_ISDIR(lv2->attributes.s.attrs.mode)) {
     DISPLAY_ATTR_TXT("MODE", "DIRECTORY");
     DISPLAY_ATTR_INT("CHILDREN",lv2->attributes.s.attrs.children);
-    return (p-value);  
+    DISPLAY_ATTR_INT("NLINK",lv2->attributes.s.attrs.nlink);
+    DISPLAY_ATTR_LONG("SIZE",lv2->attributes.s.attrs.size);
+    DISPLAY_ATTR_LONG("DELETED",lv2->attributes.s.hpc_reserved);
+   return (p-value);  
   }
 
   if (S_ISLNK(lv2->attributes.s.attrs.mode)) {
@@ -4767,7 +5614,7 @@ int set_rozofs_link_from_name(export_t * e, lv2_entry_t *plv2, char * link,int l
   }
   
   // get the lv2
-  if (!(lv2 = export_lookup_fid(e->trk_tb_p,e->lv2_cache, child_fid))) {
+  if (!(lv2 = EXPORT_LOOKUP_FID(e->trk_tb_p,e->lv2_cache, child_fid))) {
       /*
        ** It might be possible that the file is still referenced in the dirent file but 
        ** not present on disk: its FID has been released (and the associated file deleted)
@@ -5134,7 +5981,7 @@ ssize_t export_getxattr(export_t *e, fid_t fid, const char *name, void *value, s
     if (size == 0) buffer = 0;
     else buffer = value;
 
-    if (!(lv2 = export_lookup_fid(e->trk_tb_p,e->lv2_cache, fid))) {
+    if (!(lv2 = EXPORT_LOOKUP_FID(e->trk_tb_p,e->lv2_cache, fid))) {
         severe("export_getattr failed: %s", strerror(errno));
         goto out;
     }
@@ -5187,7 +6034,7 @@ int export_set_file_lock(export_t *e, fid_t fid, ep_lock_t * lock_requested, ep_
 
     START_PROFILING(export_set_file_lock);
 
-    if (!(lv2 = export_lookup_fid(e->trk_tb_p,e->lv2_cache, fid))) {
+    if (!(lv2 = EXPORT_LOOKUP_FID(e->trk_tb_p,e->lv2_cache, fid))) {
         severe("export_set_lock failed: %s", strerror(errno));
         goto out;
     }
@@ -5352,7 +6199,7 @@ int export_get_file_lock(export_t *e, fid_t fid, ep_lock_t * lock_requested, ep_
 
     START_PROFILING(export_get_file_lock);
 
-    if (!(lv2 = export_lookup_fid(e->trk_tb_p,e->lv2_cache, fid))) {
+    if (!(lv2 = EXPORT_LOOKUP_FID(e->trk_tb_p,e->lv2_cache, fid))) {
         severe("export_get_lock failed: %s", strerror(errno));
         goto out;
     }
@@ -5423,8 +6270,8 @@ int export_clear_owner_file_lock(export_t *e, fid_t fid, ep_lock_t * lock_reques
     
     START_PROFILING(export_clearowner_flock);
 
-    if (!(lv2 = export_lookup_fid(e->trk_tb_p,e->lv2_cache, fid))) {
-        severe("export_lookup_fid failed: %s", strerror(errno));
+    if (!(lv2 = EXPORT_LOOKUP_FID(e->trk_tb_p,e->lv2_cache, fid))) {
+        severe("EXPORT_LOOKUP_FID failed: %s", strerror(errno));
         goto out;
     }
     
@@ -5493,7 +6340,7 @@ int export_setxattr(export_t *e, fid_t fid, char *name, const void *value, size_
 
     START_PROFILING(export_setxattr);
 
-    if (!(lv2 = export_lookup_fid(e->trk_tb_p,e->lv2_cache, fid))) {
+    if (!(lv2 = EXPORT_LOOKUP_FID(e->trk_tb_p,e->lv2_cache, fid))) {
         severe("export_getattr failed: %s", strerror(errno));
         goto out;
     }
@@ -5554,7 +6401,7 @@ int export_removexattr(export_t *e, fid_t fid, char *name) {
 
     START_PROFILING(export_removexattr);
 
-    if (!(lv2 = export_lookup_fid(e->trk_tb_p,e->lv2_cache, fid))) {
+    if (!(lv2 = EXPORT_LOOKUP_FID(e->trk_tb_p,e->lv2_cache, fid))) {
         severe("export_getattr failed: %s", strerror(errno));
         goto out;
     }
@@ -5594,7 +6441,7 @@ ssize_t export_listxattr(export_t *e, fid_t fid, void *list, size_t size) {
 
     START_PROFILING(export_listxattr);
 
-    if (!(lv2 = export_lookup_fid(e->trk_tb_p,e->lv2_cache, fid))) {
+    if (!(lv2 = EXPORT_LOOKUP_FID(e->trk_tb_p,e->lv2_cache, fid))) {
         severe("export_getattr failed: %s", strerror(errno));
         goto out;
     }

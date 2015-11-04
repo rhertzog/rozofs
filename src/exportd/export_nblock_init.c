@@ -336,6 +336,61 @@ void show_synchro(char * argv[], uint32_t tcpRef, void *bufRef) {
   uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   	  
   return;
 }
+
+/*
+*_______________________________________________________________________
+*
+*  show exportd configuration path
+*/
+void show_conf_path(char * argv[], uint32_t tcpRef, void *bufRef) {
+  char *pChar = uma_dbg_get_buffer();
+
+  sprintf(pChar,"%s\n",export_get_config_file_path());
+  
+  uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   	  
+  return;
+}
+/*
+*_______________________________________________________________________
+*/
+/**
+*  export versioning stats statistics
+*/
+
+static char * show_versioning_help(char * pChar) {
+  pChar += sprintf(pChar,"usage:\n");
+  pChar += sprintf(pChar,"versioning : show the export versioning state\n");
+  pChar += sprintf(pChar,"versioning [enable|disable] : enable or disable versioning for the export\n");
+  return pChar; 
+}
+void show_versioning(char * argv[], uint32_t tcpRef, void *bufRef) {
+    char *pChar = uma_dbg_get_buffer();
+    *pChar = 0;
+
+    if (argv[1] == NULL) {
+      sprintf(pChar,"export versioning is %s\n",(common_config.export_versioning==1)?"enabled":"disabled");
+      uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   	  
+      return;
+    }
+
+    if (strcmp(argv[1],"enable")==0) {
+        common_config.export_versioning = 1;
+	pChar += sprintf(pChar,"versioning is now enabled\n");
+	uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   
+	return;	 
+    }
+    if (strcmp(argv[1],"disable")==0) {
+        common_config.export_versioning = 0;
+	pChar += sprintf(pChar,"versioning is now disable\n");
+	uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   
+	return;	 
+    }
+      	    
+    show_versioning_help(pChar);	
+    uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   	  
+    return;
+}
+
 /*
 *_______________________________________________________________________
 */
@@ -974,6 +1029,8 @@ int expgwc_non_blocking_init(uint16_t dbg_port, uint16_t exportd_instance) {
    @retval : no retval -> only on fatal error
 
  */
+ void show_attr_thread(char * argv[], uint32_t tcpRef, void *bufRef);
+
 int expgwc_start_nb_blocking_th(void *args) {
 
 
@@ -1104,6 +1161,15 @@ int expgwc_start_nb_blocking_th(void *args) {
     uma_dbg_addTopic("clients",show_flock_clients); 
     uma_dbg_addTopic_option("trk_thread", show_tracking_thread,UMA_DBG_OPTION_RESET);
     
+    /*
+    ** add export versioning
+    */
+    uma_dbg_addTopic("versioning",show_versioning);
+    /*
+    ** add topic to get the configuration path
+    */
+    uma_dbg_addTopic("export_conf_path",show_conf_path);
+       
     if (args_p->slave == 0)
     {
       /*
@@ -1149,7 +1215,16 @@ int expgwc_start_nb_blocking_th(void *args) {
     if (ret < 0)
     {
       severe("quota period thread is unavailable: %s",strerror(errno));
-    }    
+    } 
+    /*
+    ** start the attributes writeback thread
+    */   
+    ret = export_wr_attr_th_init();
+    if (ret < 0)
+    {
+      severe("attributes writeback thread is unavailable: %s",strerror(errno));
+    } 
+    uma_dbg_addTopic("attr_thread",show_attr_thread);
     
     /*
     ** Wait for end of initialization on blocking exportd 

@@ -121,7 +121,20 @@ uint32_t export_configuration_file_hash = 0;  /**< hash value of the configurati
 export_one_profiler_t  * export_profiler[EXPGW_EID_MAX_IDX+1] = { 0 };
 uint32_t export_profiler_eid;
 
+/*
+ *_______________________________________________________________________
+ */
+/**
+*   Get the configuration file of the exportd
 
+    @param none
+    
+    @retval: pointer to the exportd configuration file (full path)
+*/
+char *export_get_config_file_path()
+{
+  return exportd_config_file;
+}
 /*
  *_______________________________________________________________________
  */

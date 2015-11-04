@@ -637,10 +637,21 @@ uint32_t rozofs_fuse_xmitEvtsock(void * rozofs_fuse_ctx_p,int socketId)
     return TRUE;
 }
 
+static char *rozofs_fuse_show_usage(char *pChar)
+{
+  pChar += sprintf(pChar,"usage:\n");
+  pChar += sprintf(pChar,"fuse kernel               : generate a printk from the rozofs fuse.ko module \n");
+  pChar += sprintf(pChar,"fuse loop <count>         : set the max. fuse requests polled from the device queue(default:2) \n");
+  pChar += sprintf(pChar,"fuse dir <enable|disable> :enable/disable dir attributes invalidation on mkdir/rmdir/unlink/create and mknod \n");
+  pChar += sprintf(pChar,"fuse                      :display statistics \n");
+  return pChar;
+}
+
 void rozofs_fuse_show(char * argv[], uint32_t tcpRef, void *bufRef) {
   uint32_t            buffer_count=0;
   char                status[16];
   int   new_val; 
+  int   ret;
   
   char *pChar = uma_dbg_get_buffer();
 
@@ -667,12 +678,14 @@ void rozofs_fuse_show(char * argv[], uint32_t tcpRef, void *bufRef) {
 	 if (argv[2] == NULL)
 	 {
            pChar += sprintf(pChar, "argument is missing\n");
+	   rozofs_fuse_show_usage(pChar);
 	   uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
 	   return;	  	  
 	 }
 	 new_val = (int) strtol(argv[2], (char **) NULL, 10);   
 	 if (errno != 0) {
            pChar += sprintf(pChar, "bad value %s\n",argv[2]);
+	   rozofs_fuse_show_usage(pChar);
 	   uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
 	   return;
 	 }
@@ -681,11 +694,70 @@ void rozofs_fuse_show(char * argv[], uint32_t tcpRef, void *bufRef) {
 	 */
 	 if (new_val == 0) {
            pChar += sprintf(pChar, "unsupported value %s\n",argv[2]);
+	   rozofs_fuse_show_usage(pChar);
 	   uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
 	   return;
 	 }	 
 	 rozofs_fuse_loop_count = new_val;
+         pChar += sprintf(pChar, "new polling request count %d\n",rozofs_fuse_loop_count);
+	 uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
+	 return;
       }
+      if (strcmp(argv[1],"dir")==0) 
+      {
+	 if (rozofs_fuse_ctx_p->ioctl_supported==0)
+	 {
+           pChar += sprintf(pChar, "ioctl not supported with that fuse kernel version\n");
+	   uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
+	   return;
+	 }
+	 errno = 0;
+	 if (argv[2] == NULL)
+	 {
+           pChar += sprintf(pChar, "argument is missing\n");
+	   rozofs_fuse_show_usage(pChar);
+	   uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
+	   return;	  	  
+	 }
+	 if (strcmp(argv[2],"enable")==0) 
+	 {
+	   ret = ioctl(rozofs_fuse_ctx_p->fd,4,NULL);  
+	   if (ret < 0) 
+	   {
+            pChar += sprintf(pChar, "ioctl failed %s\n",strerror(errno));
+	   }
+	   else
+	   {
+             pChar += sprintf(pChar, "directory attributes are invalidated on mknod/rmdir/unlink...\n");
+	     rozofs_fuse_ctx_p->dir_attr_invalidate = 1;
+	   }
+	   uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
+	   return;
+         }
+	 if (strcmp(argv[2],"disable")==0) 
+	 {
+	   ret = ioctl(rozofs_fuse_ctx_p->fd,3,NULL);  
+	   if (ret < 0) 
+	   {
+            pChar += sprintf(pChar, "ioctl failed %s\n",strerror(errno));
+	   }
+	   else
+	   {
+             pChar += sprintf(pChar, "directory attributes are not invalidated on mknod/rmdir/unlink...\n");
+	     rozofs_fuse_ctx_p->dir_attr_invalidate = 0;
+	   }
+	   uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
+	   return;
+         }
+         pChar += sprintf(pChar, "unsupported argument %s\n",argv[2]);
+	 rozofs_fuse_show_usage(pChar);
+	 uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
+	 return;
+      }
+      pChar += sprintf(pChar, "unsupported command %s\n",argv[1]);
+      rozofs_fuse_show_usage(pChar);
+      uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
+      return;
   }
   uint64_t old_ticker = rozofs_fuse_req_tic;
   rozofs_fuse_get_ticker();  
@@ -703,6 +775,7 @@ void rozofs_fuse_show(char * argv[], uint32_t tcpRef, void *bufRef) {
   */
   pChar +=  sprintf(pChar,"buffer sz  : %d\n",rozofs_fuse_ctx_p->bufsize); 
   pChar +=  sprintf(pChar,"poll count : %d\n",rozofs_fuse_loop_count); 
+  pChar +=  sprintf(pChar,"dir attr   : %s\n",(rozofs_fuse_ctx_p->dir_attr_invalidate)?"INVALIDATE":"KEEP"); 
   pChar +=  sprintf(pChar,"FS Mode    : "); 
   if (rozofs_mode== 0)
   {
@@ -879,6 +952,7 @@ int rozofs_fuse_init(struct fuse_chan *ch,struct fuse_session *se,int rozofs_fus
   rozofs_fuse_ctx_p->se             = se;
   rozofs_fuse_ctx_p->bufsize        = 0; 
   rozofs_fuse_ctx_p->buf_fuse_req_p = NULL;
+  rozofs_fuse_ctx_p->dir_attr_invalidate = 0;
   rozofs_fuse_ctx_p->initBufCount   = rozofs_fuse_buffer_count;
   
   while (1)
@@ -959,16 +1033,30 @@ int rozofs_fuse_init(struct fuse_chan *ch,struct fuse_session *se,int rozofs_fus
         int ret;
 	rozofs_fuse_ctx_p->ioctl_supported = 1;
 	rozofs_fuse_ctx_p->data_xon        = 1;
-	
-	ret = ioctl(rozofs_fuse_ctx_p->fd,1,NULL);
-	if (ret < 0) 
-	{
-	   severe("ioctl error %s",strerror(errno));
-	   rozofs_fuse_ctx_p->ioctl_supported = 0;
-	   
-	}
      
-     
+        while(1)
+	{	
+	  ret = ioctl(rozofs_fuse_ctx_p->fd,1,NULL);
+	  if (ret < 0) 
+	  {
+	     warning("ioctl error %s",strerror(errno));
+	     rozofs_fuse_ctx_p->ioctl_supported = 0;
+	     break;
+
+	  }
+          if (rozofs_fuse_ctx_p->dir_attr_invalidate == 0)
+	  {
+	    ret = ioctl(rozofs_fuse_ctx_p->fd,3,NULL);
+	    if (ret < 0) 
+	    {
+	       warning("ioctl error %s",strerror(errno));
+//	       rozofs_fuse_ctx_p->ioctl_supported = 0;
+	       rozofs_fuse_ctx_p->dir_attr_invalidate = 1;
+	       break;
+	    }		
+	  }
+	  break;     
+        }
      }
      /*
      ** perform the connection with the socket controller

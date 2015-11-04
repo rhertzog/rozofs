@@ -369,4 +369,56 @@ int exp_metadata_create_attributes_burst(exp_trck_top_header_t *top_hdr_p,rozofs
 int exp_metadata_get_tracking_file_stat(exp_trck_top_header_t *top_hdr_p,
                                         int user_id,uint64_t file_id,struct stat *buf_p);
 
+/*
+**__________________________________________________________________
+*/
+/**
+*
+    Assert the delete pending bit of an inode
+    
+    @param fid: inode reference
+    
+    @retval none
+*/
+static inline void exp_metadata_inode_del_assert(fid_t fid)
+{
+   rozofs_inode_t *fake_inode = (rozofs_inode_t*)fid;
+   fake_inode->s.del=1;
+}
+
+/*
+**__________________________________________________________________
+*/
+/**
+*
+    De-assert the delete pending bit of an inode
+    
+    @param fid: inode reference
+    
+    @retval none
+*/
+static inline void exp_metadata_inode_del_deassert(fid_t fid)
+{
+   rozofs_inode_t *fake_inode = (rozofs_inode_t*)fid;
+   fake_inode->s.del=0;
+}
+/*
+**__________________________________________________________________
+*/
+/**
+*
+    Asset the delete pending bit of an inode
+    
+    @param fid: inode reference
+    
+    @retval 1 when the i-node has the delete pending bit asserted
+    @retval 0 when the i-node has not the delete pending bit asserted
+*/
+static inline int exp_metadata_inode_is_del_pending(fid_t fid)
+{
+   rozofs_inode_t *fake_inode = (rozofs_inode_t*)fid;
+   if(fake_inode->s.del!=0) return 1;
+   return 0;
+}
+
 #endif

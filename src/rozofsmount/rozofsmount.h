@@ -128,6 +128,7 @@ typedef struct ientry {
     uint64_t    timestamp_wr_block;
     char      * symlink_target;
     uint64_t    symlink_ts;
+    int         pending_getattr_cnt;   /**< pending get attr count  */
 } ientry_t;
 
 
@@ -334,6 +335,7 @@ static inline ientry_t *alloc_ientry(fid_t fid) {
 	ie->timestamp_wr_block = 0;
 	ie->symlink_target = NULL;
         ie->symlink_ts     = 0;
+	ie->pending_getattr_cnt= 0;
 	put_ientry(ie);
 
 	return ie;

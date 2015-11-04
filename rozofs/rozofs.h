@@ -216,7 +216,8 @@ typedef union
      uint64_t  usr_id:8;     /**< usr defined value-> for exportd;it is the slice   */
      uint64_t  file_id:40;    /**< bitmap file index within the slice                */
      uint64_t  idx:11;     /**< inode relative to the bitmap file index           */
-     uint64_t  key:5;     /**< inode relative to the bitmap file index           */
+     uint64_t  del:1;     /**< asserted to 1 when the i-node has a pending deletion      */
+     uint64_t  key:4;     /**< inode relative to the bitmap file index           */
    } s;
    struct {
      uint64_t  vers:4;        /**< fid version */
@@ -228,7 +229,8 @@ typedef union
      uint64_t  usr_id:8;     /**< usr defined value-> for exportd;it is the slice   */
      uint64_t  file_id:40;    /**< bitmap file index within the slice                */
      uint64_t  idx:11;     /**< inode relative to the bitmap file index           */
-     uint64_t  key:5;     /**< inode relative to the bitmap file index           */
+     uint64_t  del:1;     /**< asserted to 1 when the i-node has a pending deletion      */
+     uint64_t  key:4;     /**< inode relative to the bitmap file index           */
    } meta;
 } rozofs_inode_t;
 

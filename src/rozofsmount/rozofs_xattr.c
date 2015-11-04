@@ -284,7 +284,9 @@ out:
 #define ROZOFS_XATTR "rozofs"
 #define ROZOFS_USER_XATTR "user.rozofs"
 #define ROZOFS_ROOT_XATTR "trusted.rozofs"
-
+#define ROZOFS_EXPORT_XATTR "rozofs.export"
+#define ROZOFS_USER_EXPORT_XATTR "user.rozofs.export"
+static char buf_export_attr[4096];
 void rozofs_ll_getxattr_nb(fuse_req_t req, fuse_ino_t ino, const char *name, size_t size) 
 {
     ientry_t         *ie = 0;
@@ -355,6 +357,21 @@ void rozofs_ll_getxattr_nb(fuse_req_t req, fuse_ino_t ino, const char *name, siz
           goto error;  
 	}
       }
+    }
+    if ((strncmp(name,ROZOFS_EXPORT_XATTR,strlen(ROZOFS_EXPORT_XATTR))==0) ||
+        (strncmp(name,ROZOFS_USER_EXPORT_XATTR,strlen(ROZOFS_EXPORT_XATTR))==0))
+    {
+       char *pChar = buf_export_attr;
+       /*
+       ** Get the IP address of the active exportd
+       */
+       uint32_t ipAddr =north_lbg_get_remote_ip_address(exportclt.rpcclt.lbg_id);
+       pChar += sprintf(pChar, "%u.%u.%u.%u ", (ipAddr >> 24)&0xFF, (ipAddr >> 16)&0xFF, (ipAddr >> 8)&0xFF, (ipAddr)&0xFF);
+       pChar += sprintf(pChar, "%u ",exportclt.eid);
+       pChar += sprintf(pChar, "%s\n",conf.export);
+       fuse_reply_buf(req, (char *)buf_export_attr, strlen(buf_export_attr));   
+       goto out; 
+    
     }  
     
     /*
@@ -389,6 +406,7 @@ error:
     /*
     ** release the buffer if has been allocated
     */
+out:
     rozofs_trc_rsp(srv_rozofs_ll_getxattr,ino,NULL,1,trc_idx);
     STOP_PROFILING_NB(buffer_p,rozofs_ll_getxattr);
     if (buffer_p != NULL) rozofs_fuse_release_saved_context(buffer_p);

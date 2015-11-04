@@ -187,6 +187,25 @@ add_executable(rozo_warnquota
     econfig.c
 )
 target_link_libraries(rozo_warnquota rozofs ${PTHREAD_LIBRARY} ${UUID_LIBRARY} ${CONFIG_LIBRARY})
+set (librozo_inode_sources
+       cache.c
+       exp_cache.c
+       exp_cache.h
+       mdirent.h
+       dirent_file_repair.c
+       dirent_writeback_cache.c
+       writeback_cache.c
+       dirent_file.c
+       dirent_cache.c
+       dirent_insert.c
+       dirent_search.c
+       test_mdirent_stub.c
+       rozo_inode_lib.c
+       rozo_inode_lib.h
+
+)
+add_library(rozofs_inode STATIC ${librozo_inode_sources})
+set_target_properties(rozofs_inode PROPERTIES COMPILE_FLAGS "-fPIC")
 
 # Install
 install(CODE "EXECUTE_PROCESS (COMMAND mkdir -p ${ROZOFS_CONFIG_DIR})" COMPONENT export)

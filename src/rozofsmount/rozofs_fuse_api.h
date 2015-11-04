@@ -956,4 +956,52 @@ int rozofs_asynchronous_flush(struct fuse_file_info *fi) ;
 */
 
 void rozofs_fuse_invalidate_inode_cache(fuse_ino_t ino, uint64_t offset, uint64_t len);
+
+/*
+**__________________________________________________________________
+*/
+/**
+*  Init of the attribute writeback thread
+
+   @param none
+   
+   @retval 0 on success
+   @retval -1 on error (see errno for details
+*/
+int fuse_reply_thread_init();
+/*
+**__________________________________________________________________
+*/
+/**
+ * Reply with attributes
+ *
+ * Possible requests:
+ *   getattr, setattr
+ *
+ * @param req request handle
+ * @param attr the attributes
+ * @param attr_timeout	validity timeout (in seconds) for the attributes
+ * @return zero for success, -errno for failure to send reply
+ */
+void rz_fuse_reply_attr(fuse_req_t req, const struct stat *attr,
+		    double attr_timeout);
+/*
+**__________________________________________________________________
+*/
+/**
+ * Reply with a directory entry
+ *
+ * Possible requests:
+ *   lookup, mknod, mkdir, symlink, link
+ *
+ * Side effects:
+ *   increments the lookup count on success
+ *
+ * @param req request handle
+ * @param e the entry parameters
+ * @return zero for success, -errno for failure to send reply
+ */
+void rz_fuse_reply_entry(fuse_req_t req, const struct fuse_entry_param *e);
+
+void show_fuse_reply_thread(char * argv[], uint32_t tcpRef, void *bufRef);
 #endif

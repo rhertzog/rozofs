@@ -1726,3 +1726,38 @@ int north_lbg_get_active_standby_mode(int  lbg_idx)
 }
 
 
+/*__________________________________________________________________________
+*/
+/**
+*  Get the IP@ of active entry of the lbg
+
+  @param lbg_idx : reference of the load balancing group
+
+
+  @retval != 0 IP@ of the active export
+  @retval == 0 no IP@
+*/
+uint32_t north_lbg_get_remote_ip_address(int  lbg_idx)
+{
+  north_lbg_ctx_t  *lbg_p;
+  
+  lbg_p = north_lbg_getObjCtx_p(lbg_idx);
+  if (lbg_p == NULL) 
+  {
+    return 0;
+  }
+
+  if (lbg_p->active_standby_mode < 0) return 0;  
+  /*
+  ** When the socket becomes active, stop the polling
+  */ 
+  if (lbg_p->active_lbg_entry != -1) {
+    af_unix_ctx_generic_t *sock_p = af_unix_getObjCtx_p(lbg_p->entry_tb[lbg_p->active_lbg_entry].sock_ctx_ref);
+    if (sock_p == NULL)
+    {
+      return 0;
+    }    
+    return (sock_p->remote_ipaddr_host);
+  }
+  return 0;
+}

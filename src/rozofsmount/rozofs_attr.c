@@ -24,6 +24,8 @@
 #include "rozofs_rw_load_balancing.h"
 
 DECLARE_PROFILING(mpp_profiler_t);
+int rozofs_max_getattr_pending = 0;
+uint64_t rozofs_max_getattr_duplicate = 0;
 
 /*
 **__________________________________________________________________
@@ -82,14 +84,14 @@ DECLARE_PROFILING(mpp_profiler_t);
     ** from the ie entry. For directories and links one ask to the exportd
     ** 
     */
-    if ((rozofs_mode == 1) || 
+    if ((rozofs_mode == 1)||
          (((ie->timestamp+rozofs_tmr_get(TMR_FUSE_ATTR_CACHE)*1000000) > rozofs_get_ticker_us())&&(S_ISREG(ie->attrs.mode))) ||
-	 (((ie->timestamp+500) > rozofs_get_ticker_us())&&(S_ISDIR(ie->attrs.mode)))
+	 (((ie->pending_getattr_cnt>0)||((ie->timestamp+(rozofs_tmr_get(TMR_FUSE_ATTR_CACHE)*1000000)) > rozofs_get_ticker_us()))&&(S_ISDIR(ie->attrs.mode)))
 	 ) 
     {
       mattr_to_stat(&ie->attrs, &stbuf, exportclt.bsize);
       stbuf.st_ino = ino; 
-      fuse_reply_attr(req, &stbuf, rozofs_tmr_get(TMR_FUSE_ATTR_CACHE));
+      rz_fuse_reply_attr(req, &stbuf, rozofs_tmr_get(TMR_FUSE_ATTR_CACHE));
       goto out;   
     }
     /*
@@ -112,8 +114,11 @@ DECLARE_PROFILING(mpp_profiler_t);
 #endif
     if (ret < 0) goto error;    
     /*
-    ** no error just waiting for the answer
+    ** no error just waiting for the answer: increment the pending counter of getattr
     */
+    ie->pending_getattr_cnt++;
+    if (ie->pending_getattr_cnt > rozofs_max_getattr_pending) rozofs_max_getattr_pending = ie->pending_getattr_cnt;
+    if (ie->pending_getattr_cnt > 1) rozofs_max_getattr_duplicate++;
     return;
 
 error:
@@ -293,8 +298,12 @@ void rozofs_ll_getattr_cbk(void *this,void *param)
     */
     rozofs_ientry_update(ie,&attr);  
     stbuf.st_size = ie->attrs.size;
+    /*
+    ** update the getattr pending count
+    */
+    if (ie->pending_getattr_cnt>=0) ie->pending_getattr_cnt--;
 
-    fuse_reply_attr(req, &stbuf, rozofs_tmr_get(TMR_FUSE_ATTR_CACHE));
+    rz_fuse_reply_attr(req, &stbuf, rozofs_tmr_get(TMR_FUSE_ATTR_CACHE));
     goto out;
 error:
     fuse_reply_err(req, errno);
@@ -722,7 +731,7 @@ void rozofs_ll_setattr_cbk(void *this,void *param)
     */
     o_stbuf.st_size = ie->attrs.size;
 
-    fuse_reply_attr(req, &o_stbuf, rozofs_tmr_get(TMR_FUSE_ATTR_CACHE));
+    rz_fuse_reply_attr(req, &o_stbuf, rozofs_tmr_get(TMR_FUSE_ATTR_CACHE));
 
     goto out;
 error:

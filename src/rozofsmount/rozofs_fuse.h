@@ -135,6 +135,7 @@ typedef struct _rozofs_fuse_ctx_t
    char   *buf_fuse_req_p;   /**< fuse request buffer                      */
    uint32_t initBufCount;    /**< Number of buffer at initialization       */
    int     data_xon;         /**< assert to one when there is enough buffer on storcli side  */
+   int     dir_attr_invalidate;   /**< assert to one for directory invalidate on mkdir/mknod/unlink/create and rmdir  */
    int     ioctl_supported;  /**< assert to 1 if ioctl is supported for xon/xoff */
 
 } rozofs_fuse_ctx_t;

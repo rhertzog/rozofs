@@ -60,6 +60,10 @@ static inline uint32_t lv2_hash(void *key) {
     */
     memcpy(&fake_inode,key,sizeof(rozofs_inode_t));
     rozofs_reset_recycle_on_fid(&fake_inode);
+    /*
+    ** clear the delete pending bit
+    */
+    fake_inode.s.del = 0;
 
     c = (uint8_t *) &fake_inode;
     for (i = 0; i < sizeof(rozofs_inode_t); c++,i++)
@@ -76,10 +80,10 @@ static inline int lv2_cmp(void *k1, void *k2) {
     */
     memcpy(&fake_inode1,k1,sizeof(rozofs_inode_t));
     rozofs_reset_recycle_on_fid(&fake_inode1);
-
+    fake_inode1.s.del = 0;
     memcpy(&fake_inode2,k2,sizeof(rozofs_inode_t));
     rozofs_reset_recycle_on_fid(&fake_inode2);
-    
+    fake_inode2.s.del = 0;    
     return uuid_compare((uint8_t*)&fake_inode1, (uint8_t*)&fake_inode2);
 }
 /*
@@ -125,6 +129,7 @@ static inline void lv2_cache_unlink(lv2_cache_t *cache,lv2_entry_t *entry) {
     @retval none
 */
 void lv2_cache_initialize(lv2_cache_t *cache) {
+    int i;
     cache->max = LV2_MAX_ENTRIES;
     cache->size = 0;
     cache->hit  = 0;
@@ -133,6 +138,12 @@ void lv2_cache_initialize(lv2_cache_t *cache) {
     list_init(&cache->lru);
     list_init(&cache->flock_list);
     htable_initialize(&cache->htable, LV2_BUKETS, lv2_hash, lv2_cmp);
+    for (i = 0; i < EXPORT_LV2_MAX_LOCK; i++)
+    {
+      list_init(&cache->lru_th[i]);
+      list_init(&cache->flock_list_th[i]);    
+    }
+    memset(cache->hash_stats,0,sizeof(uint64_t)*EXPORT_LV2_MAX_LOCK);
     
     /* 
     ** Lock service initalize 
@@ -1364,3 +1375,365 @@ void exp_release_attributes_tracking_context(export_tracking_table_t *tab_p)
    }
    free(tab_p);
 }
+
+
+#define EXPORT_MULTI 1
+#ifdef EXPORT_MULTI
+/*
+**________________________________________________________________________
+     M U L T I   T H R E A D   C A C H I N G  
+**________________________________________________________________________
+*/     
+/*
+ *___________________________________________________________________
+ * Put the entry in front of the lru list when no lock is set
+ *
+ * @param cache: the cache context
+ * @param entry: the cache entry
+ *___________________________________________________________________
+ */
+static inline void lv2_cache_update_lru_th(lv2_cache_t *cache, lv2_entry_t *entry,uint32_t hash) {
+    list_remove(&entry->list);
+    if (entry->nb_locks == 0) {
+        pthread_rwlock_wrlock(&cache->htable.lock[hash%cache->htable.lock_size]);
+        list_push_front(&cache->lru_th[hash%cache->htable.lock_size], &entry->list);
+        pthread_rwlock_unlock(&cache->htable.lock[hash%cache->htable.lock_size]);
+    }
+    else {
+        pthread_rwlock_wrlock(&cache->htable.lock[hash%cache->htable.lock_size]);
+        list_push_front(&cache->flock_list_th[hash%cache->htable.lock_size], &entry->list);    
+        pthread_rwlock_unlock(&cache->htable.lock[hash%cache->htable.lock_size]);
+    }
+}
+/*
+**__________________________________________________________________
+*/
+/**
+*   Remove an entry from the attribute cache
+
+    @param cache: pointer to the cache context
+    @param entry: pointer to entry to remove
+    @param hash: hash value
+    
+    @retval none
+*/
+static inline void lv2_cache_unlink_th(lv2_cache_t *cache,lv2_entry_t *entry,uint32_t hash) {
+
+  file_lock_remove_fid_locks(&entry->file_lock);
+  mattr_release(&entry->attributes.s.attrs);
+  /*
+  ** check the presence of the extended attribute block and free it
+  */
+  if (entry->extended_attr_p != NULL) free(entry->extended_attr_p);
+  /*
+  ** check the presence of the root_idx bitmap : for directory only
+  */
+  if (entry->dirent_root_idx_p != NULL) free(entry->dirent_root_idx_p); 
+  /*
+  ** Remove symbolic link name if any 
+  */
+  if (entry->symlink_target != NULL) free(entry->symlink_target);
+  
+  pthread_rwlock_wrlock(&cache->htable.lock[hash%cache->htable.lock_size]);  
+  list_remove(&entry->list);
+  pthread_rwlock_unlock(&cache->htable.lock[hash%cache->htable.lock_size]);  
+
+  free(entry);
+  cache->size--;  
+}
+/*
+**__________________________________________________________________
+*/
+/**
+*   Get an enry from the attributes cache
+
+    @param: pointer to the cache context
+    @param: fid : key of the element to find
+    @param: hash : hash value of the fid
+    
+    @retval <>NULL : pointer to the cache entry that contains the attributes
+    @retval NULL: not found
+*/
+lv2_entry_t *lv2_cache_get_th(lv2_cache_t *cache, fid_t fid,uint32_t hash) 
+{
+    lv2_entry_t *entry = 0;
+
+    if ((entry = htable_get_th(&cache->htable, fid,hash)) != 0) {
+        // Update the lru
+        lv2_cache_update_lru_th(cache,entry,hash); 
+	cache->hit++;
+    }
+    else {
+      cache->miss++;
+    }
+    return entry;
+}
+
+/*
+**__________________________________________________________________
+*/
+/**
+*   The purpose of that service is to read object attributes and store them in the attributes cache
+
+  @param trk_tb_p: export attributes tracking table
+  @param cache : pointer to the export attributes cache
+  @param fid : unique identifier of the object
+  @param hash : hash value of the fid
+  
+  @retval <> NULL: attributes of the object
+  @retval == NULL : no attribute returned for the object (see errno for details)
+*/
+
+lv2_entry_t *lv2_cache_put_th(export_tracking_table_t *trk_tb_p,lv2_cache_t *cache, fid_t fid,uint32_t hash) 
+{
+    lv2_entry_t *entry;
+    int count=0;
+    rozofs_inode_t *fake_inode,*fake_inode_attr;
+   
+    fake_inode = (rozofs_inode_t*)fid;
+
+    // maybe already cached.
+    if ((entry = htable_get_th(&cache->htable, fid,hash)) != 0) {
+        goto out;
+    }
+    entry = malloc(sizeof(lv2_entry_t));
+    if (entry == NULL)
+    {
+       severe("lv2_cache_put: %s\b",strerror(errno));
+       return NULL;
+    }
+    memset(entry,0,sizeof(lv2_entry_t));
+
+    /*
+    ** get the attributes of the object
+    */
+    if (exp_meta_get_object_attributes(trk_tb_p,fid,entry) < 0)
+    {
+      /*
+      ** cannot get the attributes: need to log the returned errno
+      */
+      goto error;
+    }
+    /*
+    ** case of the fid recycle
+    */
+
+    if (fake_inode->s.key == ROZOFS_REG)
+    {
+      fake_inode_attr = (rozofs_inode_t*)entry->attributes.s.attrs.fid;
+      if( fake_inode->s.recycle_cpt !=  fake_inode_attr->s.recycle_cpt)
+      {
+         /*
+	 ** it correspond to the case where the fid has been recycled
+	 */
+         goto error;
+      }
+    }    
+    /*
+    ** Initialize file locking 
+    */
+    list_init(&entry->file_lock);
+    entry->nb_locks = 0;
+    list_init(&entry->list);
+
+    /*
+    ** Try to remove older entries
+    */
+    count = 0;
+    if (cache->size >= cache->max)
+    {
+        pthread_rwlock_wrlock(&cache->htable.lock[hash%cache->htable.lock_size]);
+	while(!list_empty(&cache->lru_th[hash%cache->htable.lock_size]))
+	{
+          lv2_entry_t *lru;
+
+	  lru = list_entry(cache->lru_th[hash%cache->htable.lock_size].prev, lv2_entry_t, list);  
+ 	  if (lru->nb_locks != 0) {
+	    severe("lv2 with %d locks in lru",lru->nb_locks);
+ 	  }	
+	  htable_del(&cache->htable, lru->attributes.s.attrs.fid);
+	  lv2_cache_unlink(cache,lru);
+	  cache->lru_del++;
+	  count++;
+	  if (count >= 3) break;	
+	
+	}
+        pthread_rwlock_unlock(&cache->htable.lock[hash%cache->htable.lock_size]);
+    }
+    /*
+    ** Insert the new entry
+    */
+    lv2_cache_update_lru_th(cache,entry,hash);
+    htable_put_th(&cache->htable, entry->attributes.s.attrs.fid, entry,hash);
+    cache->size++;    
+
+    goto out;
+error:
+    if (entry) {
+        free(entry);
+        entry = 0;
+    }
+out:
+    return entry;
+}
+
+
+/*
+**__________________________________________________________________
+*/
+/**
+*   The purpose of that service is to store object attributes in the attributes cache
+
+  @param attr_p: pointer to the attributes of the object
+  @param cache : pointer to the export attributes cache
+  @param fid : unique identifier of the object
+  
+  @retval <> NULL: attributes of the object
+  @retval == NULL : no attribute returned for the object (see errno for details)
+*/
+
+lv2_entry_t *lv2_cache_put_forced_th(lv2_cache_t *cache, fid_t fid,ext_mattr_t *attr_p) {
+    lv2_entry_t *entry;
+    int count=0;
+    uint32_t hash = lv2_hash(fid);
+
+    // maybe already cached.
+    if ((entry = htable_get_th(&cache->htable, fid,hash)) != 0) {
+        goto out;
+    }
+    entry = malloc(sizeof(lv2_entry_t));
+    if (entry == NULL)
+    {
+       severe("lv2_cache_put: %s\b",strerror(errno));
+       return NULL;
+    }
+    memset(entry,0,sizeof(lv2_entry_t));
+
+    /*
+    ** copy the attributes
+    */
+    memcpy(entry,attr_p,sizeof( ext_mattr_t));
+    /*
+    ** Initialize file locking 
+    */
+    list_init(&entry->file_lock);
+    entry->nb_locks = 0;
+    list_init(&entry->list);
+
+    /*
+    ** Try to remove older entries
+    */
+    count = 0;
+    if (cache->size >= cache->max)
+    {
+        pthread_rwlock_wrlock(&cache->htable.lock[hash%cache->htable.lock_size]);
+	while(!list_empty(&cache->lru_th[hash%cache->htable.lock_size]))
+	{
+          lv2_entry_t *lru;
+
+	  lru = list_entry(cache->lru_th[hash%cache->htable.lock_size].prev, lv2_entry_t, list);  
+ 	  if (lru->nb_locks != 0) {
+	    severe("lv2 with %d locks in lru",lru->nb_locks);
+ 	  }	
+	  htable_del(&cache->htable, lru->attributes.s.attrs.fid);
+	  lv2_cache_unlink(cache,lru);
+	  cache->lru_del++;
+	  count++;
+	  if (count >= 3) break;	
+	
+	}
+        pthread_rwlock_unlock(&cache->htable.lock[hash%cache->htable.lock_size]);
+    }
+    /*
+    ** Insert the new entry
+    */
+    lv2_cache_update_lru_th(cache,entry,hash);
+    htable_put_th(&cache->htable, entry->attributes.s.attrs.fid, entry,hash);
+    cache->size++;    
+out:
+    return entry;
+}
+
+/*
+**__________________________________________________________________
+*/
+/** search a fid in the attribute cache
+ 
+ if fid is not cached, try to find it on the underlying file system
+ and cache it.
+ 
+  @param trk_tb_p: export attributes tracking table
+  @param cache: pointer to the cache associated with the export
+  @param fid: the searched fid
+ 
+  @return a pointer to lv2 entry or null on error (errno is set)
+*/
+lv2_entry_t *export_lookup_fid_th(export_tracking_table_t *trk_tb_p,lv2_cache_t *cache, fid_t fid) {
+    lv2_entry_t *lv2 = 0;
+    uint32_t slice;
+    uint32_t hash = lv2_hash(fid);
+    
+    cache->hash_stats[hash%EXPORT_LV2_MAX_LOCK]++;
+
+    /*
+    ** get the slice of the fid :extracted from the upper part 
+    */
+    exp_trck_get_slice(fid,&slice);
+    /*
+    ** check if the slice is local
+    */
+    if (exp_trck_is_local_slice(slice))
+    {
+      if (!(lv2 = lv2_cache_get_th(cache, fid,hash))) {
+          // not cached, find it an cache it
+          if (!(lv2 = lv2_cache_put_th(trk_tb_p,cache, fid,hash))) {
+              goto out;
+          }
+      }
+    }
+    else
+    {
+      int idx  = (++exp_fake_lv2_entry_idx)%(EXP_MAX_FAKE_LVL2_ENTRIES);
+      lv2 = &exp_fake_lv2_entry[idx];
+      if (exp_meta_get_object_attributes(trk_tb_p,fid,lv2) < 0)
+      {
+	/*
+	** cannot get the attributes: need to log the returned errno
+	*/
+	lv2 = NULL;
+      } 
+      else
+      {
+         memset(lv2,0,sizeof(lv2_entry_t));
+      }         
+    }
+out:
+//    STOP_PROFILING(export_lookup_fid);
+    return lv2;
+}
+
+/*
+**__________________________________________________________________
+*/
+/**
+*   delete an entry from the attribute cache
+
+    @param cache: pointer to the level 2 cache
+    @param fid : key of the entry to remove
+*/
+void lv2_cache_del_th(lv2_cache_t *cache, fid_t fid) 
+{
+    lv2_entry_t *entry = 0;
+    uint32_t hash = lv2_hash(fid);
+    if ((entry = htable_del_th(&cache->htable, fid,hash)) != 0) {
+	lv2_cache_unlink_th(cache,entry,hash);
+    }
+}
+/*
+**________________________________________________________________________
+     M U L T I   T H R E A D   C A C H I N G 
+**________________________________________________________________________
+*/     
+
+
+#endif

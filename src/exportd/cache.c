@@ -867,6 +867,8 @@ static inline int lv2_cmp(void *k1, void *k2) {
 
 char * lv2_cache_display(lv2_cache_t *cache, char * pChar) {
 
+  int i;
+
   pChar += sprintf(pChar, "lv2 attributes cache : current/max %u/%u\n",cache->size, cache->max);
   pChar += sprintf(pChar, "hit %llu / miss %llu / lru_del %llu\n",
                    (long long unsigned int) cache->hit, 
@@ -875,7 +877,14 @@ char * lv2_cache_display(lv2_cache_t *cache, char * pChar) {
   pChar += sprintf(pChar, "entry size %u - current size %u - maximum size %u\n", 
                    (unsigned int) sizeof(lv2_entry_t), 
 		   (unsigned int)sizeof(lv2_entry_t)*cache->size, 
-		   (unsigned int)sizeof(lv2_entry_t)*cache->max); 
+		   (unsigned int)sizeof(lv2_entry_t)*cache->max);
+  for (i = 0; i < EXPORT_LV2_MAX_LOCK; i++)
+  {
+    pChar += sprintf(pChar, "hash%2.2d: %llu \n",i,
+                     (long long unsigned int) cache->hash_stats[i]);  
+  
+  } 
+  memset(cache->hash_stats,0,sizeof(uint64_t)*EXPORT_LV2_MAX_LOCK);
   return pChar;		   
 }
 

@@ -31,6 +31,7 @@
 #include <rozofs/rozofs.h>
 #include <rozofs/common/log.h>
 #include <rozofs/common/xmalloc.h>
+#include <rozofs/common/export_track.h>
 #include <rozofs/rpc/epproto.h>
 #include <rozofs/rpc/export_profiler.h>
 #include <rozofs/core/rozofs_string.h>
@@ -924,7 +925,7 @@ int dirent_get_root_idx(uint64_t children,uint32_t hash1)
  * @retval  0 on success (mask contains the mask of the dirent root file)
  * @retval -1 on failure
  */
-int put_mdirentry(void *root_idx_bitmap_p,int dirfd, fid_t fid_parent, char * name, fid_t fid, uint32_t type,
+int put_mdirentry(void *root_idx_bitmap_p,int dirfd, fid_t fid_parent_in, char * name, fid_t fid, uint32_t type,
                   mdirent_fid_name_info_t *fid_name_info_p,uint64_t children,int *mask) 
 {
 
@@ -945,10 +946,17 @@ int put_mdirentry(void *root_idx_bitmap_p,int dirfd, fid_t fid_parent, char * na
     mdirents_hash_entry_t *hash_entry_p = NULL;
     mdirents_hash_ptr_t mdirents_hash_ptr;
     int range;
-    
+    fid_t fid_parent;
+    int may_exist= 0;
+       
     *mask = -1; /* unknown mask */
     
     START_PROFILING(put_mdirentry);
+    /*
+    ** deassert de delete pending bit of the parent
+    */
+    memcpy(fid_parent,fid_parent_in,sizeof(fid_t));
+    exp_metadata_inode_del_deassert(fid_parent);
     
     if (fid_name_info_p != NULL)
     {
@@ -1025,47 +1033,50 @@ int put_mdirentry(void *root_idx_bitmap_p,int dirfd, fid_t fid_parent, char * na
             }
         }
 
-        /*
-         ** search if the entry exist and if so just replace the content of fid
-         */
-        cache_entry_p = dirent_cache_search_hash_entry(dirfd, root_entry_p,
-                bucket_idx,
-                hash2,
-                &local_idx,
-                (uint8_t *) name, (uint16_t) len,
-                &name_entry_p,
-                &hash_entry_p);
-        if (cache_entry_p != NULL) {
-            /*
-             ** OK, we have found the entry either in one of the dirent_file associated with
-             ** the dirent root file or in the dirent root file itself:
-             ** We just need to update the fid and re-write the associated name entry array
-             ** on disk
-             */
-            memcpy(name_entry_p->fid, fid, sizeof (fid_t));
-            dirent_update_entry += 1;
-	    if (fid_name_info_p != NULL)
-	    {
-	      /*
-	      ** save the information related to fid&name
-	      */
-	      if (cache_entry_p->header.level_index != 0)
+        if (may_exist)
+	{
+          /*
+           ** search if the entry exist and if so just replace the content of fid
+           */
+          cache_entry_p = dirent_cache_search_hash_entry(dirfd, root_entry_p,
+                  bucket_idx,
+                  hash2,
+                  &local_idx,
+                  (uint8_t *) name, (uint16_t) len,
+                  &name_entry_p,
+                  &hash_entry_p);
+          if (cache_entry_p != NULL) {
+              /*
+               ** OK, we have found the entry either in one of the dirent_file associated with
+               ** the dirent root file or in the dirent root file itself:
+               ** We just need to update the fid and re-write the associated name entry array
+               ** on disk
+               */
+              memcpy(name_entry_p->fid, fid, sizeof (fid_t));
+              dirent_update_entry += 1;
+	      if (fid_name_info_p != NULL)
 	      {
-		fid_name_info_p->coll = 1;
-		fid_name_info_p->coll_idx = cache_entry_p->header.dirent_idx[1] ; 
+		/*
+		** save the information related to fid&name
+		*/
+		if (cache_entry_p->header.level_index != 0)
+		{
+		  fid_name_info_p->coll = 1;
+		  fid_name_info_p->coll_idx = cache_entry_p->header.dirent_idx[1] ; 
+		}
+		fid_name_info_p->chunk_idx = hash_entry_p->chunk_idx ;
+		fid_name_info_p->nb_chunk = hash_entry_p->nb_chunk ;
 	      }
-	      fid_name_info_p->chunk_idx = hash_entry_p->chunk_idx ;
-	      fid_name_info_p->nb_chunk = hash_entry_p->nb_chunk ;
-	    }
-            /*
-             ** just need to re-write the sector
-             */
-            if (dirent_write_name_array_to_disk(dirfd, cache_entry_p, hash_entry_p->chunk_idx) < 0) {
-                goto out;
-            }
-            status = 0;
-            goto out;
-        }
+              /*
+               ** just need to re-write the sector
+               */
+              if (dirent_write_name_array_to_disk(dirfd, cache_entry_p, hash_entry_p->chunk_idx) < 0) {
+                  goto out;
+              }
+              status = 0;
+              goto out;
+          }
+	}
     }
     /*
      ** The entry does not exist, we need to allocate a free hash entry from on of the dirent file
@@ -1280,7 +1291,7 @@ int fdl_root_count = 0;
 int get_mdirentry_internal(void *root_idx_bitmap_p,int dirfd, fid_t fid_parent, char * name, fid_t fid, 
                            uint32_t * type,int mask,int len,uint32_t hash1,uint32_t hash2);
 
-int get_mdirentry(void *root_idx_bitmap_p,int dirfd, fid_t fid_parent, char * name, fid_t fid, uint32_t * type,int *mask_ret) 
+int get_mdirentry(void *root_idx_bitmap_p,int dirfd, fid_t fid_parent_in, char * name, fid_t fid, uint32_t * type,int *mask_ret) 
 {
 
   uint32_t hash1;
@@ -1291,9 +1302,16 @@ int get_mdirentry(void *root_idx_bitmap_p,int dirfd, fid_t fid_parent, char * na
   int mask;
   int ret;
   int root_idx_bit;
+  fid_t fid_parent;
 
   START_PROFILING(get_mdirentry);
   *mask_ret = 0;
+
+  /*
+  ** deassert de delete pending bit of the parent
+  */
+  memcpy(fid_parent,fid_parent_in,sizeof(fid_t));
+  exp_metadata_inode_del_deassert(fid_parent);
   /*
   ** file is unknown by default
   */
@@ -1549,14 +1567,19 @@ static inline void dirent_dbg_check_cache_entry(fid_t fid_parent, int root_idx) 
 int del_mdirentry_internal(void *root_idx_bitmap_p,int dirfd, fid_t fid_parent, char * name, fid_t fid, uint32_t * type,int mask);
 
 
-int del_mdirentry(void *root_idx_bitmap_p,int dirfd, fid_t fid_parent, char * name, fid_t fid, uint32_t * type,int mask) 
+int del_mdirentry(void *root_idx_bitmap_p,int dirfd, fid_t fid_parent_in, char * name, fid_t fid, uint32_t * type,int mask) 
 {
 
   int range_idx;
   int status = -1;
   int ret;
-  
+  fid_t fid_parent;
   START_PROFILING(del_mdirentry);
+  /*
+  ** deassert de delete pending bit of the parent
+  */
+  memcpy(fid_parent,fid_parent_in,sizeof(fid_t));
+  exp_metadata_inode_del_deassert(fid_parent);
 
   if (mask != 0)
   {
@@ -1933,7 +1956,7 @@ typedef union _dirent_list_cookie_t {
     } s;
 } dirent_list_cookie_t;
 
-int list_mdirentries(void *root_idx_bitmap_p,int dir_fd, fid_t fid_parent, child_t ** children, uint64_t *cookie, uint8_t * eof) {
+int list_mdirentries(void *root_idx_bitmap_p,int dir_fd, fid_t fid_parent_in, child_t ** children, uint64_t *cookie, uint8_t * eof) {
     int root_idx = 0;
     int cached = 0;
     child_t ** iterator;
@@ -1954,8 +1977,17 @@ int list_mdirentries(void *root_idx_bitmap_p,int dir_fd, fid_t fid_parent, child
     uint8_t *coll_bitmap_p;
     int next_hash_entry_idx;
     int root_idx_bit;
+    int deleted_dir;
+    int deleted_obj;
+    fid_t fid_parent;
 
     START_PROFILING(list_mdirentries);
+    /*
+    ** check if the delete pending flag is asserted on the parent directory
+    */
+    memcpy(fid_parent,fid_parent_in,sizeof(fid_t));
+    deleted_dir = exp_metadata_inode_is_del_pending(fid_parent);
+    exp_metadata_inode_del_deassert(fid_parent);
    /*
    ** set the pointer to the root idx bitmap
    */
@@ -2273,6 +2305,18 @@ get_next_collidx:
                 continue;	    
 	    
 	    }
+	    /*
+	    ** check if the entry has to be reported to the caller according the state of the delete pending
+	    ** flag of the object and of the parent
+	    */
+	    deleted_obj = exp_metadata_inode_is_del_pending(name_entry_p->fid);
+#if 1
+	    if (deleted_dir != deleted_obj) 
+	    {
+                hash_entry_idx++;
+                continue;	    
+	    }
+#endif
             *iterator = xmalloc(sizeof (child_t));
             memset(*iterator, 0, sizeof (child_t));
             memcpy((*iterator)->fid, name_entry_p->fid, sizeof (fid_t));

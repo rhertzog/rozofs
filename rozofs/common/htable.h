@@ -20,13 +20,16 @@
 #define _HTABLE
 
 #include <stdint.h>
-
+#include <pthread.h>
 #include "list.h"
 
+#define ROZOFS_HTABLE_MAX_LOCK 16
 typedef struct htable {
     uint32_t(*hash) (void *);
     int (*cmp) (void *, void *);
     uint32_t size;
+    uint32_t lock_size;
+    pthread_rwlock_t lock[ROZOFS_HTABLE_MAX_LOCK]; /**< lock used for insertion/LRU handling */
     list_t *buckets;
 } htable_t;
 
@@ -40,5 +43,62 @@ void htable_put(htable_t * h, void *key, void *value);
 void *htable_get(htable_t * h, void *key);
 
 void *htable_del(htable_t * h, void *key);
+/*
+**________________________________________________________________
+*/
+/**
+*  Init of the hash table for multi thread environment
 
+   @param h: pointer to the hash table context
+   @param size : size of the hash table
+   @param lock_size: max number of locks
+   @param hash : pointer to the hash function
+   @param cmp : compare to the match function
+   
+   @retval 0 on success
+   @retval < 0 error (see errno for details)
+*/
+int htable_initialize_th(htable_t * h, uint32_t size,uint32_t lock_size, uint32_t(*hash) (void *),
+                       int (*cmp) (void *, void *));
+/*
+**________________________________________________________________
+*/
+/**
+*  Get an entry from the hash table
+
+  @param h: pointer to the hash table
+  @param key: key to search
+  @param hash : hash value of the key
+  
+  @retval NULL if not found
+  @retval <> NULL : entry found
+*/
+void *htable_get_th(htable_t * h, void *key,uint32_t hash);
+/*
+**________________________________________________________________
+*/
+/**
+*  Remove an entry from the hash table
+
+  @param h: pointer to the hash table
+  @param key: key to search
+  @param hash : hash value of the key
+  
+  @retval NULL if not found
+  @retval <> NULL : entry found
+*/
+void *htable_del_th(htable_t * h, void *key,uint32_t hash);		       
+/*
+**________________________________________________________________
+*/
+/**
+*  Insert an entry in the hash table
+
+  @param h: pointer to the hash table
+  @param key: key to search
+  @param value: pointer to the element to insert
+  @param hash : hash value of the key
+  
+*/
+void htable_put_th(htable_t * h, void *key, void *value,uint32_t hash);
 #endif

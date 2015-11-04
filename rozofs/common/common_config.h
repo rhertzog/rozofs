@@ -70,6 +70,9 @@
 
 #define rozofs_cc_def_fid_recycle             FALSE
 #define rozofs_cc_def_wr_ack_on_inverse       FALSE
+#define rozofs_cc_def_export_attr_thread      TRUE
+#define rozofs_cc_def_rozofsmount_fuse_reply_thread      TRUE
+#define rozofs_cc_def_export_versioning      FALSE
 
 typedef enum _rozofs_file_distribution_rule_e {
   rozofs_file_distribution_size_balancing,
@@ -143,6 +146,10 @@ typedef struct _common_config_t {
   uint32_t    recycle_truncate_blocks;
   uint32_t    storio_buf_cnt;
   uint32_t    export_buf_cnt;
+  uint32_t    export_attr_thread;
+  uint32_t    rozofsmount_fuse_reply_thread;
+  uint32_t    export_versioning;
+
 } common_config_t;
   
 extern common_config_t common_config;

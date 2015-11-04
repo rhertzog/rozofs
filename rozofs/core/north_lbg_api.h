@@ -321,4 +321,16 @@ int north_lbg_get_active_entry(int  lbg_idx);
   @retval none
 */
 void north_lbg_set_active_entry(int  lbg_idx, int sock_idx_in_lbg);
+/*__________________________________________________________________________
+*/
+/**
+*  Get the IP@ of active entry of the lbg
+
+  @param lbg_idx : reference of the load balancing group
+
+
+  @retval != 0 IP@ of the active export
+  @retval == 0 no IP@
+*/
+uint32_t north_lbg_get_remote_ip_address(int  lbg_idx);
 #endif
