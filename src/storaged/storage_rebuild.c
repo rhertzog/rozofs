@@ -116,7 +116,7 @@ typedef struct rbs_monitor_s {
 RBS_MONITOR_S rbs_monitor[128];
 
 
-char header_msg[512]={0};
+char header_msg[1024*8]={0};
 int  header_msg_size=0;
 
 int rbs_index=0;
