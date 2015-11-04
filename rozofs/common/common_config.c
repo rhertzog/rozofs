@@ -98,6 +98,9 @@ void show_common_config(char * argv[], uint32_t tcpRef, void *bufRef) {
   COMMON_CONFIG_SHOW_INT(recycle_truncate_blocks);
   COMMON_CONFIG_SHOW_INT(storio_buf_cnt);
   COMMON_CONFIG_SHOW_INT(export_buf_cnt);
+  COMMON_CONFIG_SHOW_BOOL(export_attr_thread);
+  COMMON_CONFIG_SHOW_BOOL(rozofsmount_fuse_reply_thread);
+  COMMON_CONFIG_SHOW_BOOL(export_versioning);
 
   
   uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
@@ -287,7 +290,18 @@ void common_config_read(char * fname) {
   COMMON_CONFIG_READ_INT(recycle_truncate_blocks);  
   COMMON_CONFIG_READ_INT(storio_buf_cnt);  
   COMMON_CONFIG_READ_INT(export_buf_cnt);  
-
+  /*
+  ** activation of export writebehind attributes thread
+  */
+  COMMON_CONFIG_READ_BOOL(export_attr_thread);
+  /*
+  ** activation of rozofsmount reply fuse threads 
+  */
+  COMMON_CONFIG_READ_BOOL(rozofsmount_fuse_reply_thread);
+  /*
+  ** support of directory/file versioning for export  
+  */
+  COMMON_CONFIG_READ_BOOL(export_versioning);
   /*
   ** Free lib config working structure
   */
