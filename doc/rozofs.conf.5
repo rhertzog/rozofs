@@ -92,6 +92,15 @@ It is no use to set this boolean when you do not configure a spin down timeout (
 Value that indicates the DSCP that is associated with TCP connections used to communicate with the Metadata server. By default the value corresponds to Expedited Forwarding (EF) class.
 .SS storio_dscp
 Value that indicates the DSCP that is associated with TCP connections used to communicate with the Storage server. By default the value corresponds to Assured Forwarding (AF41) class.
+.SS export_attr_thread
+Boolean (true or false). When set, this flag indicates that the export has its attribute writeback threads activated (default true).
+.SS rozofsmount_fuse_reply_thread
+Boolean (true or false). When set, this flag indicates that the rozofsmount has its fuse reply threads activated (default true).
+.SS export_versioning
+Boolean (true or false). When set, this flag indicates that any deleted object (file/directory) are save under
+.B @rozofs-del@ 
+pseudo directory of the parent directory (default false).
+
 .SH EXAMPLE
 .PP
 .nf
