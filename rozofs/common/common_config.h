@@ -80,6 +80,15 @@ typedef enum _rozofs_file_distribution_rule_e {
   
   rozofs_file_distribution_max
 } rozofs_file_distribution_rule_e;
+
+static inline char * rozofs_file_distribution_rule2sting(rozofs_file_distribution_rule_e rule) {
+  switch(rule) {
+    case rozofs_file_distribution_size_balancing: return "size balancing";
+    case rozofs_file_distribution_round_robin:    return "round robin";
+    default: return "??";
+  }  
+}   
+    
 #define rozofs_cc_def_file_distribution_rule    rozofs_file_distribution_size_balancing
 #define rozofs_cc_min_file_distribution_rule    0
 #define rozofs_cc_max_file_distribution_rule    (rozofs_file_distribution_max-1)
@@ -115,6 +124,10 @@ typedef enum _rozofs_file_distribution_rule_e {
 #define rozofs_cc_min_export_buf_cnt      32  // No threashold
 #define rozofs_cc_max_export_buf_cnt      1024
 
+#define rozofs_cc_def_alloc_estimated_mb       32
+#define rozofs_cc_min_alloc_estimated_mb        0   
+#define rozofs_cc_max_alloc_estimated_mb  8000000
+
 /*
 ** Common configuration parameters
 */
@@ -149,7 +162,8 @@ typedef struct _common_config_t {
   uint32_t    export_attr_thread;
   uint32_t    rozofsmount_fuse_reply_thread;
   uint32_t    export_versioning;
-
+  
+  uint32_t    alloc_estimated_mb;
 } common_config_t;
   
 extern common_config_t common_config;

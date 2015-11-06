@@ -516,6 +516,17 @@ void show_quota_wb(char * argv[], uint32_t tcpRef, void *bufRef) {
 *_______________________________________________________________________
 */
 /**
+*   Format the ouput for the file distribution rule
+*/
+char * show_file_distibution_rule(char * pBuf) {
+  pBuf += sprintf(pBuf,"File distibution rule = %s\n",rozofs_file_distribution_rule2sting(common_config.file_distribution_rule)); 
+  pBuf += sprintf(pBuf,"File estimated weigth = %d MB\n",common_config.alloc_estimated_mb);
+  return pBuf;
+}   
+/*
+*_______________________________________________________________________
+*/
+/**
 *   Storage,Volumes, EID statistics
 
   @param argv : standard argv[] params of debug callback
@@ -527,7 +538,9 @@ void show_quota_wb(char * argv[], uint32_t tcpRef, void *bufRef) {
 void show_vfstat(char * argv[], uint32_t tcpRef, void *bufRef) {
     char *pbuf = uma_dbg_get_buffer();
     int i, j;
-
+    
+    pbuf = show_file_distibution_rule(pbuf);
+    
     for (i = 0; i < gprofiler.nb_volumes; i++) {
         pbuf+=sprintf(pbuf, "Volume: %d georep: %s  Bsize: %d Blocks: %"PRIu64" Bfree: %"PRIu64" PercentFree: %d\n",
                 gprofiler.vstats[i].vid,
@@ -612,6 +625,8 @@ void show_vfstat_stor(char * argv[], uint32_t tcpRef, void *bufRef) {
     char *pbuf = uma_dbg_get_buffer();
     int i,j;
 
+    pbuf = show_file_distibution_rule(pbuf);
+
     for (i = 0; i < gprofiler.nb_volumes; i++) {
  
         pbuf+=sprintf(pbuf, "\n%-6s | %-6s | %-6s | %-6s | %-20s | %-20s | %-8s |\n","Vid", "Cid", "Sid", "Status", "Capacity(B)","Free(B)","Free(%)");
@@ -660,6 +675,8 @@ void show_vstor(char * argv[], uint32_t tcpRef, void *bufRef) {
     char *pbuf = uma_dbg_get_buffer();
     int i,j;
 
+    pbuf = show_file_distibution_rule(pbuf);
+
     for (i = 0; i < gprofiler.nb_volumes; i++) {
  
         pbuf+=sprintf(pbuf, "\n%4s| %-3s | %-3s | %-3s | %s\n","Site","Vid", "Cid", "Sid", "host");
@@ -699,6 +716,8 @@ void show_vstor(char * argv[], uint32_t tcpRef, void *bufRef) {
 void show_geo_vfstat_stor(char * argv[], uint32_t tcpRef, void *bufRef) {
     char *pbuf = uma_dbg_get_buffer();
     int i,j;
+
+    pbuf = show_file_distibution_rule(pbuf);
     
     sprintf(pbuf, "Empty\n");
     for (i = 0; i < gprofiler.nb_volumes; i++) {

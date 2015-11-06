@@ -479,6 +479,7 @@ static int do_cluster_distribute(uint8_t layout,int site_idx, cluster_t *cluster
   volume_storage_t *vs;
   list_t           *pList = &cluster->storages[site_idx];
   list_t           *p;
+  uint64_t          decrease_size;
   
   uint8_t rozofs_inverse=0; 
   uint8_t rozofs_forward=0;
@@ -547,71 +548,76 @@ static int do_cluster_distribute(uint8_t layout,int site_idx, cluster_t *cluster
   
 success:
 
-#define decrease_size1 (32*1024ULL*1024ULL)
-#define decrease_size2 (16*1024ULL*1024ULL)
-#define decrease_size3 (1024ULL*1024ULL)
-  
+
+  decrease_size = common_config.alloc_estimated_mb*(1024*1024);
   idx = 0;
+
   while(idx < rozofs_inverse) {
   
     vs = selected[idx];
     sids[idx] = vs->sid;
-
-    if (vs->stat.free > (256*decrease_size1)) {
-      vs->stat.free -= decrease_size1;
-    }
-    else if (vs->stat.free > (64*decrease_size1)) {
-      vs->stat.free -= (decrease_size1/2);      
-    }
-    else if (vs->stat.free > decrease_size1) {
-      vs->stat.free -= (decrease_size1/8);
-    }
-    else {
-      vs->stat.free /= 2;
+    if (decrease_size) {
+      if (vs->stat.free > (256*decrease_size)) {
+	vs->stat.free -= decrease_size;
+      }
+      else if (vs->stat.free > (64*decrease_size)) {
+	vs->stat.free -= (decrease_size/2);      
+      }
+      else if (vs->stat.free > decrease_size) {
+	vs->stat.free -= (decrease_size/8);
+      }
+      else {
+	vs->stat.free /= 2;
+      }
     }
     idx++;
   }
   
+  decrease_size = decrease_size /2;
   while(idx < rozofs_forward) {
   
     vs = selected[idx];
     sids[idx] = vs->sid;
 
-    if (vs->stat.free > (256*decrease_size2)) {
-      vs->stat.free -= decrease_size2;
-    }
-    else if (vs->stat.free > (64*decrease_size2)) {
-      vs->stat.free -= (decrease_size2/2);      
-    }
-    else if (vs->stat.free > decrease_size2) {
-      vs->stat.free -= (decrease_size2/8);
-    }
-    else {
-      vs->stat.free /= 2;
-    }
+    if (decrease_size) {
+      if (vs->stat.free > (256*decrease_size)) {
+	vs->stat.free -= decrease_size;
+      }
+      else if (vs->stat.free > (64*decrease_size)) {
+	vs->stat.free -= (decrease_size/2);      
+      }
+      else if (vs->stat.free > decrease_size) {
+	vs->stat.free -= (decrease_size/8);
+      }
+      else {
+	vs->stat.free /= 2;
+      }
+    }  
     idx++;
   } 
-   
+
+  decrease_size = decrease_size /16;   
   while(idx < rozofs_safe) {
   
     vs = selected[idx];
     sids[idx] = vs->sid;
 
-    if (vs->stat.free > (256*decrease_size3)) {
-      vs->stat.free -= decrease_size3;
-    }
-    else if (vs->stat.free > (64*decrease_size3)) {
-      vs->stat.free -= (decrease_size3/2);      
-    }
-    else if (vs->stat.free > decrease_size3) {
-      vs->stat.free -= (decrease_size3/8);
-    }
-    else {
-      vs->stat.free /= 2;
-    }
+    if (decrease_size) {
+      if (vs->stat.free > (256*decrease_size)) {
+	vs->stat.free -= decrease_size;
+      }
+      else if (vs->stat.free > (64*decrease_size)) {
+	vs->stat.free -= (decrease_size/2);      
+      }
+      else if (vs->stat.free > decrease_size) {
+	vs->stat.free -= (decrease_size/8);
+      }
+      else {
+	vs->stat.free /= 2;
+      }
+    }  
     idx++;
   }    
-
   /*
   ** Re-order the SIDs
   */

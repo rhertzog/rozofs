@@ -101,7 +101,7 @@ void show_common_config(char * argv[], uint32_t tcpRef, void *bufRef) {
   COMMON_CONFIG_SHOW_BOOL(export_attr_thread);
   COMMON_CONFIG_SHOW_BOOL(rozofsmount_fuse_reply_thread);
   COMMON_CONFIG_SHOW_BOOL(export_versioning);
-
+  COMMON_CONFIG_SHOW_INT(alloc_estimated_mb);
   
   uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
   return;          
@@ -302,6 +302,8 @@ void common_config_read(char * fname) {
   ** support of directory/file versioning for export  
   */
   COMMON_CONFIG_READ_BOOL(export_versioning);
+  
+  COMMON_CONFIG_READ_INT(alloc_estimated_mb);
   /*
   ** Free lib config working structure
   */
