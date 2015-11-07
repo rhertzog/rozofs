@@ -666,11 +666,8 @@ class volume_class:
 #____________________________________
 class exportd_class:
 
-  def __init__(self,hosts=None):
-    if hosts == None:
-      self.export_host="localhost/192.168.36.15"
-    else:
-      self.export_host=hosts  
+  def __init__(self,hosts="localhost"):
+    self.export_host=hosts  
 
   def get_config_name(self): return "%s/export.conf"%(rozofs.get_config_path())
 
@@ -894,6 +891,9 @@ class rozofs_class:
     self.file_distribution = 1
     self.fid_recycle = False
     self.trash_threshold = 10
+    self.alloc_mb = None
+  
+  def set_alloc_mb(self,alloc_mb): self.alloc_mb = alloc_mb
     
   def set_fid_recycle(self,threshold=10): 
     self.fid_recycle = True 
@@ -974,7 +974,7 @@ class rozofs_class:
     if self.fid_recycle == True: 
       print "fid_recycle          = True;"
       print "trash_high_threshold = %s;"%(self.trash_threshold)
-
+    if self.alloc_mb != None: print "alloc_estimated_mb   = %s;"%(self.alloc_mb)
 
   def create_common_config(self):
     save_stdout = sys.stdout
@@ -1531,19 +1531,19 @@ def test_parse(command, argv):
        print "%d"%(len(volumes)) 
 
   elif command == "sid" : 
-       if len(argv) <= 4: syntax("sid requires cid+sid numbers")
+       if len(argv) <= 4: syntax("sid requires cid+sid numbers","sid")
 
        try:     cid = int(argv[2])
-       except:  syntax("get_cid_sid requires an integer for cluster id") 
-       if cid == 0: syntax("No such cluster id")  
-       if (len(cids)) < int(cid): syntax("No such cluster id")
+       except:  syntax("get_cid_sid requires an integer for cluster id","sid") 
+       if cid == 0: syntax("No such cluster id","sid")  
+       if (len(cids)) < int(cid): syntax("No such cluster id","sid")
        cid-=1            
        c = cids[cid]
 
        try:     sid = int(argv[3])
-       except:  syntax("get_cid_sid requires an integer for storage id") 
+       except:  syntax("get_cid_sid requires an integer for storage id","sid") 
        if sid == 0: syntax("No such storage id")  
-       if sid > c.nb_sid(): syntax("No such storage id in this cluster")
+       if sid > c.nb_sid(): syntax("No such storage id in this cluster","sid")
        sid-= 1         
        s = c.sid[sid]
 

@@ -657,13 +657,18 @@ class storage(rozofs_module):
     
     for line in res:
       words=line.split('|') 
-      try: int(words[0])
+      try: int(words[1])
       except: continue
-      if words[4] != "IS":
-	self.ERROR("Device %s of cid%s/sid%s is %s"%(words[5], words[1], words[3], words[7]),"device") 
-        self.failed = True   
-      if int(words[7]) <= int(5):
-	self.WARNING("Device %s of cid%s/sid%s has only %s%s free space"%(words[5], words[1], words[3], words[13],'%'),"device")         	   
+      status = words[4].split()[0]
+      cid=words[1].split()[0]
+      sid=words[2].split()[0]
+      dev=words[3].split()[0]		
+      free= int(words[7]) 
+      if status != "IS" and status != "DEG":
+	self.ERROR("Device %s of cid%s/sid%s is %s"%(dev, cid, sid, status),"device") 
+        self.failed = True 
+      if free <= int(20):
+	self.WARNING("Device %s of cid%s/sid%s has only %s%s free space"%(dev, cid, sid, free,'%'),"device")         	   
     return 0	
              
   def check_storaged(self):    
