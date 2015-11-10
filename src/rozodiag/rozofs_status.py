@@ -929,6 +929,21 @@ class export_slave(rozofs_module):
     rozofs_module.__init__(self,host,'export:%s'%(number),"export_slave")
     self.master = master          
 
+    # Create its eid
+    res = self.rozodiag("vfstat_exp")
+    if res == None:
+      self.ERROR("do not respond to rozodiag") 
+      raise ValueError() 
+    for line in res:
+      words=line.split()
+      if len(words) < 14: continue
+      try:
+        eid=int(words[0])
+	vid=words[2]
+	self.master.add_eid(eid,vid)
+      except:
+      	continue    
+
   def check(self):
     global fulldiagnostic
     # Check storage status
@@ -995,19 +1010,6 @@ class exportd(rozofs_module):
       elif int(free) < 6:  self.ERROR("volume %s on export %s has only %s%c of free space"%(v.vid,self.host,free,'%'),"vfstat_vol")
       elif int(free) < 9:  self.WARNING("volume %s on export %s has only %s%c of free space"%(v.vid,self.host,free,'%'),"vfstat_vol")    
 
-    # Create its eid
-    res = self.rozodiag("vfstat_exp")
-    if res == None:
-      self.ERROR("do not respond to rozodiag") 
-      raise ValueError() 
-    for line in res:
-      words=line.split()
-      if len(words) < 14: continue
-      try:
-        eid=int(words[0])
-	self.add_eid(eid,words[2])
-      except:
-      	continue    
     
     # Create storages        
     res = self.rozodiag("vstor") 
@@ -1111,14 +1113,13 @@ class exportd(rozofs_module):
 
   def display(self):
     print "\nexportd: %s"%(self.host)
-    print "         %s %s"%(version,self.tag)
+    print " %s"%(self.tag)
     for v in sorted(self.volumes,key=lambda volume:volume.vid): 
       v.display()
-      list="    export id :"
+      print"    export id :"
       for e in sorted(self.eids,key=lambda export_id:export_id.vid): 
         if e.vid != v.vid: continue
-        list=list + " %s"%(e.eid)
-      print list
+        print "        . %s"%(e.eid)
     if len(self.clients) != 0:
       for client in sorted(self.clients,key=lambda client:client.host): client.display()
       client.output()
