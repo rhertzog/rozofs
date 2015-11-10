@@ -143,7 +143,6 @@ char *pChar = uma_dbg_get_buffer();
 /*____________________________________________________________________________________________*/
 static inline void common_config_generated_read(char * fname) {
   config_t          cfg; 
-  int               res;
   int               intval;
 
   if (config_file_is_read == 0) {

@@ -184,6 +184,9 @@ def go_read_file():
 
 #_______________________________________________
 def go_build_struct():
+  print ""
+  print "void common_config_read(char * fname);"
+  print ""
   print "typedef struct _common_config_global_t {"
   for module in modules:
     print ""  
@@ -240,7 +243,6 @@ def go_build_read():
   print "/*____________________________________________________________________________________________*/"
   print "static inline void common_config_generated_read(char * fname) {"
   print "  config_t          cfg; "
-  print "  int               res;"
   print "  int               intval;"
   print ""
   print "  if (config_file_is_read == 0) {"

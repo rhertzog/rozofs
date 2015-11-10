@@ -28,6 +28,9 @@
 #include <unistd.h>
 #include <inttypes.h>
 #include <sys/types.h>
+
+void common_config_read(char * fname);
+
 typedef struct _common_config_global_t {
 
   /*

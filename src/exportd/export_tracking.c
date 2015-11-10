@@ -257,7 +257,7 @@ void *export_wr_attr_th(void *arg) {
 	{ 
 	  if (errno != ENOENT) 
 	  { 
-	     severe("failed while writing child attributes %s %llx",strerror(errno),ctx_p->lv2);
+	     severe("failed while writing child attributes %s %p",strerror(errno),ctx_p->lv2);
 	     ctx_p->err_count++;
 	  }
 	}
