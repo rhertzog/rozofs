@@ -206,6 +206,39 @@ void *export_wr_attr_th(void *arg) {
     int ret;
     sprintf(bufname,"Attr. thread#%d",ctx_p->thread_idx);
     uma_dbg_thread_add_self(bufname);
+  /*
+  **  change the priority of the main thread
+  */
+#if 1
+    {
+      struct sched_param my_priority;
+      int policy=-1;
+      int ret= 0;
+
+      pthread_getschedparam(pthread_self(),&policy,&my_priority);
+          DEBUG("fuse reply thread Scheduling policy   = %s\n",
+                    (policy == SCHED_OTHER) ? "SCHED_OTHER" :
+                    (policy == SCHED_FIFO)  ? "SCHED_FIFO" :
+                    (policy == SCHED_RR)    ? "SCHED_RR" :
+                    "???");
+ #if 1
+      my_priority.sched_priority= 97;
+      policy = SCHED_RR;
+      ret = pthread_setschedparam(pthread_self(),policy,&my_priority);
+      if (ret < 0) 
+      {
+	severe("error on sched_setscheduler: %s",strerror(errno));	
+      }
+      pthread_getschedparam(pthread_self(),&policy,&my_priority);
+          info("fuse reply thread Scheduling policy (prio %d)  = %s\n",my_priority.sched_priority,
+                    (policy == SCHED_OTHER) ? "SCHED_OTHER" :
+                    (policy == SCHED_FIFO)  ? "SCHED_FIFO" :
+                    (policy == SCHED_RR)    ? "SCHED_RR" :
+                    "???");
+ #endif        
+     
+    }  
+#endif
     while(1)
     {  
       sem_post(&ctx_p->export_attr_wr_ready);
@@ -222,8 +255,11 @@ void *export_wr_attr_th(void *arg) {
 	ret = export_lv2_write_attributes(ctx_p->trk_tb_p,ctx_p->lv2);
 	if (ret < 0)
 	{ 
-	  severe("failed while writing child attributes %s",strerror(errno));
-	  ctx_p->err_count++;
+	  if (errno != ENOENT) 
+	  { 
+	     severe("failed while writing child attributes %s %llx",strerror(errno),ctx_p->lv2);
+	     ctx_p->err_count++;
+	  }
 	}
 	ctx_p->lv2 = NULL; 
       }
@@ -287,6 +323,40 @@ void *export_wr_attr_th(void *arg) {
     thread_ctx_p->lv2 = lv2;
     thread_ctx_p->trk_tb_p = trk_tb_p;
     sem_post(&thread_ctx_p->export_attr_wr_rq);     
+}
+
+/*
+**__________________________________________________________________
+*/
+/**
+    check for entry presence in thread contexts
+    
+    @param lv2: level2 entry to search
+ 
+    @retval 1 on sucess
+    @retval 0 if not found
+*/
+static inline int export_attr_thread_check_context(lv2_entry_t*lv2)
+{
+    int i;
+    attr_writeback_ctx_t       *thread_ctx_p;  
+    thread_ctx_p = rozofs_attr_thread_ctx_tb;
+    
+    if (lv2 == NULL) 
+    {
+      return 0;
+    }
+    /*
+    ** search if the lv2 is already under the control of one thread
+    */
+    for (i = 0; i < EXPORT_MAX_ATT_THREADS; i++,thread_ctx_p++)
+    {
+       if (thread_ctx_p->lv2 == lv2)
+       {
+	  return 1;             
+       }          
+    }
+    return 0;
 }
 /*
 **__________________________________________________________________
@@ -2775,7 +2845,7 @@ int export_unlink_multiple(export_t * e, fid_t parent, char *name, fid_t fid,mat
 	  // Best effort
       }
       // Remove from the cache (will be closed and freed)
-      lv2_cache_del(e->lv2_cache, child_fid);
+      if (export_attr_thread_check_context(lv2)==0) lv2_cache_del(e->lv2_cache, child_fid);
     }  
     /*
     ** all the subfile have been deleted so  Update export files
@@ -3079,7 +3149,7 @@ void export_unlink_duplicate_fid(export_t * e,lv2_entry_t  *plv2,fid_t parent, f
    */
    if (fid_has_been_recycled == 0)
    {
-     lv2_cache_del(e->lv2_cache, child_fid);
+     if (export_attr_thread_check_context(lv2)==0) lv2_cache_del(e->lv2_cache, child_fid);
    }
    plv2->attributes.s.hpc_reserved--;    
 }
@@ -3350,7 +3420,7 @@ int export_unlink(export_t * e, fid_t parent, char *name, fid_t fid,mattr_t * pa
           // Remove from the cache when deleted (will be closed and freed)
           if (fid_has_been_recycled == 0)
 	  {
-            lv2_cache_del(e->lv2_cache, child_fid);
+            if (export_attr_thread_check_context(lv2)==0) lv2_cache_del(e->lv2_cache, child_fid);
 	  } 
         } 
     }
@@ -4134,7 +4204,7 @@ int export_rmdir(export_t *e, fid_t pfid, char *name, fid_t fid,mattr_t * pattrs
           if (errno != ENOENT) goto out;
       }
       // remove from the cache (will be closed and freed)
-      lv2_cache_del(e->lv2_cache, fid);
+      if (export_attr_thread_check_context(lv2)==0) lv2_cache_del(e->lv2_cache, fid);
       /*
        ** rmdir is best effort since it might possible that some dirent file with empty entries remain
        */
@@ -4715,7 +4785,7 @@ int export_rename(export_t *e, fid_t pfid, char *name, fid_t npfid,
                 goto out;
 
             // Remove the dir to replace from the cache (will be closed and freed)
-            lv2_cache_del(e->lv2_cache, fid_to_replace);
+            if (export_attr_thread_check_context(lv2_to_replace)==0)lv2_cache_del(e->lv2_cache, fid_to_replace);
 	    lv2_to_replace = 0;
 
             // Return the fid of deleted directory
@@ -4831,7 +4901,7 @@ int export_rename(export_t *e, fid_t pfid, char *name, fid_t npfid,
                         goto out;
 
                     // Remove from the cache (will be closed and freed)
-                    lv2_cache_del(e->lv2_cache, fid_to_replace);
+                     if (export_attr_thread_check_context(lv2_to_replace)==0) lv2_cache_del(e->lv2_cache, fid_to_replace);
 		    lv2_to_replace = 0;
 
                     // Return the fid of deleted directory

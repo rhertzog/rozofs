@@ -947,7 +947,7 @@ int put_mdirentry(void *root_idx_bitmap_p,int dirfd, fid_t fid_parent_in, char *
     mdirents_hash_ptr_t mdirents_hash_ptr;
     int range;
     fid_t fid_parent;
-    int may_exist= 0;
+    int may_exist= 1;
        
     *mask = -1; /* unknown mask */
     

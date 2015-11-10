@@ -325,7 +325,7 @@ void rozofs_ll_create_cbk(void *this,void *param)
     
     fi->fh = (unsigned long) file;    
       
-    fuse_reply_create(req, &fep,fi);
+    rz_fuse_reply_create(req, &fep,fi);
     goto out;
 error:
     if (file)

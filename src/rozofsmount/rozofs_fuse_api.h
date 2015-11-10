@@ -1003,5 +1003,22 @@ void rz_fuse_reply_attr(fuse_req_t req, const struct stat *attr,
  */
 void rz_fuse_reply_entry(fuse_req_t req, const struct fuse_entry_param *e);
 
+/*
+**__________________________________________________________________
+*/
+/**
+ * Reply with a file entry
+ *
+ * Possible requests:
+ *   create
+ *
+ * Side effects:
+ *   increments the lookup count on success
+ *
+ * @param req request handle
+ * @param e the entry parameters
+ * @return zero for success, -errno for failure to send reply
+ */
+void rz_fuse_reply_create(fuse_req_t req, const struct fuse_entry_param *e,struct fuse_file_info *fi);
 void show_fuse_reply_thread(char * argv[], uint32_t tcpRef, void *bufRef);
 #endif

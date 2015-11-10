@@ -32,6 +32,7 @@ typedef enum _rz_fuse_reply_cmd_e
    RZ_FUSE_REPLY_ERR,
    RZ_FUSE_REPLY_ATTR,
    RZ_FUSE_REPLY_ENTRY,
+   RZ_FUSE_REPLY_CREATE,
    RZ_FUSE_REPLY_MAX
 } rz_fuse_reply_cmd_e;
  
@@ -54,6 +55,7 @@ typedef struct _fuse_reply_writeback_ctx_t
   ** case of the attributes: fuse_reply_entry
   */  
   struct fuse_entry_param  fep;
+  struct fuse_file_info    fi;
   uint64_t                 wakeup_count;
   uint64_t                 err_count;
   uint64_t                 busy_count;
@@ -177,7 +179,7 @@ void *fuse_reply_thread(void *arg) {
       int ret= 0;
 
       pthread_getschedparam(pthread_self(),&policy,&my_priority);
-          info("fuse reply thread Scheduling policy   = %s\n",
+          DEBUG("fuse reply thread Scheduling policy   = %s\n",
                     (policy == SCHED_OTHER) ? "SCHED_OTHER" :
                     (policy == SCHED_FIFO)  ? "SCHED_FIFO" :
                     (policy == SCHED_RR)    ? "SCHED_RR" :
@@ -191,7 +193,7 @@ void *fuse_reply_thread(void *arg) {
 	severe("error on sched_setscheduler: %s",strerror(errno));	
       }
       pthread_getschedparam(pthread_self(),&policy,&my_priority);
-          DEBUG("fuse reply thread Scheduling policy (prio %d)  = %s\n",my_priority.sched_priority,
+          info("fuse reply thread Scheduling policy (prio %d)  = %s\n",my_priority.sched_priority,
                     (policy == SCHED_OTHER) ? "SCHED_OTHER" :
                     (policy == SCHED_FIFO)  ? "SCHED_FIFO" :
                     (policy == SCHED_RR)    ? "SCHED_RR" :
@@ -226,6 +228,10 @@ void *fuse_reply_thread(void *arg) {
 	 case RZ_FUSE_REPLY_ENTRY:
 	   fuse_reply_entry(ctx_p->req, &ctx_p->fep);
 	   ctx_p->stats[RZ_FUSE_REPLY_ENTRY]++;
+	   break;
+	 case RZ_FUSE_REPLY_CREATE:
+	   fuse_reply_create(ctx_p->req, &ctx_p->fep,&ctx_p->fi);
+	   ctx_p->stats[RZ_FUSE_REPLY_CREATE]++;
 	   break;
 	 default:
 	 ctx_p->err_count++;
@@ -338,6 +344,49 @@ void rz_fuse_reply_entry(fuse_req_t req, const struct fuse_entry_param *e)
     */
     thread_ctx_p->cmd =RZ_FUSE_REPLY_ENTRY;
     memcpy(&thread_ctx_p->fep,e,sizeof(struct fuse_entry_param));
+    thread_ctx_p->req = req;
+    /*
+    ** post the request to the thread
+    */    
+//    sem_wait(&thread_ctx_p->fuse_reply_wr_ready);
+    sem_post(&thread_ctx_p->fuse_reply_wr_rq); 
+
+
+}
+
+/*
+**__________________________________________________________________
+*/
+/**
+ * Reply with a file entry
+ *
+ * Possible requests:
+ *   create
+ *
+ * Side effects:
+ *   increments the lookup count on success
+ *
+ * @param req request handle
+ * @param e the entry parameters
+ * @return zero for success, -errno for failure to send reply
+ */
+void rz_fuse_reply_create(fuse_req_t req, const struct fuse_entry_param *e,struct fuse_file_info *fi)
+{
+
+    fuse_reply_writeback_ctx_t       *thread_ctx_p;
+    
+    thread_ctx_p = fuse_reply_get_thread_context();
+    if (thread_ctx_p == NULL)
+    {
+       fuse_reply_create(req,e,fi);
+       return;
+    }
+    /*
+    ** copy the data in the thread context
+    */
+    thread_ctx_p->cmd =RZ_FUSE_REPLY_CREATE;
+    memcpy(&thread_ctx_p->fep,e,sizeof(struct fuse_entry_param));
+    memcpy(&thread_ctx_p->fi,fi,sizeof(struct fuse_file_info));
     thread_ctx_p->req = req;
     /*
     ** post the request to the thread

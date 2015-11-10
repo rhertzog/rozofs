@@ -71,7 +71,7 @@
 #define rozofs_cc_def_fid_recycle             FALSE
 #define rozofs_cc_def_wr_ack_on_inverse       FALSE
 #define rozofs_cc_def_export_attr_thread      TRUE
-#define rozofs_cc_def_rozofsmount_fuse_reply_thread      TRUE
+#define rozofs_cc_def_rozofsmount_fuse_reply_thread      FALSE
 #define rozofs_cc_def_export_versioning      FALSE
 
 typedef enum _rozofs_file_distribution_rule_e {
