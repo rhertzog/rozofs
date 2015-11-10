@@ -36,6 +36,26 @@ static __inline__ unsigned long long rdtsc(void)
   return ((unsigned long long)lo)| (((unsigned long long)hi)<<32);
 
 }
+/*
+** File distribution rules
+**
+*/
+
+typedef enum _rozofs_file_distribution_rule_e {
+  rozofs_file_distribution_size_balancing,
+  rozofs_file_distribution_round_robin,
+  
+  rozofs_file_distribution_max
+} rozofs_file_distribution_rule_e;
+
+static inline char * rozofs_file_distribution_rule2sting(rozofs_file_distribution_rule_e rule) {
+  switch(rule) {
+    case rozofs_file_distribution_size_balancing: return "size balancing";
+    case rozofs_file_distribution_round_robin:    return "round robin";
+    default: return "??";
+  }  
+}
+
 
 /**
 * Ports definition of RozoFS

@@ -1,0 +1,83 @@
+#_______________________________________________________________________________________
+# 
+# Call ../../tools/common_config.py to generate common_config.h as well as common_config_read_show.h
+#
+#_______________________________________________________________________________________
+# Syntax is 
+# // one ir more...
+# // ... comment lines
+# <type> <scope> <name> <default value> {options]
+#
+# <type>    is within INT, STRING, BOOL
+# <scope>   is any thing but should be choosen within global,export,storage,client
+# <name>    is any name
+# <default> is the default value. (STRING must be quoted).
+# [option] is an optionnal parameter dependant on the <type>
+#   . INT : 
+#     min:max : minimum and maximum (included) of the integer
+#_______________________________________________________________________________________
+
+// Number of core files that each module is allowed to keep.
+// Older core files are kept while newest are removed.	
+INT 	global 	nb_core_file		        1 0:8
+// Directory where the core files are stored.
+STRING 	global 	core_file_directory		"/var/run/rozofs_core"
+// Enables to take into account the NUMA architecture of the board in 
+// order to collocate some RozoFS modules on the same node for memory
+// access efficiency.
+BOOL 	global 	numa_aware			False
+// Number of slices in the STORIO.
+INT	global 	storio_slice_number		1024 8:(32*1024)
+// File distribution mode upon cluster, storages and devices.
+// Check  rozofs_file_distribution_rule_e. 
+INT	global 	file_distribution_rule		0 rozofs_file_distribution_size_balancing:(rozofs_file_distribution_max-1)
+// DSCP for exchanges from/to the STORIO.
+INT	global 	storio_dscp  			46 0:46
+// DSCP for exchanges from/to the EXPORTD.
+INT	global 	export_dscp  			34 0:34
+// Max number of file that the exportd can remove from storages in a run.
+// A new run occurs every 2 seconds.
+INT	export 	trashed_file_per_run		7 0:5000
+// High trash water mark when FID recycling is activated.
+// When the trash has already this number of files, files are no more
+// deleted but recycled.
+INT	export 	trash_high_threshold            1000 0:1000000
+// Whether FID recycling feature is activated.
+BOOL	export 	fid_recycle                     False
+// Whether STORCLI acknowleges write request on inverse or forward STORIO responses.
+BOOL	client 	wr_ack_on_inverse		False
+INT	export 	export_buf_cnt			128 32:1024
+// Number of disk threads in the STORIO.
+INT	storage nb_disk_thread         		4 2:32
+// Whether STORIO is in multiple (1 STORIO per cluster) 
+// or single mode (only 1 STORIO).
+BOOL	storage storio_multiple_mode 		True
+// Whether CRC32 MUST be checked by STORIO.
+BOOL	storage crc32c_check			True
+// Whether CRC32 MUST be computed by STORIO.
+BOOL	storage crc32c_generate			True
+// Whether CRC32 MUST be absolutly hardware computed by STORIO.
+BOOL	storage crc32c_hw_forced  		False
+// Whether STORIO device monitoring should avoid reading from 
+// devices when no access have occured for read or write. This
+// enables disk spin down to occur.
+BOOL	storage allow_disk_spin_down		False
+// Over which device usage threashold should the STORIO log the event. 
+INT	storage disk_usage_threshold		0 0:100
+// Over which device read delay threashold should the STORIO log the event. 
+INT	storage disk_read_threshold  		0 
+// Over which device write delay threashold should the STORIO log the event. 
+INT	storage disk_write_threshold  		0
+// Number of STORIO receive buffer.
+INT	storage storio_buf_cnt			128 64:1024
+// Number of block to which the chunk files should be truncated on storage 
+// node at the time it is recycled.
+INT	storage recycle_truncate_blocks         0
+// To activate export writebehind attributes thread.
+BOOL	export export_attr_thread		True
+// To activate rozofsmount reply fuse threads.
+BOOL	client rozofsmount_fuse_reply_thread	False
+// Support of deleted directory/file versioning.
+BOOL    export export_versioning 		False     
+// Number of MB to account a file for during file distribution phase
+INT   	export alloc_estimated_mb		32
