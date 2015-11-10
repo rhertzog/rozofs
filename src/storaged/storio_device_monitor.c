@@ -29,7 +29,8 @@
 #include <sys/vfs.h> 
 #include <pthread.h> 
 #include <sys/wait.h>
-
+#include <dirent.h>
+ 
 #include <rozofs/rozofs.h>
 #include <rozofs/common/log.h>
 #include <rozofs/common/list.h>
@@ -324,28 +325,98 @@ static inline int storio_device_get_major_and_minor(storage_t * st, int dev) {
     return 0;  
   }
   return -1;
-}	  
+}
+	
+/**____________________________________________________
+** Check whether the mounted device is actually dedicated
+** to the expected device
+** 
+** @param st      The storage context
+** @param dev     The expectd device number
+**
+** @retval 0 on success, -1 on error
+*/
+int storio_check_expcted_mounted_device(storage_t   * st, int dev) {
+  char            path[FILENAME_MAX];
+  DIR           * dp = NULL;
+  struct dirent   ep;
+  struct dirent * pep;
+  int             status = 0;   
+  int             cid,sid,device; 
+  int             ret;  
+  char          * pChar = path;
+
+  /*
+  ** Build the device path
+  */
+  pChar += rozofs_string_append(pChar, st->root);
+  *pChar++ ='/';
+  pChar += rozofs_u32_append(pChar, dev);     
+
+  // Open directory
+  if (!(dp = opendir(path))) {
+    severe("opendir(%s) %s",path,strerror(errno));
+    goto out;
+  }
+
+  // Readdir to find out the file identifying the device
+  while (readdir_r(dp,&ep,&pep) == 0) {
+    
+    // end of directory
+    if (pep == NULL) goto out;
+    
+    // Check whether this is the expected file
+    if (strncmp(pep->d_name,"storage_c",strlen("storage_c")) != 0) continue;
+    
+    ret = sscanf(pep->d_name,"storage_c%d_s%d_%d",&cid, &sid, &device);
+    if (ret != 3) continue;
+    
+    if ((cid != st->cid) || (sid != st->sid) || (device != dev)) {
+      status = -1;
+    }
+    else {
+      status  = 0;
+    }
+    goto out;  
+  }
+
+out:
+
+  // Close directory
+  if (dp) closedir(dp);
+  
+  return status;  
+}  
 /*
 **____________________________________________________
 ** Check whether the access to the device is still granted
 ** and get the number of free blocks
 **
-** @param root   The storage root path
+** @param st     The storage context
 ** @param dev    The device number
 ** @param free   The free space in bytes on this device
 ** @param size   The size of the device
 ** @param bs     The block size of the FS of the device
 ** @param diagnostic A diagnostic of the problem on the device
+** @param relocate_allowed Wheteher relocation could take place
 **
 ** @retval -1 if device is failed, 0 when device is OK
 */
-static inline int storio_device_monitor_get_free_space(char *root, int dev, uint64_t * free, uint64_t * size, uint64_t * bs, storage_device_diagnostic_e * diagnostic) {
+static inline int storio_device_monitor_get_free_space(storage_t   * st, 
+						       int           dev,   
+						       uint64_t    * free, 
+						       uint64_t    * size, 
+						       uint64_t    * bs, 
+						       storage_device_diagnostic_e * diagnostic, 
+						       int         * relocate_allowed) {
   struct statfs sfs;
   char          path[FILENAME_MAX];
   char        * pChar = path;
   uint64_t      threashold;
-  
-  pChar += rozofs_string_append(pChar, root);
+
+  *relocate_allowed = 0;
+    
+  pChar += rozofs_string_append(pChar, st->root);
   *pChar++ ='/';
   pChar += rozofs_u32_append(pChar, dev); 
 
@@ -359,6 +430,7 @@ static inline int storio_device_monitor_get_free_space(char *root, int dev, uint
     else {
       *diagnostic = DEV_DIAG_FAILED_FS;
     }    
+    *relocate_allowed = 1;
     return -1;
   }
 
@@ -367,6 +439,7 @@ static inline int storio_device_monitor_get_free_space(char *root, int dev, uint
   */
   if (statfs(path, &sfs) != 0) {
     *diagnostic = DEV_DIAG_FAILED_FS;    
+    *relocate_allowed = 1;
     return -1;
   }  
 
@@ -374,12 +447,22 @@ static inline int storio_device_monitor_get_free_space(char *root, int dev, uint
   ** Check we can see an X file. 
   ** This would mean that the device is not mounted
   */
-  pChar += rozofs_string_append(pChar, "/X");
+  rozofs_string_append(pChar, "/X");
   if (access(path,F_OK) == 0) {
     *diagnostic = DEV_DIAG_UNMOUNTED;
+    *relocate_allowed = 1;
     return -1;
   }  
 
+  /*
+  ** Check device idenfying file is the one expected
+  */
+  if (storio_check_expcted_mounted_device(st,dev) == -1) {
+    *diagnostic = DEV_DIAG_INVERTED_DISK;
+    return -1;    
+  } 
+ 
+  
   *size = sfs.f_blocks;
   *bs   = sfs.f_bsize;
   
@@ -453,7 +536,8 @@ void storio_device_monitor(uint32_t allow_disk_spin_down) {
   uint64_t      bsz=0;   
   uint64_t      sameStatus=0;
   int           activity;
-     
+  int           relocate_allowed=0;
+       
   /*
   ** Loop on every storage managed by this storio
   */ 
@@ -614,7 +698,7 @@ void storio_device_monitor(uint32_t allow_disk_spin_down) {
             }
 	  } 	  
 	  
-	  if (storio_device_monitor_get_free_space(st->root, dev, &bfree, &bmax, &bsz, &pDev->diagnostic) != 0) {
+	  if (storio_device_monitor_get_free_space(st, dev, &bfree, &bmax, &bsz, &pDev->diagnostic,&relocate_allowed) != 0) {
 	    /*
 	    ** The device is failing !
 	    */
@@ -647,7 +731,7 @@ void storio_device_monitor(uint32_t allow_disk_spin_down) {
 	  ** Check whether the access to the device is still granted
 	  ** and get the number of free blocks
 	  */
-	  if (storio_device_monitor_get_free_space(st->root, dev, &bfree, &bmax, &bsz, &pDev->diagnostic) != 0) {
+	  if (storio_device_monitor_get_free_space(st, dev, &bfree, &bmax, &bsz, &pDev->diagnostic, &relocate_allowed) != 0) {
 	    /*
 	    ** The device is failing !
 	    */
@@ -664,7 +748,7 @@ void storio_device_monitor(uint32_t allow_disk_spin_down) {
 	  ** Check whether the access to the device is still granted
 	  ** and get the number of free blocks
 	  */
-	  if (storio_device_monitor_get_free_space(st->root, dev, &bfree, &bmax, &bsz, &pDev->diagnostic) != 0) {
+	  if (storio_device_monitor_get_free_space(st, dev, &bfree, &bmax, &bsz, &pDev->diagnostic,&relocate_allowed) != 0) {
 	    /*
 	    ** Still failed
 	    */	
@@ -674,7 +758,7 @@ void storio_device_monitor(uint32_t allow_disk_spin_down) {
 	    ** is relocating on this storage and failure threashold
 	    ** has been crossed, relocation should take place
 	    */
-	    if ((rebuilding==0) && (pDev->failure >= max_failures)) {
+	    if ((rebuilding==0) && (relocate_allowed) && (pDev->failure >= max_failures)) {
 	      /*
 	      ** Let's start self healing
 	      */

@@ -137,7 +137,8 @@ typedef enum _storage_device_diagnostic_e {
   DEV_DIAG_READONLY_FS,  
   DEV_DIAG_UNMOUNTED,
   DEV_DIAG_INODE_DEPLETION,
-  DEV_DIAG_BLOCK_DEPLETION
+  DEV_DIAG_BLOCK_DEPLETION,
+  DEV_DIAG_INVERTED_DISK,
 } storage_device_diagnostic_e;
 
 static inline char * storage_device_diagnostic2String(storage_device_diagnostic_e diagnostic) { 
@@ -148,6 +149,7 @@ static inline char * storage_device_diagnostic2String(storage_device_diagnostic_
     case DEV_DIAG_UNMOUNTED: return "UNMOUNTED";
     case DEV_DIAG_INODE_DEPLETION: return "INODE DEPLETION";
     case DEV_DIAG_BLOCK_DEPLETION: return "BLOCK DEPLETION";
+    case DEV_DIAG_INVERTED_DISK: return "INVERTED DISK";
     default: return "??";
   }  
 }  
