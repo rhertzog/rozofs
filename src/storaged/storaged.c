@@ -464,6 +464,23 @@ int main(int argc, char *argv[]) {
     common_config_read(NULL);    
 
     /*
+    ** If any startup script has to be called, call it now
+    */
+    if (common_config.storaged_start_script[0] != 0) {
+      /*
+      ** File has to be executable
+      */
+      if (access(common_config.storaged_start_script,X_OK)==0) {
+        if (system(common_config.storaged_start_script)!=0) {}
+	info("%s",common_config.storaged_start_script);
+      }
+      else {
+        severe("%s is not executable - %s",common_config.storaged_start_script, strerror(errno));
+      }
+    }
+    
+    
+    /*
     ** init of the crc32c
     */
     crc32c_init(common_config.crc32c_generate,

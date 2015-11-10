@@ -136,6 +136,8 @@ char *pChar = uma_dbg_get_buffer();
   pChar += rozofs_string_append(pChar,"// Number of block to which the chunk files should be truncated on storage \n");
   pChar += rozofs_string_append(pChar,"// node at the time it is recycled.\n");
   COMMON_CONFIG_SHOW_INT(recycle_truncate_blocks,0);
+  pChar += rozofs_string_append(pChar,"// Name of an executable file that the storaged should call at startup\n");
+  COMMON_CONFIG_SHOW_STRING(storaged_start_script,"");
 
   uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
   return;
@@ -245,6 +247,8 @@ static inline void common_config_generated_read(char * fname) {
   // Number of block to which the chunk files should be truncated on storage  
   // node at the time it is recycled. 
   COMMON_CONFIG_READ_INT(recycle_truncate_blocks,0);
+  // Name of an executable file that the storaged should call at startup 
+  COMMON_CONFIG_READ_STRING(storaged_start_script,"");
  
   config_destroy(&cfg);
 }

@@ -116,6 +116,8 @@ typedef struct _common_config_global_t {
   // Number of block to which the chunk files should be truncated on storage 
   // node at the time it is recycled.
   uint32_t    recycle_truncate_blocks;
+  // Name of an executable file that the storaged should call at startup
+  char *      storaged_start_script;
 } common_config_t;
 
 extern common_config_t common_config;

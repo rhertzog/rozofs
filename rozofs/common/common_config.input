@@ -81,3 +81,5 @@ BOOL	client rozofsmount_fuse_reply_thread	False
 BOOL    export export_versioning 		False     
 // Number of MB to account a file for during file distribution phase
 INT   	export alloc_estimated_mb		32
+// Name of an executable file that the storaged should call at startup
+STRING	storage	storaged_start_script		""

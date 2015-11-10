@@ -892,9 +892,11 @@ class rozofs_class:
     self.fid_recycle = False
     self.trash_threshold = 10
     self.alloc_mb = None
+    self.storaged_start_script = None
   
-  def set_alloc_mb(self,alloc_mb): self.alloc_mb = alloc_mb
-    
+  def set_storaged_start_script(self,storaged_start_script):
+    self.storaged_start_script = storaged_start_script
+  def set_alloc_mb(self,alloc_mb): self.alloc_mb = alloc_mb    
   def set_fid_recycle(self,threshold=10): 
     self.fid_recycle = True 
     self.trash_threshold = threshold     
@@ -975,6 +977,7 @@ class rozofs_class:
       print "fid_recycle          = True;"
       print "trash_high_threshold = %s;"%(self.trash_threshold)
     if self.alloc_mb != None: print "alloc_estimated_mb   = %s;"%(self.alloc_mb)
+    if self.storaged_start_script != None: print "storaged_start_script = \"%s\";"%(self.storaged_start_script)
 
   def create_common_config(self):
     save_stdout = sys.stdout
