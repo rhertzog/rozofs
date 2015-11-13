@@ -787,7 +787,9 @@ def gruyere_reread():
   if ret != 0:
     return ret
     
-  return storageFailed('gruyere_one_reread')
+  ret = storageFailed('gruyere_one_reread')
+  time.sleep(3)
+  return ret
 
 #___________________________________________________
 def gruyere_write():
@@ -1411,7 +1413,7 @@ parser.add_option("-S","--speed", action="store_true",dest="speed", default=Fals
 parser.add_option("-L","--long", action="store_true",dest="long", default=False, help="To run 2 times longer tests.")
 parser.add_option("-r","--repeat", action="store", type="string", dest="repeat", help="A repetition count.")
 parser.add_option("-m","--mount", action="store", type="string", dest="mount", help="A comma separated list of mount points to test on.")
-parser.add_option("-R","--rebuildCheck", action="store", type="string", dest="rebuildCheck", help="To request for stron rebuild check after each rebuild.")
+parser.add_option("-R","--rebuildCheck", action="store_true", dest="rebuildCheck", default=False, help="To request for stron rebuild check after each rebuild.")
 
 # Read/write test list
 TST_RW=['read_parallel','write_parallel','rw2','wr_rd_total','wr_rd_partial','wr_rd_random','wr_rd_total_close','wr_rd_partial_close','wr_rd_random_close','wr_close_rd_total','wr_close_rd_partial','wr_close_rd_random','wr_close_rd_total_close','wr_close_rd_partial_close','wr_close_rd_random_close']
