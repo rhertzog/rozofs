@@ -173,16 +173,22 @@ static void storaged_release() {
 
 typedef struct rbs_error_t {
   uint64_t spare_start;
+  uint64_t spare_start_again;
   uint64_t spare_read;
   uint64_t spare_read_enoent;
   uint64_t spare_read_no_enough;
   uint64_t spare_write_empty;
   uint64_t spare_write_proj;
+  uint64_t spare_write_broken;  
+
   uint64_t nom_start;
+  uint64_t nom_start_again;
   uint64_t nom_read;
   uint64_t nom_read_enoent;
   uint64_t nom_transform;
   uint64_t nom_write;  
+  uint64_t nom_write_broken;  
+
 } RBS_ERROR_T;
 
 static RBS_ERROR_T rbs_error = {0};
@@ -191,28 +197,39 @@ static RBS_ERROR_T rbs_error = {0};
 
 void display_rbs_errors() {
   RBS_DISPLAY_ERROR(spare_start);
+  RBS_DISPLAY_ERROR(spare_start_again);
   RBS_DISPLAY_ERROR(spare_read);
   RBS_DISPLAY_ERROR(spare_read_enoent);
   RBS_DISPLAY_ERROR(spare_read_no_enough);
   RBS_DISPLAY_ERROR(spare_write_empty);
   RBS_DISPLAY_ERROR(spare_write_proj);
+  RBS_DISPLAY_ERROR(spare_write_broken);
   RBS_DISPLAY_ERROR(nom_start);
+  RBS_DISPLAY_ERROR(nom_start_again);
   RBS_DISPLAY_ERROR(nom_read);
   RBS_DISPLAY_ERROR(nom_read_enoent);
   RBS_DISPLAY_ERROR(nom_transform);
   RBS_DISPLAY_ERROR(nom_write); 
+  RBS_DISPLAY_ERROR(nom_write_broken); 
 }
 
-int rbs_restore_one_spare_entry(storage_t       * st, 
-                                int               local_idx, 
-			        int               relocate,
-			        uint32_t        * block_start,
-			        uint32_t          block_end, 
-			     	rb_entry_t      * re, 
-				uint8_t           spare_idx,
-				uint64_t        * size_written,
-				uint64_t        * size_read) {
-    int status = -1;
+typedef enum _rbs_exe_code_e {
+  RBS_EXE_SUCCESS,
+  RBS_EXE_FAILED,
+  RBS_EXE_ENOENT,
+  RBS_EXE_BROKEN
+} RBS_EXE_CODE_E;
+
+RBS_EXE_CODE_E rbs_restore_one_spare_entry(storage_t       * st, 
+                                	   int               local_idx, 
+			        	   int               relocate,
+			        	   uint32_t        * block_start,
+			        	   uint32_t          block_end, 
+			     		   rb_entry_t      * re, 
+					   uint8_t           spare_idx,
+					   uint64_t        * size_written,
+					   uint64_t        * size_read) {
+    RBS_EXE_CODE_E status = RBS_EXE_FAILED;
     int i = 0;
     int ret = -1;
     rbs_storcli_ctx_t working_ctx;
@@ -267,7 +284,8 @@ int rbs_restore_one_spare_entry(storage_t       * st,
 					      *block_start, block_end);
       if (rebuild_ref == 0) {
 	remove_file = 0;
-	rbs_error.spare_start++;
+	if (errno == EAGAIN) rbs_error.spare_start_again++;
+	else                 rbs_error.spare_start++;
 	goto out;
       }     
 
@@ -305,7 +323,7 @@ int rbs_restore_one_spare_entry(storage_t       * st,
           if (ret != 0) {
               remove_file = 0;// Better keep the file	
               errno = EIO;
- 	      rbs_error.spare_read++;	      	
+ 	      rbs_error.spare_read++;
               goto out;
           }
 
@@ -317,7 +335,7 @@ int rbs_restore_one_spare_entry(storage_t       * st,
 	     */
 	     errno = ENOENT;
 	     rbs_error.spare_read_enoent++;
-	     status = 1;
+	     status = RBS_EXE_ENOENT;
 	     goto out;
           }	  	
 
@@ -360,8 +378,14 @@ int rbs_restore_one_spare_entry(storage_t       * st,
 					 rebuild_ref);
         	 remove_file = 0;	// This file must exist   
         	 if (ret < 0) {
+		   if (errno == EAGAIN) {
+		     rbs_error.spare_write_broken++;
+		     status = RBS_EXE_BROKEN;
+		   }
+		   else {
 		     rbs_error.spare_write_empty++;
-                     goto out;
+		   }
+                   goto out;
         	 }	
 	         *size_written += disk_block_size;
 		 continue;
@@ -451,9 +475,15 @@ int rbs_restore_one_spare_entry(storage_t       * st,
 				      rebuild_ref);
               remove_file = 0;// This file must exist		   
               if (ret < 0) {
-	          rbs_error.spare_write_proj++;
-        	  severe("sclient_write_rbs failed %s", strerror(errno));
-        	  goto out;
+		if (errno == EAGAIN) {
+		  rbs_error.spare_write_broken++;
+		  status = RBS_EXE_BROKEN;
+		}
+		else {
+		  rbs_error.spare_write_proj++;
+        	  severe("sclient_write_rbs failed %s", strerror(errno));		  
+		}
+                goto out;	      
               }	
 	      *size_written += disk_block_size;	             
           }
@@ -484,7 +514,7 @@ int rbs_restore_one_spare_entry(storage_t       * st,
       chunk++;        
     }
       
-    status = 0;
+    status = RBS_EXE_SUCCESS;
     			      
 out:
 
@@ -533,16 +563,16 @@ out:
         memset(&working_ctx, 0, sizeof (working_ctx));
 	
 
-int rbs_restore_one_rb_entry(storage_t       * st, 
-                             int               local_idx, 
-			     int               relocate,
-			     uint32_t        * block_start,
-			     uint32_t          block_end, 
-			     rb_entry_t      * re, 
-			     uint8_t           proj_id_to_rebuild,
-			     uint64_t        * size_written,
-			     uint64_t        * size_read) {
-    int               status = -1;
+RBS_EXE_CODE_E rbs_restore_one_rb_entry(storage_t       * st, 
+                        		int               local_idx, 
+					int               relocate,
+					uint32_t        * block_start,
+					uint32_t          block_end, 
+					rb_entry_t      * re, 
+					uint8_t           proj_id_to_rebuild,
+					uint64_t        * size_written,
+					uint64_t        * size_read) {
+    RBS_EXE_CODE_E    status = RBS_EXE_FAILED;
     int               ret    = -1;
     rbs_storcli_ctx_t working_ctx;
     uint32_t          rebuild_ref;
@@ -567,7 +597,9 @@ int rbs_restore_one_rb_entry(storage_t       * st,
                                             relocate?SP_NEW_DEVICE:SP_SAME_DEVICE, chunk, 0 /* spare */,  
 					    *block_start, block_end);
     if (rebuild_ref == 0) {
-      rbs_error.nom_start++;
+      if (errno == EAGAIN) rbs_error.nom_start_again++;
+      else                 rbs_error.nom_start++;
+      info("rbs start %s",strerror(errno));
       goto out;
     }
         
@@ -594,7 +626,7 @@ int rbs_restore_one_rb_entry(storage_t       * st,
 	}
         if (nb_blocks_read_distant == 0) break; // End of file
         if (nb_blocks_read_distant == -1) { // File deleted
-	   status = 1;
+	   status = RBS_EXE_ENOENT;
 	   rbs_error.nom_read_enoent++;
 	   break;
         }
@@ -651,15 +683,21 @@ int rbs_restore_one_rb_entry(storage_t       * st,
 				working_ctx.prj_ctx[proj_id_to_rebuild].bins,
 				rebuild_ref);
 	if (ret < 0) {
-            severe("sclient_write_rbs failed: %s", strerror(errno));
+	  if (errno == EAGAIN) {
+	    rbs_error.nom_write_broken++;
+	    status = RBS_EXE_BROKEN;
+	  }
+	  else {
 	    rbs_error.nom_write++;
-            goto out;
+            severe("sclient_write_rbs failed: %s", strerror(errno));
+	  }
+          goto out;
         }
 	*size_written += (nb_blocks_read_distant * (rozofs_disk_psize+3) * 8);
 				
 	*block_start += nb_blocks_read_distant;	             
     }
-    status = 0;
+    status = RBS_EXE_SUCCESS;
 out:
     if (rebuild_ref != 0) {
       sclient_rebuild_stop_rbs(re->storages[local_idx], st->cid, st->sid, re->fid, rebuild_ref, 
@@ -830,87 +868,105 @@ int storaged_rebuild_list(char * fid_list) {
     }  
     if (prj >= rozofs_forward) spare = 1;
     else                       spare = 0;
-    
-    size_written = 0;
-    size_read    = 0;
 
-    // Restore this entry
-    uint32_t block_start = file_entry.block_start;
-    if (spare == 1) {
-      ret = rbs_restore_one_spare_entry(&st2rebuild.storage, local_index, file_entry.relocate,
-                                        &block_start, file_entry.block_end, 
-					&re, prj,
-					&size_written,
-					&size_read);     
-    }
-    else {
-      ret = rbs_restore_one_rb_entry(&st2rebuild.storage, local_index, file_entry.relocate,
-                                     &block_start, file_entry.block_end, 
-				     &re, prj, 
-				     &size_written,
-				     &size_read);
-    } 
-         
-    /* 
-    ** Rebuild is successfull
-    */	     
-    if (ret >= 0) {
-      nbSuccess++;
 
-      // Update counters in header file 
-      st2rebuild.counters.done_files++;
+    int retry = 0; 
+    while (retry < 1) { /* reloop 3 times immediatly on broken rebuild */
       
-      // Case of the deleted files
-      if (ret == 1) st2rebuild.counters.deleted++;
+      retry++; 
+     
+      size_written = 0;
+      size_read    = 0;
       
+      // Restore this entry
+      uint32_t block_start = file_entry.block_start;
       if (spare == 1) {
-        st2rebuild.counters.written_spare += size_written;
-	st2rebuild.counters.read_spare    += size_read;
+	ret = rbs_restore_one_spare_entry(&st2rebuild.storage, local_index, file_entry.relocate,
+                                          &block_start, file_entry.block_end, 
+					  &re, prj,
+					  &size_written,
+					  &size_read);     
       }
-      st2rebuild.counters.written += size_written;
-      st2rebuild.counters.read    += size_read;       
-    
-      if (pwrite(fd, &st2rebuild.counters, sizeof(st2rebuild.counters), 0)!= sizeof(st2rebuild.counters)) {
-        severe("pwrite %s %s",fid_list,strerror(errno));
+      else {
+	ret = rbs_restore_one_rb_entry(&st2rebuild.storage, local_index, file_entry.relocate,
+                                       &block_start, file_entry.block_end, 
+				       &re, prj, 
+				       &size_written,
+				       &size_read);
+      } 
+
+      /* 
+      ** Rebuild is successfull
+      */
+      switch(ret) {
+      
+	case RBS_EXE_SUCCESS:
+	case RBS_EXE_ENOENT:	     
+	  nbSuccess++;
+	  // Update counters in header file 
+	  st2rebuild.counters.done_files++;
+	  // Case of the deleted files
+	  if (ret == RBS_EXE_ENOENT) st2rebuild.counters.deleted++;
+	  if (spare == 1) {
+            st2rebuild.counters.written_spare += size_written;
+	    st2rebuild.counters.read_spare    += size_read;
+	  }
+	  st2rebuild.counters.written += size_written;
+	  st2rebuild.counters.read    += size_read;       
+
+	  if (pwrite(fd, &st2rebuild.counters, sizeof(st2rebuild.counters), 0)!= sizeof(st2rebuild.counters)) {
+            severe("pwrite %s %s",fid_list,strerror(errno));
+	  }
+
+	  if ((nbSuccess % (16*1024)) == 0) {
+            REBUILD_MSG("  ~ %s %d/%d",fid_list,nbSuccess,nbJobs);
+	  } 
+	  /*
+	  ** This file has been rebuilt so remove it from the job list
+	  */
+	  file_entry.todo = 0;
+          break;
+
+
+	/*
+	** Rebuild is failed, nevetherless some pieces of the file may have
+	** been successfully rebuilt and needs not to be rebuilt again on a
+	** next trial
+	*/
+	default:
+	  severe("Unexpected return code %d.",ret);	  
+	case RBS_EXE_FAILED:
+	case RBS_EXE_BROKEN:
+	  /*
+	  ** In case of file relocation, the new data chunk file has been removed 
+	  ** and the previous data chunk file location has been restored
+	  ** when the rebuild has failed. So we are back to the starting point of
+	  ** the rebuilt and there has been no improvment...
+	  ** When no relocation was requested, the block_start has increased up to 
+	  ** where the rebuild has failed. These part before block_start is rebuilt 
+	  ** and needs not to be redone although the glocal rebuild has failed. 
+	  */
+	  if (!file_entry.relocate) {
+            file_entry.block_start = block_start;
+	  }
+	  break;  
       }
 
-      if ((nbSuccess % (16*1024)) == 0) {
-        REBUILD_MSG("  ~ %s %d/%d",fid_list,nbSuccess,nbJobs);
-      } 
       /*
-      ** This file has been rebuilt so remove it from the job list
+      ** Update input job file if any change
       */
-      file_entry.todo = 0;
-    }
-    /*
-    ** Rebuild is failed, nevetherless some pieces of the file may have
-    ** been successfully rebuilt and needs not to be rebuilt again on a
-    ** next trial
-    */
-    else {
-      /*
-      ** In case of file relocation, the new data chunk file has been removed 
-      ** and the previous data chunk file location has been restored
-      ** when the rebuild has failed. So we are back to the starting point of
-      ** the rebuilt and there has been no improvment...
-      ** When no relocation was requested, the block_start has increased up to 
-      ** where the rebuild has failed. These part before block_start is rebuilt 
-      ** and needs not to be redone although the glocal rebuild has failed. 
-      */
-      if (!file_entry.relocate) {
-        file_entry.block_start = block_start;
+      if (memcmp(&file_entry_saved,&file_entry, sizeof(file_entry)) != 0) {
+	if (pwrite(fd, &file_entry, sizeof(file_entry), offset-sizeof(file_entry))!=sizeof(file_entry)) {
+	  severe("pwrite size %lu offset %llu %s",(unsigned long int)sizeof(file_entry), 
+        	 (unsigned long long int) offset-sizeof(file_entry), strerror(errno));
+	}
       }
-    }
+      
+      if (ret != RBS_EXE_BROKEN) break;
+      /* reloop 3 times immediatly on broken rebuild */
+    } 
     
-    /*
-    ** Update input job file if any change
-    */
-    if (memcmp(&file_entry_saved,&file_entry, sizeof(file_entry)) != 0) {
-      if (pwrite(fd, &file_entry, sizeof(file_entry), offset-sizeof(file_entry))!=sizeof(file_entry)) {
-	severe("pwrite size %lu offset %llu %s",(unsigned long int)sizeof(file_entry), 
-               (unsigned long long int) offset-sizeof(file_entry), strerror(errno));
-      }
-    }     
+    /* Next file to rebuild */     
   }
   
   close(fd);
