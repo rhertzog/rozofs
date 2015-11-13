@@ -28,6 +28,7 @@
 
 int sclient_initialize(sclient_t * sclt, struct timeval timeout) {
     int status = -1;
+    int xerrno = 0;
     DEBUG_FUNCTION;
 
     sclt->status = 0;
@@ -36,16 +37,16 @@ int sclient_initialize(sclient_t * sclt, struct timeval timeout) {
             STORAGE_VERSION, ROZOFS_RPC_BUFFER_SIZE, ROZOFS_RPC_BUFFER_SIZE,
             sclt->port, timeout) != 0) {
         // storageclt_release can change errno
-        int xerrno = errno;
+        xerrno = errno;
         //storageclt_release(clt);
         sclt->status = 0;
-        errno = xerrno;
         goto out;
     }
     sclt->status = 1;
 
     status = 0;
 out:
+    errno = xerrno;
     return status;
 }
 
@@ -76,6 +77,7 @@ int sclient_write_rbs(sclient_t * clt, cid_t cid, sid_t sid, uint8_t layout, uin
     int status = -1;
     sp_write_ret_t *ret = 0;
     sp_write_arg_t args;
+    int            xerrno=0;
 
     DEBUG_FUNCTION;
 
@@ -98,19 +100,20 @@ int sclient_write_rbs(sclient_t * clt, cid_t cid, sid_t sid, uint8_t layout, uin
         clt->status = 0;
         warning("sclient_write failed: no response from storage server"
                 " (%s, %u, %u)", clt->host, clt->port, sid);
-        errno = EPROTO;
+        xerrno = EPROTO;
         goto out;
     }
     if (ret->status != 0) {
-        severe("sclient_write failed: storage write response failure (%s)",
-                strerror(errno));
-        errno = ret->sp_write_ret_t_u.error;
+        xerrno = ret->sp_write_ret_t_u.error;
+        severe("sclient_write %d failed: storage write response failure (%s)",
+                rebuild_ref, strerror(xerrno));
         goto out;
     }
     status = 0;
 out:
     if (ret)
         xdr_free((xdrproc_t) xdr_sp_write_ret_t, (char *) ret);
+    errno = xerrno;
     return status;
 }
 
@@ -122,6 +125,8 @@ int sclient_read_rbs(sclient_t * clt, cid_t cid, sid_t sid, uint8_t layout, uint
     sp_read_ret_t *ret = 0;
     sp_read_arg_t args;
     uint16_t rozofs_max_psize_in_msg = rozofs_get_max_psize_in_msg(layout,bsize);
+    int            xerrno=0;
+
     DEBUG_FUNCTION;
     
     *nb_proj_recv = 0;
@@ -142,11 +147,11 @@ int sclient_read_rbs(sclient_t * clt, cid_t cid, sid_t sid, uint8_t layout, uint
         clt->status = 0;
         warning("sclient_read_rbs failed: storage read failed "
                 "(no response from storage server: %s)", clt->host);
-        errno = EPROTO;
+        xerrno = EPROTO;
         goto out;
     }
     if (ret->status != 0) {
-        errno = ret->sp_read_ret_t_u.error;
+        xerrno = ret->sp_read_ret_t_u.error;
         goto out;
 	
     }
@@ -162,12 +167,14 @@ int sclient_read_rbs(sclient_t * clt, cid_t cid, sid_t sid, uint8_t layout, uint
 out:
     if (ret)
         xdr_free((xdrproc_t) xdr_sp_read_ret_t, (char *) ret);
+    errno = xerrno;
     return status;
 }
 int sclient_remove_rbs(sclient_t * clt, cid_t cid, sid_t sid, uint8_t layout, fid_t fid) {
     int status = -1;
     sp_status_ret_t *ret = 0;
     sp_remove_arg_t args;
+    int            xerrno=0;
 
     DEBUG_FUNCTION;
 
@@ -182,14 +189,14 @@ int sclient_remove_rbs(sclient_t * clt, cid_t cid, sid_t sid, uint8_t layout, fi
         clt->status = 0;
         warning("sclient_remove_rbs failed: storage remove failed "
                 "(no response from storage server: %s)", clt->host);
-        errno = EPROTO;
+        xerrno = EPROTO;
         goto out;
     }
     if (ret->status != 0) {
-        errno = ret->sp_status_ret_t_u.error;
-        if (errno != ENOENT) {
+        xerrno = ret->sp_status_ret_t_u.error;
+        if (xerrno != ENOENT) {
             severe("sclient_remove_rbs failed (error from %s): (%s)",
-                    clt->host, strerror(errno));
+                    clt->host, strerror(xerrno));
             goto out;
         }
     }
@@ -197,6 +204,7 @@ int sclient_remove_rbs(sclient_t * clt, cid_t cid, sid_t sid, uint8_t layout, fi
 out:
     if (ret)
         xdr_free((xdrproc_t) xdr_sp_status_ret_t, (char *) ret);
+    errno = xerrno;
     return status;
 }
 int sclient_remove_chunk_rbs(sclient_t * clt, cid_t cid, sid_t sid, uint8_t layout, uint8_t spare, uint32_t bsize,
@@ -205,6 +213,7 @@ int sclient_remove_chunk_rbs(sclient_t * clt, cid_t cid, sid_t sid, uint8_t layo
     int status = -1;
     sp_status_ret_t *ret = 0;
     sp_remove_chunk_arg_t args;
+    int            xerrno=0;
 
     DEBUG_FUNCTION;
 
@@ -224,14 +233,14 @@ int sclient_remove_chunk_rbs(sclient_t * clt, cid_t cid, sid_t sid, uint8_t layo
         clt->status = 0;
         warning("sclient_remove_chunk_rbs failed: storage remove failed "
                 "(no response from storage server: %s)", clt->host);
-        errno = EPROTO;
+        xerrno = EPROTO;
         goto out;
     }
     if (ret->status != 0) {
-        errno = ret->sp_status_ret_t_u.error;
-        if (errno != ENOENT) {
+        xerrno = ret->sp_status_ret_t_u.error;
+        if (xerrno != ENOENT) {
             severe("sclient_remove_chunk_rbs failed (error from %s): (%s)",
-                    clt->host, strerror(errno));		    
+                    clt->host, strerror(xerrno));		    
             goto out;	    
         }
     }
@@ -239,6 +248,7 @@ int sclient_remove_chunk_rbs(sclient_t * clt, cid_t cid, sid_t sid, uint8_t layo
 out:
     if (ret)
         xdr_free((xdrproc_t) xdr_sp_status_ret_t, (char *) ret);
+    errno = xerrno;
     return status;
 }
 uint32_t sclient_rebuild_start_rbs(sclient_t * clt, cid_t cid, sid_t sid, fid_t fid, 
@@ -247,6 +257,7 @@ uint32_t sclient_rebuild_start_rbs(sclient_t * clt, cid_t cid, sid_t sid, fid_t 
     uint32_t                ref = 0;
     sp_rebuild_start_ret_t *ret = 0;
     sp_rebuild_start_arg_t  args;
+    int            xerrno=0;
 
     DEBUG_FUNCTION;
 
@@ -265,15 +276,15 @@ uint32_t sclient_rebuild_start_rbs(sclient_t * clt, cid_t cid, sid_t sid, fid_t 
         clt->status = 0;
         warning("sclient_rebuild_start_rbs failed:"
                 "(no response from storage server: %s)", clt->host);
-        errno = EPROTO;
+        xerrno = EPROTO;
         goto out;
     }
     if (ret->status != 0) {
-        errno = ret->sp_rebuild_start_ret_t_u.error;
-        if (errno != ENOENT) {
+        xerrno = ret->sp_rebuild_start_ret_t_u.error;
+        if (xerrno != ENOENT) {
 #if 0	
             severe("sclient_rebuild_start_rbs failed (error from %s): (%s)",
-                    clt->host, strerror(errno));
+                    clt->host, strerror(xerrno));
 #endif		    
             goto out;
         }
@@ -282,12 +293,14 @@ uint32_t sclient_rebuild_start_rbs(sclient_t * clt, cid_t cid, sid_t sid, fid_t 
 out:
     if (ret)
         xdr_free((xdrproc_t) xdr_sp_rebuild_start_ret_t, (char *) ret);
+    errno = xerrno;
     return ref;
 }
 int sclient_rebuild_stop_rbs(sclient_t * clt, cid_t cid, sid_t sid, fid_t fid, uint32_t ref, sp_status_t result) {
     int status = -1;
     sp_rebuild_stop_ret_t *ret = 0;
     sp_rebuild_stop_arg_t args;
+    int            xerrno=0;
 
     DEBUG_FUNCTION;
 
@@ -303,14 +316,14 @@ int sclient_rebuild_stop_rbs(sclient_t * clt, cid_t cid, sid_t sid, fid_t fid, u
         clt->status = 0;
         warning("sclient_rebuild_stop_rbs failed:"
                 "(no response from storage server: %s)", clt->host);
-        errno = EPROTO;
+        xerrno = EPROTO;
         goto out;
     }
     if (ret->status != 0) {
-        errno = ret->sp_rebuild_stop_ret_t_u.error;
-        if (errno != ENOENT) {
+        xerrno = ret->sp_rebuild_stop_ret_t_u.error;
+        if (xerrno != ENOENT) {
             severe("sclient_rebuild_stop_rbs failed (error from %s): (%s)",
-                    clt->host, strerror(errno));
+                    clt->host, strerror(xerrno));
             goto out;
         }
     }
@@ -318,6 +331,7 @@ int sclient_rebuild_stop_rbs(sclient_t * clt, cid_t cid, sid_t sid, fid_t fid, u
 out:
     if (ret)
         xdr_free((xdrproc_t) xdr_sp_rebuild_stop_ret_t, (char *) ret);
+    errno = xerrno;
     return status;
 }
 // XXX Never used yet
@@ -328,7 +342,8 @@ int storageclt_truncate(sclient_t * clt, cid_t cid, sid_t sid, uint8_t layout,
     int status = -1;
     sp_status_ret_t *ret = 0;
     sp_truncate_arg_t args;
-
+    int            xerrno=0;
+    
     DEBUG_FUNCTION;
 
     // Fill request
@@ -343,23 +358,25 @@ int storageclt_truncate(sclient_t * clt, cid_t cid, sid_t sid, uint8_t layout,
 
     ret = sp_truncate_1(&args, clt->rpcclt.client);
     if (ret == 0) {
-        errno = EPROTO;
+        xerrno = EPROTO;
         goto out;
     }
     if (ret->status != 0) {
-        errno = ret->sp_status_ret_t_u.error;
+        xerrno = ret->sp_status_ret_t_u.error;
         goto out;
     }
     status = 0;
 out:
     if (ret)
         xdr_free((xdrproc_t) xdr_sp_status_ret_t, (char *) ret);
+    errno = xerrno;
     return status;
 }
 int sclient_clear_error_rbs(sclient_t * clt, cid_t cid, sid_t sid, uint8_t dev,uint8_t reinit) {
     int                    status = -1;
     sp_status_ret_t     *  ret = 0;
     sp_clear_error_arg_t   args;
+    int                    xerrno=0;
 
     DEBUG_FUNCTION;
 
@@ -373,17 +390,19 @@ int sclient_clear_error_rbs(sclient_t * clt, cid_t cid, sid_t sid, uint8_t dev,u
         clt->status = 0;
         warning("sclient_clear_error_rbs failed: "
                 "(no response from storage server: %s)", clt->host);
-        errno = EPROTO;
+        xerrno = EPROTO;
         goto out;
     }
     if (ret->status != 0) {
+      xerrno = ret->sp_status_ret_t_u.error;
       severe("sclient_clear_error_rbs failed (error from %s): (%s)",
-              clt->host, strerror(errno));
+              clt->host, strerror(xerrno));
       goto out;
     }
     status = 0;
 out:
     if (ret)
         xdr_free((xdrproc_t) xdr_sp_status_ret_t, (char *) ret);
+    errno = xerrno;
     return status;
 }
