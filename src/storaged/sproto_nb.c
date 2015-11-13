@@ -434,6 +434,7 @@ void sp_write_1_svc_disk_thread(void * pt, rozorpc_srv_ctx_t *req_ctx_p) {
     nb_rebuild = write_arg_p->rebuild_ref;
     if (nb_rebuild > MAX_FID_PARALLEL_REBUILD) {
       /* bad reference ?? */
+      severe("Bad rebuild ref %d",nb_rebuild);
       errno = EAGAIN; // Break this rebuild
       goto error;	
     } 
@@ -741,7 +742,7 @@ void sp_rebuild_start_1_svc_disk_thread(void * pt, rozorpc_srv_ctx_t *req_ctx_p)
     sp_rebuild_start_arg_t        * rebuild_start_arg_p = (sp_rebuild_start_arg_t *) pt;
     uint32_t                        ts;    
     uint8_t                         nb_rebuild;
-    int                             selected_index=1;
+    int                             selected_index=-1;
     uint8_t                         storio_rebuild_ref;
     STORIO_REBUILD_T              * pRebuild;
     int                             same_recycle_cpt;
@@ -825,7 +826,7 @@ void sp_rebuild_start_1_svc_disk_thread(void * pt, rozorpc_srv_ctx_t *req_ctx_p)
       if ((rebuild_start_arg_p->start_bid <= pRebuild->stop_block)
       &&  (rebuild_start_arg_p->stop_bid >=  pRebuild->start_block)) {
 	/* Those rebuilds overlap => refuse new rebuild */
-	errno = EBUSY;
+	errno = EAGAIN;
 	goto error;        
       }           
     }
@@ -833,7 +834,7 @@ void sp_rebuild_start_1_svc_disk_thread(void * pt, rozorpc_srv_ctx_t *req_ctx_p)
 
     if (selected_index == -1) {
       /* All FID rebuild entries are active. Can not start a new rebuild on this FID */      
-      errno = EBUSY;
+      errno = EAGAIN;
       goto error;
     }  	      
 
@@ -841,7 +842,7 @@ void sp_rebuild_start_1_svc_disk_thread(void * pt, rozorpc_srv_ctx_t *req_ctx_p)
     pRebuild = storio_rebuild_ctx_allocate();
     if (pRebuild == NULL) {
       /* No free context */
-      errno = EBUSY;
+      errno = EAGAIN;
       goto error;	  
     }
 
