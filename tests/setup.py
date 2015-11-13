@@ -1550,16 +1550,17 @@ def test_parse(command, argv):
        sid-= 1         
        s = c.sid[sid]
 
-       
-       syslog.syslog("sid %s/%s %s"%(cid+1,sid+1,argv[4]))
-       
+              
        if argv[4] == "device-delete" : 
 	 if len(argv) <= 5: syntax("sid device-delete requires a device number","sid")
+	 syslog.syslog("sid %s/%s %s %s"%(cid+1,sid+1,argv[4],argv[5]))
 	 s.delete_device(argv[5])     
        if argv[4] == "device-create" : 
 	 if len(argv) <= 5: syntax("sid device-create requires a device number","sid")
+	 syslog.syslog("sid %s/%s %s %s"%(cid+1,sid+1,argv[4],argv[5]))	 
 	 s.create_device(argv[5]) 
        if argv[4] == "rebuild":
+	 syslog.syslog("sid %s/%s %s"%(cid+1,sid+1,argv[4]))       
          s.host[0].rebuild(argv)         
        if argv[4] == "info"          : s.info()
 
