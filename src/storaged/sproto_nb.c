@@ -416,6 +416,8 @@ void sp_write_1_svc_disk_thread(void * pt, rozorpc_srv_ctx_t *req_ctx_p) {
     uint8_t                   storio_rebuild_ref;
     STORIO_REBUILD_T        * pRebuild; 
     int                       same_recycle_cpt;
+    int                       write_last;
+    int                       write_first;
     
     START_PROFILING(write);
 
@@ -448,6 +450,9 @@ void sp_write_1_svc_disk_thread(void * pt, rozorpc_srv_ctx_t *req_ctx_p) {
 					     &same_recycle_cpt);
 
 
+    write_first = write_arg_p->bid;
+    write_last  = write_first + write_arg_p->nb_proj - 1;
+
     /*
     ** THIS IS A WRITE FROM A REBUILD PROCESS
     */
@@ -473,15 +478,24 @@ void sp_write_1_svc_disk_thread(void * pt, rozorpc_srv_ctx_t *req_ctx_p) {
 	errno = EAGAIN;
 	goto error;
       }      
-
+     
+      /* check that the rebuild does not overrun the rebuild area... */
+      /* ... after ... */ 
+      if (((pRebuild->stop_block != -1) &&  (write_last>pRebuild->stop_block))
+      /* ... or before. */
+      ||  (write_first < pRebuild->start_block)) {
+	storio_rebuild_ctx_free(pRebuild);
+	dev_map_p->storio_rebuild_ref.u8[nb_rebuild] = 0xFF;
+	errno = EAGAIN;
+	goto error;
+      }
+      
       /*
       ** Rebuild still on going. Update the time stamp
       ** and starting point of the on going rebuild
       */        
-      pRebuild->rebuild_ts = time(NULL);
-      if (pRebuild->start_block < write_arg_p->bid) {
-	pRebuild->start_block = write_arg_p->bid;
-      }
+      pRebuild->rebuild_ts  = time(NULL);
+      pRebuild->start_block = write_first;
       
       /*
       ** Forward the request to the disk thread.
@@ -535,7 +549,7 @@ void sp_write_1_svc_disk_thread(void * pt, rozorpc_srv_ctx_t *req_ctx_p) {
     ** Check whether this write breaks a running rebuild
     */
     if (dev_map_p->storio_rebuild_ref.u32 == 0xFFFFFFFF) {
-      // No running rebuld
+      // No running rebuild
       goto send_to_disk_thread;
     }
     
@@ -566,12 +580,22 @@ void sp_write_1_svc_disk_thread(void * pt, rozorpc_srv_ctx_t *req_ctx_p) {
       ** Writing the area that the rebuild process is trying to rebuild
       ** breaks the rebuild.
       */
-      if ((write_arg_p->bid <= pRebuild->stop_block)
-      &&  ((write_arg_p->bid+write_arg_p->nb_proj-1) >=  pRebuild->start_block)) {
-	/* Incompatible entries. Free the rebuild context */
-	storio_rebuild_ctx_free(pRebuild);
-	dev_map_p->storio_rebuild_ref.u8[nb_rebuild] = 0xFF; // break this rebuild	      
+      if ((write_first > pRebuild->start_block) 
+       && ((pRebuild->stop_block==-1)||(write_first <= pRebuild->stop_block))) {
+        /* 
+	** Writing within the rebuild area !
+	** Let's shrink the rebuild area to the 1rst written block
+	*/
+	pRebuild->stop_block = write_first-1;    
       }  
+      else if ((write_first <= pRebuild->start_block) && (write_last >= pRebuild->start_block)) {
+        /* 
+	** Writing at the beginning of the rebuild area !
+	** it breaks the rebuild
+	*/        
+	storio_rebuild_ctx_free(pRebuild);
+	dev_map_p->storio_rebuild_ref.u8[nb_rebuild] = 0xFF; // break this rebuild	
+      }
     }         
 
 
@@ -592,7 +616,7 @@ send_to_disk_thread:
 
 error:    
     
-    ret.status                = SP_FAILURE;            
+    ret.status                 = SP_FAILURE;            
     ret.sp_write_ret_t_u.error = errno;
     
     rozorpc_srv_forward_reply(req_ctx_p,(char*)&ret); 
@@ -748,7 +772,7 @@ void sp_rebuild_start_1_svc_disk_thread(void * pt, rozorpc_srv_ctx_t *req_ctx_p)
     int                             same_recycle_cpt;
     
     START_PROFILING(rebuild_start);
-            
+                  
     /*
     ** Use received buffer for the response
     */
@@ -775,7 +799,12 @@ void sp_rebuild_start_1_svc_disk_thread(void * pt, rozorpc_srv_ctx_t *req_ctx_p)
       }
     }  
     
-    
+    if ((rebuild_start_arg_p->stop_bid != -1)
+    &&  (rebuild_start_arg_p->stop_bid<rebuild_start_arg_p->start_bid)) {
+      severe("Bad interval [%d:%d]",rebuild_start_arg_p->start_bid,rebuild_start_arg_p->stop_bid);
+      errno = EINVAL;
+      goto error;	  
+    }
     /*
     ** Get current time in sec 
     */
@@ -820,12 +849,29 @@ void sp_rebuild_start_1_svc_disk_thread(void * pt, rozorpc_srv_ctx_t *req_ctx_p)
         continue;
       } 
 
+      
       /*
       ** Check overlapping of the area to rebuild
       */
-      if ((rebuild_start_arg_p->start_bid <= pRebuild->stop_block)
-      &&  (rebuild_start_arg_p->stop_bid >=  pRebuild->start_block)) {
-	/* Those rebuilds overlap => refuse new rebuild */
+      if (pRebuild->stop_block==-1) {
+        if (rebuild_start_arg_p->stop_bid==-1) {
+	  errno = EAGAIN;
+	  goto error;        
+	}   
+	if (rebuild_start_arg_p->stop_bid >= pRebuild->start_block) {
+	  errno = EAGAIN;
+	  goto error;        
+	}  
+      }
+      else if (rebuild_start_arg_p->stop_bid==-1) {
+	if (rebuild_start_arg_p->start_bid  >= pRebuild->stop_block) {
+	  errno = EAGAIN;
+	  goto error;  	  
+	}               
+      }
+      else if ((rebuild_start_arg_p->start_bid <= pRebuild->stop_block)
+        &&  (rebuild_start_arg_p->stop_bid >=  pRebuild->start_block)) {
+	  /* Those rebuilds overlap => refuse new rebuild */
 	errno = EAGAIN;
 	goto error;        
       }           
@@ -836,7 +882,9 @@ void sp_rebuild_start_1_svc_disk_thread(void * pt, rozorpc_srv_ctx_t *req_ctx_p)
       /* All FID rebuild entries are active. Can not start a new rebuild on this FID */      
       errno = EAGAIN;
       goto error;
-    }  	      
+    }
+      	          
+    
 
     /* A free FID entry has been found, let's find a free storio rebuild context */
     pRebuild = storio_rebuild_ctx_allocate();

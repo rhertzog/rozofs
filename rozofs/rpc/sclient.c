@@ -71,6 +71,13 @@ sp_write_ret_t * rbs_write(sp_write_arg_t *argp, CLIENT *clnt) {
 	}
 	return (&clnt_res);
 }
+
+//#define REBUILD_BREAKER
+#ifdef REBUILD_BREAKER
+#warning REBUILD_BREAKER is set. MUST NOT be delivered this way !!!
+uint32_t rebuild_breaker = 0;
+#endif
+
 int sclient_write_rbs(sclient_t * clt, cid_t cid, sid_t sid, uint8_t layout, uint32_t bsize,
         uint8_t spare, sid_t dist_set[ROZOFS_SAFE_MAX], fid_t fid, uint32_t bid,
         uint32_t nb_proj, const bin_t * bins, uint32_t rebuild_ref) {
@@ -80,7 +87,9 @@ int sclient_write_rbs(sclient_t * clt, cid_t cid, sid_t sid, uint8_t layout, uin
     int            xerrno=0;
 
     DEBUG_FUNCTION;
-
+#ifdef REBUILD_BREAKER
+reloop:
+#endif 
     // Fill request
     args.cid         = cid;
     args.sid         = sid;
@@ -88,6 +97,17 @@ int sclient_write_rbs(sclient_t * clt, cid_t cid, sid_t sid, uint8_t layout, uin
     args.spare       = spare;
     args.bsize       = bsize;
     args.rebuild_ref = rebuild_ref;
+    
+#ifdef REBUILD_BREAKER
+    /* Break the rebuild every 10 writes */
+    rebuild_breaker++;
+    if (rebuild_breaker >= 10) {
+      rebuild_breaker  = 0;
+      args.rebuild_ref = 0; 
+      info("Break rebuild");
+    }
+#endif        
+
     memcpy(args.dist_set, dist_set, sizeof (sid_t) * ROZOFS_SAFE_MAX); 	
     memcpy(args.fid, fid, sizeof (uuid_t));
     args.bid         = bid;
@@ -113,6 +133,11 @@ int sclient_write_rbs(sclient_t * clt, cid_t cid, sid_t sid, uint8_t layout, uin
 out:
     if (ret)
         xdr_free((xdrproc_t) xdr_sp_write_ret_t, (char *) ret);
+#ifdef REBUILD_BREAKER
+    if (args.rebuild_ref == 0) {
+      goto reloop;
+    }
+#endif	
     errno = xerrno;
     return status;
 }
