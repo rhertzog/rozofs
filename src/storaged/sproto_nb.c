@@ -548,7 +548,7 @@ void sp_write_1_svc_disk_thread(void * pt, rozorpc_srv_ctx_t *req_ctx_p) {
     /*
     ** Check whether this write breaks a running rebuild
     */
-    if (dev_map_p->storio_rebuild_ref.u32 == 0xFFFFFFFF) {
+    if (dev_map_p->storio_rebuild_ref.u64 == 0xFFFFFFFFFFFFFFFF ) {
       // No running rebuild
       goto send_to_disk_thread;
     }
@@ -1157,7 +1157,7 @@ void sp_truncate_1_svc_disk_thread(void * pt, rozorpc_srv_ctx_t *req_ctx_p) {
     /*
     ** All rebuild processes are broken by this request
     */   
-    if (dev_map_p->storio_rebuild_ref.u32 != 0xFFFFFFFF) {
+    if (dev_map_p->storio_rebuild_ref.u64 != 0xFFFFFFFFFFFFFFFF) {
       for (nb_rebuild=0; nb_rebuild < MAX_FID_PARALLEL_REBUILD; nb_rebuild++) {
 
 	/* This context is free */
@@ -1260,7 +1260,7 @@ void sp_remove_1_svc_disk_thread(void * pt, rozorpc_srv_ctx_t *req_ctx_p) {
     /*
     ** All rebuild process are broken by this request
     */   
-    if (dev_map_p->storio_rebuild_ref.u32 != 0xFFFFFFFF) {
+    if (dev_map_p->storio_rebuild_ref.u64 != 0xFFFFFFFFFFFFFFFF ) {
       for (nb_rebuild=0; nb_rebuild < MAX_FID_PARALLEL_REBUILD; nb_rebuild++) {
 
 	/* This context is free */

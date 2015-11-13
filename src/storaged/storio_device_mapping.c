@@ -231,7 +231,7 @@ void storage_fid_debug(char * argv[], uint32_t tcpRef, void *bufRef) {
     pChar += rozofs_u32_append(pChar,list_size(&p->waiting_request));
     pChar += rozofs_eol(pChar);
     
-    if (p->storio_rebuild_ref.u32 != 0xFFFFFFFF) {
+    if (p->storio_rebuild_ref.u64 != 0xFFFFFFFFFFFFFFFF) {
       for (nb_rebuild=0; nb_rebuild   <MAX_FID_PARALLEL_REBUILD; nb_rebuild++) {
 	storio_rebuild_ref = p->storio_rebuild_ref.u8[nb_rebuild];
 	if (storio_rebuild_ref == 0xFF) continue;

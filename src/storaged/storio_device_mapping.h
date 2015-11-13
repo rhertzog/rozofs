@@ -107,10 +107,10 @@ typedef struct storio_rebuild_stat_s {
 } STORIO_REBUILD_STAT_S;
 extern STORIO_REBUILD_STAT_S        storio_rebuild_stat;
 
-#define MAX_FID_PARALLEL_REBUILD 4
+#define MAX_FID_PARALLEL_REBUILD 8
 typedef union storio_rebuild_ref_u {
   uint8_t     u8[MAX_FID_PARALLEL_REBUILD];
-  uint32_t    u32;
+  uint64_t    u64;
 } STORIO_REBUILD_REF_U;
 
 #define    STORIO_FID_FREE     0
@@ -201,7 +201,7 @@ static inline uint32_t storio_device_mapping_hash32bits_compute(storio_device_ma
 */
 static inline int storio_device_mapping_ctx_check_running(storio_device_mapping_t * p) {
       
-  if ((p->storio_rebuild_ref.u32 != 0xFFFFFFFF)
+  if ((p->storio_rebuild_ref.u64 != 0xFFFFFFFFFFFFFFFF)
   ||  (!list_empty(&p->running_request))
   ||  (!list_empty(&p->waiting_request))) {
     return 1; 
@@ -279,7 +279,7 @@ static inline void storio_device_mapping_ctx_reset(storio_device_mapping_t * p) 
   list_init(&p->running_request);
   list_init(&p->waiting_request);
 
-  p->storio_rebuild_ref.u32 = 0xFFFFFFFF;
+  p->storio_rebuild_ref.u64 = 0xFFFFFFFFFFFFFFFF;
 }
 
 /*
