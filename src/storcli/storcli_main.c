@@ -146,6 +146,8 @@ void show_start_config(char * argv[], uint32_t tcpRef, void *bufRef) {
   DISPLAY_UINT32_CONFIG(mojThreadRead);    
   DISPLAY_UINT32_CONFIG(mojThreadThreshold);   
   DISPLAY_UINT32_CONFIG(site);
+  DISPLAY_UINT32_CONFIG(localPreference);  
+  
   uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
 }    
 
@@ -1180,6 +1182,7 @@ void usage() {
     printf("\t-m,--mojThreadThreshold value\t\tThe number of bytes from which the storage threads are called\n");
     printf("\t-L,--layout <0|1|2>\t\tredundancy level supported by the process\n");
     printf("\t-B,--bsize <0|1|2>\t\tfile system block size (0:4K/1:8K/2:16K\n");
+    printf("\t-f,--localPreference\t\tfavor local storage on read to save network bandwith in case of poor network connection\n");
 
 }
 
@@ -1216,6 +1219,7 @@ int main(int argc, char *argv[]) {
         { "bsize", required_argument, 0, 'B'},
         { "geosite", required_argument, 0, 'g'},
         { "owner", required_argument, 0, 'o'},
+        { "localPreference", required_argument, 0, 'f'},
         { 0, 0, 0, 0}
     };
 
@@ -1275,11 +1279,11 @@ int main(int argc, char *argv[]) {
     conf.mojThreadWrite      = -1;
     conf.mojThreadRead       = -1;    
     conf.mojThreadThreshold  = -1;
-        
+    conf.localPreference     = 0;  
     while (1) {
 
         int option_index = 0;
-        c = getopt_long(argc, argv, "hH:E:P:i:D:M:R:s:k:c:l:S:g:o:r:w:m:L:B:", long_options, &option_index);
+        c = getopt_long(argc, argv, "hH:E:P:i:D:M:R:s:k:c:l:S:g:o:r:w:m:L:B:f", long_options, &option_index);
 
         if (c == -1)
             break;
@@ -1304,6 +1308,9 @@ int main(int argc, char *argv[]) {
             case 'M':
                 conf.mount = strdup(optarg);
                 break;
+	    case 'f':
+	        conf.localPreference = 1;
+		break;
             case 'i':
                 errno = 0;
                 val = (int) strtol(optarg, (char **) NULL, 10);

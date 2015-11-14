@@ -467,7 +467,8 @@ typedef struct storcli_conf {
     char *owner;
     unsigned mojThreadWrite;
     unsigned mojThreadRead;    
-    unsigned mojThreadThreshold;   
+    unsigned mojThreadThreshold; 
+    unsigned localPreference;
 } storcli_conf;
 
 extern storcli_conf conf;

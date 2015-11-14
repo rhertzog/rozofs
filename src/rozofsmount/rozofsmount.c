@@ -200,6 +200,7 @@ static void usage() {
     fprintf(stderr, "    -o mojThreadWrite=0|1\t\t\tdisable|enable Mojette threads use for write in storcli\n");
     fprintf(stderr, "    -o mojThreadRead=0|1\t\t\tdisable|enable Mojette threads use for read in storcli\n");
     fprintf(stderr, "    -o mojThreadThreshold=<bytes>\t\t\tset the byte threshold to use Mojette threads in storcli\n");
+    fprintf(stderr, "    -o localPreference\t\t\tFavor local storage on read to save network bandwith in case of poor network connection\n");
 
 
 }
@@ -246,6 +247,7 @@ static struct fuse_opt rozofs_opts[] = {
     MYFS_OPT("quota", quota, 3),
     MYFS_OPT("usrquota", quota, 1),
     MYFS_OPT("noXattr", noXattr, 1),
+    MYFS_OPT("localPreference", localPreference, 1),    
     MYFS_OPT("site=%u", site, 0),
     MYFS_OPT("mojThreadWrite=%u",mojThreadWrite,-1),
     MYFS_OPT("mojThreadRead=%u",mojThreadRead,-1),
@@ -394,6 +396,7 @@ void show_start_config(char * argv[], uint32_t tcpRef, void *bufRef) {
   DISPLAY_UINT32_CONFIG(mojThreadWrite);  
   DISPLAY_UINT32_CONFIG(mojThreadRead);  
   DISPLAY_UINT32_CONFIG(mojThreadThreshold);  
+  DISPLAY_UINT32_CONFIG(localPreference);
 
   uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
 } 
@@ -1369,7 +1372,7 @@ void rozofs_kill_one_storcli(int instance) {
 
 void rozofs_start_one_storcli(int instance) {
     char pid_file[128];
-    char cmd[1024];
+    char cmd[1024*2];
     uint16_t debug_port_value;
     char     debug_port_name[32];
 
@@ -1404,7 +1407,7 @@ void rozofs_start_one_storcli(int instance) {
     if (conf.mojThreadThreshold!= -1) {
       cmd_p += sprintf(cmd_p, "-m %d ", conf.mojThreadThreshold);
     }   
-    
+        
     /*
     ** check if there is a share mem key
     */
@@ -1416,6 +1419,10 @@ void rozofs_start_one_storcli(int instance) {
     }
     cmd_p += sprintf(cmd_p, "-L %d -B %d ",exportclt.layout, exportclt.bsize);       
 
+    if (conf.localPreference) {
+      cmd_p += sprintf(cmd_p, "-f ");
+    } 
+    
     sprintf(pid_file,"/var/run/launcher_rozofsmount_%d_storcli_%d.pid", conf.instance, instance);
     rozo_launcher_start(pid_file,cmd);
     
@@ -1971,6 +1978,7 @@ int main(int argc, char *argv[]) {
     conf.mojThreadWrite     = -1; // By default, do not modify the storli default
     conf.mojThreadRead      = -1; // By default, do not modify the storli default
     conf.mojThreadThreshold = -1; // By default, do not modify the storli default
+    conf.localPreference = 0; // No local preference on read
 
     if (fuse_opt_parse(&args, &conf, rozofs_opts, myfs_opt_proc) < 0) {
         exit(1);

@@ -89,7 +89,12 @@ typedef struct rozofsmnt_conf {
     ** the file it writes, and so can avoid some internal re-read when writes
     ** are not aligned on block bondary
     */
-    unsigned onlyWriter;         
+    unsigned onlyWriter;  
+    /*
+    ** Whether to favor local storage on read to save network bandwith
+    ** in case of poor network connection
+    */
+    unsigned localPreference;     
 } rozofsmnt_conf_t;
 rozofsmnt_conf_t conf;
 
