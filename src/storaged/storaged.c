@@ -68,6 +68,8 @@
 
 #define STORAGED_PID_FILE "storaged"
 
+static char * exe_path_name=NULL;
+
 static char storaged_config_file[PATH_MAX] = STORAGED_DEFAULT_CONFIG;
 
 sconfig_t storaged_config;
@@ -232,7 +234,7 @@ static void on_stop() {
 char storage_process_filename[NAME_MAX];
 
 static void on_start() {
-    char cmd[256];
+    char cmd[1024];
     char pidfile[128];
     char * p;
     storaged_start_conf_param_t conf;
@@ -294,6 +296,12 @@ static void on_start() {
     */
     if (common_config.storio_multiple_mode==0) {
       p = cmd;
+      
+      // Get storio executable from same directory as storaged 
+      if (exe_path_name) {
+        p += rozofs_string_append(p,exe_path_name);
+	*p++ ='/'; 
+      }
       p += rozofs_string_append(p, "storio -i 0 -c ");
       p += rozofs_string_append(p,storaged_config_file);
       if (pHostArray[0] != NULL) {
@@ -337,7 +345,13 @@ static void on_start() {
 	bitmask[rank] |= (1ULL<<bit);
 	
 	p = cmd;
-	p += rozofs_string_append(p, "storio -i ");
+	
+	// Get storio executable from same directory as storaged 
+	if (exe_path_name) {
+          p += rozofs_string_append(p,exe_path_name);
+	  *p++ ='/'; 
+	}
+      	p += rozofs_string_append(p, "storio -i ");
 	p += rozofs_u32_append(p,cid);
 	p += rozofs_string_append(p, " -c ");
 	p += rozofs_string_append(p,storaged_config_file);
@@ -406,6 +420,15 @@ int main(int argc, char *argv[]) {
 
     // Init of the timer configuration
     rozofs_tmr_init_configuration();
+
+    // Get the path name of the storaged executable
+    if (strcmp("storaged",argv[0]) != 0) {
+      exe_path_name = strdup(argv[0]);
+      exe_path_name = dirname(exe_path_name);
+    }
+    else {
+      exe_path_name = NULL;
+    }  
 
     while (1) {
 
