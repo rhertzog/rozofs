@@ -137,6 +137,7 @@ target_link_libraries(exportd rozofs ${PTHREAD_LIBRARY} ${UUID_LIBRARY} ${CONFIG
 #target_link_libraries(expgateway rozofs ${PTHREAD_LIBRARY} ${UUID_LIBRARY} ${CONFIG_LIBRARY})
 
 
+
 add_executable(rozo_repquota
     rozofs_quota.h
     rozofs_quota.c
@@ -207,6 +208,16 @@ set (librozo_inode_sources
 add_library(rozofs_inode STATIC ${librozo_inode_sources})
 set_target_properties(rozofs_inode PROPERTIES COMPILE_FLAGS "-fPIC")
 
+
+#add_executable(rzsave
+#    rzsave_main.c  
+#)
+#target_link_libraries(rzsave rozofs_inode rozofs ${PTHREAD_LIBRARY} ${UUID_LIBRARY} ${CONFIG_LIBRARY})
+
+add_executable(rozo_fid2pathname
+    rozo_fid2pathname.c  
+)
+target_link_libraries(rozo_fid2pathname rozofs_inode rozofs ${PTHREAD_LIBRARY} ${UUID_LIBRARY} ${CONFIG_LIBRARY})
 # Install
 install(CODE "EXECUTE_PROCESS (COMMAND mkdir -p ${ROZOFS_CONFIG_DIR})" COMPONENT export)
 
@@ -239,6 +250,13 @@ install(TARGETS rozo_quotaon
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib
     COMPONENT rozo_quotaon
+)
+
+install(TARGETS rozo_fid2pathname
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    COMPONENT rozo_fid2pathname
 )
 install(FILES export.conf.sample DESTINATION ${ROZOFS_CONFIG_DIR} COMPONENT export)
 install(FILES export.conf DESTINATION ${ROZOFS_CONFIG_DIR} COMPONENT export)

@@ -1613,7 +1613,7 @@ static inline void rozofs_fid2string(uuid_t fid, char * pChar) {
    
    @retval pointer to the output buffer
 */
-char *get_fname(export_t *e,char *bufout,rozofs_inode_fname_t *fname,fid_t pfid)
+char *_get_fname(export_t *e,char *bufout,rozofs_inode_fname_t *fname,fid_t pfid)
 {
    if (fname->name_type == ROZOFS_FNAME_TYPE_DIRECT)
    {
@@ -1626,6 +1626,11 @@ char *get_fname(export_t *e,char *bufout,rozofs_inode_fname_t *fname,fid_t pfid)
    */
    get_name_from_direntchunk(e->root,pfid,&fname->s.name_dentry,bufout);
    return bufout;
+}
+
+char *get_fname(void *e,char *bufout,void *fname,fid_t pfid)
+{
+  return _get_fname((export_t *)e,bufout,(rozofs_inode_fname_t*)fname,pfid);
 }
 /*
 **__________________________________________________________________
