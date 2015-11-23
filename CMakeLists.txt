@@ -35,6 +35,8 @@ execute_process(COMMAND ${CMAKE_GET} bpo OUTPUT_VARIABLE BPO)
 
 set(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH}" "${PROJECT_SOURCE_DIR}/cmake")
 
+set(Python_ADDITIONAL_VERSIONS 2.7 2.6)
+
 #
 # Find packages
 #
@@ -47,10 +49,7 @@ find_package(FUSE REQUIRED)
 find_package(READLINE REQUIRED)
 find_package(SWIG REQUIRED)
 find_package(Doxygen QUIET)
-find_program(PYTHON NAMES python2.7)
-if(NOT PYTHON)
-  find_program(PYTHON NAMES python2.6)
-endif(NOT PYTHON)
+find_package(PythonInterp REQUIRED)
 
 find_program(DEBUILD NAMES debuild)
 find_program(DEBUILD NAMES debuild)
