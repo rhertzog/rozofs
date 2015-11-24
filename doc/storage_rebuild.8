@@ -3,90 +3,141 @@
 .\"
 .TH storage_rebuild 8 "DECEMBER 2014" RozoFS "User Manuals"
 .SH NAME
-storage_rebuild \- RozoFS storage node device rebuild process
+storage_rebuild \- RozoFS disk rebuild utility
 .SH SYNOPSIS
-.B storage_rebuild 
-[
-.I options
-] 
+.IP "Rebuilding a full storage node"
+.B storage_rebuild -r <export hosts> [-p <p//>] [-l <loop>] [-q][-fg]
+.IP "Rebuilding only one storage within a storage node"
+.B storage_rebuild -r <export hosts> -s <cid>/<sid> [-p <p//>] [-l <loop>] [-q][-fg]
+.IP "Rebuilding only a device of a storage"
+.B storage_rebuild -r <export hosts> -s <cid>/<sid> -d <device> [-p <p//>] [-l <loop>] [-q][-fg]
+.IP "Relocating files of a device of a storage on all available devices of the same storage"
+.B storage_rebuild -R -r <export hosts> -s <cid>/<sid> -d <device> [-p <p//>] [-l <loop>] [-q][-fg]
+.IP "Putting back a device in service when it is replaced after a manual or automatic relocation (self healing)"
+.B storage_rebuild -C -r <export hosts> -s <cid>/<sid> -d <device> [-p <p//>] [-l <loop>] [-q][-fg]
+.IP "Rebuilding only a FID of a storage"
+.B storage_rebuild -r <export hosts> -s <cid>/<sid> -f <FID> [-p <p//>] [-l <loop>] [-q][-fg]
+.IP "Getting the list of FID that are to be rebuilt. Then use rozo_fid2pathname utility on export node to translate FIDs to full path names."
+.B storage_rebuild -id <id> -list 
+.IP "Pause a running rebuild in order to resume it later."
+.B storage_rebuild -id <id> -pause 
+.IP "Resume a failed or paused rebuild."
+.B storage_rebuild -id <id> -resume [-l <loop>] [-q][-fg|-bg]
+.IP "Abort definitively a rebuild."
+.B storage_rebuild -id <id> -abort
 .B
 .SH DESCRIPTION
 .B storage_rebuild
-rebuilds either a file or a device or all devices of a storage node.
+rebuilds either a file or some devices of a storage node. 
+
+When the rebuild fails, on can get the list of FIDs that have not been rebuilt. Then with rozo_fid2pathname utility on export node one can translate these FIDs to full path names.
+
+
+A rebuild can be paused temporarily. It is then possible to resume a paused or failed rebuild (i.e only rebuild the files that are not yet rebuilt). 
+
+A monitoring rebuild file provides information on the ongoing rebuild. The name of the rebuild monitoring file is displayed on return from the rebuild command except when --quiet option is set. In any case the name of the rebuild monitoring file can be found in the syslog file."
 .SH OPTIONS
-.IP "-h, --help"
-.RS
-Print help.
-.RE
-.IP "-c, --config file"
-.RS
-Use 
-.I file
-as configuration file. This parameter is optionnal and by default the configuration file used is
-.I /etc/rozofs/storage.conf
-(or
-.I /usr/local/etc/rozofs/storage.conf
-according to install options)
-.RE
-.IP "-r, --rebuild export_host"
+.IP "-r, --rebuild <export hosts>"
 .RS
 Use
-.I export_host
-as the list of addresses (or dns names) where exportd daemon is running. When securing the exportd thanks to virtual IP address only the virtual IP address is declared (i.e "--rebuild 192.168.10.1"). When no virtual IP address is used the list of "physical" IP addresses of each host securing the exportd must be given (i.e "--rebuild 192.168.10.1/192.168.20.1"). This is a mandatory parameter. 
-.TP
+.I <export hosts>
+as the list of addresses (or dns names) where exportd daemon is running. When securing the exportd thanks to a virtual IP address only the virtual IP address is given (i.e "--rebuild 192.168.10.1"). When no virtual IP address is used the list of "physical" IP addresses of each host securing the exportd must be given (i.e "--rebuild 192.168.10.1/192.168.20.1"). 
 .RE
-.IP "-s, --sid cid/sid"
+.IP "-s, --sid <cid>/<sid>"
 .RE
 .RS
 Rebuilds only the storage instance 
-.I sid
+.I <sid>
 of cluster
-.I cid 
+.I <cid>
 of the storage node.
-Default behaviour is to rebuild every storage instance configured in the configuration file.
+When no set the rebuild operates on every storage instance of the storage node.
 .RE
-.IP "-d, --device device-number"
+.IP "-d, --device <device>"
 .RE
 .RS
-Rebuilds only 
-.I device-number 
-of a storage instance. When this option is set option --sid must be set too. Default is to rebuild every device.
+Rebuilds only device number
+.I <device>
+of a storage instance. When this option is set option --sid must be set too. When -d is not set, the rebuild is done for every devices of the storage or the storage node.
 .RE
-.IP "-f, --fid FID"
+.IP "-f, --fid <FID>"
 .RE
 .RS
 Rebuilds only the file identified by
-.I FID.
+.I <FID>.
 In this case --sid option is mandatory and --device option is ignored.
-.RE
-.IP "-p, --parallel para"
-.RE
-.RS
-Use 
-.I para
-processes in parallel for rebuilding. Default should be 3.
 .RE
 .IP "-R, --relocate"
 .RE
 .RS
 Enables relocation of the rebuilt files on other devices. This is used for repairing data files of a broken device on the remaining in service devices. When not set the data files are not relocated and are so rebuilt on the same devices they used to be.
 .RE
-.IP "-l, --loop nb"
+.IP "-p, --parallel <p//>"
 .RE
 .RS
-re-attempt 
-.I nb
-times the rebuild in case it fails. Default is to retry infinitely.
+Use 
+.I <p//>
+processes in parallel for rebuilding. The greater is 
+.I <p//>
+the faster is the rebuild, but the more CPU and bandwith consuming it is. Use --help option to get the default as well as the maximum value.
 .RE
-.IP "-q, --quiet"
+.IP "-l, --loop <loop>"
 .RE
 .RS
-Not to display any output on the terminal (for non interactive mode).
+re-attempt automatically up to
+.I <loop>
+times the rebuild on files that fail to rebuild.  Use --help option to get the default as well as the maximum value.
+.RE
+.IP "-pause"
+.RE
+.RS
+Stop a running rebuild. The -id option has to be set to identify the rebuild.
+.RE
+.IP "-list"
+.RE
+.RS
+Display the list of FIDs that are still to rebuild after the rebuild has failed or was paused. The -id option has to be set to identify the rebuild. The FID list can be translated into full path names on the export node using the rozo_fid2pathname utility.
+.RE
+.IP "-resume"
+.RE
+.RS
+Resume a paused or failed rebuild. The -id option has to be set to identify the rebuild.
+.RE
+.IP "-id <id>"
+.RE
+.RS
+.I <id>
+is the identifier of a rebuild.
 .RE
 .IP "-C, --clear"
 .RE
 .RS
 To re-initialize the satus of a device that has been set out of service after an automatic relocation of the data on other devices (self healing) and then rebuild it.
+.RE
+.IP "-q, --quiet"
+.RE
+.RS
+This optionnal parameter enables to avoid any display on the terminal except immediate errors.
+.RE
+.IP "-fg"
+.RE
+.RS
+This optionnal parameter enables to run the rebuild in foreground while the default is to run it in background mode.
+.RE
+.IP "-bg"
+.RE
+.RS
+This parameter enables to run a resume in background mode when the target rebuild was previously in foreground.
+.RE
+.IP "-c, --config <cfg>"
+.RS
+Use 
+.I <cfg>
+as storage node configuration file. This is optionnal parameter should not to be used in production.
+.RE
+.IP "-h, --help"
+.RS
+Print help.
 .RE
 .B
 .SH EXAMPLES
@@ -94,7 +145,7 @@ To re-initialize the satus of a device that has been set out of service after an
 
 Rebuilding a whole storage node as fast as possible:
 .RE
-.B storage_rebuild --rebuild 192.168.0.201/192.168.0.202 --parallel 16
+.B storage_rebuild --rebuild 192.168.0.201/192.168.0.202 --parallel 64
 .RE 
 
 Rebuilding every device of storage instance 2 of cluster 1:

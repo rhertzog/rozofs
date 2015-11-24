@@ -221,6 +221,7 @@ typedef enum _rbs_exe_code_e {
 } RBS_EXE_CODE_E;
 
 RBS_EXE_CODE_E rbs_restore_one_spare_entry(storage_t       * st, 
+                                           uint8_t           layout,
                                 	   int               local_idx, 
 			        	   int               relocate,
 			        	   uint32_t        * block_start,
@@ -228,7 +229,8 @@ RBS_EXE_CODE_E rbs_restore_one_spare_entry(storage_t       * st,
 			     		   rb_entry_t      * re, 
 					   uint8_t           spare_idx,
 					   uint64_t        * size_written,
-					   uint64_t        * size_read) {
+					   uint64_t        * size_read,
+					   uint8_t         * error) {
     RBS_EXE_CODE_E status = RBS_EXE_FAILED;
     int i = 0;
     int ret = -1;
@@ -248,7 +250,6 @@ RBS_EXE_CODE_E rbs_restore_one_spare_entry(storage_t       * st,
     uint32_t   rebuild_ref=0;
             
     // Get rozofs layout parameters
-    uint8_t  layout            = re->layout;
     uint32_t bsize             = re->bsize;
     uint32_t bbytes            = ROZOFS_BSIZE_BYTES(bsize);
     uint8_t  rozofs_safe       = rozofs_get_rozofs_safe(layout);
@@ -284,8 +285,14 @@ RBS_EXE_CODE_E rbs_restore_one_spare_entry(storage_t       * st,
 					      *block_start, block_end);
       if (rebuild_ref == 0) {
 	remove_file = 0;
-	if (errno == EAGAIN) rbs_error.spare_start_again++;
-	else                 rbs_error.spare_start++;
+	if (errno == EAGAIN) {
+	  rbs_error.spare_start_again++;
+	  *error = rozofs_rbs_error_file_to_much_running_rebuild;
+	}  
+	else {
+	  rbs_error.spare_start++;
+	  *error = rozofs_rbs_error_rebuild_start_failed;
+        }	  
 	goto out;
       }     
 
@@ -324,6 +331,7 @@ RBS_EXE_CODE_E rbs_restore_one_spare_entry(storage_t       * st,
               remove_file = 0;// Better keep the file	
               errno = EIO;
  	      rbs_error.spare_read++;
+	      *error = rozofs_rbs_error_read_error;		      
               goto out;
           }
 
@@ -354,6 +362,7 @@ RBS_EXE_CODE_E rbs_restore_one_spare_entry(storage_t       * st,
                   remove_file = 0;// Better keep the file	    
         	  errno = EIO;
 		  rbs_error.spare_read_no_enough++;
+	          *error = rozofs_rbs_error_not_enough_projection_read;	  
         	  goto out;	      
 	      }
 
@@ -381,9 +390,11 @@ RBS_EXE_CODE_E rbs_restore_one_spare_entry(storage_t       * st,
 		   if (errno == EAGAIN) {
 		     rbs_error.spare_write_broken++;
 		     status = RBS_EXE_BROKEN;
+		     *error = rozofs_rbs_error_rebuild_broken;
 		   }
 		   else {
 		     rbs_error.spare_write_empty++;
+		     *error = rozofs_rbs_error_write_failed;		     
 		   }
                    goto out;
         	 }	
@@ -478,10 +489,12 @@ RBS_EXE_CODE_E rbs_restore_one_spare_entry(storage_t       * st,
 		if (errno == EAGAIN) {
 		  rbs_error.spare_write_broken++;
 		  status = RBS_EXE_BROKEN;
+		  *error = rozofs_rbs_error_rebuild_broken;		  
 		}
 		else {
 		  rbs_error.spare_write_proj++;
-        	  severe("sclient_write_rbs failed %s", strerror(errno));		  
+        	  severe("sclient_write_rbs failed %s", strerror(errno));
+		  *error = rozofs_rbs_error_write_failed;		  		  		  
 		}
                 goto out;	      
               }	
@@ -492,7 +505,7 @@ RBS_EXE_CODE_E rbs_restore_one_spare_entry(storage_t       * st,
 
       }	
       
-      if ((remove_file)&&(!relocate)) {
+      if (remove_file) {
 	ret = sclient_remove_chunk_rbs(re->storages[local_idx], st->cid, st->sid, layout, 
 	                               1/*spare*/, re->bsize,
 	                               re->dist_set_current, re->fid, chunk, rebuild_ref);
@@ -564,6 +577,7 @@ out:
 	
 
 RBS_EXE_CODE_E rbs_restore_one_rb_entry(storage_t       * st, 
+                                        uint8_t           layout,
                         		int               local_idx, 
 					int               relocate,
 					uint32_t        * block_start,
@@ -571,14 +585,14 @@ RBS_EXE_CODE_E rbs_restore_one_rb_entry(storage_t       * st,
 					rb_entry_t      * re, 
 					uint8_t           proj_id_to_rebuild,
 					uint64_t        * size_written,
-					uint64_t        * size_read) {
+					uint64_t        * size_read,
+					uint8_t         * error) {
     RBS_EXE_CODE_E    status = RBS_EXE_FAILED;
     int               ret    = -1;
     rbs_storcli_ctx_t working_ctx;
     uint32_t          rebuild_ref;
   
     // Get rozofs layout parameters
-    uint8_t layout                  = re->layout;
     uint32_t bsize                  = re->bsize;
     uint16_t rozofs_disk_psize      = rozofs_get_psizes(layout,bsize,proj_id_to_rebuild);
     uint8_t  rozofs_safe            = rozofs_get_rozofs_safe(layout);
@@ -597,9 +611,14 @@ RBS_EXE_CODE_E rbs_restore_one_rb_entry(storage_t       * st,
                                             relocate?SP_NEW_DEVICE:SP_SAME_DEVICE, chunk, 0 /* spare */,  
 					    *block_start, block_end);
     if (rebuild_ref == 0) {
-      if (errno == EAGAIN) rbs_error.nom_start_again++;
-      else                 rbs_error.nom_start++;
-      info("rbs start %s",strerror(errno));
+      if (errno == EAGAIN) {
+        rbs_error.nom_start_again++;
+	*error = rozofs_rbs_error_file_to_much_running_rebuild;
+      }
+      else {
+        rbs_error.nom_start++;
+	*error = rozofs_rbs_error_rebuild_start_failed;	
+      }
       goto out;
     }
         
@@ -622,6 +641,7 @@ RBS_EXE_CODE_E rbs_restore_one_rb_entry(storage_t       * st,
 
         if (ret != 0) {
 	  rbs_error.nom_read++;
+	  *error = rozofs_rbs_error_read_error;	
 	  goto out;
 	}
         if (nb_blocks_read_distant == 0) break; // End of file
@@ -657,6 +677,7 @@ RBS_EXE_CODE_E rbs_restore_one_rb_entry(storage_t       * st,
         if (ret != 0) {
             severe("rbs_transform_forward_one_proj failed: %s",strerror(errno));
 	    rbs_error.nom_transform++;
+	    *error = rozofs_rbs_error_transform_error;
             goto out;
         }
 	
@@ -686,9 +707,11 @@ RBS_EXE_CODE_E rbs_restore_one_rb_entry(storage_t       * st,
 	  if (errno == EAGAIN) {
 	    rbs_error.nom_write_broken++;
 	    status = RBS_EXE_BROKEN;
+	    *error = rozofs_rbs_error_rebuild_broken;
 	  }
 	  else {
 	    rbs_error.nom_write++;
+	    *error = rozofs_rbs_error_write_failed;	    
             severe("sclient_write_rbs failed: %s", strerror(errno));
 	  }
           goto out;
@@ -743,6 +766,8 @@ int storaged_rebuild_list(char * fid_list) {
       goto error;
   }  
 
+  int entry_size = rbs_entry_size_from_layout(st2rebuild.layout);
+
   // Initialize the list of storage config
   if (sconfig_initialize(&storaged_config) != 0) {
       severe("Can't initialize storaged config: %s.\n",strerror(errno));
@@ -787,6 +812,9 @@ int storaged_rebuild_list(char * fid_list) {
   ** Check that enough servers are available
   */
   rozofs_inverse = rozofs_get_rozofs_inverse(st2rebuild.layout);  
+  rozofs_safe    = rozofs_get_rozofs_safe(st2rebuild.layout);
+  rozofs_forward = rozofs_get_rozofs_forward(st2rebuild.layout);
+
   if (available<rozofs_inverse) {
     /*
     ** Not possible to rebuild any thing
@@ -794,7 +822,6 @@ int storaged_rebuild_list(char * fid_list) {
     REBUILD_MSG("only %d failed storages !!!",available);
     goto error;
   }
-  rozofs_forward = rozofs_get_rozofs_forward(st2rebuild.layout);
   if (failed > (rozofs_forward-rozofs_inverse)) {
     /*
     ** Possibly some file may not be rebuilt !!! 
@@ -812,38 +839,40 @@ int storaged_rebuild_list(char * fid_list) {
   nbSuccess = 0;
   offset = sizeof(rozofs_rebuild_header_file_t);
 
-  while (pread(fd,&file_entry,sizeof(file_entry),offset) == sizeof(file_entry)) {
+  while (pread(fd,&file_entry,entry_size,offset) == entry_size) {
   
-    offset += sizeof(file_entry); 
+    offset += entry_size; 
        
     if (file_entry.todo == 0) continue;
     if (memcmp(null_fid,file_entry.fid,sizeof(fid_t))==0) {
       severe("Null entry");
       continue;
     }
-
-    memcpy(&file_entry_saved,&file_entry,sizeof(file_entry));
+    // Padd end of distibution with 0. Just in case...
+    memset(&file_entry.dist_set_current[rozofs_safe],0,ROZOFS_SAFE_MAX-rozofs_safe); 
+    memcpy(&file_entry_saved,&file_entry,entry_size);
 
     nbJobs++;
         
-    // Compute the rozofs constants for this layout
-    uint8_t rozofs_inverse = rozofs_get_rozofs_inverse(file_entry.layout);
-
 #if 0
   {
     char fid_string[128];
+    int i;
     rozofs_uuid_unparse(file_entry.fid,fid_string);  
-    info("rebuilding FID %s layout %d bsize %d from %llu to %llu",
-          fid_string,file_entry.layout, file_entry.bsize,
+    printf("rebuilding FID %s layout %d bsize %d from %llu to %llu dist %d",
+          fid_string,st2rebuild.layout, file_entry.bsize,
          (long long unsigned int) file_entry.block_start, 
-	 (long long unsigned int) file_entry.block_end);
+	 (long long unsigned int) file_entry.block_end,
+	 file_entry.dist_set_current[0]);
+   for (i=1;i<rozofs_safe;i++) printf("-%d", file_entry.dist_set_current[i]);
+   printf("\n");
   }  
 #endif
     
     memcpy(re.fid,file_entry.fid, sizeof(re.fid));
     memcpy(re.dist_set_current,file_entry.dist_set_current, sizeof(re.dist_set_current));
     re.bsize = file_entry.bsize;
-    re.layout = file_entry.layout;
+    re.layout = st2rebuild.layout;
 
     // Get storage connections for this entry
     local_index = rbs_get_rb_entry_cnts(&re, 
@@ -852,13 +881,12 @@ int storaged_rebuild_list(char * fid_list) {
 			      st2rebuild.storage.sid,
                               rozofs_inverse);
     if (local_index == -1) {
-        severe( "rbs_get_rb_entry_cnts failed: %s", strerror(errno));
-        continue; // Try with the next
+      if      (errno==EINVAL) file_entry.error = rozofs_rbs_error_no_such_cluster;
+      else if (errno==EPROTO) file_entry.error = rozofs_rbs_error_not_enough_storages_up;
+      else                    file_entry.error = rozofs_rbs_error_unknown;
+      severe( "rbs_get_rb_entry_cnts failed: %s", strerror(errno));
+      continue; // Try with the next
     }
-
-    // Get rozofs layout parameters
-    rozofs_safe = rozofs_get_rozofs_safe(file_entry.layout);
-    rozofs_forward = rozofs_get_rozofs_forward(file_entry.layout);
     
     // Compute the proj_id to rebuild
     // Check if the storage to rebuild is
@@ -881,18 +909,20 @@ int storaged_rebuild_list(char * fid_list) {
       // Restore this entry
       uint32_t block_start = file_entry.block_start;
       if (spare == 1) {
-	ret = rbs_restore_one_spare_entry(&st2rebuild.storage, local_index, file_entry.relocate,
+	ret = rbs_restore_one_spare_entry(&st2rebuild.storage, st2rebuild.layout, local_index, file_entry.relocate,
                                           &block_start, file_entry.block_end, 
 					  &re, prj,
 					  &size_written,
-					  &size_read);     
+					  &size_read,
+					  &file_entry.error);     
       }
       else {
-	ret = rbs_restore_one_rb_entry(&st2rebuild.storage, local_index, file_entry.relocate,
+	ret = rbs_restore_one_rb_entry(&st2rebuild.storage, st2rebuild.layout, local_index, file_entry.relocate,
                                        &block_start, file_entry.block_end, 
 				       &re, prj, 
 				       &size_written,
-				       &size_read);
+				       &size_read,
+				       &file_entry.error);
       } 
 
       /* 
@@ -901,12 +931,18 @@ int storaged_rebuild_list(char * fid_list) {
       switch(ret) {
       
 	case RBS_EXE_SUCCESS:
-	case RBS_EXE_ENOENT:	     
+	case RBS_EXE_ENOENT:	
+	
+	  if (ret == RBS_EXE_ENOENT) {
+	    file_entry.error = rozofs_rbs_error_file_deleted;
+	    st2rebuild.counters.deleted++;
+	  }  
+	  else {                      
+	    file_entry.error = rozofs_rbs_error_none;
+	  }
 	  nbSuccess++;
 	  // Update counters in header file 
 	  st2rebuild.counters.done_files++;
-	  // Case of the deleted files
-	  if (ret == RBS_EXE_ENOENT) st2rebuild.counters.deleted++;
 	  if (spare == 1) {
             st2rebuild.counters.written_spare += size_written;
 	    st2rebuild.counters.read_spare    += size_read;
@@ -955,10 +991,10 @@ int storaged_rebuild_list(char * fid_list) {
       /*
       ** Update input job file if any change
       */
-      if (memcmp(&file_entry_saved,&file_entry, sizeof(file_entry)) != 0) {
-	if (pwrite(fd, &file_entry, sizeof(file_entry), offset-sizeof(file_entry))!=sizeof(file_entry)) {
-	  severe("pwrite size %lu offset %llu %s",(unsigned long int)sizeof(file_entry), 
-        	 (unsigned long long int) offset-sizeof(file_entry), strerror(errno));
+      if (memcmp(&file_entry_saved,&file_entry, entry_size) != 0) {
+	if (pwrite(fd, &file_entry, entry_size, offset-entry_size)!=entry_size) {
+	  severe("pwrite size %lu offset %llu %s",(unsigned long int)entry_size, 
+        	 (unsigned long long int) offset-entry_size, strerror(errno));
 	}
       }
       
@@ -1012,6 +1048,7 @@ int main(int argc, char *argv[]) {
     ** Change local directory to "/"
     */
     if (chdir("/")!= 0) {}
+    rozofs_layout_initialize();
         
     static struct option long_options[] = {
         { "help", no_argument, 0, 'h'},

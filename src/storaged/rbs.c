@@ -56,18 +56,16 @@ DECLARE_PROFILING(spp_profiler_t);
  *
  */
 char rebuild_directory_name[FILENAME_MAX];
-char * get_rebuild_directory_name() {
-  pid_t pid = getpid();
+char * get_rebuild_directory_name(int rebuildRef) {
   char * pChar = rebuild_directory_name;
   pChar += rozofs_string_append(pChar,"/tmp/rbs.");
-  pChar += rozofs_u32_append(pChar,pid);  
+  pChar += rozofs_u32_append(pChar,rebuildRef);  
   return rebuild_directory_name;
 }
-char * get_rebuild_sid_directory_name(int cid, int sid) {
-  pid_t pid = getpid();
+char * get_rebuild_sid_directory_name(int rebuildRef, int cid, int sid) {
   char * pChar = rebuild_directory_name;
   pChar += rozofs_string_append(pChar,"/tmp/rbs.");
-  pChar += rozofs_u32_append(pChar,pid);  
+  pChar += rozofs_u32_append(pChar,rebuildRef);  
   pChar += rozofs_string_append(pChar,"/cid");
   pChar += rozofs_u32_append(pChar,cid);  
   pChar += rozofs_string_append(pChar,"_sid");

@@ -30,12 +30,12 @@
 #include <rozofs/rpc/mclient.h>
 
 #include "storage.h"
-
+ 
 
 
 #define DEFAULT_PARALLEL_REBUILD_PER_SID 8
 #define MAXIMUM_PARALLEL_REBUILD_PER_SID 64
-
+#define DEFAULT_REBUILD_RELOOP           4  
 
 #define REBUILD_MSG(fmt, ...) { logmsg(EINFO, fmt, ##__VA_ARGS__); if (!quiet) printf(fmt"\n", ##__VA_ARGS__); }
 #define REBUILD_FAILED(fmt, ...) { REBUILD_MSG("storage_rebuild failed !!!"); REBUILD_MSG(fmt, ##__VA_ARGS__); }
@@ -85,8 +85,8 @@ typedef struct rb_cluster {
 /** Get name of temporary rebuild directory
  *
  */
-char * get_rebuild_directory_name() ;
-char * get_rebuild_sid_directory_name(int cid, int sid) ;
+char * get_rebuild_directory_name(int rebuildRef) ;
+char * get_rebuild_sid_directory_name(int rebuildRef, int cid, int sid) ;
 
 /** Initialize connections (via mproto and sproto) to one storage
  *

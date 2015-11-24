@@ -162,9 +162,14 @@ class host_class:
     
   def rebuild(self,argv):  
     param=""
-    for i in range(4,len(argv)): param += " %s"%(argv[i])
-    print param 
-    cmd_system("storage_rebuild -c %s -H localhost%s -r %s %s"%(self.get_config_name(),self.number,exportd.export_host,param))  
+    rebef=False
+    for i in range(4,len(argv)): 
+      if argv[i] == "-id": rebef = True
+      param += " %s"%(argv[i])
+    if rebef == True:
+      cmd_system("storage_rebuild %s"%(param))      
+    else:  
+      cmd_system("storage_rebuild -c %s -H localhost%s -r %s %s"%(self.get_config_name(),self.number,exportd.export_host,param))  
 
 #____________________________________
 # Class sid
@@ -327,12 +332,17 @@ class sid_class:
       except: pass 
       self.mount_device_file(device)
       
-  def rebuild(self,device=None):
-    h = self.host[0] 
-    if device == None:  
-      cmd_system("storage_rebuild -c %s -H localhost%s -r %s -s %d/%d -l 8"%(h.get_config_name(),h.number,exportd.export_host,self.cid.cid,self.sid,))  
-    else:
-      cmd_system("storage_rebuild -c %s -H localhost%s -r %s -s %d/%d -l 8 -d %s"%(h.get_config_name(),h.number,exportd.export_host,self.cid.cid,self.sid,device))  
+  def rebuild(self,argv):
+    param=""
+    rebef=False
+    for i in range(5,len(argv)): 
+      if argv[i] == "-id": rebef = True
+      param += " %s"%(argv[i])
+    if rebef == True:
+      cmd_system("storage_rebuild %s"%(param))      
+    else: 
+      h = self.host[0]   
+      cmd_system("storage_rebuild -c %s -H localhost%s -r %s -s %d/%d %s"%(h.get_config_name(),h.number,exportd.export_host,self.cid.cid,self.sid,param))  
                       
   def info(self):
     print "cid = %s"%(self.cid.cid)
@@ -1123,7 +1133,8 @@ class rozofs_class:
         for line in cmd.stdout: 
 	  fname=line.split('\n')[0]
 	  sz=os.path.getsize(fname) 
-          print "%10s %s"%(sz,fname)	
+          tm=datetime.datetime.fromtimestamp(os.path.getmtime(fname))
+          print "%10s  %s  %s"%(sz,tm,fname)	
 
   def exe_from_core_dir(self,dir):
     if dir == "storio": return "%s/build/src/%s/%s"%(os.getcwd(),"storaged",dir)
@@ -1561,7 +1572,7 @@ def test_parse(command, argv):
 	 s.create_device(argv[5]) 
        if argv[4] == "rebuild":
 	 syslog.syslog("sid %s/%s %s"%(cid+1,sid+1,argv[4]))       
-         s.host[0].rebuild(argv)         
+         s.rebuild(argv)         
        if argv[4] == "info"          : s.info()
 
   elif command == "config":

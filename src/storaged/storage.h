@@ -290,17 +290,66 @@ typedef struct _rozofs_rebuild_header_file_t {
   uint8_t       device;
 } rozofs_rebuild_header_file_t;
  
+//  
+typedef enum rozofs_rbs_error_e {
+  rozofs_rbs_error_none=0,
+  rozofs_rbs_error_no_such_cluster,
+  rozofs_rbs_error_not_enough_storages_up,
+  rozofs_rbs_error_file_deleted,
+  rozofs_rbs_error_file_to_much_running_rebuild,
+  rozofs_rbs_error_rebuild_start_failed,
+  rozofs_rbs_error_read_error,
+  rozofs_rbs_error_transform_error,
+  rozofs_rbs_error_rebuild_broken,
+  rozofs_rbs_error_write_failed,
+  rozofs_rbs_error_not_enough_projection_read,
+   
+  rozofs_rbs_error_unknown,
+} ROZOFS_RBS_ERROR_E;
+
+static inline char * rozofs_rbs_error_2_string(ROZOFS_RBS_ERROR_E e) {
+  switch(e) {
+  
+    case rozofs_rbs_error_none: return "None";
+    case rozofs_rbs_error_no_such_cluster: return "No such cluster id";
+    case rozofs_rbs_error_not_enough_storages_up: return "Not enough storages up";
+    case rozofs_rbs_error_file_deleted: return "File deleted";
+    case rozofs_rbs_error_file_to_much_running_rebuild: return "To much running rebuild";
+    case rozofs_rbs_error_rebuild_start_failed: return "Rebuild start failed";
+    case rozofs_rbs_error_read_error: return "Read error";
+    case rozofs_rbs_error_transform_error: return "Transform error";
+    case rozofs_rbs_error_rebuild_broken: return "Rebuild broken";
+    case rozofs_rbs_error_write_failed: return "Write failed";
+    case rozofs_rbs_error_not_enough_projection_read: return "Not enough projection read";
+    
+    case rozofs_rbs_error_unknown: return "Unknown";
+    default : return "???";
+  }
+}
+ 
 typedef struct _rozofs_rebuild_entry_file_t {
-    fid_t fid; ///< unique file identifier associated with the file
-    uint8_t layout; ///< layout used for this file.
-    uint8_t bsize;
-    uint8_t todo:1;  
-    uint8_t relocate:1;  
-    sid_t dist_set_current[ROZOFS_SAFE_MAX]; ///< currents sids of storage nodes
-    uint32_t  block_start; // Starting block to rebuild from 
-    uint32_t  block_end;   // Last block to rebuild
+    fid_t     fid;         //< unique file identifier associated with the file
+    uint32_t  block_start; //< Starting block to rebuild from 
+    uint32_t  block_end;   //< Last block to rebuild
+    uint8_t   unused:4;    //< Some unused bits
+    uint8_t   bsize:2;     //< Block size 0=4K / 1=8K / 2=16K / 3=32K    
+    uint8_t   todo:1;      //< 1 when rebuild not yet done
+    uint8_t   relocate:1;  //< 1 when relocation is required
+    uint8_t   error;       //< error code. See ROZOFS_RBS_ERROR_E
+    /*
+    ** Warning : this field has to be the last since only the 
+    ** significant bits of the distribution are written on disk
+    */
+    sid_t     dist_set_current[ROZOFS_SAFE_MAX]; ///< currents sids of storage nodes
 } rozofs_rebuild_entry_file_t; 
 
+/** Get the file enty size from the layout
+ */
+static inline int rbs_entry_size_from_layout(uint8_t layout) {
+  uint8_t safe = rozofs_get_rozofs_safe(layout);
+  int size = sizeof(rozofs_rebuild_entry_file_t) - ROZOFS_SAFE_MAX + safe;
+  return size;
+}   
 
 /** Retrieve the share memory address for a storage 
  *

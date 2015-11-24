@@ -49,7 +49,8 @@ def clean_cache(val=1): os.system("echo %s > /proc/sys/vm/drop_caches"%val)
 #___________________________________________________
 def clean_rebuild_dir():
 #___________________________________________________
-  os.system("mkdir -p /tmp/rebuild/; mv -f /var/run/storage_rebuild/* /tmp/rebuild/");
+  #os.system("mkdir -p /tmp/rebuild/; mv -f /var/run/storage_rebuild/* /tmp/rebuild/");
+  os.system("mkdir -p /tmp/rebuild/");
  
 #___________________________________________________
 def my_duration (val):
@@ -826,7 +827,7 @@ def rebuild_one_dev() :
     
     dev=int(hid)%int(mapper_modulo)
     clean_rebuild_dir()    
-    string="./setup.py sid %s %s rebuild -p 8 -g 0 -s %s/%s -d %s -o one_cid%s_sid%s_dev%s 1> /dev/null"%(cid,sid,cid,sid,dev,cid,sid,dev)
+    string="./setup.py sid %s %s rebuild -fg -d %s -o one_cid%s_sid%s_dev%s 1> /dev/null"%(cid,sid,dev,cid,sid,dev)
     os.system("./setup.py sid %s %s device-delete %s"%(cid,sid,dev))
     os.system("./setup.py sid %s %s device-create %s"%(cid,sid,dev))
     ret = os.system(string)
@@ -837,7 +838,7 @@ def rebuild_one_dev() :
       dev=(dev+1)%int(mapper_modulo)
       os.system("./setup.py sid %s %s device-delete %s"%(cid,sid,dev))
       os.system("./setup.py sid %s %s device-create %s"%(cid,sid,dev))
-      ret = os.system("./setup.py sid %s %s rebuild -p 8 -g 0 -s %s/%s -d %s -o one_cid%s_sid%s_dev%s 1> /dev/null"%(cid,sid,cid,sid,dev,cid,sid,dev))
+      ret = os.system("./setup.py sid %s %s rebuild -fg -d %s -o one_cid%s_sid%s_dev%s 1> /dev/null"%(cid,sid,dev,cid,sid,dev))
       if ret != 0:
 	return ret
 	
@@ -891,7 +892,7 @@ def relocate_one_dev() :
     # No self healing configured. Ask for a rebuild with relocation	      
     if selfHealing == "No":
       syslog.syslog("No self healing => call relocate")	      
-      ret = os.system("./setup.py sid %s %s rebuild -p 8 -s %s/%s -d 0 -g 0 -o reloc_cid%s_sid%s_dev0 1> /dev/null"%(cid,sid,cid,sid,cid,sid))
+      ret = os.system("./setup.py sid %s %s rebuild -fg -d 0 -o reloc_cid%s_sid%s_dev0 1> /dev/null"%(cid,sid,cid,sid))
       if ret != 0:
 	return ret
 	
@@ -951,7 +952,7 @@ def relocate_one_dev() :
       
     if selfHealing != "No":
       ret = os.system("./setup.py sid %s %s device-create 0"%(cid,sid))
-      ret = os.system("./setup.py sid %s %s rebuild -s %s/%s -d 0 -g 0 -p 8 -C -o clear_cid%s_sid%s_dev0 1> /dev/null"%(cid,sid,cid,sid,cid,sid))
+      ret = os.system("./setup.py sid %s %s rebuild -fg -d 0 -C -o clear_cid%s_sid%s_dev0 1> /dev/null"%(cid,sid,cid,sid))
       
       
   if rebuildCheck == True:      
@@ -975,7 +976,7 @@ def rebuild_all_dev() :
 
     os.system("./setup.py sid %s %s device-delete all 1> /dev/null"%(cid,sid))
     os.system("./setup.py sid %s %s device-create all 1> /dev/null"%(cid,sid))
-    ret = os.system("./setup.py sid %s %s rebuild -s %s/%s -p 8 -g 0 -o all_cid%s_sid%s 1> /dev/null"%(cid,sid,cid,sid,cid,sid))
+    ret = os.system("./setup.py sid %s %s rebuild -fg -o all_cid%s_sid%s 1> /dev/null"%(cid,sid,cid,sid))
     if ret != 0:
       return ret
 
@@ -1012,7 +1013,7 @@ def rebuild_one_node() :
 
     clean_rebuild_dir()
     
-    string="./setup.py sid %s %s rebuild -g 0 -p 8 -o node_%s 1> /dev/null"%(cid,sid,hid)
+    string="./setup.py storage %s rebuild -fg -o node_%s 1> /dev/null"%(hid,hid)
     ret = os.system(string)
     if ret != 0:
       return ret
@@ -1089,7 +1090,7 @@ def rebuild_fid() :
 
       clean_rebuild_dir()
 	    	
-      string="./setup.py sid %s %s rebuild -g 0 -s %s/%s -f %s -o fid%s_cid%s_sid%s 1> /dev/null"%(cid,sid,cid,sid,fid,fid,cid,sid)
+      string="./setup.py sid %s %s rebuild -fg -f %s -o fid%s_cid%s_sid%s 1> /dev/null"%(cid,sid,fid,fid,cid,sid)
       parsed = shlex.split(string)
       cmd = subprocess.Popen(parsed, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
       cmd.wait()

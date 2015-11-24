@@ -94,7 +94,7 @@ void * storio_device_relocate_thread(void *arg) {
   if (pid == 0) {
     char * pChar = cmd;
  
-    pChar += rozofs_string_append(pChar,"storage_rebuild --quiet -c ");
+    pChar += rozofs_string_append(pChar,"storage_rebuild -fg --quiet -c ");
     pChar += rozofs_string_append(pChar,storaged_config_file);
     pChar += rozofs_string_append(pChar," -R -l 4 -r ");
     pChar += rozofs_string_append(pChar,pRelocate->st->export_hosts);
