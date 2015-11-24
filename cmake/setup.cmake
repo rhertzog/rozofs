@@ -1,6 +1,7 @@
 set (WDIR "" CACHE FORCE "Working Directory")
 set (PREFIX "" CACHE FORCE "Prefix")
 set (SETUP "" CACHE FORCE "Path to setup.py")
+set (PYTHON_EXEC "" CACHE FORCE "Python version")
 set (DEBIAN "" CACHE FORCE "Debian layout")
 set (MANIFEST "" CACHE FORCE "Manifest file")
 set (INSTALL_ROOT $ENV{DESTDIR})
@@ -18,4 +19,4 @@ endif (INSTALL_ROOT)
 
 #cmake_policy (SET CMP0012 NEW)
 
-execute_process (COMMAND python ${SETUP} install ${EXTRA_ARGS} --prefix=${PREFIX} --record=${MANIFEST} ${INSTALL_ROOT_ARGS} WORKING_DIRECTORY ${WDIR})
+execute_process (COMMAND ${PYTHON_EXECUTABLE} ${SETUP} install ${EXTRA_ARGS} --prefix=${PREFIX} --record=${MANIFEST} ${INSTALL_ROOT_ARGS} WORKING_DIRECTORY ${WDIR})
