@@ -20,7 +20,7 @@ if (NOT PYTHON_NOTFOUND)
     set(OUTPUT      "${CMAKE_CURRENT_BINARY_DIR}/timestamp")
 
     add_custom_command(OUTPUT ${OUTPUT}
-                       COMMAND ${PYTHON} setup.py --quiet build
+                       COMMAND ${PYTHON_EXECUTABLE} setup.py --quiet build
                        COMMAND ${CMAKE_COMMAND} -E touch ${OUTPUT}
                        DEPENDS ${DEPS})
 
