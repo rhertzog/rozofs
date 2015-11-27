@@ -278,6 +278,7 @@ static int rbs_read_proj_set(sclient_t **storages, int local_idx, uint8_t layout
     uint8_t nb_diff_nb_blocks_recv = 0;
     uint8_t stor_idx = 0;
     int retry = 0;
+    int file_exist=0;
 
     DEBUG_FUNCTION;
 
@@ -325,8 +326,11 @@ static int rbs_read_proj_set(sclient_t **storages, int local_idx, uint8_t layout
 		else {
                   continue; // Problem; try with the next storage;
 		}  
-            }	    
-
+            }
+	    else {	
+	      file_exist = 1; 
+            }
+	    
             // If it's the first request received
             if (nb_diff_nb_blocks_recv == 0) {
                 // Save the nb. of blocks received
@@ -346,8 +350,7 @@ static int rbs_read_proj_set(sclient_t **storages, int local_idx, uint8_t layout
                 // nb. of blocks read
                 for (i = 0; i < nb_diff_nb_blocks_recv; i++) {
 
-                    if (curr_nb_blocks_read ==
-                            rbs_blocks_recv_tb[i].nb_blocks_recv) {
+                    if (curr_nb_blocks_read == rbs_blocks_recv_tb[i].nb_blocks_recv) {
                         // OK, we have already received a another response 
                         // with the same nb. of blocks returned
                         // So increment the counter
@@ -356,8 +359,15 @@ static int rbs_read_proj_set(sclient_t **storages, int local_idx, uint8_t layout
 
                         // Check if we have enough responses to rebuild block
                         if (rbs_blocks_recv_tb[i].count >= rozofs_inverse) {
-                            *nb_blocks_read =
-                                    rbs_blocks_recv_tb[i].nb_blocks_recv;		            
+                            *nb_blocks_read = rbs_blocks_recv_tb[i].nb_blocks_recv;
+			    /*
+			    ** Case of deleted file
+			    */
+			    if ((*nb_blocks_read == -1)&&(file_exist)) {
+			      /* Some storage know the file and some not !!! */
+			      status = -1; 
+			      goto out;
+			    }	            
                             status = 0; // OK return
                             goto out;
                         }

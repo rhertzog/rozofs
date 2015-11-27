@@ -648,7 +648,7 @@ RBS_EXE_CODE_E rbs_restore_one_rb_entry(storage_t       * st,
         if (nb_blocks_read_distant == -1) { // File deleted
 	   status = RBS_EXE_ENOENT;
 	   rbs_error.nom_read_enoent++;
-	   break;
+	   goto out;
         }
 	
         /*
