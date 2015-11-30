@@ -730,7 +730,46 @@ out:
     return status;
 }
 
+void storaged_rebuild_compact_list(char * fid_list, int fd, int last_failed_idx, int entry_size) {
+  uint64_t   write_idx;
+  uint64_t   read_idx;
+  uint64_t   offset;
+  rozofs_rebuild_entry_file_t   file_entry;
+  fid_t      null_fid={0};
+        
+  offset = sizeof(rozofs_rebuild_header_file_t);
+  write_idx = 0;
+  read_idx  = 0;
+  
+  while (read_idx<last_failed_idx) {
+  
+    if (pread(fd,&file_entry,entry_size,offset) != entry_size) {
+      severe("pread size %lu offset %llu %s",(unsigned long int)entry_size, 
+             (unsigned long long int) offset, strerror(errno));
+      break;
+    }
+      
+    read_idx++;  
+    offset += entry_size; 
+       
+    if (file_entry.todo == 0) continue;
+    if (memcmp(null_fid,file_entry.fid,sizeof(fid_t))==0) {
+      continue;
+    }
 
+    if (pwrite(fd, &file_entry, entry_size, sizeof(rozofs_rebuild_header_file_t)+(write_idx*entry_size))!=entry_size) {
+      severe("pwrite size %lu offset %llu %s",(unsigned long int)entry_size, 
+             (unsigned long long int) sizeof(rozofs_rebuild_header_file_t)+(write_idx*entry_size), strerror(errno));
+    }     
+    write_idx++;
+  }
+    
+    
+  offset = sizeof(rozofs_rebuild_header_file_t) + (write_idx * entry_size);
+  if (ftruncate(fd, offset) < 0) {
+    severe("ftruncate(%s,%llu) idx %d %s",fid_list,offset,last_failed_idx,strerror(errno));
+  }    
+}
 
 int storaged_rebuild_list(char * fid_list) {
   int        fd = -1;
@@ -753,7 +792,9 @@ int storaged_rebuild_list(char * fid_list) {
   int        failed,available;  
   uint64_t   size_written = 0;
   uint64_t   size_read    = 0;
-      
+  uint64_t   last_failed_idx;
+  uint64_t   entry_idx;
+        
   fd = open(fid_list,O_RDWR);
   if (fd < 0) {
       severe("Can not open file %s %s",fid_list,strerror(errno));
@@ -839,8 +880,12 @@ int storaged_rebuild_list(char * fid_list) {
   nbSuccess = 0;
   offset = sizeof(rozofs_rebuild_header_file_t);
 
+  last_failed_idx = 0;
+  entry_idx       = 0;
+  
   while (pread(fd,&file_entry,entry_size,offset) == entry_size) {
   
+    entry_idx++;
     offset += entry_size; 
        
     if (file_entry.todo == 0) continue;
@@ -885,6 +930,7 @@ int storaged_rebuild_list(char * fid_list) {
       else if (errno==EPROTO) file_entry.error = rozofs_rbs_error_not_enough_storages_up;
       else                    file_entry.error = rozofs_rbs_error_unknown;
       severe( "rbs_get_rb_entry_cnts failed: %s", strerror(errno));
+      last_failed_idx = entry_idx;
       continue; // Try with the next
     }
     
@@ -985,6 +1031,7 @@ int storaged_rebuild_list(char * fid_list) {
 	  if (!file_entry.relocate) {
             file_entry.block_start = block_start;
 	  }
+          last_failed_idx = entry_idx;  
 	  break;  
       }
 
@@ -1005,15 +1052,22 @@ int storaged_rebuild_list(char * fid_list) {
     /* Next file to rebuild */     
   }
   
-  close(fd);
-  fd = -1;   
-
   if (nbSuccess == nbJobs) {
     REBUILD_MSG("  <-  %s rebuild success of %d files",fid_list,nbSuccess);    
+    offset = sizeof(rozofs_rebuild_header_file_t);
+    if (ftruncate(fd, offset) < 0) {
+      severe("ftruncate(%s,%llu) idx %d %s",fid_list,offset,last_failed_idx,strerror(errno));
+    }
+    close(fd);
     return 0;
   }
-    
-
+  
+  /*
+  ** Truncate the file after the last failed entry
+  */
+  if (nbSuccess!=0) {
+    storaged_rebuild_compact_list(fid_list, fd, last_failed_idx, entry_size);
+  }
   
 error: 
   REBUILD_MSG("  !!! %s rebuild failed %d/%d",fid_list,nbJobs-nbSuccess,nbJobs);

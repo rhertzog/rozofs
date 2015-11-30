@@ -903,7 +903,7 @@ def relocate_one_dev() :
       if ret != 0:
 	return ret
 	      	
-      count=int(18)	
+      count=int(50)	
       status="INIT"
       
       while count != int(0):
