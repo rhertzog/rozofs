@@ -803,7 +803,69 @@ error:
     return;
 } 
 
+extern void rozofs_storcli_sp_null_processing_cbk(void *this,void *param);
 
+int storcli_poll_lbg_with_null_proc(storcli_lbg_cnx_supervision_t *p,int lbg_id)
+{
+  uint64_t current_date;
+  void *xmit_buf = NULL;
+  int ret;
+  if (p->poll_state == STORCLI_POLL_IN_PRG) return 0;
+  /*
+  ** attempt to poll
+  */
+    p->poll_counter++;
+
+    xmit_buf = ruc_buf_getBuffer(ROZOFS_STORCLI_SOUTH_LARGE_POOL);
+    if (xmit_buf == NULL)
+    {
+       p->poll_state = STORCLI_POLL_ERR;
+       return 0; 
+    }
+    p->poll_state = STORCLI_POLL_IN_PRG;
+    /*
+    ** increment the inuse to avoid a release of the xmit buffer by rozofs_sorcli_send_rq_common()
+    */
+    ruc_buf_inuse_increment(xmit_buf);
+
+    ret =  rozofs_sorcli_send_rq_common(lbg_id,ROZOFS_TMR_GET(TMR_RPC_NULL_PROC_LBG),STORAGE_PROGRAM,STORAGE_VERSION,SP_NULL,
+                                        (xdrproc_t) xdr_void, (caddr_t) NULL,
+                                         xmit_buf,
+                                         lbg_id,
+                                         0,
+                                         0,
+                                         rozofs_storcli_sp_null_processing_cbk,
+                                         (void*)NULL);
+    ruc_buf_inuse_decrement(xmit_buf);
+
+   if (ret < 0)
+   {
+    /*
+    ** direct need to free the xmit buffer
+    */
+    p->poll_state = STORCLI_POLL_ERR;
+    ruc_buf_freeBuffer(xmit_buf);    
+    return 0;   
+
+   }
+   /*
+   ** Check if there is direct response from tx module
+   */
+   if (p->poll_state == STORCLI_POLL_ERR)
+   {
+     /*
+     ** set the next expiration date
+     */
+     current_date = timer_get_ticker();
+     p->next_poll_date = current_date+STORCLI_LBG_SP_NULL_INTERVAL;
+     /*
+     ** release the xmit buffer since there was a direct reply from the lbg while attempting to send the buffer
+     */
+     ruc_buf_freeBuffer(xmit_buf);    
+     return 0;
+   }
+   return 0; 
+}  
 
 /**
 *  Check if a load balancing group is selectable based on the tmo counter
@@ -812,9 +874,6 @@ error:
   @retval 0 non selectable
   @retval 1  selectable
  */
-  
-extern void rozofs_storcli_sp_null_processing_cbk(void *this,void *param);
-
 int storcli_lbg_cnx_sup_is_selectable(int lbg_id)
 {
   uint64_t current_date;
@@ -840,56 +899,7 @@ int storcli_lbg_cnx_sup_is_selectable(int lbg_id)
   */
   if (current_date > p->next_poll_date)
   {
-    /*
-    ** attempt to poll
-    */
-      p->poll_counter++;
-      
-      xmit_buf = ruc_buf_getBuffer(ROZOFS_STORCLI_SOUTH_LARGE_POOL);
-      if (xmit_buf == NULL)
-      {
-         return 0; 
-      }
-      p->poll_state = STORCLI_POLL_IN_PRG;
-      /*
-      ** increment the inuse to avoid a release of the xmit buffer by rozofs_sorcli_send_rq_common()
-      */
-      ruc_buf_inuse_increment(xmit_buf);
-      
-      ret =  rozofs_sorcli_send_rq_common(lbg_id,ROZOFS_TMR_GET(TMR_RPC_NULL_PROC_LBG),STORAGE_PROGRAM,STORAGE_VERSION,SP_NULL,
-                                          (xdrproc_t) xdr_void, (caddr_t) NULL,
-                                           xmit_buf,
-                                           lbg_id,
-                                           0,
-                                           0,
-                                           rozofs_storcli_sp_null_processing_cbk,
-                                           (void*)NULL);
-      ruc_buf_inuse_decrement(xmit_buf);
-
-     if (ret < 0)
-     {
-      /*
-      ** direct need to free the xmit buffer
-      */
-      ruc_buf_freeBuffer(xmit_buf);    
-      return 0;   
-
-     }
-     /*
-     ** Check if there is direct response from tx module
-     */
-     if (p->poll_state == STORCLI_POLL_ERR)
-     {
-       /*
-       ** set the next expiration date
-       */
-       p->next_poll_date = current_date+STORCLI_LBG_SP_NULL_INTERVAL;
-       /*
-       ** release the xmit buffer since there was a direct reply from the lbg while attempting to send the buffer
-       */
-      ruc_buf_freeBuffer(xmit_buf);    
-       return 0;
-     } 
+    storcli_poll_lbg_with_null_proc(p,lbg_id);
   }  
   return 0;
 }
@@ -911,6 +921,7 @@ void rozofs_storcli_sp_null_processing_cbk(void *this,void *param)
 {
    uint32_t   lbg_id;
    int status;
+   storcli_lbg_cnx_supervision_t *p=NULL;
     /*
     ** get the sequence number and the reference of the projection id form the opaque user array
     ** of the transaction context
@@ -924,6 +935,15 @@ void rozofs_storcli_sp_null_processing_cbk(void *this,void *param)
     {
        storcli_lbg_cnx_supervision_tab[lbg_id].poll_state = STORCLI_POLL_ERR;
        storcli_lbg_cnx_supervision_tab[lbg_id].next_poll_date = timer_get_ticker()+STORCLI_LBG_SP_NULL_INTERVAL;
+       errno = rozofs_tx_get_errno(this);
+       if (errno == ETIME)
+       {
+         /*
+	 **  re-attempt
+	 */
+         p = &storcli_lbg_cnx_supervision_tab[lbg_id];
+	 storcli_poll_lbg_with_null_proc(p,lbg_id);
+       }  
        goto out;
     }
     storcli_lbg_cnx_supervision_tab[lbg_id].poll_state = STORCLI_POLL_IDLE;
@@ -937,4 +957,27 @@ void rozofs_storcli_sp_null_processing_cbk(void *this,void *param)
 out:
      rozofs_tx_free_from_ptr(this);
      return;
+}
+
+
+/**
+*  Increment the time-out counter of a load balancing group
+  
+  @param lbg_id : index of the load balancing group
+  
+  @retval none
+ */
+  
+void storcli_lbg_cnx_sup_increment_tmo(int lbg_id)
+{
+ storcli_lbg_cnx_supervision_t *p;
+ if (lbg_id >=STORCLI_MAX_LBG) return;
+ 
+ p = &storcli_lbg_cnx_supervision_tab[lbg_id];
+ p->tmo_counter++;
+ p->state = STORCLI_LBG_DOWNGRADED;
+ /*
+ ** attempt to poll
+ */
+ storcli_poll_lbg_with_null_proc(p,lbg_id);
 }
