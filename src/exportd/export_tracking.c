@@ -2450,6 +2450,10 @@ int export_mkdir(export_t *e, fid_t pfid, char *name, uint32_t uid,
     attrs->cid = 0;
     ext_attrs.s.attrs.cid =0;
     memset(&ext_attrs.s.attrs.sids, 0, ROZOFS_SAFE_MAX * sizeof (sid_t));
+    /*
+    ** check if the parent has the backup extended attribute set (take care of the recursive case only)
+    */
+    if (plv2->attributes.s.attrs.sids[0] ==2) ext_attrs.s.attrs.sids[0] = 2;
     ext_attrs.s.i_extra_isize = ROZOFS_I_EXTRA_ISIZE;
     ext_attrs.s.i_state = 0;
     ext_attrs.s.i_file_acl = 0;
@@ -5319,6 +5323,9 @@ out:
 #define ROZOFS_ROOT_DIRSYMLINK "trusted.rozofs.dirsymlink"
 #define ROZOFS_USER_DIRSYMLINK "user.rozofs.dirsymlink"
 
+#define ROZOFS_ROOT_DIRBACKUP "trusted.rozofs.dirbackup"
+#define ROZOFS_USER_DIRBACKUP "user.rozofs.dirbackup"
+
 #define DISPLAY_ATTR_TITLE(name) {\
   p += rozofs_string_padded_append(p,8,rozofs_left_alignment,name); \
   *p++ = ':';\
@@ -5450,6 +5457,19 @@ static inline int get_rozofs_xattr(export_t *e, lv2_entry_t *lv2, char * value, 
   DISPLAY_ATTR_INT("I-STATE",lv2->attributes.s.i_state);
   if (S_ISDIR(lv2->attributes.s.attrs.mode)) {
     DISPLAY_ATTR_TXT("MODE", "DIRECTORY");
+    switch (lv2->attributes.s.attrs.sids[0])
+    {
+       case 0:
+       default:
+         DISPLAY_ATTR_TXT("BACKUP", "NO");
+         break;
+       case 1:
+         DISPLAY_ATTR_TXT("BACKUP", "DIR-ONLY");
+         break;       
+       case 2:
+         DISPLAY_ATTR_TXT("BACKUP", "DIR-RECURSIVE");
+	 break;     
+    }  
     DISPLAY_ATTR_INT("CHILDREN",lv2->attributes.s.attrs.children);
     DISPLAY_ATTR_INT("NLINK",lv2->attributes.s.attrs.nlink);
     DISPLAY_ATTR_LONG("SIZE",lv2->attributes.s.attrs.size);
@@ -5726,8 +5746,32 @@ static inline int set_rozofs_xattr(export_t *e, lv2_entry_t *lv2, char * value,i
   int          new_cid;
   int          new_sids[ROZOFS_SAFE_MAX]; 
   uint8_t      rozofs_safe;
-  int          valint;
+  int          valint=-1;
 
+  /*
+  ** Is this a backup mode change : 0: no backup/ 1: backup file of this directory only/ 2: backup recursive
+  */  
+  if (sscanf(p," backup = %d", &valint) == 1) 
+  {
+    if ((valint < 0) || (valint > 2))
+    {
+      errno = ENOTDIR;
+      return -1;        
+    }
+    if (!S_ISDIR(lv2->attributes.s.attrs.mode)) {
+      errno = ENOTDIR;
+      return -1;
+    }
+    if (lv2->attributes.s.attrs.sids[0]!= (sid_t)valint)
+    {
+      /*
+      ** Save new distribution on disk
+      */
+      lv2->attributes.s.attrs.sids[0]=(sid_t)valint;
+      return export_lv2_write_attributes(e->trk_tb_p,lv2);
+    }
+    return 0;
+  }
   /*
   ** Is this an uid change 
   */  
@@ -6422,15 +6466,11 @@ int export_setxattr(export_t *e, fid_t fid, char *name, const void *value, size_
     if ((strcmp(name,ROZOFS_ROOT_DIRSYMLINK)==0)||(strcmp(name,ROZOFS_USER_DIRSYMLINK)==0)) {
       status = set_rozofs_link_from_name(e,lv2,(char *)value,size,symlink);
       goto out;
-    }     
-    
+    }           
     if (strcmp(name,ROZOFS_ROOT_SYMLINK)==0) {
       status = set_rozofs_link_from_fid(e,lv2,(char *)value,size,symlink);
       goto out;
-    }
-       
-    
-    
+    }   
     if ((strcmp(name,ROZOFS_XATTR)==0)||(strcmp(name,ROZOFS_USER_XATTR)==0)||(strcmp(name,ROZOFS_ROOT_XATTR)==0)) {
       status = set_rozofs_xattr(e,lv2,(char *)value,size);
       goto out;

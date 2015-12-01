@@ -1800,7 +1800,10 @@ int fuseloop(struct fuse_args *args, int fg) {
        ** storcli instance: (rozofsmount<<1 | storcli_instance) (assuming of max of 2 storclis per rozofsmount)
        */
        int key_instance = conf.instance<<SHAREMEM_PER_FSMOUNT_POWER2 | i;
-       ret = rozofs_create_shared_memory(key_instance,i,ROZOFSMOUNT_MAX_STORCLI_TX,(conf.buf_size*1024)+4096);
+       uint32_t buf_sz;
+       if (SHAREMEM_IDX_READ == i) buf_sz = ROZOFS_MAX_FILE_BUF_SZ_READ;
+       else buf_sz = ROZOFS_MAX_FILE_BUF_SZ_READ;
+       ret = rozofs_create_shared_memory(key_instance,i,ROZOFSMOUNT_MAX_STORCLI_TX,(buf_sz)+4096);
        if (ret < 0)
        {
          fatal("Cannot create the shared memory for storcli %d\n",i);

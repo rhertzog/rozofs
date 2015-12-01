@@ -19,6 +19,7 @@
 #include <rozofs/rpc/eproto.h>
 
 #include "rozofs_fuse_api.h"
+#include "rozofs_kpi.h"
 
 DECLARE_PROFILING(mpp_profiler_t);
 
@@ -305,6 +306,7 @@ void rozofs_ll_mknod_cbk(void *this,void *param)
       *  update the timestamp in the ientry context
       */
       pie->timestamp = rozofs_get_ticker_us();
+      ientry_update_parent(nie,pie->fid);
     }    
     /*
     ** check the length of the file, and update the ientry if the file size returned
@@ -320,7 +322,11 @@ void rozofs_ll_mknod_cbk(void *this,void *param)
     
     rozofs_inode_t * finode = (rozofs_inode_t *) nie->attrs.fid;
     fep.generation = finode->fid[0];  
-    
+    /*
+    ** update the statistics
+    */
+    rzkpi_file_stat_update(nie->pfid,(int)0,RZKPI_MKNOD);
+        
     fuse_reply_entry(req, &fep);
     goto out;
 error:

@@ -84,8 +84,10 @@ uint64_t rozofs_max_getattr_duplicate = 0;
     ** from the ie entry. For directories and links one ask to the exportd
     ** 
     */
-    if ((rozofs_mode == 1)||
-         (((ie->timestamp+rozofs_tmr_get(TMR_FUSE_ATTR_CACHE)*1000000) > rozofs_get_ticker_us())&&(S_ISREG(ie->attrs.mode))) ||
+    if (
+         /* check regular file */
+         ((((ie->timestamp+rozofs_tmr_get(TMR_FUSE_ATTR_CACHE)*1000000) > rozofs_get_ticker_us()) || (rozofs_mode == 1))&&(S_ISREG(ie->attrs.mode))) ||
+	 /* check directory */
 	 (((ie->pending_getattr_cnt>0)||((ie->timestamp+(rozofs_tmr_get(TMR_FUSE_ATTR_CACHE)*1000000)) > rozofs_get_ticker_us()))&&(S_ISDIR(ie->attrs.mode)))
 	 ) 
     {

@@ -382,6 +382,8 @@ void rozofs_ll_lookup_cbk(void *this,void *param)
    rozofs_fuse_save_ctx_t *fuse_ctx_p;
    int trc_idx;
    errno = 0;
+   ientry_t *pie = 0;
+   mattr_t  pattrs;
     
    GET_FUSE_CTX_P(fuse_ctx_p,param);    
     
@@ -507,6 +509,10 @@ void rozofs_ll_lookup_cbk(void *this,void *param)
     eid_set_free_quota(ret.free_quota);
     
     memcpy(&attrs, &ret.status_gw.ep_mattr_ret_t_u.attrs, sizeof (mattr_t));
+    /*
+    ** get the parent attributes
+    */
+    memcpy(&pattrs, &ret.parent_attr.ep_mattr_ret_t_u.attrs, sizeof (mattr_t));
     xdr_free((xdrproc_t) decode_proc, (char *) &ret);    
  
     if (!(nie = get_ientry_by_fid(attrs.fid))) {
@@ -516,6 +522,19 @@ void rozofs_ll_lookup_cbk(void *this,void *param)
     ** update the attributes in the ientry
     */
     rozofs_ientry_update(nie,&attrs);  
+    /*
+    ** get the parent attributes
+    */
+    pie = get_ientry_by_fid(pattrs.fid);
+    if (pie != NULL)
+    {
+      memcpy(&pie->attrs,&pattrs, sizeof (mattr_t));
+      /**
+      *  update the timestamp in the ientry context
+      */
+      pie->timestamp = rozofs_get_ticker_us();
+      ientry_update_parent(nie,pie->fid);
+    }   
     
     memset(&fep, 0, sizeof (fep));
     mattr_to_stat(&attrs, &stbuf,exportclt.bsize);

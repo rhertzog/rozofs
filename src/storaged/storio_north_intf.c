@@ -41,7 +41,7 @@
 
 #include "sconfig.h"
 #include "sprotosvc_nb.h"
-
+#include "storio_north_intf.h"
 /**
 * Buffers information
 */
@@ -224,10 +224,10 @@ int storio_north_interface_buffer_init(int read_write_buf_count,int read_write_b
     /*
     ** create the pool for receiving requests from rozofsmount
     */
-    storage_receive_buffer_pool_p = ruc_buf_poolCreate(storage_read_write_buf_count, storage_read_write_buf_sz);
+    storage_receive_buffer_pool_p = ruc_buf_poolCreate(storage_read_write_buf_count, STORIO_BUF_RECV_SZ);
     if (storage_receive_buffer_pool_p == NULL)
     {
-       severe( "ruc_buf_poolCreate(%d,%d)", storage_read_write_buf_count, storage_read_write_buf_sz ); 
+       severe( "ruc_buf_poolCreate(%d,%d)", storage_read_write_buf_count, STORIO_BUF_RECV_SZ ); 
        return -1;
     }
     ruc_buffer_debug_register_pool("Pool_rcv",  storage_receive_buffer_pool_p);
@@ -235,10 +235,10 @@ int storio_north_interface_buffer_init(int read_write_buf_count,int read_write_b
     /*
     ** create the pool for sending requests to rozofsmount
     */
-    storage_xmit_buffer_pool_p = ruc_buf_poolCreate(storage_read_write_buf_count, storage_read_write_buf_sz);
+    storage_xmit_buffer_pool_p = ruc_buf_poolCreate(storage_read_write_buf_count, STORIO_BUF_XMIT_SZ);
     if (storage_xmit_buffer_pool_p == NULL)
     {
-       severe( "ruc_buf_poolCreate(%d,%d)", storage_read_write_buf_count, storage_read_write_buf_sz ); 
+       severe( "ruc_buf_poolCreate(%d,%d)", storage_read_write_buf_count, STORIO_BUF_XMIT_SZ ); 
        return -1;
     }
     ruc_buffer_debug_register_pool("Pool_snd",  storage_xmit_buffer_pool_p);

@@ -958,9 +958,10 @@ int rozofs_fuse_init(struct fuse_chan *ch,struct fuse_session *se,int rozofs_fus
   while (1)
   {
      /*
-     ** get the receive buffer size for former channel in order to create the request distributor
+     ** get the receive buffer size for former channel in order to create the request distributor:
+     ** note: by default the fuse buffer is 4K+128K: for RozoFS the payload can reach 512K (x4)
      */
-     int bufsize = fuse_chan_bufsize(ch)*2;
+     int bufsize = fuse_chan_bufsize(ch)*4;
      rozofs_fuse_ctx_p->bufsize = bufsize;
      /*
      ** create the pool

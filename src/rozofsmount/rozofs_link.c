@@ -19,7 +19,7 @@
 #include <rozofs/rpc/eproto.h>
 
 #include "rozofs_fuse_api.h"
-
+#include "rozofs_kpi.h"
 DECLARE_PROFILING(mpp_profiler_t);
 
 /*
@@ -909,7 +909,12 @@ void rozofs_ll_unlink_nb(fuse_req_t req, fuse_ino_t parent, const char *name) {
         errno = ENAMETOOLONG;
         goto error;
     }    
-        
+
+    /*
+    ** update the statistics
+    */
+    rzkpi_file_stat_update(ie->pfid,(int)0,RZKPI_DELETE);
+            
     arg.arg_gw.eid = exportclt.eid;
     memcpy(arg.arg_gw.pfid, ie->fid, sizeof (uuid_t));
     arg.arg_gw.name = (char*)name;    

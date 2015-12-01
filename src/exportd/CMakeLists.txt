@@ -218,6 +218,18 @@ add_executable(rozo_fid2pathname
     rozo_fid2pathname.c  
 )
 target_link_libraries(rozo_fid2pathname rozofs_inode rozofs ${PTHREAD_LIBRARY} ${UUID_LIBRARY} ${CONFIG_LIBRARY})
+
+
+add_executable(rozo_clusterstats
+    rozo_clusterstats.c  
+)
+target_link_libraries(rozo_clusterstats rozofs_inode rozofs ${PTHREAD_LIBRARY} ${UUID_LIBRARY} ${CONFIG_LIBRARY})
+
+add_executable(rozo_buildfid_list
+    rozo_fidlist_from_cidsid.c  
+)
+target_link_libraries(rozo_buildfid_list rozofs_inode rozofs ${PTHREAD_LIBRARY} ${UUID_LIBRARY} ${CONFIG_LIBRARY})
+
 # Install
 install(CODE "EXECUTE_PROCESS (COMMAND mkdir -p ${ROZOFS_CONFIG_DIR})" COMPONENT export)
 

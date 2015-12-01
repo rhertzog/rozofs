@@ -27,7 +27,7 @@
 #include "rozofs_export_gateway_conf_non_blocking.h"
 #include "rozofs_fuse.h"
 #include "rozofs_fuse_thread_intf.h"
-
+#include "rozofs_kpi.h"
 // For trace purpose
 struct timeval Global_timeDay;
 unsigned long long Global_timeBefore, Global_timeAfter;
@@ -361,6 +361,10 @@ int rozofs_stat_start(void *args) {
      
     }  
 #endif  
+   /*
+   ** start the file KPI service
+   */
+   rzkpi_file_service_init();
 
     /*
     ** create the fuse threads

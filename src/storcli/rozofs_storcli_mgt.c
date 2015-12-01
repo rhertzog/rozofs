@@ -808,7 +808,7 @@ uint32_t rozofs_storcli_module_init()
    
     rozofs_storcli_read_init_timer_module();
     int count = STORCLI_CTX_CNT*rozofs_get_rozofs_safe(conf.layout);
-    int bufsize = ROZOFS_MAX_FILE_BUF_SZ/rozofs_get_rozofs_inverse(conf.layout);
+    int bufsize = ROZOFS_MAX_FILE_BUF_SZ_READ/rozofs_get_rozofs_inverse(conf.layout);
     /*
     ** add space for RPC encoding and projection headers
     */

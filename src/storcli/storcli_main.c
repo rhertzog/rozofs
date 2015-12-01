@@ -1441,8 +1441,8 @@ int main(int argc, char *argv[]) {
                     usage();
                     exit(EXIT_FAILURE);
                 }
-                storcli_rozofsmount_shared_mem[SHAREMEM_IDX_READ].buf_sz = (key_t) val;
-                storcli_rozofsmount_shared_mem[SHAREMEM_IDX_WRITE].buf_sz = (key_t) val;
+                storcli_rozofsmount_shared_mem[SHAREMEM_IDX_READ].buf_sz = (key_t) (val);
+                storcli_rozofsmount_shared_mem[SHAREMEM_IDX_WRITE].buf_sz = (key_t) (val);
                 break;
 		
             case 'r':
@@ -1564,7 +1564,7 @@ int main(int argc, char *argv[]) {
                         	storcli_rozofsmount_shared_mem[k].buf_count*storcli_rozofsmount_shared_mem[k].buf_sz, 
                         	0666)) < 0) 
              {
-               severe("error on shmget %d : %s",storcli_rozofsmount_shared_mem[k].key,strerror(errno));
+               severe("error on shmget %x : %s",storcli_rozofsmount_shared_mem[k].key,strerror(errno));
                storcli_rozofsmount_shared_mem[k].error = errno;
                storcli_rozofsmount_shared_mem[k].active = 0;
                break;

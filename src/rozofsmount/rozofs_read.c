@@ -29,6 +29,7 @@
 #include "rozofs_cache.h"
 #include "rozofs_rw_load_balancing.h"
 #include "rozofs_fuse_thread_intf.h"
+#include "rozofs_kpi.h"
 
 DECLARE_PROFILING(mpp_profiler_t);
 
@@ -90,7 +91,7 @@ static int read_buf_nb(void *buffer_p,file_t * f, uint64_t off, char *buf, uint3
    int ret;
    int storcli_idx;
    int bbytes = ROZOFS_BSIZE_BYTES(exportclt.bsize);
-   int max_prj = (256*1024)/bbytes;
+   int max_prj = ROZOFS_MAX_FILE_BUF_SZ_READ/bbytes;
 
    // Nb. of the first block to read
    bid = off / bbytes;
@@ -310,10 +311,12 @@ int file_read_nb(void *buffer_p,file_t * f, uint64_t off, char **buf, uint32_t l
        //ret = read_buf_nb(buffer_p,f,off, f->buffer, f->export->bufsize);
 
        /* Let's read ahead : when half of the buffer size is requested, let's read read a whole buffer size */
-       if (len_aligned >= (f->export->bufsize/2)) len_aligned = f->export->bufsize;
-
-       /* when requested size is too small, let's read the minimum read configured size */
-       if (len_aligned < f->export->min_read_size) len_aligned = f->export->min_read_size;
+       if (len_aligned <= (f->export->bufsize)) 
+       {
+         if (len_aligned >= (f->export->bufsize/2)) len_aligned = f->export->bufsize;
+         /* when requested size is too small, let's read the minimum read configured size */
+         if (len_aligned < f->export->min_read_size) len_aligned = f->export->min_read_size;
+       }
        
        ret = read_buf_nb(buffer_p,f,off_aligned, f->buffer, len_aligned);
        if (ret < 0)
@@ -515,7 +518,6 @@ void rozofs_ll_read_nb(fuse_req_t req, fuse_ino_t ino, size_t size, off_t off,
     size_t length = 0;
     uint32_t readahead =0;
     errno = 0;
-
     file_t *file = (file_t *) (unsigned long) fi->fh;
     int trc_idx = rozofs_trc_req_io(srv_rozofs_ll_read,(fuse_ino_t)file,file->fid,size,off);
     /*
@@ -551,6 +553,10 @@ void rozofs_ll_read_nb(fuse_req_t req, fuse_ino_t ino, size_t size, off_t off,
         errno = ENOENT;
         goto error;
     }
+    /*
+    ** file KPI 
+    */
+    rzkpi_file_stat_update(ie->pfid,(int)size,RZKPI_READ);
     /*
     ** check if the application is attempting to read atfer a close (_ll_release)
     */
@@ -1341,7 +1347,7 @@ void rozofs_ll_read_cbk(void *this,void *param)
         ** provide fuse with the request data
         */
 #if 1
-	if (length == 256*1024)
+	if (length >=  ROZOFS_MAX_FILE_BUF_SZ)
 	{
 	  /*
 	  ** use the response thread

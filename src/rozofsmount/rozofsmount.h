@@ -109,6 +109,7 @@ typedef struct dirbuf {
 typedef struct ientry {
     fuse_ino_t inode; ///< value of the inode allocated by rozofs
     fid_t fid; ///< unique file identifier associated with the file or directory
+    fid_t pfid; ///< unique file identifier associated with the parent
 //    uint64_t size;   /**< size of the file */
     int64_t file_extend_size; /**< The pending size extenstion */
     int  file_extend_pending; /**< assert to one when file is extended by not yet confirm on exportd */
@@ -325,6 +326,7 @@ static inline ientry_t *alloc_ientry(fid_t fid) {
 
 	ie = xmalloc(sizeof(ientry_t));
 	memcpy(ie->fid, fid, sizeof(fid_t));
+        memset(ie->pfid, 0, sizeof(fid_t));
 	ie->inode = inode_p->fid[1]; //fid_hash(fid);
 	list_init(&ie->list);
 	ie->db.size = 0;
@@ -368,6 +370,11 @@ static inline ientry_t *recycle_ientry(ientry_t * ie, fid_t fid) {
 	}	
         ie->symlink_ts     = 0;
 	return ie;
+}
+
+static inline void ientry_update_parent(ientry_t * ie, fid_t pfid) {
+
+	memcpy(ie->pfid, pfid, sizeof(fid_t));
 }
 
 /*

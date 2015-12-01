@@ -26,7 +26,7 @@
 #include "rozofs_modeblock_cache.h"
 #include "rozofs_rw_load_balancing.h"
 #include "rozofs_sharedmem.h"
-
+#include "rozofs_kpi.h"
 DECLARE_PROFILING(mpp_profiler_t);
 
 void export_write_block_nb(void *fuse_ctx_p, file_t *file_p);
@@ -1073,6 +1073,11 @@ void rozofs_ll_write_nb(fuse_req_t req, fuse_ino_t ino, const char *buf,
         errno = ENOENT;
         goto error;
     }
+    /*
+    ** file KPI 
+    */
+    rzkpi_file_stat_update(ie->pfid,(int)size,RZKPI_WRITE);
+
 /*    if (conf.onlyWriter) */
     {
       int bbytes= ROZOFS_BSIZE_BYTES(exportclt.bsize);
@@ -2033,6 +2038,10 @@ void rozofs_ll_release_nb(fuse_req_t req, fuse_ino_t ino,
         errno = ENOENT;
         goto error;
     }    
+    /*
+    ** update the statistics
+    */
+    rzkpi_file_stat_update(ie->pfid,(int)0,RZKPI_CLOSE);
     /*
     ** check the status of the last write operation
     */

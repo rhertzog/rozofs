@@ -24,6 +24,7 @@
 #include "rozofs_fuse_api.h"
 #include <rozofs/core/rozofs_string.h>
 #include <rozofs/common/xmalloc.h>
+#include "rozofs_kpi.h"
 DECLARE_PROFILING(mpp_profiler_t);
 
 /**
@@ -104,6 +105,10 @@ void rozofs_ll_open_nb(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi
           fi->keep_cache = 1;
       }
       fi->fh = (unsigned long) file;
+      /*
+      ** update the statistics
+      */
+      rzkpi_file_stat_update(ie->pfid,(int)0,RZKPI_OPEN);
       /*
       ** send back response to fuse
       */
@@ -320,6 +325,11 @@ void rozofs_ll_open_cbk(void *this,void *param)
         fi->keep_cache = 1;
     }
     fi->fh = (unsigned long) file;
+    /*
+    ** update the statistics
+    */
+    rzkpi_file_stat_update(ie->pfid,(int)0,RZKPI_OPEN);
+    
     fuse_reply_open(req, fi);
     goto out;
 error:
