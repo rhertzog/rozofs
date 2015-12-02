@@ -1496,8 +1496,10 @@ void rozofs_storcli_read_req_processing_cbk(void *this,void *param)
       return rozofs_storcli_read_req_processing(working_ctx_p);        
     } 
     /*
-    ** check for auto-repair because of potential crc error
+    ** check for auto-repair because of potential crc error: not needed
+    ** for the case of the internal read
     */
+    if (storcli_read_rq_p->spare != 0)
     {
       int ret = rozofs_storcli_check_repair(working_ctx_p,rozofs_safe);  
       if (ret != 0)
