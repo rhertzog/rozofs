@@ -2198,6 +2198,7 @@ int storage_truncate(storage_t * st, storio_device_mapping_t * fidCtx, uint8_t l
 	bins_hdr.s.effective_length = last_seg;
 	bins_hdr.s.projection_id    = proj_id;
 	bins_hdr.s.version          = version;
+	bins_hdr.s.filler           = 0; // Empty data : no CRC32
 
 	nb_write = pwrite(fd, &bins_hdr, sizeof(bins_hdr), bins_file_offset);
 	if (nb_write != sizeof(bins_hdr)) {
