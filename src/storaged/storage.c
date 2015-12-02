@@ -463,6 +463,8 @@ int storage_truncate(storage_t * st, uint8_t layout, sid_t * dist_set,
       */
       if (length_to_write!= 0)
       {
+        // Write the block header
+        ((rozofs_stor_bins_hdr_t *)data)->s.filler = 0; // No CRC32
 
         length_to_write = rozofs_max_psize * sizeof (bin_t) + sizeof (rozofs_stor_bins_hdr_t);
 	nb_write = pwrite(fd, data, length_to_write, bins_file_offset);
@@ -480,6 +482,7 @@ int storage_truncate(storage_t * st, uint8_t layout, sid_t * dist_set,
 	bins_hdr.s.effective_length = last_seg;
 	bins_hdr.s.projection_id    = proj_id;
 	bins_hdr.s.version          = version;
+	bins_hdr.s.filler           = 0; // Empty data : no CRC32
 
 	nb_write = pwrite(fd, &bins_hdr, sizeof(bins_hdr), bins_file_offset);
 	if (nb_write != sizeof(bins_hdr)) {
