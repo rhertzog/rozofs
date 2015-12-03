@@ -1,5 +1,125 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
+cnf_clusters=[]
+global layout
+global nbclusters
+#_____________________________________
+def layout1_4servers():
+  global layout
+  global nbclusters
+
+  layout = rozofs.layout_4_6_8()
+  
+  # Create a volume
+  v1 = volume_class(layout,1)
+
+  # Create 2 clusters on this volume
+  for i in range(nbclusters):    
+    c = v1.add_cid(devices,mapper,redundancy)  
+    cnf_clusters.append(c)
+
+  # Create the required number of sid on each cluster
+  # The 2 clusters use the same host for a given sid number
+  for s in range(rozofs.min_sid(layout)/2):
+    for c in cnf_clusters:    
+      c.add_sid_on_host(s+1)
+      c.add_sid_on_host(s+1)
+    	  
+  # Create on export for 4K, and one moun point
+  e1 = v1.add_export(rozofs.bsize4K())
+  m1 = e1.add_mount()
+#_____________________________________
+def layout2_4servers():
+  global layout
+  global nbclusters
+
+  layout = rozofs.layout_8_12_16()
+  
+  # Create a volume
+  v1 = volume_class(layout,1)
+
+  # Create 2 clusters on this volume
+  for i in range(nbclusters):    
+    c = v1.add_cid(devices,mapper,redundancy)  
+    cnf_clusters.append(c)
+
+  # Create the required number of sid on each cluster
+  # The 2 clusters use the same host for a given sid number
+  for s in range(rozofs.min_sid(layout)/4):
+    for c in cnf_clusters:    
+      c.add_sid_on_host(s+1)
+      c.add_sid_on_host(s+1)
+      c.add_sid_on_host(s+1)
+      c.add_sid_on_host(s+1)
+    	  
+  # Create on export for 4K, and one moun point
+  e1 = v1.add_export(rozofs.bsize4K())
+  m1 = e1.add_mount()  
+#_____________________________________
+def layout2_8servers():
+  global layout
+  global nbclusters
+
+  layout = rozofs.layout_8_12_16()
+  
+  # Create a volume
+  v1 = volume_class(layout,1)
+
+  # Create 2 clusters on this volume
+  for i in range(nbclusters):    
+    c = v1.add_cid(devices,mapper,redundancy)  
+    cnf_clusters.append(c)
+
+  # Create the required number of sid on each cluster
+  # The 2 clusters use the same host for a given sid number
+  for s in range(rozofs.min_sid(layout)/2):
+    for c in cnf_clusters:    
+      c.add_sid_on_host(s+1)
+      c.add_sid_on_host(s+1)
+    	  
+  # Create on export for 4K, and one moun point
+  e1 = v1.add_export(rozofs.bsize4K())
+  m1 = e1.add_mount()    
+#_____________________________________ 
+def clusters():
+  global layout
+  global nbclusters
+  
+  # Create a volume
+  v1 = volume_class(layout,rozofs.failures(layout))
+
+  # Create 2 clusters on this volume
+  for i in range(nbclusters):    
+    c = v1.add_cid(devices,mapper,redundancy)  
+    cnf_clusters.append(c)
+
+  # Create the required number of sid on each cluster
+  # The 2 clusters use the same host for a given sid number
+  for s in range(rozofs.min_sid(layout)):
+    for c in cnf_clusters:    
+      c.add_sid_on_host(s+1)
+    	  
+  # Create on export for 4K, and one moun point
+  e1 = v1.add_export(rozofs.bsize4K())
+  m1 = e1.add_mount()
+#_____________________________________   
+def layout2_16servers():
+  global layout
+  layout = rozofs.layout_8_12_16()
+  clusters()
+#_____________________________________   
+def layout1_8servers():
+  global layout
+  layout = rozofs.layout_4_6_8()
+  clusters()
+#_____________________________________ 
+def layout0_4servers():
+  global layout
+  layout = rozofs.layout_2_3_4()
+  clusters()
+
+
+#_____________________________________ 
 
 #rozofs.set_trace()
 
@@ -7,7 +127,7 @@
 # rozofs.set_nb_core_file(1);
 
 # Enable FID recycling
-rozofs.set_fid_recycle(10)
+#rozofs.set_fid_recycle(10)
 #--------------STORIO GENERAL
 
 # Set original RozoFS file distribution
@@ -56,44 +176,24 @@ rozofs.set_fid_recycle(10)
 # rozofs.no_bsd_lock
 
 
-#--------------Layout
-# -- Layout 1
-layout = rozofs.layout_4_6_8()
-# -- Layout 0
-#layout = rozofs.layout_2_3_4()
-
-
 #-------------- NB devices
 devices    = 3
 mapper     = 2
 redundancy = 2
+nbclusters = 2
 
+#__LAYOUT 2__
+#layout2_4servers()
+#layout2_8servers()
+#layout2_16servers()
 
-# Create a volume
-v1 = volume_class(layout,rozofs.failures(layout))
+#__LAYOUT 1__
+#layout1_4servers()
+#layout1_8servers()
 
-# Create 2 clusters on this volume
-c1 = v1.add_cid(devices,mapper,redundancy)  
-c2 = v1.add_cid(devices,mapper,redundancy)  
-#c3 = v1.add_cid(devices,mapper,redundancy)  
-#c4 = v1.add_cid(devices,mapper,redundancy)  
+#__LAYOUT 0__
+layout0_4servers()
 
-# Create the required number of sid on each cluster
-# The 2 clusters use the same host for a given sid number
-for s in range(rozofs.min_sid(layout)):
-  c1.add_sid_on_host(s+1)
-  c2.add_sid_on_host(s+1)
-#  c3.add_sid_on_host(s+1)
-#  c4.add_sid_on_host(s+1)    	  
-# Create on export for 4K, and one moun point
-e1 = v1.add_export(rozofs.bsize4K())
-#e1.set_squota("1G")
-#e1.set_hquota("3G")
-m1 = e1.add_mount()
-
-# Create on export for 8K, and one moun point
-#e2 = v1.add_export(rozofs.bsize8K())
-#m2 = e2.add_mount()
 
 # Set host 1 faulty
 #h1 = host_class.get_host(1)
