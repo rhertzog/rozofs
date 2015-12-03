@@ -1185,7 +1185,7 @@ def do_run_list(list):
       try:
         ret = getattr(sys.modules[__name__],split[0])(split[1])          
       except:
-        ret = 1
+        ret = 2
 
     else:
 
@@ -1197,7 +1197,7 @@ def do_run_list(list):
       try:
         ret = getattr(sys.modules[__name__],split[0])()
       except:
-        ret = 1
+        ret = 2
 	
     delay=time.time()-time_before;	
     dis.set_column(4,'%s'%(my_duration(delay)))
@@ -1206,6 +1206,10 @@ def do_run_list(list):
       syslog.syslog("%10s %8s %s"%("SUCCESS",my_duration(delay),tst))    
       dis.set_column(3,'OK')
       success=success+1
+    elif ret == 2:
+      syslog.syslog("%10s %8s %s"%("NOT FOUND",my_duration(delay),tst))        
+      dis.set_column(3,'NOT FOUND')
+      failed=failed+1    
     else:
       syslog.syslog("%10s %8s %s"%("FAILURE",my_duration(delay),tst))        
       dis.set_column(3,'FAILED')
