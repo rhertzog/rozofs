@@ -754,16 +754,16 @@ void show_vfstat_eid(char * argv[], uint32_t tcpRef, void *bufRef) {
     char *pbuf = uma_dbg_get_buffer();
     int j;
 
-        pbuf+=sprintf(pbuf, "\n%-6s | %-6s | %-6s | %-20s | %-20s | %-12s | %-12s |\n", "Eid","Vid", "Bsize","Blocks", "Bfree", "Files", "Ffree");
-        pbuf+=sprintf(pbuf, "-------+--------+--------+----------------------+----------------------+--------------+--------------+\n");
+        pbuf+=sprintf(pbuf, "\n%-6s | %-6s | %-6s | %-20s | %-20s | %-12s | %-12s | %s\n", "Eid","Vid", "Bsize","Blocks", "Bfree", "Files", "Ffree","Path");
+        pbuf+=sprintf(pbuf, "-------+--------+--------+----------------------+----------------------+--------------+--------------+--------------\n");
 
 
         for (j = 0; j < gprofiler.nb_exports; j++) {
 
-                pbuf+=sprintf(pbuf, "%6d | %6d | %6d | %20"PRIu64" | %20"PRIu64" | %12"PRIu64" | %12"PRIu64" |\n", gprofiler.estats[j].eid,
+                pbuf+=sprintf(pbuf, "%6d | %6d | %6d | %20"PRIu64" | %20"PRIu64" | %12"PRIu64" | %12"PRIu64" | %s\n", gprofiler.estats[j].eid,
                     gprofiler.estats[j].vid,
                     gprofiler.estats[j].bsize, gprofiler.estats[j].blocks, gprofiler.estats[j].bfree,
-                    gprofiler.estats[j].files, gprofiler.estats[j].ffree);
+                    gprofiler.estats[j].files, gprofiler.estats[j].ffree, gprofiler.estats[j].path);
         }
         pbuf+=sprintf(pbuf, "\n");
 

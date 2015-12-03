@@ -267,6 +267,7 @@ int monitor_export(export_t *export) {
     }
 
     gprofiler.estats[gprofiler.nb_exports].eid = export->eid;
+    strcpy(gprofiler.estats[gprofiler.nb_exports].path, export->root);
     gprofiler.estats[gprofiler.nb_exports].vid = export->volume->vid;
     gprofiler.estats[gprofiler.nb_exports].bsize = estat.bsize;
     gprofiler.estats[gprofiler.nb_exports].blocks = estat.blocks;
