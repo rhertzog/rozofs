@@ -579,13 +579,13 @@ int is_command_resume(int argc, char *argv[]) {
    Rebuild monitoring
 */
 
-
+#define RBS_MAX_MONITOR_PATH 128
 typedef struct rbs_monitor_file_list_s {    
-  char          name[64];  
+  char          name[RBS_MAX_MONITOR_PATH];  
   uint64_t      mtime;
 } RBS_MONITOR_FILE_LIST_S;
 
-#define RBS_MONITOR_MAX_FILES   128
+#define RBS_MONITOR_MAX_FILES   32
 static RBS_MONITOR_FILE_LIST_S rbs_monitor_file_list[RBS_MONITOR_MAX_FILES];
 /*
 **____________________________________________________
@@ -602,7 +602,7 @@ void rbs_monitor_purge(void) {
 
   pChar = file_path;
   pChar += rozofs_string_append(pChar,DAEMON_PID_DIRECTORY);
-  pChar += rozofs_string_append(pChar,"/storage_rebuild/");
+  pChar += rozofs_string_append(pChar,"/storage_rebuild/");  
   
   /* Open core file directory */ 
   dir=opendir(file_path);
@@ -614,13 +614,20 @@ void rbs_monitor_purge(void) {
     
     /* Skip . and .. */ 
     if (dirItem->d_name[0] == '.') continue;
-    
+
     rozofs_string_append(pChar,dirItem->d_name); 
+    
+    if (strlen(file_path) >= RBS_MAX_MONITOR_PATH) {
+      /* Too big : can not store it, so delete it */
+      unlink(file_path);
+      continue;
+    }
 
     /* Get file date */ 
     if (stat(file_path,&statBuf) < 0) {   
       severe("rbs_monitor_purge : stat(%s) %s",file_path,strerror(errno));
-      unlink(file_path);	           
+      unlink(file_path);
+      continue;	           
     }
       
     /* Maximum number of file not yet reached. Just register this one */
