@@ -878,8 +878,6 @@ int storcli_lbg_cnx_sup_is_selectable(int lbg_id)
 {
   uint64_t current_date;
   storcli_lbg_cnx_supervision_t *p;
-  void *xmit_buf = NULL;
-  int ret;
 
   if (lbg_id >=STORCLI_MAX_LBG) return 0;
 

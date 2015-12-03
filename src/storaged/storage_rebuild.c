@@ -896,7 +896,9 @@ void save_pid() {
     return;
   }
   
-  write(fd,&pid,sizeof(pid));
+  if (write(fd,&pid,sizeof(pid))<=0) {
+    severe("write(%s) %s",fname,strerror(errno));
+  }
   close(fd);
 }
 /*
@@ -929,7 +931,9 @@ pid_t read_pid() {
     if (errno != ENOENT) severe("can't open %s %s", fname,strerror(errno));
   }
   else {   
-    read(fd,&pid,sizeof(pid)); 
+    if (read(fd,&pid,sizeof(pid))<=0) {
+      severe("read(%s) %s",fname,strerror(errno));
+    } 
     close(fd);
   }  
   return pid;
@@ -2200,7 +2204,10 @@ pid_t rbs_get_running_pid() {
     return 0;    
   }
 
-  read(fd,fname,sizeof(fname)); 
+  if (read(fd,fname,sizeof(fname))<=0) {
+    severe("read(%s) %s",fname,strerror(errno));
+    return 0;
+  }
   close(fd);
   
   if (strstr(fname, "storage_rebuild")==NULL) {
@@ -3066,7 +3073,9 @@ int main(int argc, char *argv[]) {
     ** Daemonize
     */
     if (parameter.background) {
-      daemon(0, 0);
+      if (daemon(0, 0)==-1) {
+        severe("daemon %s",strerror(errno));        
+      }
       quiet = 1;
     }
 

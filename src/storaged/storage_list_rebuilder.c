@@ -767,7 +767,7 @@ void storaged_rebuild_compact_list(char * fid_list, int fd, int last_failed_idx,
     
   offset = sizeof(rozofs_rebuild_header_file_t) + (write_idx * entry_size);
   if (ftruncate(fd, offset) < 0) {
-    severe("ftruncate(%s,%llu) idx %d %s",fid_list,offset,last_failed_idx,strerror(errno));
+    severe("ftruncate(%s,%llu) idx %d %s",fid_list,(long long unsigned int)offset,last_failed_idx,strerror(errno));
   }    
 }
 
@@ -1056,7 +1056,7 @@ int storaged_rebuild_list(char * fid_list) {
     REBUILD_MSG("  <-  %s rebuild success of %d files",fid_list,nbSuccess);    
     offset = sizeof(rozofs_rebuild_header_file_t);
     if (ftruncate(fd, offset) < 0) {
-      severe("ftruncate(%s,%llu) idx %d %s",fid_list,offset,last_failed_idx,strerror(errno));
+      severe("ftruncate(%s,%llu) idx %lu %s",fid_list,(long long unsigned int)offset,last_failed_idx,strerror(errno));
     }
     close(fd);
     return 0;

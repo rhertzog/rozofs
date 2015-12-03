@@ -95,7 +95,6 @@ char * show_rzkpi_cache_entry(rozofs_file_kpi_t *entry, char * pChar) {
 */
 char * show_rzkpi_cache(rzkpi_lv2_cache_t *cache, char * pChar) {
 
-  int i;
 
   pChar += sprintf(pChar, "lv2 attributes cache : current/max %u/%u\n",cache->size, cache->max);
   pChar += sprintf(pChar, "hit %llu / miss %llu / lru_del %llu\n",
@@ -144,7 +143,6 @@ static char * show_rzkpi_file_help(char * pChar) {
 
 void show_rzkpi_file(char * argv[], uint32_t tcpRef, void *bufRef) {
     char *pChar = uma_dbg_get_buffer();
-    uint32_t eid;
     int ret;
     *pChar = 0;
     uint32_t count;
@@ -201,7 +199,6 @@ void show_rzkpi_file(char * argv[], uint32_t tcpRef, void *bufRef) {
     @retval none
 */
 void rzkpi_cache_initialize(rzkpi_lv2_cache_t *cache) {
-    int i;
     cache->max = RZKPI_LV2_MAX_ENTRIES;
     cache->size = 0;
     cache->hit  = 0;
@@ -440,8 +437,6 @@ void _rzkpi_file_stat_update(fid_t fid,int bytes_count,int operation)
 */
 int rzkpi_file_service_init()
 {
-   int ret;
-   
    rzkpi_service_enable = 0;
    rzkpi_cache_initialize(&rzkpi_cache);
    
@@ -449,4 +444,5 @@ int rzkpi_file_service_init()
    if (rzkpi_all_stats_p == NULL) return -1;
    memset(rzkpi_all_stats_p,0,sizeof(rozofs_file_kpi_t));
    uma_dbg_addTopic("file_kpi",show_rzkpi_file);
+   return 0;
 }

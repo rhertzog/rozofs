@@ -801,7 +801,7 @@ void sp_rebuild_start_1_svc_disk_thread(void * pt, rozorpc_srv_ctx_t *req_ctx_p)
     
     if ((rebuild_start_arg_p->stop_bid != -1)
     &&  (rebuild_start_arg_p->stop_bid<rebuild_start_arg_p->start_bid)) {
-      severe("Bad interval [%d:%d]",rebuild_start_arg_p->start_bid,rebuild_start_arg_p->stop_bid);
+      severe("Bad interval [%lu:%lu]",rebuild_start_arg_p->start_bid,rebuild_start_arg_p->stop_bid);
       errno = EINVAL;
       goto error;	  
     }
