@@ -27,6 +27,8 @@ time_limit_minutes=0
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+base=""
+
 import sys
 
 #_______________________________________________
@@ -313,6 +315,7 @@ class rozofs_module:
     return False
            
   def add_error(self, criticity, string, tip=None):
+    global   base
     global   error_counter
     global   warning_counter
     if self.check_error(criticity, string) == True: return 
@@ -329,9 +332,9 @@ class rozofs_module:
     if tip == None: return
     try:
       port = int(self.port)
-      tbl.set_column(6,"rozodiag -i %s -p %s -c %s"%(self.activeAddr,self.port,tip))
+      tbl.set_column(6,"%sdiag -i %s -p %s -c %s"%(base,self.activeAddr,self.port,tip))
     except:
-      tbl.set_column(6,"rozodiag -i %s -T %s -c %s"%(self.activeAddr,self.port,tip))
+      tbl.set_column(6,"%sdiag -i %s -T %s -c %s"%(base,self.activeAddr,self.port,tip))
              
   def CRITICAL(self,string,tip=None): self.add_error('CRITICAL',string, tip)
   def ERROR(self,string,tip=None): self.add_error('ERROR',string,tip) 
@@ -398,7 +401,8 @@ class rozofs_module:
     """Run a rozodiag command toward this rozofs module
     """    
     global ROZODIAG    
-
+    global base
+    
     if self.activeAddr != None:
       lines = self.rozodiag_one_addr(cmd,self.activeAddr)
       if lines != None: return lines
@@ -409,7 +413,7 @@ class rozofs_module:
     
     if cmd == "uptime": self.CRITICAL("Not responding !!!")  
     if cmd == "version" and self.module == "exportd" : return None       
-    else:               self.CRITICAL("Can not run rozodiag \"%s\"!!!"%(cmd),"%s"%(cmd))
+    else:               self.CRITICAL("Can not run %sdiag \"%s\"!!!"%(base,cmd),"%s"%(cmd))
     return None
 
 
@@ -760,9 +764,10 @@ class volume:
 #_______________________________________________
 class export_id:
 
-  def __init__(self,eid,vid):
+  def __init__(self,eid,vid,path):
     self.eid  = eid
     self.vid  = vid
+    self.path = path
 #_______________________________________________
 class storcli(rozofs_module):
 
@@ -883,7 +888,7 @@ class client(rozofs_module):
   def display(self):
     global dis
     if dis == None:     
-      dis = adaptative_tbl(2,"ROZOFS clients")
+      dis = adaptative_tbl(2,"Clients")
       dis.new_center_line()
       dis.set_column(1,'IP') 
       dis.set_column(2,'diag.')      
@@ -936,11 +941,12 @@ class export_slave(rozofs_module):
       raise ValueError() 
     for line in res:
       words=line.split()
-      if len(words) < 14: continue
+      if len(words) < 15: continue
       try:
         eid=int(words[0])
 	vid=words[2]
-	self.master.add_eid(eid,vid)
+	path=words[14]
+	self.master.add_eid(eid,vid,path)
       except:
       	continue    
 
@@ -1089,8 +1095,8 @@ class exportd(rozofs_module):
 	  if s.check_storaged() == 0: s.check_storios()
     e.check_clients()
     
-  def add_eid(self,eid,vid):
-    e = export_id(int(eid),vid)
+  def add_eid(self,eid,vid,path):
+    e = export_id(int(eid),vid,path)
     self.eids.append(e)
     return 0    
     
@@ -1119,7 +1125,7 @@ class exportd(rozofs_module):
       print"    export id :"
       for e in sorted(self.eids,key=lambda export_id:export_id.vid): 
         if e.vid != v.vid: continue
-        print "        . %s"%(e.eid)
+        print "        . %3s : %s"%(e.eid,e.path)
     if len(self.clients) != 0:
       for client in sorted(self.clients,key=lambda client:client.host): client.display()
       client.output()
@@ -1176,6 +1182,9 @@ def syntax(string):
 #                  M A I N 
 #
 ###############################################
+base=os.path.basename(sys.argv[0])
+base=base.split("_status")[0]
+
 parser = OptionParser()
 parser.add_option("-e","--export", action="store",type="string", dest="exports", help="A \'/\' separated list of IP addresses or host names of the export nodes. Default is 127.0.0.1.")
 parser.add_option("-d","--diagnostic", action="store_true",default=False, dest="diagnostic", help="Display the error list.")

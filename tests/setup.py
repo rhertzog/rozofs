@@ -1159,7 +1159,7 @@ class rozofs_class:
     cmd_system("./monitor.py 5 -c monitor.cfg")
 
   def status(self,opt="-df"): 
-    cmd_system("../src/rozodiag/rozofs_status.py %s -e %s"%(opt,exportd.export_host))
+    cmd_system("../src/rozodiag/rozo_status.py %s -e %s"%(opt,exportd.export_host))
           
   def core(self,argv):
     if len(argv) == 2:
