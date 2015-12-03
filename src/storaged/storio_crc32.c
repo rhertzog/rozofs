@@ -604,7 +604,9 @@ uint64_t  storio_check_crc32_vect(struct iovec *vector,int nb_proj,uint16_t prj_
    int i;
    char *buf;
    uint64_t  result=0;
-   
+
+   if (crc32c_check_enable == 0) return 0;
+      
    for (i = 0; i < nb_proj ; i++)
    {
       /*
