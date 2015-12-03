@@ -30,7 +30,7 @@
 #include "mslnk.h"
 #include "exp_cache.h"
 
-#define FILE_LOCK_POLL_DELAY_MAX  480
+#define FILE_LOCK_POLL_DELAY_MAX  (common_config.client_flock_timeout)
 
 typedef struct _rozofs_file_lock_t {
   list_t           next_fid_lock;

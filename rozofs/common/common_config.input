@@ -83,3 +83,6 @@ BOOL    export export_versioning 		False
 INT   	export alloc_estimated_mb		32
 // Name of an executable file that the storaged should call at startup
 STRING	storage	storaged_start_script		""
+// Delay from which a rozofsmoun client is declared disconnected and its 
+// file locks are automatically removed
+INT   	export client_flock_timeout		30  15:600

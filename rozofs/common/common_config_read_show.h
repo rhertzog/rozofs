@@ -92,6 +92,9 @@ char *pChar = uma_dbg_get_buffer();
   COMMON_CONFIG_SHOW_BOOL(export_versioning,False);
   pChar += rozofs_string_append(pChar,"// Number of MB to account a file for during file distribution phase\n");
   COMMON_CONFIG_SHOW_INT(alloc_estimated_mb,32);
+  pChar += rozofs_string_append(pChar,"// Delay from which a rozofsmoun client is declared disconnected and its \n");
+  pChar += rozofs_string_append(pChar,"// file locks are automatically removed\n");
+  COMMON_CONFIG_SHOW_INT_OPT(client_flock_timeout,30,"15:600");
 
   /*
   ** client scope configuration elements
@@ -211,6 +214,9 @@ static inline void common_config_generated_read(char * fname) {
   COMMON_CONFIG_READ_BOOL(export_versioning,False);
   // Number of MB to account a file for during file distribution phase 
   COMMON_CONFIG_READ_INT(alloc_estimated_mb,32);
+  // Delay from which a rozofsmoun client is declared disconnected and its  
+  // file locks are automatically removed 
+  COMMON_CONFIG_READ_INT_MINMAX(client_flock_timeout,30,15,600);
   /*
   ** client scope configuration elements
   */

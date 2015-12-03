@@ -576,7 +576,7 @@ char * display_file_lock_clients(char * pChar) {
   char                        orig[32];
   
   now = time(0);
-
+  pChar += sprintf(pChar,"client polling time out : %d sec\n", FILE_LOCK_POLL_DELAY_MAX);
   pChar += sprintf(pChar, "+------------------+---------+-------+-------------------------+------------------------------\n");
   pChar += sprintf(pChar, "| client ref       | poll(s) | #lock | client diagnostic srv   | version\n");  
   pChar += sprintf(pChar, "+------------------+---------+-------+-------------------------+------------------------------\n");  

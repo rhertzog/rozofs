@@ -76,6 +76,9 @@ typedef struct _common_config_global_t {
   uint32_t    export_versioning;
   // Number of MB to account a file for during file distribution phase
   uint32_t    alloc_estimated_mb;
+  // Delay from which a rozofsmoun client is declared disconnected and its 
+  // file locks are automatically removed
+  uint32_t    client_flock_timeout;
 
   /*
   ** client scope configuration elements
