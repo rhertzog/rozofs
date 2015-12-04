@@ -1,3 +1,5 @@
 /usr/bin/rozofsmount
 /usr/bin/storcli
+/usr/bin/rozo_clusterstats.sh
+/usr/bin/rozo_repquota.sh
 /usr/share/man/man8/rozofsmount.8

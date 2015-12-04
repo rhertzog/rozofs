@@ -77,6 +77,7 @@ static char extensions[MAXQUOTAS + 2][20] = INITQFNAMES;
 
 export_one_profiler_t * export_profiler[1];
 uint32_t                export_profiler_eid;
+int                     searched_user_id;
 
 /*
  *	Convert type of quota to written representation
@@ -292,7 +293,7 @@ int passwd_handling(void)
 
 static void usage(void)
 {
-	errstr("Utility for reporting quotas for one or more eid.\nUsage:\n%s [-vugs]  [-c|C] [-t|n] [-f exportconf] eid\n\n\
+	errstr("Utility for reporting quotas for one or more eid.\nUsage:\n%s [-vugs]  [-c|C] [-t|n] [-f exportconf] [-i user_id] eid\n\n\
 -v, --verbose               display also users/groups without any usage\n\
 -u, --user                  display information about users\n\
 -g, --group                 display information about groups\n\
@@ -303,6 +304,7 @@ static void usage(void)
 -f, --exportconf=path       pathname of the export configuration\n\
 -c, --batch-translation     translate big number of ids at once\n\
 -C, --no-batch-translation  translate ids one by one\n\
+-i, --id                    user identifier number\n\
 -h, --help                  display this help message and exit\n\
 -V, --version               display version information and exit\n\n", progname);
 	exit(1);
@@ -325,12 +327,14 @@ static void parse_options(int argcnt, char **argstr)
 		{ "no-names", 0, NULL, 'n' },
 		{ "cache", 0, NULL, 'c' },
 		{ "no-cache", 0, NULL, 'C' },
-		{ "eid", 0, NULL, 'i' },
 		{ "exportconf", 0, NULL, 'f' },
+		{ "id", 0, NULL, 'i' },
 		{ NULL, 0, NULL, 0 }
 	};
 
-	while ((ret = getopt_long(argcnt, argstr, "VavughtspncCf:", long_opts, NULL)) != -1) {
+        searched_user_id  = 0;
+	
+	while ((ret = getopt_long(argcnt, argstr, "VavughtspncCf:i:", long_opts, NULL)) != -1) {
 		switch (ret) {
 			case '?':
 			case 'h':
@@ -368,6 +372,13 @@ static void parse_options(int argcnt, char **argstr)
 				break;
 			case 'f':
 				confname = optarg;
+				break;
+			case 'i':
+				if (sscanf(optarg,"%u",&searched_user_id)!= 1)
+				{
+				  usage();
+				  exit(0);
+				}
 				break;
 			case 'n':
 				flags |= FL_NONAME;
@@ -430,7 +441,7 @@ static void print(rozofs_dquot_t *dquot, char *name)
 	space2str(toqb(entry->dqb_curspace), numbuf[0], flags & FL_SHORTNUMS);
 	space2str(entry->dqb_bsoftlimit, numbuf[1], flags & FL_SHORTNUMS);
 	space2str(entry->dqb_bhardlimit, numbuf[2], flags & FL_SHORTNUMS);
-	printf("%-*s %c%c %7s %7s %7s %6s", PRINTNAMELEN, pname,
+	printf("%-*s %c%c %10s %10s %10s %10s", PRINTNAMELEN, pname,
 	       overlim(qb2kb(toqb(entry->dqb_curspace)), qb2kb(entry->dqb_bsoftlimit), qb2kb(entry->dqb_bhardlimit)),
 	       overlim(entry->dqb_curinodes, entry->dqb_isoftlimit, entry->dqb_ihardlimit),
 	       numbuf[0], numbuf[1], numbuf[2], time);
@@ -447,7 +458,7 @@ static void print(rozofs_dquot_t *dquot, char *name)
 	number2str(entry->dqb_curinodes, numbuf[0], flags & FL_SHORTNUMS);
 	number2str(entry->dqb_isoftlimit, numbuf[1], flags & FL_SHORTNUMS);
 	number2str(entry->dqb_ihardlimit, numbuf[2], flags & FL_SHORTNUMS);
-	printf(" %7s %5s %5s %6s\n", numbuf[0], numbuf[1], numbuf[2], time);
+	printf(" %10s %8s %8s %6s\n", numbuf[0], numbuf[1], numbuf[2], time);
 }
 
 
@@ -476,9 +487,10 @@ static void report_it(int type,int eid,char *path)
 	time2str(h->qh_info.dqi_igrace, igbuf, TF_ROUND);
 	printf(_("Block grace time: %s; Inode grace time: %s\n"), bgbuf, igbuf);
 #endif
-	printf("                        %s limits                File limits\n", spacehdr);
-	printf("%-9s       used    soft    hard  grace    used  soft  hard  grace\n", (type == USRQUOTA)?"User":"Group");
-	printf("----------------------------------------------------------------------\n");
+
+	printf("                         %s limits                               File limits\n", spacehdr);
+	printf("%-9s          used       soft       hard      grace       used     soft     hard  grace\n", (type == USRQUOTA)?"User":"Group");
+	printf("---------------------------------------------------------------------------------------------\n");
 
 }
 
@@ -596,6 +608,7 @@ void dump_quota(disk_table_header_t *ctx_p,int type,int eid,char *path)
 	    {
 	      break;
 	    }
+	    if ((searched_user_id !=0) && (data.key.s.qid != searched_user_id)) continue;
 	    if (type == USRQUOTA)
 	    {
 	        if (flags & FL_NONAME)

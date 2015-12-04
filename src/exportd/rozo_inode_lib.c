@@ -37,6 +37,7 @@
 #define DIRENT_ROOT_FILE_IDX_MAX   (1 << DIRENT_ROOT_FILE_IDX_SHIFT)
 
 int fdl_debug = 0;
+int verbose_mode = 1;
 /*
 ** prototypes
 */
@@ -1759,6 +1760,16 @@ static inline void stat_to_mattr(struct stat *st, mattr_t * attr)
 **_______________________________________________________________________________
 */
 /**
+   @param mode: set to 0 to clear the verbose mode
+*/
+void rz_set_verbose_mode(int mode)
+{
+    verbose_mode = mode;
+}
+/*
+**_______________________________________________________________________________
+*/
+/**
 *  scan of the inode of a given type:
    
    @param export: pointer to the export context
@@ -1913,13 +1924,17 @@ int rz_scan_all_inodes(void *export,int type,int read,check_inode_pf_t callback_
 
      }   
    }
-   printf("type %d\n",type);
-   perf_stop(&stop);
-   perf_print(stop,start,(unsigned long long)(file_count));
-   perf_print(stop,start,(unsigned long long)(count));
+//   printf("type %d\n",type);
+   if (verbose_mode)
+   {
+      perf_stop(&stop);
+      perf_print(stop,start,(unsigned long long)(file_count));
+      perf_print(stop,start,(unsigned long long)(count));
 
-   printf("match_count/count %llu/%llu\n",(long long unsigned int)match_count,(long long unsigned int)count);
-   /*
+      printf("match_count/count %llu/%llu\n",(long long unsigned int)match_count,(long long unsigned int)count);
+
+   } 
+  /*
    ** release the metadata buffer
    */
    if (metadata_buf_p != NULL) free(metadata_buf_p);

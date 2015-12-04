@@ -209,6 +209,14 @@ void rozofs_get_file_distribution(void *inode_p,rozofs_file_distribution_t *p);
    @retval pointer to the output buffer
 */
 char *get_fname(void *e,char *bufout,void *fname,fid_t pfid);
+
+/*
+**_______________________________________________________________________________
+*/
+/**
+   @param mode: set to 0 to clear the verbose mode
+*/
+void rz_set_verbose_mode(int mode);
 #ifdef __cplusplus
 }
 #endif
