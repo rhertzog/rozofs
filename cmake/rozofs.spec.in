@@ -160,6 +160,8 @@ mkdir -p %{buildroot}%{_initrddir}
 %{_bindir}/rozo_setquota
 %{_bindir}/rozo_repquota
 %{_bindir}/rozo_fid2pathname
+%{_bindir}/rozo_clusterstats
+%{_bindir}/rozo_buildfid_list
 %config(noreplace) %{_sysconfdir}/rozofs/export.conf
 %{_sysconfdir}/rozofs/export.conf.sample
 %if 0%{?rhel} > 7
@@ -199,6 +201,8 @@ mkdir -p %{buildroot}%{_initrddir}
 %defattr(-,root,root)
 %{_bindir}/rozofsmount
 %{_bindir}/storcli
+%{_bindir}/rozo_clusterstats.sh
+%{_bindir}/rozo_repquota.sh
 /sbin/mount.rozofs
 #%if 0%{?rhel} < 7
 #%{_initrddir}/rozofs-rozofsmount

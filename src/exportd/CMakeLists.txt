@@ -270,5 +270,20 @@ install(TARGETS rozo_fid2pathname
     ARCHIVE DESTINATION lib
     COMPONENT rozo_fid2pathname
 )
+
+install(TARGETS rozo_clusterstats
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    COMPONENT rozo_clusterstats
+)
+
+install(TARGETS rozo_buildfid_list
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    COMPONENT rozo_buildfid_list
+)
+
 install(FILES export.conf.sample DESTINATION ${ROZOFS_CONFIG_DIR} COMPONENT export)
 install(FILES export.conf DESTINATION ${ROZOFS_CONFIG_DIR} COMPONENT export)

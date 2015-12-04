@@ -4,6 +4,8 @@
 /usr/bin/rozo_setquota
 /usr/bin/rozo_repquota
 /usr/bin/rozo_fid2pathname
+/usr/bin/rozo_clusterstats
+/usr/bin/rozo_buildfid_list
 /etc/rozofs/export.conf
 /usr/share/man/man5/export.conf.5
 /usr/share/man/man7/rozofs.7

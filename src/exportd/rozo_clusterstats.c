@@ -412,7 +412,7 @@ int main(int argc, char *argv[]) {
   ** init of the lv2 cache
   */
   lv2_cache_initialize(&cache);
-  
+  rz_set_verbose_mode(0);
   rz_scan_all_inodes(rozofs_export_p,ROZOFS_REG,1,rozofs_visit,NULL,NULL,NULL);
 
   rozo_display_all_cluster();
