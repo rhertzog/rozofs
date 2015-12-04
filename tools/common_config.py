@@ -168,7 +168,11 @@ def go_read_file():
 	
       module=line.split()[1]
       name=line.split()[2]
-      default=line.split()[3]
+      if genre != "STRING": 
+        default=line.split()[3]
+      else:
+        default='"'+line.split('"')[1]+'"'
+	
       if genre == "INT":
         if len(line.split()) == 5:
 	  obj = conf_int(name,module,default,comment,line.split()[4])
