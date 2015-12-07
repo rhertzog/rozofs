@@ -171,7 +171,9 @@ set (librozofs_sources
     core/rozofs_numa.h
     core/rozofs_numa.c
     core/malloc_tracking.h
-    core/malloc_tracking.c    
+    core/malloc_tracking.c
+    core/rozofs_throughput.h
+    core/rozofs_throughput.c            
 )
 
 add_library(rozofs STATIC ${librozofs_sources})
