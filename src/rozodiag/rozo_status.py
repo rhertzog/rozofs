@@ -6,10 +6,10 @@ import os.path
 import subprocess
 import time
 import re
+import mmap
 import shlex
 import datetime
 from optparse import OptionParser
-
 
 exportds=[]
 ROZODIAG=None
@@ -291,8 +291,9 @@ class rozofs_module:
       error_table.set_column(6,'diagnostic command') 
       error_table.end_separator()
     return error_table
-    
-  def display_error_table(self):
+  
+  @staticmethod 
+  def display_error_table():
     global error_table
     global quiet
     if quiet == True: return
@@ -421,6 +422,8 @@ class rozofs_module:
     """Get the version of a process
     """    
     global version
+    if version == None: return True
+    
     res = self.rozodiag("version")
     if res == None: return None
 
@@ -881,8 +884,11 @@ class client(rozofs_module):
     #self.check_tcp_info()
     
     for idx in range (1,int(self.nbstorcli)+1):
-      storcli_port=int(self.port)+int(idx)
-      stc = storcli(self.host,storcli_port)
+      try:
+        storcli_port=int(self.port)+int(idx)
+        stc = storcli(self.host,storcli_port)
+      except:
+        stc = storcli(self.host,self.port+':'+"%d"%(idx))        	
       if stc.check() == False: self.status = "STORCLI failed" 
        
   def display(self):
@@ -922,11 +928,13 @@ class client(rozofs_module):
     dis.set_column(8,self.nbstorcli)
     dis.set_column(9,self.status)  
     dis.set_column(10,self.age)      
-     
-  def output(self):
+
+  @staticmethod   
+  def output():
     global dis
     dis.display()
     dis = None
+    
 #_______________________________________________
 class export_slave(rozofs_module):
    
@@ -1088,12 +1096,12 @@ class exportd(rozofs_module):
       #self.check_tcp_info()
       self.check_uptime()
       self.check_core_files() 
-    for v in e.volumes:
+    for v in self.volumes:
       for c in (v.clusters_0+v.clusters_1):
 	for s in c.sids:
 	  if s.activeAddr == None: continue
 	  if s.check_storaged() == 0: s.check_storios()
-    e.check_clients()
+    self.check_clients()
     
   def add_eid(self,eid,vid,path):
     e = export_id(int(eid),vid,path)
@@ -1127,7 +1135,7 @@ class exportd(rozofs_module):
         if e.vid != v.vid: continue
         print "        . %3s : %s"%(e.eid,e.path)
     if len(self.clients) != 0:
-      for client in sorted(self.clients,key=lambda client:client.host): client.display()
+      for cl in sorted(self.clients,key=lambda client:client.host): cl.display()
       client.output()
                      
   def get_clients(self):
@@ -1149,7 +1157,7 @@ class exportd(rozofs_module):
 	    	  
   def check_clients(self):
     self.get_clients()
-    for client in self.clients: client.check()
+    for cl in self.clients: cl.check()
 #_______________________________________________
 def display_unit(val,precision=1):
 
@@ -1163,6 +1171,65 @@ def display_unit(val,precision=1):
        format="%3."+("%d"%(precision))+"f%s"
        return format % (num, x)
     num /= 1000
+    for cl in self.clients: cl.check()
+#_______________________________________________
+def local_check():
+    
+  # Check local storage configured in storage.conf
+  
+  data = None
+  if os.path.exists('/etc/rozofs/storage.conf'):
+    data = open('/etc/rozofs/storage.conf', 'r').read()
+  elif os.path.exists('/usr/local/etc/rozofs/storage.conf'): 
+    data = open('usr/local/etc/rozofs/storage.conf', 'r').read()
+  else:
+    s = storage(0,0,0,"127.0.0.1") 
+    s.ERROR("No storage.conf")
+  if data != None:
+    for (cid,sid) in re.findall(r".*cid\s*=\s*(\d*)\s*;\s*\n?.*sid\s*=\s*(\d*)\s*;", data):
+      s = storage(0,cid,sid,"127.0.0.1")
+      if s.check_storaged() == 0: s.check_storios()
+
+  # check local clients from /etc/fstab
+
+  c = None
+  with open("/etc/fstab") as f:
+    for line in f:
+      if len(line.split()) < 3: continue
+      if line.split()[2] == "rozofs":
+	instance="0"
+	if "instance" in line:
+	  i=0
+	  string=line.split("instance=")[1]
+	  while string[i] != ',' and string[i] != ' ': 
+	    instance=instance+string[i]
+	    i=i+1
+        c = client("127.0.0.1","mount:%d"%(int(instance)),"0")
+        c.check()
+        c.display()
+  if c == None:
+    c = client("127.0.0.1","mount:?","0") 
+    c.ERROR("No RozoFS client in /etc/fsatb")	
+    
+    
+  do_exit()	
+
+#_______________________________________________
+def total_check(exports):
+  
+  # Create every export responding to rozodiag
+  for host in exports.split('/'):
+    try:    e=exportd(host)
+    except: pass
+    
+  if len(exportds) == 0:
+    e = rozofs_module(exports,'exportd','exportd')
+    e.ERROR("No export available")     
+  else:  
+    # Loop on exports 
+    for e in exportds: e.check_export()
+  do_exit()
+ 
 
 #_______________________________________________
 def syntax(string):
@@ -1171,11 +1238,26 @@ def syntax(string):
     
   if string != None: print "!!! %s !!!\n"%(string)
  
+  
   print " -e <export1>[/<export2>...] "
   print "    This is a \'/\' separated list of export IP addresses or host names."
-  print "    default 127.0.0.1"
+  
   exit(2) 
   
+#_______________________________________________
+def do_exit():
+  global fulldiagnostic
+  
+  if fulldiagnostic: 
+    rozofs_module.display_error_table() 
+    try: client.output()
+    except: pass	 	
+  elif error_counter != 0 or warning_counter != 0: 
+    rozofs_module.display_error_table()
+
+  if error_counter   != 0: exit(2)
+  if warning_counter != 0: exit(1)    
+  exit(0)	   
 
 ###############################################
 #
@@ -1186,26 +1268,13 @@ base=os.path.basename(sys.argv[0])
 base=base.split("_status")[0]
 
 parser = OptionParser()
-parser.add_option("-e","--export", action="store",type="string", dest="exports", help="A \'/\' separated list of IP addresses or host names of the export nodes. Default is 127.0.0.1.")
+parser.add_option("-e","--export", action="store",type="string", dest="exports", help="A \'/\' separated list of IP addresses or host names of the export nodes.")
 parser.add_option("-d","--diagnostic", action="store_true",default=False, dest="diagnostic", help="Display the error list.")
-parser.add_option("-f","--full", action="store_true",default=False, dest="full", help="Process to a full diagnostic of the RozoFS system.")
+parser.add_option("-f","--full", action="store_true",default=False, dest="full", help="Process to a full diagnostic of the system.")
 parser.add_option("-g","--debug", action="store_true",default=False, dest="debug", help="Debug trace.")
-parser.add_option("-V","--version", action="store_true",default=False, dest="version", help="Displays the version of this script.")
 
 (options, args) = parser.parse_args()
 
-#___________VERSIONS_____________________________________
-# 0.1 1rst delivered version
-# 0.2 fix parsing of storaged "device" rozodiag command 
-version="0.2"   
-
-# Export must be given
-if options.version == True: 
-  print "%s\n"%(version)
-  exit(0)
-  
-# Export must be given
-if options.exports == None: options.exports="127.0.0.1"
 
 time_limit_minutes = 2
 
@@ -1225,7 +1294,6 @@ else:
   debug=False
 
 
-
 # Find out rozodiag path
 ROZODIAG=None
 for path in ["./rozodiag","/usr/bin/rozodiag","/usr/local/bin/rozodiag","./build/src/rozodiag/rozodiag"]:
@@ -1236,30 +1304,28 @@ if ROZODIAG == None:
   print("")
   print("FATAL: Can not find rozodiag !!!")
   exit(2)    
+ 
+   
   
-  
-# Create every export responding to rozodiag
-for host in options.exports.split('/'):
-  try:    e=exportd(host)
-  except: pass
-if len(exportds) == 0:
-  print("")
-  print("FATAL: No export available !!!")
-  exit(2)    
-  
+# Export is given
+if options.exports != None: total_check(options.exports)
 
-# Loop on exports 
-for e in exportds: 
-  e.check_export()
-  if fulldiagnostic: 
-    e.display_error_table()   
-    e.display()
-  else:
-    if error_counter != 0: 
-      e.display_error_table()
-      exit(2)
-    elif warning_counter != 0:   
-      e.display_error_table()
-      exit(1)
-      
-exit(0)
+# No export address given. Ask pace maker where is export is
+try:
+  parsed = ["crm", "resource","status","exportd-rozofs"]
+  cmd = subprocess.Popen(parsed, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+  output, error = cmd.communicate()
+
+# No Pace maker and no export address given => just local heck
+except: local_check()
+
+
+# Pace maker can not tell us about exportd 
+# => just process local check
+if error != '': local_check()
+
+
+# Pace maker tells where the export is running  
+if "resource exportd-rozofs is running on:" in output: total_check(output.split()[-1])
+
+
