@@ -1209,7 +1209,7 @@ def local_check():
         c.display()
   if c == None:
     c = client("127.0.0.1","mount:?","0") 
-    c.ERROR("No RozoFS client in /etc/fsatb")	
+    c.ERROR("No client in /etc/fsatb")	
     
     
   do_exit()	
