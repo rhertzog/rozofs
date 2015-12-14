@@ -64,7 +64,7 @@ void common_config_read(char * fname) ;
 }
 
 #define COMMON_CONFIG_SHOW_STRING(val,def)  {\
-  if (strcmp(common_config.val,#def)==0) { \
+  if (strcmp(common_config.val,def)==0) { \
     pChar += rozofs_string_append(pChar,"// ");\
   } else {\
     pChar += rozofs_string_append(pChar,"   ");\
