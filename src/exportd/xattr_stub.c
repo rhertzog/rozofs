@@ -3,7 +3,7 @@
 #include <errno.h>
 #include "rozofs_ext4.h"
 #include "xattr.h"
-#include "acl.h"
+#include <rozofs/common/acl.h>
 #include <string.h>
 #include <rozofs/common/export_track.h>
 

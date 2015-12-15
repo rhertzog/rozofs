@@ -99,7 +99,7 @@ char *rozo_get_full_path(void *exportd,void *inode_p,char *buf,int lenmax)
 *   RozoFS specific function for visiting
 
    @param inode_attr_p: pointer to the inode data
-   @param exportd : pointer to exportd data structure
+   @param exportd : pointer to exporthd data structure
    @param p: always NULL
    
    @retval 0 no match

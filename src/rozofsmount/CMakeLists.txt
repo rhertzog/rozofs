@@ -65,6 +65,8 @@ add_executable(rozofsmount
     fuse_reply_thread.c
     rozofs_kpi.c
     rozofs_kpi.h
+    rozofs_acl.c
+    rozofs_acl.h
 )
 #pthread need by fuse
 target_link_libraries(rozofsmount rozofs ${PTHREAD_LIBRARY} ${FUSE_LIBRARY} ${UUID_LIBRARY} ${CRYPT_LIBRARY} ${CONFIG_LIBRARY} ${NUMA_LIBRARY})

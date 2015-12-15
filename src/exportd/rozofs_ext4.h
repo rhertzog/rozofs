@@ -116,13 +116,6 @@ struct qstr {
 struct buffer_head *sb_bread(lv2_entry_t *inode,uint64_t inode_key);
 
 
-#define cpu_to_le32(val) val
-#define le32_to_cpu(val) val
-#define le16_to_cpu(val) val
-#define cpu_to_le16(val) val
-#define le32_add_cpu(val1,val2) (val1+val2)
-
-
 #define kmalloc(size,unused) malloc(size)
 #define kzalloc(size,unused) calloc(1,size)
 #define kfree(data) free(data)

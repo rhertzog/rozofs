@@ -20,6 +20,7 @@
 
 #include "rozofs_fuse_api.h"
 #include "rozofs_xattr_flt.h"
+#include "rozofs_acl.h"
 
 DECLARE_PROFILING(mpp_profiler_t);
 
@@ -87,7 +88,10 @@ void rozofs_ll_setxattr_nb(fuse_req_t req, fuse_ino_t ino, const char *name, con
     if ((strcmp(name,ROZOFS_XATTR)==0)||(strcmp(name,ROZOFS_USER_XATTR)==0)||(strcmp(name,ROZOFS_ROOT_XATTR)==0)) {
         ie->timestamp=0;
     }
-    
+    /*
+    ** update the mode at the ientry level when it extended attribute is ACL
+    */
+    rozofs_acl_access_check(name,value,size,(umode_t*)&ie->attrs.mode);
     /*
     ** Set xattr indicator in ientry
     */

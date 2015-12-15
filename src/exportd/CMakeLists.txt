@@ -75,9 +75,7 @@ add_executable(exportd
    xattr_system.c
    xattr_trusted.c
    xattr_user.c
-   acl.h
    exp_cache.h
-   posix_acl_attr.h
    rozofs_ext4.h
    xattr.h
    xattr_main.h

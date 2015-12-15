@@ -55,7 +55,8 @@
 #include "xattr_main.h"
 #include "rozofs_quota_api.h"
 #include "export_quota_thread_api.h"
-
+#include <rozofs/common/acl.h>
+int rozofs_acl_access_check(const char *name, const char *value, size_t size,umode_t *mode_p);
 /** Max entries of lv1 directory structure (nb. of buckets) */
 #define MAX_LV1_BUCKETS 1024
 #define LV1_NOCREATE 0
@@ -3370,7 +3371,7 @@ int export_unlink(export_t * e, fid_t parent, char *name, fid_t fid,mattr_t * pa
 		*/
 		if (hash >= common_config.storio_slice_number )
 		{	      
-	          severe("FDL bad hash value %d (max %d)",hash,common_config.storio_slice_number);
+	          severe(" bad hash value %d (max %d)",hash,common_config.storio_slice_number);
 		}
         	if (lv2->attributes.s.attrs.size >= RM_FILE_SIZE_TRESHOLD) {
                     // Add to front of list
@@ -5363,7 +5364,13 @@ out:
   *p++=')'; \
   p += rozofs_eol(p);\
 }  
-     
+   
+   
+#define DISPLAY_ATTR_HEX(name,val) {\
+  DISPLAY_ATTR_TITLE(name); \
+  p += rozofs_x32_append(p,val); \
+  p += rozofs_eol(p);\
+}  
 #define DISPLAY_ATTR_TXT(name,val) {\
   DISPLAY_ATTR_TITLE(name); \
   p += rozofs_string_append(p,val); \
@@ -5482,6 +5489,7 @@ static inline int get_rozofs_xattr(export_t *e, lv2_entry_t *lv2, char * value, 
   }  
   else {
     DISPLAY_ATTR_TXT("MODE", "REGULAR FILE");
+    DISPLAY_ATTR_HEX("MODE",lv2->attributes.s.attrs.mode);
   }
   
   /*
@@ -6476,7 +6484,28 @@ int export_setxattr(export_t *e, fid_t fid, char *name, const void *value, size_
       goto out;
     }  
     
-
+    if (strcmp(name,POSIX_ACL_XATTR_ACCESS)==0)
+    {
+       int ret;
+       umode_t mode;
+       ret = rozofs_acl_access_check(name,value,size,(umode_t*)&lv2->attributes.s.attrs.mode);
+       if ((ret == 0) || (ret == 1))
+       {
+	 /*
+	 ** write child attributes on disk
+	 */
+	 export_attr_thread_submit(lv2,e->trk_tb_p);
+       }
+       if (ret == 0)
+       {
+	 struct dentry entry;
+	 entry.d_inode = lv2;
+	 entry.trk_tb_p = e->trk_tb_p;         
+	 rozofs_removexattr(&entry, name);         
+	 status = 0;
+	 goto out;
+       }     
+    }    
       
     {
       struct dentry entry;
@@ -6489,6 +6518,7 @@ int export_setxattr(export_t *e, fid_t fid, char *name, const void *value, size_
     }
 
     status = 0;
+
 out:
     STOP_PROFILING(export_setxattr);
 
