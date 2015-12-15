@@ -1,24 +1,38 @@
 /*
- * linux/fs/ext4/acl.c
- *
- * Copyright (C) 2001-2003 Andreas Gruenbacher, <agruen@suse.de>
+  Copyright (c) 2010 Fizians SAS. <http://www.fizians.com>
+  This file is part of Rozofs.
+
+  Rozofs is free software; you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published
+  by the Free Software Foundation, version 2.
+
+  Rozofs is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program.  If not, see
+  <http://www.gnu.org/licenses/>.
  */
-
-
-
 #include <string.h>
 #include <linux/fs.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <linux/types.h>
 #include <errno.h>
-//#include "export.h"
-//#include "ext4_jbd2.h"
-#include "rozofs_ext4.h"
-#include "xattr.h"
+#include <fcntl.h>
+#include <rozofs/common/log.h>
 #include <rozofs/common/acl.h>
 
-
+#define _XOPEN_SOURCE 700
 
 struct posix_acl *rozofs_acl_p = NULL;
-
+/**
+**________________________________________________________________
+*/
 /*
  * Free an ACL handle.
  */
@@ -36,7 +50,9 @@ posix_acl_init(struct posix_acl *acl, int count)
 {
 	acl->a_count = count;
 }
-
+/**
+**________________________________________________________________
+*/
 /*
  * Allocate a new ACL with the specified number of entries.
  */
@@ -56,7 +72,9 @@ posix_acl_alloc(int count)
 		posix_acl_init(rozofs_acl_p, count);
 	return rozofs_acl_p;
 }
-
+/**
+**________________________________________________________________
+*/
 /*
  * Convert from extended attribute to in-memory representation.
  */
@@ -72,19 +90,19 @@ posix_acl_from_xattr(const void *value, size_t size)
 	if (!value)
 		return NULL;
 	if (size < sizeof(posix_acl_xattr_header))
-		 return NULL; //ERR_PTR(-EINVAL);
+		 return NULL; 
 	if (header->a_version != cpu_to_le32(POSIX_ACL_XATTR_VERSION))
-		return NULL; //ERR_PTR(-EOPNOTSUPP);
+		return NULL; 
 
 	count = posix_acl_xattr_count(size);
 	if (count < 0)
-		return NULL; //ERR_PTR(-EINVAL);
+		return NULL; 
 	if (count == 0)
 		return NULL;
 	
 	acl = posix_acl_alloc(count);
 	if (!acl)
-		return NULL; //ERR_PTR(-ENOMEM);
+		return NULL; 
 	acl_e = acl->a_entries;
 	
 	for (end = entry + count; entry != end; acl_e++, entry++) {
@@ -112,9 +130,11 @@ posix_acl_from_xattr(const void *value, size_t size)
 
 fail:
 	posix_acl_release(acl);
-	return NULL; //ERR_PTR(-EINVAL);
+	return NULL; 
 }
-
+/**
+**________________________________________________________________
+*/
 /*
  * Returns 0 if the acl can be exactly represented in the traditional
  * file mode permission bits, or else 1. Returns -E... on error.
@@ -156,6 +176,7 @@ posix_acl_equiv_mode(const struct posix_acl *acl, umode_t *mode_p)
         return not_equiv;
 }
 
+
 /**
 **________________________________________________________________
 */
@@ -187,103 +208,8 @@ int rozofs_acl_access_check(const char *name, const char *value, size_t size,umo
     if (acl_p != NULL)
     {
       ret = posix_acl_equiv_mode(acl_p,mode_p);
+//      if (ret == 0) info("FDL mode %x",mode);
       posix_acl_release(acl_p);
     }
     return ret;
 }
-
-/*
- * Extended attribute handlers
- */
-static size_t
-ext4_xattr_list_acl_access(struct dentry *dentry, char *list, size_t list_len,
-			   const char *name, size_t name_len, int type)
-{
-	const size_t size = sizeof(POSIX_ACL_XATTR_ACCESS);
-
-//	if (!test_opt(dentry->d_sb, POSIX_ACL))
-//		return 0;
-	if (list && size <= list_len)
-		memcpy(list, POSIX_ACL_XATTR_ACCESS, size);
-	return size;
-}
-
-static size_t
-ext4_xattr_list_acl_default(struct dentry *dentry, char *list, size_t list_len,
-			    const char *name, size_t name_len, int type)
-{
-	const size_t size = sizeof(POSIX_ACL_XATTR_DEFAULT);
-
-//	if (!test_opt(dentry->d_sb, POSIX_ACL))
-//		return 0;
-	if (list && size <= list_len)
-		memcpy(list, POSIX_ACL_XATTR_DEFAULT, size);
-	return size;
-}
-
-static int
-ext4_xattr_get_acl(struct dentry *dentry, const char *name, void *buffer,
-		   size_t size, int type)
-{
-	int name_index;
-
-	if (strcmp(name, "") != 0)
-		return -EINVAL;
-//	if (!test_opt(dentry->d_sb, POSIX_ACL))
-//		return -EOPNOTSUPP;
-
-	switch (type) {
-	case ACL_TYPE_ACCESS:
-		name_index = EXT4_XATTR_INDEX_POSIX_ACL_ACCESS;
-		break;
-	case ACL_TYPE_DEFAULT:
-		name_index = EXT4_XATTR_INDEX_POSIX_ACL_DEFAULT;
-		break;
-	default:
-		return -EINVAL;
-	}
-	return ext4_xattr_get(dentry->d_inode, name_index,
-			      name, buffer, size);
-
-}
-
-static int
-ext4_xattr_set_acl(struct dentry *dentry, const char *name, const void *value,
-		   size_t size, int flags, int type)
-{
-	int name_index;
-
-	if (strcmp(name, "") != 0)
-		return -EINVAL;
-
-	switch (type) {
-	case ACL_TYPE_ACCESS:
-		name_index = EXT4_XATTR_INDEX_POSIX_ACL_ACCESS;
-		break;
-	case ACL_TYPE_DEFAULT:
-		name_index = EXT4_XATTR_INDEX_POSIX_ACL_DEFAULT;
-		break;
-	default:
-		return -EINVAL;
-	}
-		
-	return ext4_xattr_set(dentry->d_inode, name_index,
-		      name, value, size, flags);
-
-}
-
-const struct xattr_handler ext4_xattr_acl_access_handler = {
-	.prefix	= POSIX_ACL_XATTR_ACCESS,
-	.flags	= ACL_TYPE_ACCESS,
-	.list	= ext4_xattr_list_acl_access,
-	.get	= ext4_xattr_get_acl,
-	.set	= ext4_xattr_set_acl,
-};
-
-const struct xattr_handler ext4_xattr_acl_default_handler = {
-	.prefix	= POSIX_ACL_XATTR_DEFAULT,
-	.flags	= ACL_TYPE_DEFAULT,
-	.list	= ext4_xattr_list_acl_default,
-	.get	= ext4_xattr_get_acl,
-	.set	= ext4_xattr_set_acl,
-};

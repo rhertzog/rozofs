@@ -6487,7 +6487,6 @@ int export_setxattr(export_t *e, fid_t fid, char *name, const void *value, size_
     if (strcmp(name,POSIX_ACL_XATTR_ACCESS)==0)
     {
        int ret;
-       umode_t mode;
        ret = rozofs_acl_access_check(name,value,size,(umode_t*)&lv2->attributes.s.attrs.mode);
        if ((ret == 0) || (ret == 1))
        {
