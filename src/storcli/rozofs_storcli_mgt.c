@@ -812,7 +812,12 @@ uint32_t rozofs_storcli_module_init()
     /*
     ** add space for RPC encoding and projection headers
     */
-    bufsize +=(16*1024);
+//    bufsize +=(16*1024);
+    bufsize = ROZOFS_MAX_BLOCK_PER_MSG*rozofs_get_max_psize_in_msg(conf.layout,0);
+    /*
+    ** add space for RPC header
+    */
+    bufsize+=4096;
 
     rozofs_storcli_north_small_buf_count  = STORCLI_NORTH_MOD_INTERNAL_READ_BUF_CNT ;
     rozofs_storcli_north_small_buf_sz     = STORCLI_NORTH_MOD_INTERNAL_READ_BUF_SZ    ;
