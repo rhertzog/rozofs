@@ -837,7 +837,7 @@ uint32_t ruc_init(uint32_t test,uint16_t dbg_port,uint16_t exportd_instance) {
   uint32_t        mx_tcp_client = 2;
   uint32_t        mx_tcp_server = 2;
   uint32_t        mx_tcp_server_cnx = 10;
-  uint32_t        mx_af_unix_ctx = 512;
+  uint32_t        mx_af_unix_ctx = 1024;
   uint32_t        mx_lbg_north_ctx = 64;
 
 //#warning TCP configuration ressources is hardcoded!!
