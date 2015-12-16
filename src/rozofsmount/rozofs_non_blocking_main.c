@@ -312,6 +312,9 @@ int rozofs_stat_start(void *args) {
          */
         return -1;
     }
+    
+#if 0
+    NO MORE LBG MASTER. USE ONLY LBG EXPORTD.
     /*
      ** Perform the init with exportd--> setup of the TCP connection associated with the load balancing group
      */
@@ -320,6 +323,8 @@ int rozofs_stat_start(void *args) {
                                (af_stream_poll_CBK_t) rozofs_export_lbg_cnx_polling) != 0) {
         severe("Cannot setup the load balancing group towards Exportd");
     }
+#endif    
+    
     //#warning storcli instances are hardcoded
     if (storcli_lbg_initialize((exportclt_t*) args_p->exportclt,"rozofsmount", args_p->instance, 1, 2) != 0) {
         severe("Cannot setup the load balancing group towards StorCli");

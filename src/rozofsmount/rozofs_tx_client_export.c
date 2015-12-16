@@ -50,6 +50,10 @@
  @retval 0 on success;
  @retval -1 on error,, errno contains the cause
  */
+#if 0
+
+NO MORE USED. LBG MASTER HAS BEEN REMOVED
+CALL rozofs_expgateway_send_routing_common INSTEAD
 
 int rozofs_export_send_common(exportclt_t * clt,uint32_t timeout_sec,uint32_t prog,uint32_t vers,
                               int opcode,xdrproc_t encode_fct,void *msg2encode_p,
@@ -193,7 +197,7 @@ int rozofs_export_send_common(exportclt_t * clt,uint32_t timeout_sec,uint32_t pr
     return -1;    
 }
 
-
+#endif
 
 int rozofs_expgateway_send_common(int lbg_id,uint32_t prog,uint32_t vers,
                               int opcode,xdrproc_t encode_fct,void *msg2encode_p,
