@@ -361,6 +361,8 @@ int fuseloop(/*struct fuse_args *args,*/ int fg) {
     if (rozofs_host_list_parse(conf.host,'/') == 0) {
       severe("rozofs_host_list_parse(%s)",conf.host);
     }
+
+    init_rpcctl_ctx(&exportclt.rpcclt);
     
     for (retry_count = 15; retry_count > 0; retry_count--) {
 

@@ -130,11 +130,10 @@ void rpcclt_release(rpcclt_t *client) {
     if (client) {
         if (client->client) {
             clnt_destroy(client->client);
-            client->client = 0;
         }
         if (client->sock > 0) {
             close(client->sock);
-            client->sock = -1;
         }
+	init_rpcctl_ctx(client);
     }
 }

@@ -1482,6 +1482,8 @@ int fuseloop(struct fuse_args *args, int fg) {
       severe("rozofs_host_list_parse(%s)",conf.host);
     }
 
+    init_rpcctl_ctx(&exportclt.rpcclt);
+
     for (retry_count = 15; retry_count > 0; retry_count--) {
     
         for (export_index=0; export_index < ROZOFS_HOST_LIST_MAX_HOST; export_index++) { 

@@ -59,7 +59,8 @@ int exportclt_initialize(exportclt_t * clt, const char *host, char *root,int sit
     args.hdr.gateway_rank = site_number;
     args.path = clt->root ;
 
-    init_rpcctl_ctx(&clt->rpcclt);    
+    rpcclt_release(&clt->rpcclt);
+    //init_rpcctl_ctx(&clt->rpcclt);    
 	
     /* Initialize connection with export server */
     uint16_t export_nb_port = rozofs_get_service_port_export_master_eproto();
@@ -130,6 +131,7 @@ out:
         free(md5pass);
     if (ret)
         xdr_free((xdrproc_t) xdr_epgw_mount_ret_t, (char *) ret);
+    rpcclt_release(&clt->rpcclt);
     return status;
 }
 
