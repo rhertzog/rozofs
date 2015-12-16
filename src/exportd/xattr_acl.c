@@ -14,7 +14,6 @@
 #include "rozofs_ext4.h"
 #include "xattr.h"
 #include <rozofs/common/acl.h>
-#include <linux/types.h>
 
 
 struct posix_acl *rozofs_acl_p = NULL;
@@ -121,10 +120,10 @@ fail:
  */
 #define S_IRWXUGO	(S_IRWXU|S_IRWXG|S_IRWXO)
 int
-posix_acl_equiv_mode(const struct posix_acl *acl, umode_t *mode_p)
+posix_acl_equiv_mode(const struct posix_acl *acl, mode_t *mode_p)
 {
 	const struct posix_acl_entry *pa, *pe;
-	umode_t mode = 0;
+	mode_t mode = 0;
 	int not_equiv = 0;
 
 	FOREACH_ACL_ENTRY(pa, acl, pe) {
@@ -171,7 +170,7 @@ posix_acl_equiv_mode(const struct posix_acl *acl, umode_t *mode_p)
    @retval 1 extended attribute is acl_access with no equivalent mode
    
 */
-int rozofs_acl_access_check(const char *name, const char *value, size_t size,umode_t *mode_p)
+int rozofs_acl_access_check(const char *name, const char *value, size_t size,mode_t *mode_p)
 {
     struct posix_acl *acl_p;
     int ret;

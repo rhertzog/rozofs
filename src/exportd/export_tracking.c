@@ -34,7 +34,6 @@
 #include <dirent.h>
 #include <time.h>
 #include <semaphore.h>
-#include <linux/types.h>
 
 #include <rozofs/common/log.h>
 #include <rozofs/common/xmalloc.h>
@@ -57,7 +56,7 @@
 #include "rozofs_quota_api.h"
 #include "export_quota_thread_api.h"
 #include <rozofs/common/acl.h>
-int rozofs_acl_access_check(const char *name, const char *value, size_t size,umode_t *mode_p);
+int rozofs_acl_access_check(const char *name, const char *value, size_t size,mode_t *mode_p);
 /** Max entries of lv1 directory structure (nb. of buckets) */
 #define MAX_LV1_BUCKETS 1024
 #define LV1_NOCREATE 0
@@ -6488,7 +6487,7 @@ int export_setxattr(export_t *e, fid_t fid, char *name, const void *value, size_
     if (strcmp(name,POSIX_ACL_XATTR_ACCESS)==0)
     {
        int ret;
-       ret = rozofs_acl_access_check(name,value,size,(umode_t*)&lv2->attributes.s.attrs.mode);
+       ret = rozofs_acl_access_check(name,value,size,&lv2->attributes.s.attrs.mode);
        if ((ret == 0) || (ret == 1))
        {
 	 /*
