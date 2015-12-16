@@ -216,9 +216,94 @@ void af_unix_info_getsockopt(int fd,char *file,int line)
 
 
 }
+char * af_unix_debug_show(char *pChar, char * name) {
 
-void af_unix_debug_show(uint32_t tcpRef, void *bufRef) {
-    char *pChar = uma_dbg_get_buffer();
+  af_unix_ctx_generic_t *sock_p;
+  ruc_obj_desc_t *pnext;
+
+  pnext = (ruc_obj_desc_t*) NULL;
+  while ((sock_p = (af_unix_ctx_generic_t*) ruc_objGetNext((ruc_obj_desc_t*) & af_unix_context_activeListHead,
+          &pnext))
+          != (af_unix_ctx_generic_t*) NULL) {
+      
+      rozofs_socket_stats_t *stats_p = &sock_p->stats;
+      
+      if (af_unix_check_empty_stats(stats_p) == 1) continue;
+      if (strcmp(name,sock_p->nickname) != 0) continue;
+
+      pChar += sprintf(pChar, "\n--> %s\n", sock_p->nickname);
+      pChar += sprintf(pChar, "   family/dscp[sock_id]: %d/%2.2d[%d]\n", sock_p->family, (af_inet_sock_get_dscp(sock_p->socketRef))>>2,sock_p->socketRef);
+      if (sock_p->af_family == AF_UNIX) {
+          if (sock_p->remote_sun_path[0] != 0) {
+              pChar += sprintf(pChar, "   sunpath(dst): %s\n", sock_p->remote_sun_path);
+          }
+          if (sock_p->src_sun_path[0] != 0) {
+              pChar += sprintf(pChar, "   sunpath(src): %s\n", sock_p->src_sun_path);
+          }
+      } else {
+          /*
+           ** AF_INET case
+           */
+          struct sockaddr_in vSckAddr;
+          int vSckAddrLen = sizeof (struct sockaddr);
+          uint32_t ipAddr;
+          uint16_t port;
+
+
+          if ((getpeername(sock_p->socketRef, (struct sockaddr *) &vSckAddr, (socklen_t*) & vSckAddrLen)) == -1) {
+              pChar += sprintf(pChar, "   IP/port(dst):???.???.???.???:????\n");
+          } else {
+              ipAddr = (uint32_t) ntohl((uint32_t) (/*(struct sockaddr *)*/vSckAddr.sin_addr.s_addr));
+              port = ntohs((uint16_t) (vSckAddr.sin_port));
+              //          sock_p->remote_ipaddr_host = ipAddr;
+              //          sock_p->remote_port_host    = port;
+              pChar += sprintf(pChar, "   IP/port(dst):%u.%u.%u.%u:%u\n", (ipAddr >> 24)&0xFF, (ipAddr >> 16)&0xFF, (ipAddr >> 8)&0xFF, (ipAddr)&0xFF, port);
+          }
+          if ((getsockname(sock_p->socketRef, (struct sockaddr *) &vSckAddr, (socklen_t*) & vSckAddrLen)) == -1) {
+              pChar += sprintf(pChar, "   IP/port(src):???.???.???.???:????\n");
+          } else {
+              ipAddr = (uint32_t) ntohl((uint32_t) (/*(struct sockaddr *)*/vSckAddr.sin_addr.s_addr));
+              port = ntohs((uint16_t) (vSckAddr.sin_port));
+              //          sock_p->remote_ipaddr_host = ipAddr;
+              //          sock_p->remote_port_host    = port;
+              pChar += sprintf(pChar, "   IP/port(src):%u.%u.%u.%u:%u\n", (ipAddr >> 24)&0xFF, (ipAddr >> 16)&0xFF, (ipAddr >> 8)&0xFF, (ipAddr)&0xFF, port);
+          }
+	  pChar = af_unix_debug_getsockopt(sock_p->socketRef,pChar);
+      }
+      pChar += sprintf(pChar, "   transmitter state     : %d /%d\n", sock_p->xmit.state, sock_p->xmit.xmit_credit);
+      pChar += sprintf(pChar, "   Up/Down Transitions   : %llu\n", (unsigned long long int) stats_p->totalUpDownTransition);
+      pChar += sprintf(pChar, "   Xmit Queue            : %s\n", ruc_objIsEmptyList((ruc_obj_desc_t*) & sock_p->xmit.xmitList[0]) ? "EMPTY" : "NON EMPTY");
+      pChar += sprintf(pChar, "   xmit/Recv Statistics:\n");
+      pChar += sprintf(pChar, "    totalXmitBytes     : %16llu\n", (unsigned long long int) stats_p->totalXmitBytes);
+      pChar += sprintf(pChar, "    totalXmitAttempts  : %16llu (%llu cycles [%llu/%llu])\n", 
+	              (unsigned long long int) stats_p->totalXmitAttempts,
+                      (stats_p->totalXmitAttemptsCycles==0)?0:(unsigned long long int)(stats_p->totalXmitCycles/stats_p->totalXmitAttemptsCycles),
+                       (unsigned long long int)stats_p->totalXmitCycles,(unsigned long long int)stats_p->totalXmitAttemptsCycles);
+		       stats_p->totalXmitCycles = 0;
+		       stats_p->totalXmitAttemptsCycles = 0;
+      pChar += sprintf(pChar, "    totalXmitSuccess   : %16llu\n", (unsigned long long int) stats_p->totalXmitSuccess);
+      pChar += sprintf(pChar, "    totalXmitCongested : %16llu\n", (unsigned long long int) stats_p->totalXmitCongested);
+      pChar += sprintf(pChar, "    totalXmitError     : %16llu\n", (unsigned long long int) stats_p->totalXmitError);
+
+      /*
+       ** xmit side
+       */
+      pChar += sprintf(pChar, "    totalRecvBytes     : %16llu\n", (unsigned long long int) stats_p->totalRecvBytes);
+      pChar += sprintf(pChar, "    totalRecv          : %16llu\n", (unsigned long long int) stats_p->totalRecv);
+      pChar += sprintf(pChar, "    totalRecvSuccess   : %16llu\n", (unsigned long long int) stats_p->totalRecvSuccess);
+      pChar += sprintf(pChar, "    totalRecvBadHeader : %16llu\n", (unsigned long long int) stats_p->totalRecvBadHeader);
+      pChar += sprintf(pChar, "    totalRecvBadLength : %16llu\n", (unsigned long long int) stats_p->totalRecvBadLength);
+      pChar += sprintf(pChar, "    totalRecvOutoFBuf  : %16llu\n", (unsigned long long int) stats_p->totalRecvOutoFBuf);
+      pChar += sprintf(pChar, "    totalRecvError     : %16llu\n", (unsigned long long int) stats_p->totalRecvError);
+      pChar += sprintf(pChar, "    totalRecvPartial   : %16llu\n", (unsigned long long int) stats_p->partialRecv);
+      pChar += sprintf(pChar, "    totalRecvEmpty     : %16llu\n", (unsigned long long int) stats_p->emptyRecv);
+      break;
+
+  }
+  return pChar;
+}
+char * af_unix_debug_show_header(char *pChar) {
+
     pChar += sprintf(pChar, "number of AF_UNIX contexts [size](initial/allocated) :[%u] %u/%u\n", (unsigned int) sizeof (af_unix_ctx_generic_t), (unsigned int) af_unix_context_count,
             (unsigned int) af_unix_context_allocated);
     pChar += sprintf(pChar, "Buffer Pool (name[size] :initial/current\n");
@@ -228,89 +313,8 @@ void af_unix_debug_show(uint32_t tcpRef, void *bufRef) {
     pChar += sprintf(pChar, "Recv Buffer ");
     pChar += sprintf(pChar, ":[%6d] %6d/%d\n", af_unix_recv_buf_size, af_unix_recv_buf_count,
             ruc_buf_getFreeBufferCount(af_unix_buffer_pool_tb[1]));
-    {
-        af_unix_ctx_generic_t *sock_p;
-        ruc_obj_desc_t *pnext;
 
-        pnext = (ruc_obj_desc_t*) NULL;
-        while ((sock_p = (af_unix_ctx_generic_t*) ruc_objGetNext((ruc_obj_desc_t*) & af_unix_context_activeListHead,
-                &pnext))
-                != (af_unix_ctx_generic_t*) NULL) {
-            rozofs_socket_stats_t *stats_p = &sock_p->stats;
-            if (af_unix_check_empty_stats(stats_p) == 1) continue;
-
-            pChar += sprintf(pChar, "\n--> %s\n", sock_p->nickname);
-            pChar += sprintf(pChar, "   family/dscp[sock_id]: %d/%2.2d[%d]\n", sock_p->family, (af_inet_sock_get_dscp(sock_p->socketRef))>>2,sock_p->socketRef);
-            if (sock_p->af_family == AF_UNIX) {
-                if (sock_p->remote_sun_path[0] != 0) {
-                    pChar += sprintf(pChar, "   sunpath(dst): %s\n", sock_p->remote_sun_path);
-                }
-                if (sock_p->src_sun_path[0] != 0) {
-                    pChar += sprintf(pChar, "   sunpath(src): %s\n", sock_p->src_sun_path);
-                }
-            } else {
-                /*
-                 ** AF_INET case
-                 */
-                struct sockaddr_in vSckAddr;
-                int vSckAddrLen = sizeof (struct sockaddr);
-                uint32_t ipAddr;
-                uint16_t port;
-
-
-                if ((getpeername(sock_p->socketRef, (struct sockaddr *) &vSckAddr, (socklen_t*) & vSckAddrLen)) == -1) {
-                    pChar += sprintf(pChar, "   IP/port(dst):???.???.???.???:????\n");
-                } else {
-                    ipAddr = (uint32_t) ntohl((uint32_t) (/*(struct sockaddr *)*/vSckAddr.sin_addr.s_addr));
-                    port = ntohs((uint16_t) (vSckAddr.sin_port));
-                    //          sock_p->remote_ipaddr_host = ipAddr;
-                    //          sock_p->remote_port_host    = port;
-                    pChar += sprintf(pChar, "   IP/port(dst):%u.%u.%u.%u:%u\n", (ipAddr >> 24)&0xFF, (ipAddr >> 16)&0xFF, (ipAddr >> 8)&0xFF, (ipAddr)&0xFF, port);
-                }
-                if ((getsockname(sock_p->socketRef, (struct sockaddr *) &vSckAddr, (socklen_t*) & vSckAddrLen)) == -1) {
-                    pChar += sprintf(pChar, "   IP/port(src):???.???.???.???:????\n");
-                } else {
-                    ipAddr = (uint32_t) ntohl((uint32_t) (/*(struct sockaddr *)*/vSckAddr.sin_addr.s_addr));
-                    port = ntohs((uint16_t) (vSckAddr.sin_port));
-                    //          sock_p->remote_ipaddr_host = ipAddr;
-                    //          sock_p->remote_port_host    = port;
-                    pChar += sprintf(pChar, "   IP/port(src):%u.%u.%u.%u:%u\n", (ipAddr >> 24)&0xFF, (ipAddr >> 16)&0xFF, (ipAddr >> 8)&0xFF, (ipAddr)&0xFF, port);
-                }
-		pChar = af_unix_debug_getsockopt(sock_p->socketRef,pChar);
-            }
-            pChar += sprintf(pChar, "   transmitter state     : %d /%d\n", sock_p->xmit.state, sock_p->xmit.xmit_credit);
-            pChar += sprintf(pChar, "   Up/Down Transitions   : %llu\n", (unsigned long long int) stats_p->totalUpDownTransition);
-            pChar += sprintf(pChar, "   Xmit Queue            : %s\n", ruc_objIsEmptyList((ruc_obj_desc_t*) & sock_p->xmit.xmitList[0]) ? "EMPTY" : "NON EMPTY");
-            pChar += sprintf(pChar, "   xmit/Recv Statistics:\n");
-            pChar += sprintf(pChar, "    totalXmitBytes     : %16llu\n", (unsigned long long int) stats_p->totalXmitBytes);
-            pChar += sprintf(pChar, "    totalXmitAttempts  : %16llu (%llu cycles [%llu/%llu])\n", 
-	                    (unsigned long long int) stats_p->totalXmitAttempts,
-                            (stats_p->totalXmitAttemptsCycles==0)?0:(unsigned long long int)(stats_p->totalXmitCycles/stats_p->totalXmitAttemptsCycles),
-                             (unsigned long long int)stats_p->totalXmitCycles,(unsigned long long int)stats_p->totalXmitAttemptsCycles);
-			     stats_p->totalXmitCycles = 0;
-			     stats_p->totalXmitAttemptsCycles = 0;
-            pChar += sprintf(pChar, "    totalXmitSuccess   : %16llu\n", (unsigned long long int) stats_p->totalXmitSuccess);
-            pChar += sprintf(pChar, "    totalXmitCongested : %16llu\n", (unsigned long long int) stats_p->totalXmitCongested);
-            pChar += sprintf(pChar, "    totalXmitError     : %16llu\n", (unsigned long long int) stats_p->totalXmitError);
-
-            /*
-             ** xmit side
-             */
-            pChar += sprintf(pChar, "    totalRecvBytes     : %16llu\n", (unsigned long long int) stats_p->totalRecvBytes);
-            pChar += sprintf(pChar, "    totalRecv          : %16llu\n", (unsigned long long int) stats_p->totalRecv);
-            pChar += sprintf(pChar, "    totalRecvSuccess   : %16llu\n", (unsigned long long int) stats_p->totalRecvSuccess);
-            pChar += sprintf(pChar, "    totalRecvBadHeader : %16llu\n", (unsigned long long int) stats_p->totalRecvBadHeader);
-            pChar += sprintf(pChar, "    totalRecvBadLength : %16llu\n", (unsigned long long int) stats_p->totalRecvBadLength);
-            pChar += sprintf(pChar, "    totalRecvOutoFBuf  : %16llu\n", (unsigned long long int) stats_p->totalRecvOutoFBuf);
-            pChar += sprintf(pChar, "    totalRecvError     : %16llu\n", (unsigned long long int) stats_p->totalRecvError);
-            pChar += sprintf(pChar, "    totalRecvPartial   : %16llu\n", (unsigned long long int) stats_p->partialRecv);
-            pChar += sprintf(pChar, "    totalRecvEmpty     : %16llu\n", (unsigned long long int) stats_p->emptyRecv);
-
-
-        }
-    }
-    uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
-
+    return pChar;
 }
 
 /*__________________________________________________________________________
@@ -321,7 +325,14 @@ void af_unix_debug_show(uint32_t tcpRef, void *bufRef) {
   RETURN: none
   ==========================================================================*/
 void af_unix_debug(char * argv[], uint32_t tcpRef, void *bufRef) {
-    af_unix_debug_show(tcpRef, bufRef);
+  char *pChar = uma_dbg_get_buffer();
+   
+  pChar = af_unix_debug_show_header(pChar);    
+  if (argv[1] != NULL) {
+    pChar = af_unix_debug_show(pChar, argv[1]);
+  }  
+  uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
+
 }
 
 void af_inet_tcp_debug(char * argv[], uint32_t tcpRef, void *bufRef) {
