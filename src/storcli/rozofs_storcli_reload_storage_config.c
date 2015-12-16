@@ -195,7 +195,7 @@ fatal:
  *
  * @param exportd_context_p: pointer to the exportd Master data structure
  */
-#define CONF_CONNECTION_THREAD_TIMESPEC  2
+#define CONF_CONNECTION_THREAD_TIMESPEC  120
 
 void *storcli_exportd_config_supervision_thread(void *exportd_context_p) {
 
@@ -350,6 +350,12 @@ void *storcli_exportd_config_supervision_thread(void *exportd_context_p) {
     exportd_configuration_file_hash = ret_conf_p->status_gw.ep_conf_ret_t_u.export.hash_conf;
     
 out: 
+
+    /*
+    ** release the sock if already configured to avoid losing fd descriptors
+    */
+    rpcclt_release(&clt->rpcclt);
+
     if (ret_poll_p != NULL) xdr_free((xdrproc_t) xdr_epgw_status_ret_t, (char *) ret_poll_p);
     if (ret_conf_p != NULL) xdr_free((xdrproc_t) xdr_epgw_conf_ret_t, (char *) ret_conf_p);
     nanosleep(&ts, NULL); 
