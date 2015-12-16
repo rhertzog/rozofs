@@ -14,7 +14,7 @@
 #include "rozofs_ext4.h"
 #include "xattr.h"
 #include <rozofs/common/acl.h>
-
+#include <linux/types.h>
 
 
 struct posix_acl *rozofs_acl_p = NULL;

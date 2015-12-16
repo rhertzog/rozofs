@@ -34,6 +34,7 @@
 #include <dirent.h>
 #include <time.h>
 #include <semaphore.h>
+#include <linux/types.h>
 
 #include <rozofs/common/log.h>
 #include <rozofs/common/xmalloc.h>
