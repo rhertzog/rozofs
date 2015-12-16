@@ -91,7 +91,7 @@ void rozofs_ll_setxattr_nb(fuse_req_t req, fuse_ino_t ino, const char *name, con
     /*
     ** update the mode at the ientry level when it extended attribute is ACL
     */
-    rozofs_acl_access_check(name,value,size,(umode_t*)&ie->attrs.mode);
+    rozofs_acl_access_check(name,value,size,(mode_t*)&ie->attrs.mode);
     /*
     ** Set xattr indicator in ientry
     */

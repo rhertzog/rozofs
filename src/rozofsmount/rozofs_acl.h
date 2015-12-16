@@ -41,6 +41,6 @@
    @retval 1 extended attribute is acl_access with no equivalent mode
    
 */
-int rozofs_acl_access_check(const char *name, const char *value, size_t size,umode_t *mode_p);
+int rozofs_acl_access_check(const char *name, const char *value, size_t size,mode_t *mode_p);
 
 #endif
