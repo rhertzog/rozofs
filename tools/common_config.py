@@ -247,7 +247,6 @@ def go_build_read():
   print "/*____________________________________________________________________________________________*/"
   print "static inline void common_config_generated_read(char * fname) {"
   print "  config_t          cfg; "
-  print "  int               intval;"
   print ""
   print "  if (config_file_is_read == 0) {"
   print "    uma_dbg_addTopic(\"cconf\",show_common_config);"
