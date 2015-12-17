@@ -839,7 +839,18 @@ uint32_t ruc_init(uint32_t test,uint16_t dbg_port,uint16_t exportd_instance) {
   uint32_t        mx_tcp_server_cnx = 10;
   uint32_t        mx_af_unix_ctx = 1024;
   uint32_t        mx_lbg_north_ctx = 64;
+  uint32_t        mx_sockctrl_cnt;
 
+  if (exportd_is_master())
+  {
+    mx_sockctrl_cnt = ROZO_SOCKCTRL_CTX_EXPORTD_M;
+    mx_af_unix_ctx = ROZO_AFUNIX_CTX_EXPORTD_M;
+  }
+  else
+  {
+    mx_sockctrl_cnt = ROZO_SOCKCTRL_CTX_EXPORTD_S;
+    mx_af_unix_ctx = ROZO_AFUNIX_CTX_EXPORTD_S;
+  }
 //#warning TCP configuration ressources is hardcoded!!
   /*
   ** init of the system ticker
@@ -883,10 +894,10 @@ uint32_t ruc_init(uint32_t test,uint16_t dbg_port,uint16_t exportd_instance) {
    **   for: NPS, Timer, Debug, etc...
    */
 //#warning set the number of contexts for socketCtrl to 1024
-   ret = ruc_sockctl_init(1024);
+   ret = ruc_sockctl_init(mx_sockctrl_cnt);
    if (ret != RUC_OK)
    {
-     fatal( " socket controller init failed" );
+     fatal( " socket controller init failed %d",mx_sockctrl_cnt );
    }
 
    /*

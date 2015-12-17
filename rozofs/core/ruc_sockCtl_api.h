@@ -21,6 +21,15 @@
 #include <sys/select.h>
 #include "ruc_common.h"
 #include "ruc_list.h"
+
+
+#define ROZO_FD_SETSIZE (1024*4)
+#define ROZO_FDSET_LONG  (ROZO_FD_SETSIZE/__NFDBITS)
+
+typedef struct _rozo_fd_set {
+  unsigned long fds_bits[ROZO_FDSET_LONG];
+} rozo_fd_set;
+
 /*
 **  max number of priority
 */
@@ -70,11 +79,12 @@ typedef struct _ruc_sockObj_t
 } ruc_sockObj_t;
 
 
-extern fd_set  sockCtrl_speculative;   
+  
 extern ruc_sockObj_t *socket_predictive_ctx_table[ ];
 extern int socket_predictive_ctx_table_count[];
 extern int ruc_sockCtrl_speculative_sched_enable;
 extern int ruc_sockCtrl_speculative_count;
+extern rozo_fd_set  sockCtrl_speculative; 
 
 
 /*

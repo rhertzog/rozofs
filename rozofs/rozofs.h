@@ -171,7 +171,29 @@ typedef enum _ROZOFS_BSIZE_E {
 #define ROZOFS_STORAGE_NB_BLOCK_PER_CHUNK(bsize) (ROZOFS_STORAGE_FILE_MAX_SIZE/ROZOFS_STORAGE_MAX_CHUNK_PER_FILE/ROZOFS_BSIZE_BYTES(bsize))
 #define ROZOFS_STORAGE_GET_CHUNK_NB(offset)     ((offset)/(ROZOFS_STORAGE_FILE_MAX_SIZE/ROZOFS_STORAGE_MAX_CHUNK_PER_FILE))
 
+/*
+**   Socket controller configuration: define the max nuumber of context per process
+*/
+#define ROZO_SOCKCTRL_CTX_EXPORTD_M      2048
+#define ROZO_SOCKCTRL_CTX_EXPORTD_S      2048
+#define ROZO_SOCKCTRL_CTX_ROZOFSMOUNT     128
+#define ROZO_SOCKCTRL_CTX_STORCLI        1024
+#define ROZO_SOCKCTRL_CTX_STORAGED       1024
+#define ROZO_SOCKCTRL_CTX_STORIO         (3*1024)
+#define ROZO_SOCKCTRL_CTX_GEOMGR         (32)
+#define ROZO_SOCKCTRL_CTX_GEOCLI         (128)
 
+/*
+**   AF_UNIX configuration: define the max nuumber of context per process
+*/
+#define ROZO_AFUNIX_CTX_EXPORTD_M      1024
+#define ROZO_AFUNIX_CTX_EXPORTD_S      2048
+#define ROZO_AFUNIX_CTX_ROZOFSMOUNT     32
+#define ROZO_AFUNIX_CTX_STORCLI        1024
+#define ROZO_AFUNIX_CTX_STORAGED       1024
+#define ROZO_AFUNIX_CTX_STORIO         (3*1024)
+#define ROZO_AFUNIX_CTX_GEOMGR         (32)
+#define ROZO_AFUNIX_CTX_GEOCLI         (32)
 /**
 * cluster state
 */

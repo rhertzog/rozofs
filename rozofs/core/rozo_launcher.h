@@ -84,7 +84,13 @@ static inline int rozo_launcher_start(char *pidfile, char * cmd) {
   }
   
   if (pid!=0) return 0;
-  
+  /*
+  ** clean up of the file descriptor inherited from the parent
+  */
+  {
+     int i;
+     for (i= 4; i < 4096; i++) close(i);
+  }  
   
   if (execvp(argv[0],argv)<0) {
     severe("rozo_launcher_start(%s,%s) %s",pidfile, cmd, strerror(errno));

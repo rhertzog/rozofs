@@ -24,13 +24,13 @@
 #include "ruc_list.h"
 #include "ruc_sockCtl_api.h"
 
+
 /*
 ** file descriptor for receiving and transmitting events
 */
-extern fd_set  rucRdFdSet;   
-extern fd_set  rucWrFdSet;   
-extern fd_set  rucWrFdSetCongested;
-
+//extern fd_set  rucRdFdSet;   
+//extern fd_set  rucWrFdSet;   
+extern rozo_fd_set  rucWrFdSetCongested;
 /*
 **  private API
 */

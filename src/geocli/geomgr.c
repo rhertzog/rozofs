@@ -585,7 +585,7 @@ uint32_t ruc_init(uint32_t test, uint16_t debug_port) {
     uint32_t mx_tcp_client = 10;
     uint32_t mx_tcp_server = 10;
     uint32_t mx_tcp_server_cnx = 10;
-    uint32_t mx_af_unix_ctx = 16;
+    uint32_t mx_af_unix_ctx = ROZO_AFUNIX_CTX_GEOMGR;
 
     /*
      ** trace buffer initialization
@@ -597,7 +597,7 @@ uint32_t ruc_init(uint32_t test, uint16_t debug_port) {
      **   4 connections per Relc and 32
      **   for: NPS, Timer, Debug, etc...
      */
-    ret = ruc_sockctl_init(16);
+    ret = ruc_sockctl_init(ROZO_SOCKCTRL_CTX_GEOMGR);
     if (ret != RUC_OK) {
         fatal( " socket controller init failed" );
     }

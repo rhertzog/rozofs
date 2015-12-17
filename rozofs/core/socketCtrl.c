@@ -24,6 +24,7 @@
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/socket.h>
+#include <sys/resource.h>
 
 #include "ruc_list.h"
 #include "socketCtrl.h"
@@ -40,6 +41,8 @@
 #define APP_POLLING 1
 #define APP_POLLING_OPT 1
 #define ROZO_MES 1
+
+
 /*
 **  G L O B A L   D A T A
 */
@@ -50,6 +53,7 @@
 ruc_obj_desc_t  ruc_sockCtl_tabPrio[RUC_SOCKCTL_MAXPRIO+1];
 int ruc_sockCtrl_speculative_sched_enable = 0;
 int ruc_sockCtrl_speculative_count = 0;
+int ruc_max_curr_socket = 0;
 /*
 ** head of the free connection list
 */
@@ -60,11 +64,11 @@ uint64_t         af_unix_rcv_buffered =0;
 /*
 ** file descriptor for receiving and transmitting events
 */
-fd_set  sockCtrl_speculative;   
-fd_set  rucRdFdSet;   
-fd_set  rucWrFdSet;   
-fd_set  rucRdFdSetUnconditional;
-fd_set  rucWrFdSetCongested;
+rozo_fd_set  sockCtrl_speculative;   
+rozo_fd_set  rucRdFdSet;   
+rozo_fd_set  rucWrFdSet;   
+rozo_fd_set  rucRdFdSetUnconditional;
+rozo_fd_set  rucWrFdSetCongested;
 
 /*
 **  gloabl data used in the loops that polls the bitfields
@@ -99,17 +103,17 @@ uint64_t ruc_applicative_poller_count = 0;
 ** table used for storing the index of the socket for which there is the associated bit asserted
 */
 int socket_recv_count = 0;
-int socket_recv_table[FD_SETSIZE];
-int socket_speculative_table[FD_SETSIZE];
+int socket_recv_table[ROZO_FD_SETSIZE];
+int socket_speculative_table[ROZO_FD_SETSIZE];
 int socket_xmit_count = 0;
-int socket_xmit_table[FD_SETSIZE];
-ruc_sockObj_t *socket_ctx_table[FD_SETSIZE];
-ruc_sockObj_t *socket_predictive_ctx_table[FD_SETSIZE];
-int socket_predictive_ctx_table_count[FD_SETSIZE];
+int socket_xmit_table[ROZO_FD_SETSIZE];
+ruc_sockObj_t *socket_ctx_table[ROZO_FD_SETSIZE];
+ruc_sockObj_t *socket_predictive_ctx_table[ROZO_FD_SETSIZE];
+int socket_predictive_ctx_table_count[ROZO_FD_SETSIZE];
 int ruc_sockCtrl_max_poll_ctx = 0;
 ruc_obj_desc_t *ruc_sockctl_poll_pnextCur;
 uint64_t ruc_sockCtrl_poll_period = 0;   /**< period in microseconds */ 
-uint64_t ruc_sockCtrl_nr_socket_stats[FD_SETSIZE];
+uint64_t ruc_sockCtrl_nr_socket_stats[ROZO_FD_SETSIZE];
 
 
 static char    myBuf[UMA_DBG_MAX_SEND_SIZE];
@@ -177,10 +181,14 @@ __inline__ int ruc_sockCtrl_build_sock_table(uint64_t *fdset_p,int *socket_tab_p
    uint32_t bit;
    int curr_socket_id;
    int socket_count = 0;
+   int last_sock;
    
    curr_socket_id = 0;
-
-   for (i = 0; i < (__FD_SETSIZE / __NFDBITS); i++)
+   
+   last_sock = (ruc_max_curr_socket+1)/64;
+   if ((ruc_max_curr_socket+1)%64) last_sock=last_sock+1;
+   
+   for (i = 0; i < last_sock; i++)
    {
      val64 = fdset_p[i];
      curr_socket_id = i*(sizeof(uint64_t)*8);
@@ -332,7 +340,7 @@ void ruc_sockCtrl_debug_show(uint32_t tcpRef, void * bufRef) {
   pChar += rozofs_string_append(pChar," (");
   pChar += rozofs_u64_append(pChar,sizeof(rucRdFdSet));  
   pChar += rozofs_string_append(pChar,") __FD_SETSIZE :"); 
-  pChar += rozofs_u32_append(pChar,__FD_SETSIZE);
+  pChar += rozofs_u32_append(pChar,ROZO_FD_SETSIZE);
   pChar += rozofs_string_append(pChar," __NFDBITS :"); 
   pChar += rozofs_u32_append(pChar,__NFDBITS);
   *pChar++ = '\n';
@@ -490,6 +498,7 @@ void ruc_sockCtrl_conf(char * argv[], uint32_t tcpRef, void * bufRef) {
   pChar +=sprintf(pChar,"speculative scheduler                    : %s\n",
           (ruc_sockCtrl_speculative_sched_enable==1)?" Enable":" Disable");
   pChar +=sprintf(pChar,"max number of socket controller contexts : %u\n",ruc_sockCtrl_maxConnection);
+  pChar +=sprintf(pChar,"last socket index                        : %u\n",ruc_max_curr_socket);
   pChar +=sprintf(pChar,"scheduler polling period                 : %llu us\n",(long long unsigned)ruc_sockCtrl_poll_period);
   pChar +=sprintf(pChar,"scheduler polling count                  : %u\n",ruc_sockCtrl_max_poll_ctx);
   uma_dbg_send(tcpRef, bufRef, TRUE, myBuf);
@@ -502,13 +511,13 @@ void ruc_sockCtrl_show_select_stats(char * argv[], uint32_t tcpRef, void * bufRe
   int i;
   
   pChar +=sprintf(pChar,"Per select call statistics:\n");
-  for (i = 0; i < FD_SETSIZE; i++)
+  for (i = 0; i < ROZO_FD_SETSIZE; i++)
   {
      if (ruc_sockCtrl_nr_socket_stats[i] == 0) continue;
      pChar +=sprintf(pChar,"[%4.4d] = %llu\n",i,(long long unsigned)ruc_sockCtrl_nr_socket_stats[i]);
   }
 
-  memset(ruc_sockCtrl_nr_socket_stats,0,sizeof(uint64_t)*FD_SETSIZE);
+  memset(ruc_sockCtrl_nr_socket_stats,0,sizeof(uint64_t)*ROZO_FD_SETSIZE);
   uma_dbg_send(tcpRef, bufRef, TRUE, myBuf);
 }
 
@@ -630,7 +639,27 @@ uint32_t ruc_sockctl_init(uint32_t maxConnection)
   ruc_obj_desc_t  *pnext=(ruc_obj_desc_t*)NULL;
   ruc_sockObj_t  *p;
 
-
+  /*
+  ** Increase the file descriptor limit for the process
+  */
+{
+   int ret;
+   struct rlimit rlim;
+   
+   ret = getrlimit(RLIMIT_NOFILE,&rlim);
+   if (ret < 0)
+   {
+      printf("error %s\n",strerror(errno));
+      exit(0);
+   }
+   rlim.rlim_cur = 4096;
+   ret = setrlimit(RLIMIT_NOFILE,&rlim);
+   if (ret < 0)
+   {
+      printf("error %s\n",strerror(errno));
+      exit(0);
+   }
+}
   /*
   ** initialization of the priority table
   */
@@ -641,20 +670,20 @@ uint32_t ruc_sockctl_init(uint32_t maxConnection)
   /*
   ** erase the Fd receive & xmit set
   */
-  FD_ZERO(&rucRdFdSet);
-  FD_ZERO(&sockCtrl_speculative);
-  FD_ZERO(&rucWrFdSet);   
-  FD_ZERO(&rucRdFdSetUnconditional);   
-  FD_ZERO(&rucWrFdSetCongested);   
-  memset(socket_recv_table,0xff,sizeof(int)*FD_SETSIZE);
-  memset(socket_xmit_table,0xff,sizeof(int)*FD_SETSIZE);
-  memset(socket_ctx_table,0,sizeof(ruc_sockObj_t *)*FD_SETSIZE);
-  memset(socket_predictive_ctx_table,0,sizeof(ruc_sockObj_t *)*FD_SETSIZE);
-  memset(socket_predictive_ctx_table_count,0,sizeof(int)*FD_SETSIZE);
+  memset(&rucRdFdSet,0,sizeof(rucRdFdSet));
+  memset(&sockCtrl_speculative,0,sizeof(sockCtrl_speculative));
+  memset(&rucWrFdSet,0,sizeof(rucWrFdSet));   
+  memset(&rucRdFdSetUnconditional,0,sizeof(rucRdFdSetUnconditional));   
+  memset(&rucWrFdSetCongested,0,sizeof(rucWrFdSetCongested));   
+  memset(socket_recv_table,0xff,sizeof(int)*ROZO_FD_SETSIZE);
+  memset(socket_xmit_table,0xff,sizeof(int)*ROZO_FD_SETSIZE);
+  memset(socket_ctx_table,0,sizeof(ruc_sockObj_t *)*ROZO_FD_SETSIZE);
+  memset(socket_predictive_ctx_table,0,sizeof(ruc_sockObj_t *)*ROZO_FD_SETSIZE);
+  memset(socket_predictive_ctx_table_count,0,sizeof(int)*ROZO_FD_SETSIZE);
   ruc_sockCtrl_max_poll_ctx = RUC_SOCKCTL_POLLCOUNT;
   ruc_sockctl_poll_pnextCur = NULL;
   ruc_sockCtrl_poll_period = RUC_SOCKCTL_POLLFREQ; /** period of 40 ms */
-  memset(ruc_sockCtrl_nr_socket_stats,0,sizeof(uint64_t)*FD_SETSIZE);
+  memset(ruc_sockCtrl_nr_socket_stats,0,sizeof(uint64_t)*ROZO_FD_SETSIZE);
   /*
   ** create the connection distributor
   */
@@ -752,10 +781,14 @@ void * ruc_sockctl_connect(int socketId,
 
     ruc_sockObj_t *p,*pelem;
 
-  if (socketId >= FD_SETSIZE) {
+  if (socketId >= ROZO_FD_SETSIZE) {
     fatal("ruc_sockctl_connect socketId out of range %d",socketId);
     return NULL;
   }
+  /*
+  ** update the max socket value if needed
+  */
+  if (ruc_max_curr_socket < socketId) ruc_max_curr_socket = socketId;
 
   /*
   ** get the first element from the free list
@@ -1280,7 +1313,7 @@ void ruc_sockCtl_prepareRcvBits()
   /*
   ** erase the Fd receive set
   */
-  FD_ZERO(&rucRdFdSet);
+  memset(&rucRdFdSet,0,sizeof(rucRdFdSet));
 
   for (i = 0; i <RUC_SOCKCTL_MAXPRIO ; i++)
   {
@@ -1468,7 +1501,7 @@ void ruc_sockCtl_prepareXmitBits()
   /*
   ** erase the Fd receive set
   */
-  FD_ZERO(&rucWrFdSet);
+  memset(&rucWrFdSet,0,sizeof(rucWrFdSet));
 
   for (i = 0; i <RUC_SOCKCTL_MAXPRIO ; i++)
   {
@@ -1576,7 +1609,8 @@ void ruc_sockCtrl_selectWait()
       /*
       ** wait for event 
       */	  
-      if((nbrSelect=select(FD_SETSIZE,&rucRdFdSet,&rucWrFdSet,NULL, NULL)) == 0)
+      if((nbrSelect=select(ruc_max_curr_socket+1,(fd_set *)&rucRdFdSet,
+                                                 (fd_set *)&rucWrFdSet,NULL, NULL)) == 0)
       {
 	/*
 	** udpate time after select

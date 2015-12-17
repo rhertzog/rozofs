@@ -218,7 +218,7 @@ uint32_t ruc_init(uint32_t test, storaged_start_conf_param_t *arg_p) {
     uint32_t mx_tcp_server = 8;
     uint32_t mx_tcp_server_cnx = 10;
     uint32_t local_ip = INADDR_ANY;
-    uint32_t        mx_af_unix_ctx = 1024;
+    uint32_t        mx_af_unix_ctx = ROZO_AFUNIX_CTX_STORIO;
     
 
     //#warning TCP configuration ressources is hardcoded!!
@@ -236,7 +236,7 @@ uint32_t ruc_init(uint32_t test, storaged_start_conf_param_t *arg_p) {
      **   for: NPS, Timer, Debug, etc...
      */
     // warning set the number of contexts for socketCtrl to 1024
-    ret = ruc_sockctl_init(1024);
+    ret = ruc_sockctl_init(ROZO_SOCKCTRL_CTX_STORIO);
     if (ret != RUC_OK) {
         fdl_debug_loop(__LINE__);
         fatal( " socket controller init failed" );
