@@ -137,11 +137,12 @@ geomgr_config_t * geomgr_config_read(const char *fname) {
     geomgr_config_calendar_t * calendar=NULL;
 #if (((LIBCONFIG_VER_MAJOR == 1) && (LIBCONFIG_VER_MINOR >= 4)) \
                || (LIBCONFIG_VER_MAJOR > 1))
-    int valint,status;
+    int valint;
     
 #else
-    long int valint,status;
-#endif      
+    long int valint;
+#endif  
+    int status;   
     DEBUG_FUNCTION;
       
     if (access(fname,R_OK) == -1) {
