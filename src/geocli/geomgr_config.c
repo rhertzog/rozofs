@@ -239,7 +239,7 @@ geomgr_config_t * geomgr_config_read(const char *fname) {
         	continue;
 	    }
             if ((valint !=0)&&(valint !=1)) {
-        	severe("site value %d in export %d of exportd %d.",valint, j, i);
+        	severe("site value %d in export %d of exportd %d.",(int)valint, j, i);
         	continue;
 	    }
 
@@ -261,7 +261,7 @@ geomgr_config_t * geomgr_config_read(const char *fname) {
             valint = 1;
             config_setting_lookup_int(export, GEONB, &valint);
             if ((valint < 1)||(valint >4)) {
-              severe("nb instance value %d should be within [1:4] in export %d of exportd %d.",valint, j, i);
+              severe("nb instance value %d should be within [1:4] in export %d of exportd %d.",(int)valint, j, i);
 	      valint = 1;
 	    }
 	    pExport->nb = valint;
