@@ -91,12 +91,7 @@ void common_config_read(char * fname) ;
   COMMON_CONFIG_SHOW_END_OPT(opt)\
 }  
 
-#if (((LIBCONFIG_VER_MAJOR == 1) && (LIBCONFIG_VER_MINOR >= 4)) \
-             || (LIBCONFIG_VER_MAJOR > 1))
 int  boolval;  
-#else
-long int boolval;
-#endif
 #define COMMON_CONFIG_READ_BOOL(val,def)  {\
   if (strcmp(#def,"True")==0) {\
     common_config.val = 1;\
