@@ -417,4 +417,6 @@ int main(int argc, char *argv[]) {
 
   rozo_display_all_cluster();
 
+  exit(EXIT_SUCCESS);  
+  return 0;
 }
