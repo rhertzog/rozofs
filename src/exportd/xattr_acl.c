@@ -173,7 +173,7 @@ posix_acl_equiv_mode(const struct posix_acl *acl, mode_t *mode_p)
 int rozofs_acl_access_check(const char *name, const char *value, size_t size,mode_t *mode_p)
 {
     struct posix_acl *acl_p;
-    int ret;
+    int ret = -1;
     
     if (strcmp(name,POSIX_ACL_XATTR_ACCESS)!=0)
     {
