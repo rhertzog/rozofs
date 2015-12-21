@@ -877,6 +877,10 @@ void rozofs_ll_setlk_after_flush(void *this,void *param)
 
    rpc_reply.acpted_rply.ar_results.proc = NULL;
    RESTORE_FUSE_STRUCT_PTR(param,fi);    
+   /*
+   ** update the number of storcli pending request
+   */
+   if (rozofs_storcli_pending_req_count > 0) rozofs_storcli_pending_req_count--;
 
    file = (file_t *) (unsigned long)  fi->fh;   
    file->buf_write_pending--;
