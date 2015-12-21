@@ -861,10 +861,10 @@ int storio_device_mapping_monitor_thread_start() {
   /*
   ** Set the polling periodicity in seconds
   */
-  if (common_config.file_distribution_rule == rozofs_file_distribution_round_robin) {
+  if (common_config.file_distribution_rule != rozofs_file_distribution_size_balancing) {
     STORIO_DEVICE_PERIOD = 10;
   }
-
+  
   /*
   ** 1rst call to monitoring function, and access to the disk 
   ** to get the disk free space 

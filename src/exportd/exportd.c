@@ -452,15 +452,18 @@ int expgw_build_configuration_message(char * pchar, uint32_t size)
 }
 
 static void *balance_volume_thread(void *v) {
-    struct timespec ts = {5, 0};
+    struct timespec ts = {6, 0};
 
     uma_dbg_thread_add_self("Volume balance");
-    
-    if (common_config.file_distribution_rule == rozofs_file_distribution_round_robin) {
-      /* In round robin mode less frequent polling is needed */
-      ts.tv_sec = 12;
-    }  
 
+    /* In round robin mode less frequent polling is needed */    
+    if (common_config.file_distribution_rule == rozofs_file_distribution_weigthed_round_robin) {
+      ts.tv_sec = 12;
+    }
+    else if (common_config.file_distribution_rule == rozofs_file_distribution_strict_round_robin) {  
+      ts.tv_sec = 18;
+    }
+    
     pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 
     for (;;) {

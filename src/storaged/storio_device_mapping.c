@@ -516,7 +516,7 @@ uint32_t storio_device_mapping_allocate_device(storage_t * st) {
   uint64_t      choosen_device = 0;
   int           active;
   
-  if (common_config.file_distribution_rule == rozofs_file_distribution_round_robin) {
+  if (common_config.file_distribution_rule != rozofs_file_distribution_size_balancing) {
     int count = 0;
     
     while(count < st->device_number) {

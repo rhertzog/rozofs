@@ -106,6 +106,7 @@ int volume_initialize(volume_t *volume, vid_t vid, uint8_t layout,uint8_t georep
     DEBUG_FUNCTION;
     volume->vid = vid;
     volume->georep = georep;
+    volume->balanced = 0; // volume balance not yet called
     volume->layout = layout;
     list_init(&volume->clusters);
     
@@ -314,24 +315,18 @@ void volume_balance(volume_t *volume) {
     START_PROFILING_0(volume_balance);
     
     int local_site = export_get_local_site_number();
-
+    
     /*
-    ** We will work on the next distribution list which is
-    ** inactive since the last call to volume_balance().
+    ** Re-initialize the inactive cluster distribution list from the configured cluster list.
     */
-    int next = 1 - volume->active_list; 
-    pList = &volume->cluster_distribute[next];
-
-    /*
-    ** Reinitialize this list from the current cluster list
-    */
+    pList = &volume->cluster_distribute[1 - volume->active_list];
     if (volume_safe_to_list_copy(volume,pList) != 0) {
         severe("can't volume_safe_to_list_copy: %u %s", volume->vid,strerror(errno));
         goto out;
-    }   
+    }              
 
     /*
-    ** Check the storage status and free storage
+    ** Loop on this list to check the storage status and free storage
     */
     list_for_each_forward(p, pList) {
         cluster_t *cluster = list_entry(p, cluster_t, list);
@@ -428,7 +423,9 @@ void volume_balance(volume_t *volume) {
     }  
     
       
-    // sort the new list
+    /* 
+    ** Order the storages in the clusters, and then the cluster
+    */
     list_for_each_forward(p, pList) {
         cluster_t *cluster = list_entry(p, cluster_t, list);
 	export_rotate_sid[cluster->cid] = 0;
@@ -456,10 +453,15 @@ void volume_balance(volume_t *volume) {
 
 
     /*
-    ** Swap the active list. This is done after the lock/unlock
-    ** in the volume_safe_from_list_copy which insures a memory barrier
-    */
-    volume->active_list = next;
+    ** Use this new list as the next cluster distribution list,
+    ** --> exception: in stict round robin mode, keep the the distribution list as it is
+    **     --> exception: on the 1rst call, the cluster distibution list has to be initialized
+    */    
+    if ((common_config.file_distribution_rule != rozofs_file_distribution_strict_round_robin)
+    ||  (volume->balanced == 0)) {  
+      volume->active_list = 1 - volume->active_list;
+      volume->balanced = 1;
+    }
 out:
     STOP_PROFILING_0(volume_balance);
 }
@@ -549,6 +551,34 @@ static int do_cluster_distribute(uint8_t layout,int site_idx, cluster_t *cluster
 success:
 
 
+  /* 
+  ** In strict round robin just put the selected storages 
+  ** at the end of the list 
+  */
+  if (common_config.file_distribution_rule == rozofs_file_distribution_strict_round_robin) {
+  
+    idx = 0;    
+    while(idx < rozofs_forward) {
+      vs = selected[idx];
+      sids[idx] = vs->sid;
+      list_remove(&vs->list);
+      list_push_back(pList,&vs->list);
+      idx++;
+    }
+    
+    while(idx < rozofs_safe) {
+      vs = selected[idx];
+      sids[idx] = vs->sid;
+      idx++;
+    }         
+    return 0;
+  }
+  
+  
+  /* 
+  ** In weigthed round robin and in size equalizing decrease the estimated size 
+  ** of the storages and re-order them in the cluster
+  */
   decrease_size = common_config.alloc_estimated_mb*(1024*1024);
   idx = 0;
 
@@ -622,7 +652,21 @@ success:
   ** Re-order the SIDs
   */
   list_sort(pList, volume_storage_compare);
+    
+  /*
+  ** In case of size equalizing only, recompute the cluster estimated free size
+  */
+  if (common_config.file_distribution_rule != rozofs_file_distribution_size_balancing) return 0;
   
+  uint64_t  free = 0;
+
+  list_for_each_forward(p, (&cluster->storages[site_idx])) {
+  
+    vs = list_entry(p, volume_storage_t, list);	    
+    free += vs->stat.free;
+
+  }  
+  cluster->free = free; 
   return 0;
 }
 int volume_distribute(volume_t *volume,int site_number, cid_t *cid, sid_t *sids) {
@@ -637,12 +681,6 @@ int volume_distribute(volume_t *volume,int site_number, cid_t *cid, sid_t *sids)
     
     site_idx = export_get_local_site_number();
 
-#if 0
-    if ((errno = pthread_rwlock_wrlock(&volume->lock)) != 0) {
-        warning("can't lock volume %u.", volume->vid);
-        goto out;
-    }
-#endif
     
     if (volume->georep)
     {
@@ -653,60 +691,47 @@ int volume_distribute(volume_t *volume,int site_number, cid_t *cid, sid_t *sids)
     
     list_for_each_forward(p, cluster_distribute) {
     
-        cluster_t *next_cluster;
-        cluster_t *cluster = list_entry(p, cluster_t, list);
+      cluster_t *next_cluster;
+      cluster_t *cluster = list_entry(p, cluster_t, list);
 
-        if (do_cluster_distribute(volume->layout,site_idx, cluster, sids) == 0) {
+      if (do_cluster_distribute(volume->layout,site_idx, cluster, sids) == 0) {
 
-            *cid = cluster->cid;
-            xerrno = 0;
-    
-	    if (common_config.file_distribution_rule == rozofs_file_distribution_round_robin) {
-	      /* In round robin mode put the cluster to the end of the list */
-	      list_remove(&cluster->list);
-	      list_push_back(cluster_distribute, &cluster->list);
-	      break;
-	    }
-	    
-	    /*
-	    ** Decrease the estimated free size of the cluster
-	    */
-	    if (cluster->free >= (256*1024)) {
-	    
-	      cluster->free -= (256*1024);
-	      
-	      /*
-	      ** Re-order the clusters
-	      */
-	      while (1) {
-	      
-	        q = p->next;
+        *cid = cluster->cid;
+        xerrno = 0;
 
-		// This cluster is the last and so the smallest
-		if (q == cluster_distribute) break;
+	/* In round robin mode put the cluster to the end of the list */    
+	if (common_config.file_distribution_rule != rozofs_file_distribution_size_balancing){
+	  list_remove(&cluster->list);
+	  list_push_back(cluster_distribute, &cluster->list);
+	  break;
+	}
 
-		// Check against next cluster
-		next_cluster = list_entry(q, cluster_t, list);
-		if (cluster->free > next_cluster->free) break;
-						
-		// Next cluster has to be set before the current one		
-		q->prev       = p->prev;
-		q->prev->next = q;
-		p->next       = q->next;
-		p->next->prev = p;
-		q->next       = p;
-		p->prev       = q;
-	      }
-	    }
-            break;
-        }
+	/*
+	** In size equalizing, Re-order the clusters
+	*/	      
+	while (1) {
+
+	  q = p->next;
+
+	  // This cluster is the last and so the smallest
+	  if (q == cluster_distribute) break;
+
+	  // Check against next cluster
+	  next_cluster = list_entry(q, cluster_t, list);
+	  if (cluster->free > next_cluster->free) break;
+
+	  // Next cluster has to be set before the current one		
+	  q->prev       = p->prev;
+	  q->prev->next = q;
+	  p->next       = q->next;
+	  p->next->prev = p;
+	  q->next       = p;
+	  p->prev       = q;
+	}
+
+        break;
+      }
     }
-#if 0
-    if ((errno = pthread_rwlock_unlock(&volume->lock)) != 0) {
-        warning("can't unlock volume %u.", volume->vid);
-        goto out;
-    }
-#endif
     
     STOP_PROFILING(volume_distribute);
     errno = xerrno;

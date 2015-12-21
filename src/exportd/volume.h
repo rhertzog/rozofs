@@ -99,7 +99,8 @@ void cluster_release(cluster_t *cluster);
  */
 typedef struct volume {
     vid_t vid; ///< volume identifier
-    uint8_t layout;
+    uint8_t balanced:1; // Whether volume balance has already been called
+    uint8_t layout:7;
     uint8_t georep; /**< asserted to 1 when geo-replication is enabled */
     list_t clusters; ///< cluster(s) list
     pthread_rwlock_t lock; ///< lock to be used by export

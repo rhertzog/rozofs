@@ -62,8 +62,10 @@ char *pChar = uma_dbg_get_buffer();
   COMMON_CONFIG_SHOW_BOOL(numa_aware,False);
   pChar += rozofs_string_append(pChar,"// Number of slices in the STORIO.\n");
   COMMON_CONFIG_SHOW_INT_OPT(storio_slice_number,1024,"8:(32*1024)");
-  pChar += rozofs_string_append(pChar,"// File distribution mode upon cluster, storages and devices.\n");
-  pChar += rozofs_string_append(pChar,"// Check  rozofs_file_distribution_rule_e. \n");
+  pChar += rozofs_string_append(pChar,"// File distribution mode upon cluster, storages and devices. Check rozofs.conf manual.\n");
+  pChar += rozofs_string_append(pChar,"// 0 = size balancing\n");
+  pChar += rozofs_string_append(pChar,"// 1 = weigthed round robin\n");
+  pChar += rozofs_string_append(pChar,"// 2 = strict round robin \n");
   COMMON_CONFIG_SHOW_INT_OPT(file_distribution_rule,0,"rozofs_file_distribution_size_balancing:(rozofs_file_distribution_max-1)");
   pChar += rozofs_string_append(pChar,"// DSCP for exchanges from/to the STORIO.\n");
   COMMON_CONFIG_SHOW_INT_OPT(storio_dscp,46,"0:46");
@@ -187,8 +189,10 @@ static inline void common_config_generated_read(char * fname) {
   COMMON_CONFIG_READ_BOOL(numa_aware,False);
   // Number of slices in the STORIO. 
   COMMON_CONFIG_READ_INT_MINMAX(storio_slice_number,1024,8,(32*1024));
-  // File distribution mode upon cluster, storages and devices. 
-  // Check  rozofs_file_distribution_rule_e.  
+  // File distribution mode upon cluster, storages and devices. Check rozofs.conf manual. 
+  // 0 = size balancing 
+  // 1 = weigthed round robin 
+  // 2 = strict round robin  
   COMMON_CONFIG_READ_INT_MINMAX(file_distribution_rule,0,rozofs_file_distribution_size_balancing,(rozofs_file_distribution_max-1));
   // DSCP for exchanges from/to the STORIO. 
   COMMON_CONFIG_READ_INT_MINMAX(storio_dscp,46,0,46);
