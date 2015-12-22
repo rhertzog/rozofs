@@ -1556,13 +1556,13 @@ open:
     ** Writing the projections on a different size on disk
     */
     else {
-      struct iovec       vector[ROZOFS_MAX_BLOCK_PER_MSG+1]; 
+      struct iovec       vector[ROZOFS_MAX_BLOCK_PER_MSG]; 
       int                i;
       char *             pMsg;
       
-      if (nb_proj > (ROZOFS_MAX_BLOCK_PER_MSG+1)) {  
+      if (nb_proj > (ROZOFS_MAX_BLOCK_PER_MSG)) {  
         severe("storage_write more blocks than possible %d vs max %d",
-	        nb_proj,ROZOFS_MAX_BLOCK_PER_MSG+1);
+	        nb_proj,ROZOFS_MAX_BLOCK_PER_MSG);
         errno = ESPIPE;	
         goto out;
       }

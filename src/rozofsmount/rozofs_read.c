@@ -91,7 +91,7 @@ static int read_buf_nb(void *buffer_p,file_t * f, uint64_t off, char *buf, uint3
    int ret;
    int storcli_idx;
    int bbytes = ROZOFS_BSIZE_BYTES(exportclt.bsize);
-   int max_prj = ROZOFS_MAX_FILE_BUF_SZ_READ/bbytes;
+   int max_prj = ROZOFS_MAX_BLOCK_PER_MSG;
 
    // Nb. of the first block to read
    bid = off / bbytes;
