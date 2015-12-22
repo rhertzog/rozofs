@@ -234,6 +234,48 @@ typedef struct storage {
     storage_share_t            * share; // share memory between storaged and storio          
 } storage_t;
 
+/*_____________________________________________________________
+** Array of storages
+*/
+extern storage_t storaged_storages[];
+extern uint16_t  storaged_nrstorages;
+/*_____________________________________________________________
+** Retrieve the storage context from its CID and SID
+** @param cid    The clster identifier
+** @param sid    The storage identifier within this cluster
+** 
+** @retval the storage context or NULL when it does not exist
+*/
+static inline storage_t *storaged_lookup(cid_t cid, sid_t sid) {
+    storage_t *st = 0;
+    DEBUG_FUNCTION;
+
+    st = storaged_storages;
+    do {
+        if ((st->cid == cid) && (st->sid == sid))
+            goto out;
+    } while (st++ != storaged_storages + storaged_nrstorages);
+    errno = EINVAL;
+    st = 0;
+out:
+    return st;
+}
+/*_____________________________________________________________
+** Retrieve the next storage context 
+** @param st     The current storage context
+** 
+** @retval the next storage context or NULL when no more 
+*/
+static inline storage_t *storaged_next(storage_t * st) {
+    DEBUG_FUNCTION;
+
+    if (storaged_nrstorages == 0) return NULL;
+    if (st == NULL) return storaged_storages;
+
+    st++;
+    if (st < storaged_storages + storaged_nrstorages) return st;
+    return NULL;
+}
 /**
  *  Header structure for one file bins
  */
@@ -1245,6 +1287,70 @@ static inline void storio_pid_file(char * pidfile, char * storaged_hostname, int
   pidfile += rozofs_string_append(pidfile, ".pid");
 
 }
+
+/*
+*______________________________________________________________________
+* Create a directory, recursively creating all the directories on the path 
+* when they do not exist
+*
+* @param directory_path   The directory path
+* @param mode             The rights
+*
+* retval 0 on success -1 else
+*/
+static inline int mkpath(char * directory_path, mode_t mode) {
+  char* p;
+  int  isZero=1;
+  int  status = -1;
+    
+  p = directory_path;
+  p++; 
+  while (*p!=0) {
+  
+    while((*p!='/')&&(*p!=0)) p++;
+    
+    if (*p==0) {
+      isZero = 1;
+    }  
+    else {
+      isZero = 0;      
+      *p = 0;
+    }
+    
+    if (access(directory_path, F_OK) != 0) {
+      if (mkdir(directory_path, mode) != 0) {
+	severe("mkdir(%s) %s", directory_path, strerror(errno));
+        goto out;
+      }      
+    }
+    
+    if (isZero==0) {
+      *p ='/';
+      p++;
+    }       
+  }
+  status = 0;
+  
+out:
+  if (isZero==0) *p ='/';
+  return status;
+}
+/*
+** Create sub directories structure of a storage node
+**  
+** @param st    The storage context
+*/
+int storage_subdirectories_create(storage_t *st);
+/*
+ *_______________________________________________________________________
+ *
+ *  Try to mount the devices on the convenient path
+ *
+ * @param workDir   A directory to use to temporary mount the available 
+ *                  devices on in order to check their content.
+ * @param count     Returns the number of devices that have been mounted
+ */
+void storage_automount_devices(char * workDir, int * count);
 /*
 ** Reset memory log off encountered errors
 */
@@ -1252,5 +1358,6 @@ void storio_device_error_log_reset();
 
 
 uint32_t storio_device_mapping_allocate_device(storage_t * st);
+
 #endif
 

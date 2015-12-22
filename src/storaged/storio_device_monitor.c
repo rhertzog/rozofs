@@ -30,6 +30,7 @@
 #include <pthread.h> 
 #include <sys/wait.h>
 #include <dirent.h>
+#include <sys/mount.h>
  
 #include <rozofs/rozofs.h>
 #include <rozofs/common/log.h>
@@ -60,6 +61,7 @@ struct blkio_info {
 };
 
 uint32_t STORIO_DEVICE_PERIOD=3;
+uint32_t storio_next_automount_attempt=0;
 
 
 
@@ -371,7 +373,7 @@ int storio_check_expcted_mounted_device(storage_t   * st, int dev) {
     ret = sscanf(pep->d_name,"storage_c%d_s%d_%d",&cid, &sid, &device);
     if (ret != 3) continue;
     
-    if ((cid != st->cid) || (sid != st->sid) || (device != dev)) {
+    if ((cid != st->cid) || (sid != st->sid) || (device != dev)) {   
       status = -1;
     }
     else {
@@ -384,7 +386,14 @@ out:
 
   // Close directory
   if (dp) closedir(dp);
-  
+
+  if ((status == -1)&&(common_config.device_automount)) {
+    /* 
+    ** let's unmount the device that is not at the correct place
+    */
+    if (umount2(path,MNT_FORCE)==-1) {}    
+  } 
+    
   return status;  
 }  
 /*
@@ -537,6 +546,7 @@ void storio_device_monitor(uint32_t allow_disk_spin_down) {
   uint64_t      sameStatus=0;
   int           activity;
   int           relocate_allowed=0;
+  uint32_t      now = time(NULL);
        
   /*
   ** Loop on every storage managed by this storio
@@ -560,7 +570,7 @@ void storio_device_monitor(uint32_t allow_disk_spin_down) {
     else {
       
      if (st->selfHealing < 0) {
-	/* No self healing configured */
+	/* To speed up tests. Not for normal usage */
 	max_failures = 1;
       }
       else {    
@@ -584,7 +594,7 @@ void storio_device_monitor(uint32_t allow_disk_spin_down) {
     }  
     
     /*
-    ** Monitor errors on devices
+    ** Collect errors on devices
     */
     storio_device_monitor_error(st);
 
@@ -600,7 +610,56 @@ void storio_device_monitor(uint32_t allow_disk_spin_down) {
     */
     storage_read_disk_stats();  
     
+    /*
+    ** Check whether some devices need to be mounted or unmounted now
+    */
+    while (common_config.device_automount) {
+      int count=0; // Number of mounted devices
+      
+      if (storio_next_automount_attempt > now) break;
+      
+      /*
+      ** Loop on devices to find one that requires to be mounted
+      */
+      for (dev = 0; dev < st->device_number; dev++) {
+	if ((st->device_ctx[dev].diagnostic == DEV_DIAG_UNMOUNTED)
+	||  (st->device_ctx[dev].diagnostic == DEV_DIAG_INVERTED_DISK)) {
+	  char                     * p;
+	  char                       rozofs_storio_path[PATH_MAX];
+
+          /*
+	  ** Attempt to find the missing devices and to mount them
+	  */
+	  p = rozofs_storio_path;
+	  p += rozofs_string_append(p, st->root);
+	  p += rozofs_string_append(p, "/mnt_test");  
+          storage_automount_devices(rozofs_storio_path,&count);
 	  
+	  /*
+	  ** Mount has not been successfull. Let's retry later but not immediatly
+	  */
+	  if (count==0) {
+
+	    /* Next automount attempt in 3 minutes */
+	    storio_next_automount_attempt = now + 180; 
+
+	    if (st->selfHealing > 0) {
+	      /* Self healing is configured. Better retry before auto rebuild */
+	      storio_next_automount_attempt = now + 59;
+	    }
+	    break;
+	  } 
+	  
+	  /*
+	  ** Some device has been mounted. Create sub directory structure when needed.
+	  */
+          storage_subdirectories_create(st);	     
+          break;
+	}
+      }
+      break;
+    }
+        
     for (dev = 0; dev < st->device_number; dev++) {
 
       pDev = &st->device_ctx[dev];
@@ -632,7 +691,7 @@ void storio_device_monitor(uint32_t allow_disk_spin_down) {
       }
       else {
         activity = 1;
-	pDev->last_activity_time = time(NULL);
+	pDev->last_activity_time = now;
       }		
 
      

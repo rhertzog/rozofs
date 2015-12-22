@@ -67,8 +67,9 @@ sconfig_t   storaged_config;
 uint8_t prj_id_present[ROZOFS_SAFE_MAX];
 int         quiet=0;
 
-static storage_t storaged_storages[STORAGES_MAX_BY_STORAGE_NODE] = { { 0 } };
-static uint16_t storaged_nrstorages = 0;
+storage_t storaged_storages[STORAGES_MAX_BY_STORAGE_NODE] = { { 0 } };
+uint16_t storaged_nrstorages = 0;
+
 char                command[1];
 char              * fid2rebuild_string=NULL;
 uint8_t storio_nb_threads = 0;

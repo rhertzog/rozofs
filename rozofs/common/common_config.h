@@ -123,6 +123,12 @@ typedef struct _common_config_global_t {
   uint32_t    recycle_truncate_blocks;
   // Name of an executable file that the storaged should call at startup
   char *      storaged_start_script;
+  // Whether the storage has to automount the devices
+  uint32_t    device_automount;
+  // automount path where the devices should be mounted
+  char *      device_automount_path;
+  // Device mounting options
+  char *      device_automount_option;
 } common_config_t;
 
 extern common_config_t common_config;

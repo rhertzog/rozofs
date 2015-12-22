@@ -24,11 +24,17 @@ This parameter enables to choose the file distribution rule at file creation. Th
   The SIDs with the more available disk space are chosen within this cluster.
   The device with the more available disk space is chosen within a storio.
 .RE
-- 1 "round robin"
+- 1 "weighted round robin"
 .RS
-  The 1rst cluster in the cluster list is chosen and then put at the end of the list.
-  The cluster list is re-ordered in decreasing cluster available disk space order every 12s.
+  The clusters are selected in a round robin maner.
   The SIDs with the more available disk space are chosen within this cluster.
+  The devices are allocated in a round robin maner within a storio.
+  The clusters and storages are re-ordered in decreasing cluster and storage available disk space order every 12s.
+.RE
+- 2 "strict round robin"
+.RS
+  The clusters are selected in a round robin maner.
+  The SIDs are chosen in round robin maner.
   The devices are allocated in a round robin maner within a storio.
 .RE
 .RE	    

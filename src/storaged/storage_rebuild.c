@@ -74,9 +74,9 @@
 sconfig_t   storaged_config;
 
 
-static storage_t storaged_storages[STORAGES_MAX_BY_STORAGE_NODE] = { { 0 } };
+storage_t storaged_storages[STORAGES_MAX_BY_STORAGE_NODE] = { { 0 } };
+uint16_t  storaged_nrstorages = 0;
 
-static uint16_t storaged_nrstorages = 0;
 uint64_t        rb_fid_table_count=0;
 
 char            command[1024];
@@ -2865,30 +2865,7 @@ static void storaged_release() {
     }
 }
 
-storage_t *storaged_lookup(cid_t cid, sid_t sid) {
-    storage_t *st = 0;
-    DEBUG_FUNCTION;
 
-    st = storaged_storages;
-    do {
-        if ((st->cid == cid) && (st->sid == sid))
-            goto out;
-    } while (st++ != storaged_storages + storaged_nrstorages);
-    errno = EINVAL;
-    st = 0;
-out:
-    return st;
-}
-storage_t *storaged_next(storage_t * st) {
-    DEBUG_FUNCTION;
-
-    if (storaged_nrstorages == 0) return NULL;
-    if (st == NULL) return storaged_storages;
-
-    st++;
-    if (st < storaged_storages + storaged_nrstorages) return st;
-    return NULL;
-}
 static void on_stop() {
     DEBUG_FUNCTION;   
     

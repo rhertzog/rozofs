@@ -69,9 +69,10 @@ char storaged_config_file[PATH_MAX] = STORAGED_DEFAULT_CONFIG;
 
 sconfig_t storaged_config;
 
-static storage_t storaged_storages[STORAGES_MAX_BY_STORAGE_NODE] = {
+storage_t storaged_storages[STORAGES_MAX_BY_STORAGE_NODE] = {
     {0}
 };
+uint16_t storaged_nrstorages = 0;
 
 #define MAX_STORAGED_HOSTNAMES 32
 static char   storaged_hostname_buffer[512];
@@ -105,7 +106,7 @@ void parse_host_name(char * host) {
   pHostArray[nb_names++] = NULL;  
 }
 
-static uint16_t storaged_nrstorages = 0;
+
 
 
 extern void storage_program_1(struct svc_req *rqstp, SVCXPRT *ctl_svc);
@@ -157,30 +158,7 @@ out:
     return status;
 }
 
-storage_t *storaged_lookup(cid_t cid, sid_t sid) {
-    storage_t *st = 0;
-    DEBUG_FUNCTION;
 
-    st = storaged_storages;
-    do {
-        if ((st->cid == cid) && (st->sid == sid))
-            goto out;
-    } while (st++ != storaged_storages + storaged_nrstorages);
-    errno = EINVAL;
-    st = 0;
-out:
-    return st;
-}
-storage_t *storaged_next(storage_t * st) {
-    DEBUG_FUNCTION;
-
-    if (storaged_nrstorages == 0) return NULL;
-    if (st == NULL) return storaged_storages;
-
-    st++;
-    if (st < storaged_storages + storaged_nrstorages) return st;
-    return NULL;
-}
 
 char storage_process_filename[NAME_MAX];
 
@@ -337,6 +315,12 @@ int main(int argc, char *argv[]) {
         }
     }    
 
+    
+    /*
+    ** read common config file
+    */
+    common_config_read(NULL);    
+
     /*
     **  set the numa node for storio and its disk threads
     */
@@ -348,7 +332,6 @@ int main(int argc, char *argv[]) {
        int len = strlen(name);
        instance = (int)name[len-1];
        rozofs_numa_allocate_node(instance);
-
     }
     else
     {
@@ -357,6 +340,7 @@ int main(int argc, char *argv[]) {
     
     sprintf(logname,"storio:%d",storio_instance);
     uma_dbg_record_syslog_name(logname);
+    
         
     // Initialize the list of storage config
     if (sconfig_initialize(&storaged_config) != 0) {
@@ -370,12 +354,6 @@ int main(int argc, char *argv[]) {
     if (sconfig_validate(&storaged_config) != 0) {
         fatal( "Inconsistent storage configuration file: %s.\n",strerror(errno));
     }
-    
-    /*
-    ** read common config file
-    */
-    common_config_read(NULL);    
-    
     /*
     ** init of the crc32c
     */

@@ -144,7 +144,10 @@ class host_class:
     nexts=" "
     print "storages = ("
     for s in self.sid:
-      print "\t%s{cid = %s; sid = %s; root =\"%s\"; device-total = %s; device-mapper = %s; device-redundancy = %s;}"%(nexts,s.cid.cid,s.sid,s.get_root_path(self.number),s.cid.dev_total,s.cid.dev_mapper,s.cid.dev_red)
+      if rozofs.device_automount == True:
+        print "\t%s{cid = %s; sid = %s; device-total = %s; device-mapper = %s; device-redundancy = %s;}"%(nexts,s.cid.cid,s.sid,s.cid.dev_total,s.cid.dev_mapper,s.cid.dev_red)      
+      else:
+        print "\t%s{cid = %s; sid = %s; root =\"%s\"; device-total = %s; device-mapper = %s; device-redundancy = %s;}"%(nexts,s.cid.cid,s.sid,s.get_root_path(self.number),s.cid.dev_total,s.cid.dev_mapper,s.cid.dev_red)
       nexts=","
     print "); "
        
@@ -196,13 +199,21 @@ class sid_class:
     h.add_sid(self)    
        
   def get_root_path(self,host_number):
-    return "%s/storage_%s_%s_%s"%(rozofs.get_config_path(),host_number,self.cid.cid,self.sid)  
+    if rozofs.device_automount == True:
+      return "/srv/rozofs/storages/storage_c%s_s%s"%(self.cid.cid,self.sid)
+    else:   
+      return "%s/storage_%s_%s_%s"%(rozofs.get_config_path(),host_number,self.cid.cid,self.sid)  
 
   def get_site_root_path(self,site):
     if len(self.host) < (int(site)+1): return None
     return self.get_root_path(self.host[site].number)  
     
   def create_path(self):
+
+    if rozofs.device_automount == True: 
+      self.create_device("all")
+      return          
+
     for h in self.host:    
       root_path=self.get_root_path(h.number)   
       try:os.mkdir(root_path)
@@ -210,6 +221,11 @@ class sid_class:
       self.create_device("all")    
 
   def delete_path(self):
+
+    if rozofs.device_automount == True: 
+      try:self.delete_device("all")
+      except: pass  
+                
     for h in self.host:    
       try:self.delete_device("all")
       except: pass     
@@ -225,8 +241,12 @@ class sid_class:
     else:	
       self.delete_device_file(device)
       path=self.get_root_path(h.number)+"/%s"%(device) 
-      try: shutil.rmtree(path)
-      except: pass 
+      try: 
+        shutil.rmtree(path)
+	syslog.syslog("%s deleted"%(path))      
+      except: 
+	syslog.syslog("%s delete failed"%(path))      
+        pass 
     
   def get_device_file_path(self,site): 
     if len(self.host) < (int(site)+1): return None  
@@ -234,7 +254,9 @@ class sid_class:
  
 
   def mount_device_file(self,dev):
-    if rozofs.disk_size_mb == None: return  
+    
+    if rozofs.disk_size_mb == None: return 
+    if rozofs.device_automount == True: return
     
     if dev == "all":
       for dev in range(self.cid.dev_total): self.mount_device_file(dev)
@@ -269,11 +291,16 @@ class sid_class:
   def create_device_file(self,device):
   
     if rozofs.disk_size_mb == None: return
-
+    h = self.host[0] 
+        
     if device == "all":
       for dev in range(self.cid.dev_total): self.create_device_file(dev)
       return
+    
+    tmpdir="/tmp/setup"
+    cmd_system("mkdir -p %s"%(tmpdir))
           
+	  
     path=self.get_device_file_path(int(0)) 
     try: os.makedirs(path)
     except: pass 
@@ -281,7 +308,7 @@ class sid_class:
     if os.path.exists("%s/%s"%(path,device)): return
     cmd_system("dd if=/dev/zero of=%s/%s bs=1MB count=%s 2>&1"%(path,device,rozofs.disk_size_mb))
     for loop in range(1,128):
-      try:
+#      try:
 	string="losetup /dev/loop%s %s/%s "%(loop,path,device)
         parsed = shlex.split(string)
         cmd = subprocess.Popen(parsed, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -289,11 +316,18 @@ class sid_class:
 	if error == "":
 	  if rozofs.fstype == "ext4" :
 	    cmd_system("mkfs.ext4 -q /dev/loop%s"%(loop))
+            cmd_system("mount -t ext4 /dev/loop%s %s"%(loop,tmpdir))
 	  else:  
-	    cmd_system("mkfs.xfs -f -q /dev/loop%s"%(loop))	    
+	    cmd_system("mkfs.xfs -f -q /dev/loop%s"%(loop))
+            cmd_system("mount -t xfs /dev/loop%s %s"%(loop,tmpdir))      		
+          cmd_system("touch %s/storage_c%s_s%s_%s"%(tmpdir,self.cid.cid,self.sid,device))
+	  time.sleep(2)
+          cmd_system("umount %s"%(tmpdir))	  
+          cmd_system("umount -f %s"%(tmpdir))
+          print "%s/%s -> /dev/loop%s -> %s/%s"%(path,device,loop,self.get_root_path(h.number),device)	  
 	  return
-      except: 
-        continue      
+#      except: 
+#        continue      
     print "Can not find /dev/loop for %s/%s"%(path,device)
 
   def delete_device_file(self,device):
@@ -325,8 +359,11 @@ class sid_class:
     h = self.host[0]   
     if device == "all":
       for dev in range(self.cid.dev_total): self.create_device(dev)
-    else:      
+    else:
+          
       self.create_device_file(device)
+      if rozofs.device_automount == True: return
+      
       path=self.get_root_path(h.number)+"/%s"%(device)   
       try: os.makedirs(path)
       except: pass 
@@ -722,6 +759,10 @@ class exportd_class:
     if pid == 0: self.start_exportd()
     cmd_system("kill -HUP %s"%(pid))
 
+  def reload(self):
+    pid=self.pid()
+    cmd_system("kill -1 %s"%(pid))
+    
   def process(self,opt):
     pid = self.pid()
     if pid != 0: 
@@ -903,7 +944,9 @@ class rozofs_class:
     self.trash_threshold = 10
     self.alloc_mb = None
     self.storaged_start_script = None
+    self.device_automount = False
   
+  def set_device_automount(self): self.device_automount = True
   def set_storaged_start_script(self,storaged_start_script):
     self.storaged_start_script = storaged_start_script
   def set_alloc_mb(self,alloc_mb): self.alloc_mb = alloc_mb    
@@ -933,7 +976,8 @@ class rozofs_class:
   def set_ext4(self,mb):
     self.fstype = "ext4"
     self.disk_size_mb = mb
-  
+    self.set_device_automount()
+    
   def get_config_path(self):
     path = "%s/SIMU"%(os.getcwd())
     if not os.path.exists(path): os.makedirs(path)
@@ -988,6 +1032,7 @@ class rozofs_class:
       print "trash_high_threshold = %s;"%(self.trash_threshold)
     if self.alloc_mb != None: print "alloc_estimated_mb   = %s;"%(self.alloc_mb)
     if self.storaged_start_script != None: print "storaged_start_script = \"%s\";"%(self.storaged_start_script)
+    if self.device_automount == True: print "device_automount = True;"
 
   def create_common_config(self):
     save_stdout = sys.stdout
@@ -1048,7 +1093,7 @@ class rozofs_class:
     for v in volumes: v.delete_path()
 
   def resume(self):
-    self.create_config()  
+#    self.create_config()  
     check_build()  
     for h in hosts: h.start()
     exportd.start()
@@ -1058,6 +1103,7 @@ class rozofs_class:
   def start(self):  
     self.stop()
     self.create_path()
+    self.create_config()    
     self.resume()
     
   def pause(self):
@@ -1067,10 +1113,11 @@ class rozofs_class:
     exportd.stop() 
     time.sleep(1)
     cmd_system("killall rozolauncher 2>/dev/null")
-    self.delete_config()
+#    self.delete_config()
 
   def stop(self):
     self.pause()
+    self.delete_config()
     for h in hosts: h.del_if()
     self.delete_path()
         
@@ -1478,6 +1525,7 @@ def test_parse(command, argv):
        if argv[2] == "start"       : exportd.start()     
        if argv[2] == "reset"       : exportd.reset() 
        if argv[2] == "pid"         : exportd.process('-ap') 
+       if argv[2] == "reload"      : exportd.reload() 
 
   elif command == "geomgr"             :
        if len(argv) <= 2: syntax("geomgr requires an action","geomgr")  

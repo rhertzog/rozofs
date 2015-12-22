@@ -38,6 +38,8 @@
 #include <limits.h>
 #include <unistd.h>
 #include <netdb.h>
+#include <dirent.h>
+#include <sys/mount.h>
 
 #include <rozofs/rozofs_srv.h>
 #include <rozofs/common/log.h>
@@ -74,7 +76,8 @@ static char storaged_config_file[PATH_MAX] = STORAGED_DEFAULT_CONFIG;
 
 sconfig_t storaged_config;
 
-static storage_t storaged_storages[STORAGES_MAX_BY_STORAGE_NODE] = { { 0 } };
+storage_t storaged_storages[STORAGES_MAX_BY_STORAGE_NODE] = { { 0 } };
+uint16_t  storaged_nrstorages = 0;
 
 #define MAX_STORAGED_HOSTNAMES 32
 static char   storaged_hostname_buffer[512];
@@ -108,8 +111,6 @@ void parse_host_name(char * host) {
   pHostArray[nb_names++] = NULL;  
 }
 
-
-static uint16_t storaged_nrstorages = 0;
 
 static SVCXPRT *storaged_monitoring_svc = 0;
 
@@ -165,50 +166,6 @@ uint32_t storio_device_mapping_allocate_device(storage_t * st) {
   severe("storaged should not call storio_device_mapping_allocate_device");
   return -1;
 }
-#if 0
-static void storaged_release() {
-    DEBUG_FUNCTION;
-    int i;
-    list_t *p, *q;
-
-    for (i = 0; i < storaged_nrstorages; i++) {
-        storage_release(&storaged_storages[i]);
-    }
-    storaged_nrstorages = 0;
-
-    // Free config
-
-    list_for_each_forward_safe(p, q, &storaged_config.storages) {
-
-        storage_config_t *s = list_entry(p, storage_config_t, list);
-        free(s);
-    }
-}
-#endif
-storage_t *storaged_lookup(cid_t cid, sid_t sid) {
-    storage_t *st = 0;
-    DEBUG_FUNCTION;
-
-    st = storaged_storages;
-    do {
-        if ((st->cid == cid) && (st->sid == sid))
-            goto out;
-    } while (st++ != storaged_storages + storaged_nrstorages);
-    errno = EINVAL;
-    st = 0;
-out:
-    return st;
-}
-storage_t *storaged_next(storage_t * st) {
-    DEBUG_FUNCTION;
-
-    if (storaged_nrstorages == 0) return NULL;
-    if (st == NULL) return storaged_storages;
-
-    st++;
-    if (st < storaged_storages + storaged_nrstorages) return st;
-    return NULL;
-}
 
 
 pid_t session_id=0;
@@ -231,6 +188,34 @@ static void on_stop() {
     rozofs_session_leader_killer(300000);
 }
 
+
+
+/*
+**____________________________________________________
+*/
+/*
+  Mount devices if automount is configured
+*/
+void storaged_automount_devices() {
+  char                     * p;
+  char                       rozofs_storaged_path[PATH_MAX];
+  int                        count;
+  
+  if (!common_config.device_automount) return;
+
+  p = rozofs_storaged_path;
+  p += rozofs_string_append(p, common_config.device_automount_path);
+  p += rozofs_string_append(p, "/storaged");
+  if (pHostArray[0] != NULL) {
+    p += rozofs_string_append (p, "_");
+    p += rozofs_string_append (p, pHostArray[0]);
+  }
+
+  /*
+  ** Try to mount the devices
+  */
+  storage_automount_devices(rozofs_storaged_path,&count);  
+}
 char storage_process_filename[NAME_MAX];
 
 static void on_start() {
@@ -288,7 +273,8 @@ static void on_start() {
         memset(p,0,size);
       }
     }
-    
+
+    storaged_automount_devices();       
     
     conf.nb_storio = 0;
     /*
@@ -467,6 +453,12 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    
+    /*
+    ** read common config file
+    */
+    common_config_read(NULL);    
+
     // Initialize the list of storage config
     sconfig_initialize(&storaged_config);
     
@@ -480,11 +472,6 @@ int main(int argc, char *argv[]) {
         severe("Inconsistent storage configuration file: %s.\n",strerror(errno));
         goto error;
     }
-    
-    /*
-    ** read common config file
-    */
-    common_config_read(NULL);    
 
     /*
     ** If any startup script has to be called, call it now

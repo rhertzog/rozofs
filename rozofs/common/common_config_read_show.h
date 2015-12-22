@@ -93,7 +93,7 @@ char *pChar = uma_dbg_get_buffer();
   pChar += rozofs_string_append(pChar,"// Support of deleted directory/file versioning.\n");
   COMMON_CONFIG_SHOW_BOOL(export_versioning,False);
   pChar += rozofs_string_append(pChar,"// Number of MB to account a file for during file distribution phase\n");
-  COMMON_CONFIG_SHOW_INT(alloc_estimated_mb,32);
+  COMMON_CONFIG_SHOW_INT(alloc_estimated_mb,1);
   pChar += rozofs_string_append(pChar,"// Delay from which a rozofsmoun client is declared disconnected and its \n");
   pChar += rozofs_string_append(pChar,"// file locks are automatically removed\n");
   COMMON_CONFIG_SHOW_INT_OPT(client_flock_timeout,30,"15:600");
@@ -143,6 +143,12 @@ char *pChar = uma_dbg_get_buffer();
   COMMON_CONFIG_SHOW_INT(recycle_truncate_blocks,0);
   pChar += rozofs_string_append(pChar,"// Name of an executable file that the storaged should call at startup\n");
   COMMON_CONFIG_SHOW_STRING(storaged_start_script,"");
+  pChar += rozofs_string_append(pChar,"// Whether the storage has to automount the devices\n");
+  COMMON_CONFIG_SHOW_BOOL(device_automount,False);
+  pChar += rozofs_string_append(pChar,"// automount path where the devices should be mounted\n");
+  COMMON_CONFIG_SHOW_STRING(device_automount_path,"/srv/rozofs/storages");
+  pChar += rozofs_string_append(pChar,"// Device mounting options\n");
+  COMMON_CONFIG_SHOW_STRING(device_automount_option,"");
 
   uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
   return;
@@ -216,7 +222,7 @@ static inline void common_config_generated_read(char * fname) {
   // Support of deleted directory/file versioning. 
   COMMON_CONFIG_READ_BOOL(export_versioning,False);
   // Number of MB to account a file for during file distribution phase 
-  COMMON_CONFIG_READ_INT(alloc_estimated_mb,32);
+  COMMON_CONFIG_READ_INT(alloc_estimated_mb,1);
   // Delay from which a rozofsmoun client is declared disconnected and its  
   // file locks are automatically removed 
   COMMON_CONFIG_READ_INT_MINMAX(client_flock_timeout,30,15,600);
@@ -258,6 +264,12 @@ static inline void common_config_generated_read(char * fname) {
   COMMON_CONFIG_READ_INT(recycle_truncate_blocks,0);
   // Name of an executable file that the storaged should call at startup 
   COMMON_CONFIG_READ_STRING(storaged_start_script,"");
+  // Whether the storage has to automount the devices 
+  COMMON_CONFIG_READ_BOOL(device_automount,False);
+  // automount path where the devices should be mounted 
+  COMMON_CONFIG_READ_STRING(device_automount_path,"/srv/rozofs/storages");
+  // Device mounting options 
+  COMMON_CONFIG_READ_STRING(device_automount_option,"");
  
   config_destroy(&cfg);
 }

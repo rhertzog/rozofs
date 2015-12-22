@@ -35,6 +35,12 @@
 
 #include "sconfig.h"
 
+
+
+
+
+
+
 /* Settings names for storage configuration file */
 #define SSTORAGES   "storages"
 #define SSID	    "sid"
@@ -220,6 +226,7 @@ int sconfig_read(sconfig_t *config, const char *fname, int cluster_id) {
         long int cid;
 #endif
         const char *root = 0;
+	char       rootPath[PATH_MAX];
 
         if (!(ms = config_setting_get_elem(stor_settings, i))) {
             errno = ENOKEY;
@@ -243,21 +250,6 @@ int sconfig_read(sconfig_t *config, const char *fname, int cluster_id) {
 	** Only keep the clusters we take care of
 	*/
 	if ((cluster_id!=0)&&(cluster_id!=cid)) continue;
-	
-
-        if (config_setting_lookup_string(ms, SROOT, &root) == CONFIG_FALSE) {
-            errno = ENOKEY;
-            severe("can't lookup root path for storage %d.", i);
-            goto out;
-        }
-
-        // Check root path length
-        if (strlen(root) > PATH_MAX) {
-            errno = ENAMETOOLONG;
-            severe("root path for storage %d must be lower than %d.", i,
-                    PATH_MAX);
-            goto out;
-        }
 
 	/*
 	** Device configuration
@@ -281,6 +273,80 @@ int sconfig_read(sconfig_t *config, const char *fname, int cluster_id) {
 	if (!config_setting_lookup_int(ms, SDEV_RED, &redundancy)) {
 	  redundancy = 2;
 	}
+
+	
+	/*
+	** When automount is configured, do not get the root path from 
+	** storage.conf but deduce it from the common_config,
+	** and create the directories to mount devices on.
+	*/
+	if (common_config.device_automount) {
+	
+	  char * p = rootPath;
+	  p += rozofs_string_append(p, common_config.device_automount_path);
+	  *p++ = '/';
+	  p += rozofs_string_append(p, "storage_c");
+	  p += rozofs_u32_append(p, cid);
+	  p += rozofs_string_append(p, "_s");	
+	  p += rozofs_u32_append(p, sid);
+	  
+	  root = rootPath;
+	  	  
+	  /*
+	  ** Create directory if it does not yet exist
+	  */
+	  if (access(root, F_OK) != 0) {	  
+	    mkpath ((char*)root,S_IRUSR | S_IWUSR | S_IXUSR);
+	  }  
+
+	  /*
+	  ** Create every device directory
+	  */
+	  int idx;
+	  for (idx=0; idx<devices; idx++) {
+	    char devicePath[PATH_MAX];
+	    p = devicePath;
+	    p += rozofs_string_append(p,rootPath);
+  	    *p++ = '/';
+	    p += rozofs_u32_append(p,idx);
+	    if (access(devicePath, F_OK) != 0) {
+	      /*
+	      ** Create directory
+	      */
+	      if (mkdir (devicePath,S_IRUSR | S_IWUSR | S_IXUSR) == -1) {
+		severe("mkdir(%s) %s", devicePath, strerror(errno));
+	      }	 
+	      /*
+	      ** Create X empty file while the device is not yet mounted
+	      */
+	      p += rozofs_string_append(p,"/X");
+	      int fd = open(devicePath, O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IXUSR);
+	      if (fd <= 0) {
+		severe("open(%s) %s", devicePath, strerror(errno));	      
+	      }  
+	      else {
+	        close(fd);
+	      }
+	    }
+	  }
+	}
+	else {
+
+          if (config_setting_lookup_string(ms, SROOT, &root) == CONFIG_FALSE) {
+              errno = ENOKEY;
+              severe("can't lookup root path for storage %d.", i);
+              goto out;
+          }
+        }
+	
+        // Check root path length
+        if (strlen(root) > PATH_MAX) {
+            errno = ENAMETOOLONG;
+            severe("root path for storage %d must be lower than %d.", i,
+                    PATH_MAX);
+            goto out;
+        }
+
 
         new = xmalloc(sizeof (storage_config_t));
         if (storage_config_initialize(new, (cid_t) cid, (sid_t) sid,

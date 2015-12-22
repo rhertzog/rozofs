@@ -33,6 +33,7 @@
 #include <glob.h>
 #include <fnmatch.h>
 #include <dirent.h>
+#include <sys/mount.h>
 
 #include <rozofs/rozofs.h>
 #include <rozofs/common/log.h>
@@ -46,8 +47,6 @@
 #include "storio_device_mapping.h"
 #include "storio_device_mapping.h"
 #include "storio_crc32.h"
-
-
 
 
 /*
@@ -1075,12 +1074,132 @@ static inline storage_dev_map_distribution_write_ret_e
     */   
     return MAP_COPY2CACHE;            
 }
+/*
+** Create sub directories structure of a storage node
+**  
+** @param st    The storage context
+*/
+int storage_subdirectories_create(storage_t *st) {
+  int status = -1;
+  char path[FILENAME_MAX];
+  struct stat s;
+  int dev;
+  char * pChar, * pChar2;
 
+
+  // sanity checks
+  if (stat(st->root, &s) != 0) {
+      severe("can not stat %s",st->root);
+      goto out;
+  }
+
+  if (!S_ISDIR(s.st_mode)) {
+      errno = ENOTDIR;
+      goto out;
+  }		
+
+  for (dev=0; dev < st->device_number; dev++) {		
+
+
+      // sanity checks
+      pChar = path;
+      pChar += rozofs_string_append(pChar,st->root);
+      *pChar++ = '/';
+      pChar += rozofs_u32_append(pChar,dev);
+
+      if (stat(path, &s) != 0) {
+	  continue;
+      }
+
+      if (!S_ISDIR(s.st_mode)) {
+          severe("Not a directory %s",path);
+          errno = ENOTDIR;
+	  continue;
+      }
+
+      /*
+      ** Check whether a X file is present. This means that the device is not
+      ** mounted, so no need to create subdirectories.
+      */
+      pChar2 = pChar;
+      pChar2 += rozofs_string_append(pChar2,"/X");
+      if (access(path, F_OK) == 0) {
+          // device not mounted
+	  continue;
+      }
+
+      /*
+      ** Build 2nd level directories
+      */
+      pChar2 = pChar;
+      pChar2 += rozofs_string_append(pChar2,"/hdr_0/");
+      if (access(path, F_OK) != 0) {
+        if (storage_create_dir(path) < 0) {
+          severe("%s creation %s",path, strerror(errno));
+        }
+	int slice;
+	for (slice = 0; slice < (common_config.storio_slice_number); slice++) {
+	  rozofs_u32_append(pChar2,slice);
+          if (storage_create_dir(path) < 0) {
+            severe("%s creation %s",path, strerror(errno));
+          }	    
+	}
+      }  
+
+      pChar2 = pChar;
+      pChar2 += rozofs_string_append(pChar2,"/hdr_1/");
+      if (access(path, F_OK) != 0) {
+        if (storage_create_dir(path) < 0) {
+          severe("%s creation %s",path, strerror(errno));
+        }	
+	int slice;
+	for (slice = 0; slice < (common_config.storio_slice_number); slice++) {
+	  rozofs_u32_append(pChar2,slice);	  
+          if (storage_create_dir(path) < 0) {
+            severe("%s creation %s",path, strerror(errno));
+          }	    
+	}
+      } 
+
+      pChar2 = pChar;	
+      pChar2 += rozofs_string_append(pChar2,"/bins_0/");
+      if (access(path, F_OK) != 0) {
+        if (storage_create_dir(path) < 0) {
+          severe("%s creation %s",path, strerror(errno));
+        }	
+	int slice;
+	for (slice = 0; slice < (common_config.storio_slice_number); slice++) {
+	  rozofs_u32_append(pChar2,slice);	 
+          if (storage_create_dir(path) < 0) {
+            severe("%s creation %s",path, strerror(errno));
+          }	    
+	}
+      } 
+
+      pChar2 = pChar;		
+      pChar2 += rozofs_string_append(pChar2,"/bins_1/");
+      if (access(path, F_OK) != 0) {
+        if (storage_create_dir(path) < 0) {
+          severe("%s creation %s",path, strerror(errno));
+        }	
+	int slice;
+	for (slice = 0; slice < (common_config.storio_slice_number); slice++) {
+	  rozofs_u32_append(pChar2,slice);	 
+          if (storage_create_dir(path) < 0) {
+            severe("%s creation %s",path, strerror(errno));
+          }	    
+	} 
+      } 	
+  }
+
+  status = 0;
+out:
+  return status;
+}
 /*
 ** 
-  @param device_number: number of device handled by the sid
-  @param mapper_modulo: number of device to hold mapping file
-  @param mapper_redundancy: number of mapping file instance to write per FID
+** Initialize the storage context and create the subdirectory structure 
+** if not yet done
 **  
 */
 int storage_initialize(storage_t *st, 
@@ -1093,10 +1212,7 @@ int storage_initialize(storage_t *st,
 		       int      selfHealing,
 		       char   * export_hosts) {
     int status = -1;
-    char path[FILENAME_MAX];
-    struct stat s;
     int dev;
-    char * pChar, * pChar2;
 
     DEBUG_FUNCTION;
 
@@ -1138,102 +1254,10 @@ int storage_initialize(storage_t *st,
 
     memset(&st->device_errors , 0,sizeof(st->device_errors));        
 	    
-    // sanity checks
-    if (stat(st->root, &s) != 0) {
-        severe("can not stat %s",st->root);
-        goto out;
-    }
-
-    if (!S_ISDIR(s.st_mode)) {
-        errno = ENOTDIR;
-        goto out;
-    }		
-        	
-    for (dev=0; dev < st->device_number; dev++) {		
-	
-
-	// sanity checks
-	pChar = path;
-	pChar += rozofs_string_append(pChar,st->root);
-	*pChar++ = '/';
-	pChar += rozofs_u32_append(pChar,dev);
-
-	if (stat(path, &s) != 0) {
-            severe("can not stat %s",path);
-	    continue;
-	}
-	    
-	if (!S_ISDIR(s.st_mode)) {
-            severe("can not stat %s",path);
-            errno = ENOTDIR;
-            goto out;
-	}
-
-        /*
-	** Build 2nd level directories
-	*/
-        pChar2 = pChar;
-	pChar2 += rozofs_string_append(pChar2,"/hdr_0/");
-        if (access(path, F_OK) != 0) {
-          if (storage_create_dir(path) < 0) {
-            severe("%s creation %s",path, strerror(errno));
-          }
-	  int slice;
-	  for (slice = 0; slice < (common_config.storio_slice_number); slice++) {
-	    rozofs_u32_append(pChar2,slice);
-            if (storage_create_dir(path) < 0) {
-              severe("%s creation %s",path, strerror(errno));
-            }	    
-	  }
-	}  
-	
-        pChar2 = pChar;
-	pChar2 += rozofs_string_append(pChar2,"/hdr_1/");
-        if (access(path, F_OK) != 0) {
-          if (storage_create_dir(path) < 0) {
-            severe("%s creation %s",path, strerror(errno));
-          }	
-	  int slice;
-	  for (slice = 0; slice < (common_config.storio_slice_number); slice++) {
-	    rozofs_u32_append(pChar2,slice);	  
-            if (storage_create_dir(path) < 0) {
-              severe("%s creation %s",path, strerror(errno));
-            }	    
-	  }
-	} 
-	
-        pChar2 = pChar;	
-	pChar2 += rozofs_string_append(pChar2,"/bins_0/");
-        if (access(path, F_OK) != 0) {
-          if (storage_create_dir(path) < 0) {
-            severe("%s creation %s",path, strerror(errno));
-          }	
-	  int slice;
-	  for (slice = 0; slice < (common_config.storio_slice_number); slice++) {
-	    rozofs_u32_append(pChar2,slice);	 
-            if (storage_create_dir(path) < 0) {
-              severe("%s creation %s",path, strerror(errno));
-            }	    
-	  }
-	} 
-
-        pChar2 = pChar;		
-	pChar2 += rozofs_string_append(pChar2,"/bins_1/");
-        if (access(path, F_OK) != 0) {
-          if (storage_create_dir(path) < 0) {
-            severe("%s creation %s",path, strerror(errno));
-          }	
-	  int slice;
-	  for (slice = 0; slice < (common_config.storio_slice_number); slice++) {
-	    rozofs_u32_append(pChar2,slice);	 
-            if (storage_create_dir(path) < 0) {
-              severe("%s creation %s",path, strerror(errno));
-            }	    
-	  } 
-	} 	
-    }
     st->sid = sid;
     st->cid = cid;
+
+    storage_subdirectories_create(st);
 
     status = 0;
 out:
@@ -2674,4 +2698,245 @@ out:
 
     return status;
 }
+/*
+ *_______________________________________________________________________
+ *
+ *  Try to mount the devices on the convenient path
+ *
+ * @param workDir   A directory to use to temporary mount the available 
+ *                  devices on in order to check their content.
+ * @param count     Returns the number of devices that have been mounted
+ */
+void storage_automount_devices(char * workDir, int * count) {
+  char            cmd[512];
+  char            fdevice[128];
+  char          * line;
+  FILE          * fp=NULL;
+  size_t          len;
+  char            devName[64];
+  char            FStype[16];
+  char          * pMount;
+  DIR           * dp = NULL;
+  int             cid,sid,device; 
+  storage_t     * st;
+  char          * pt, * pt2;
+  int             ret;
+  struct dirent   ep;
+  struct dirent * pep; 
+      
+  *count = 0;
+      
+  /*
+  ** Create the working directory to mount the devices on
+  */
+  if (access(workDir,F_OK)!=0) {
+    if (mkpath(workDir,S_IRUSR | S_IWUSR | S_IXUSR)!=0) {
+      severe("mkpath(%s) %s", workDir, strerror(errno));
+      return;
+    }
+  }
 
+  /*
+  ** Unmount the working directory, just in case
+  */
+  if (umount2(workDir,MNT_FORCE)==-1) {}    
+      
+  /*
+  ** Build the list of block devices available on the system
+  */  
+  pt = fdevice;
+  pt += rozofs_string_append(pt,workDir);
+  pt += rozofs_string_append(pt,".dev");
+  
+  pt = cmd;
+  pt += rozofs_string_append(pt,"lsblk -ro KNAME,FSTYPE,MOUNTPOINT | awk '{print $1\":\"$2\":\"$3;}' > ");
+  pt += rozofs_string_append(pt,fdevice);
+  if (system(cmd)==0) {}
+  
+  /*
+  ** Open result file
+  */
+  fp = fopen(fdevice,"r");
+  if (fp == NULL) {
+    severe("fopen(%s) %s", fdevice, strerror(errno)); 
+    return;   
+  }
+  
+  /*
+  ** Loop on unmounted devices to check whether they are
+  ** dedicated to some RozoFS device usage
+  */
+  line = NULL;
+  while (getline(&line, &len, fp) != -1) {
+
+    /*
+    ** Unmount the working directory 
+    */
+    if (umount2(workDir,MNT_FORCE)==-1) {}
+        
+    /*
+    ** Get device name from the result file
+    */
+    pt  = line;
+    while ((*pt!=0)&&(*pt!=':')) pt++;
+    if (*pt == 0) {
+      free(line);
+      line = NULL;
+      continue;
+    }
+    *pt = 0;
+
+    /* 
+    ** Recopy device name 
+    */
+    sprintf(devName,"/dev/%s",line);
+
+
+    pt++;
+    pt2 = pt; // Save starting of FS type string    
+ 
+    /*
+    ** Get FS type from the result file
+    */    
+    while ((*pt!=0)&&(*pt!=':')) pt++;
+    if (*pt == 0) {
+      // Bad line !!!
+      free(line);
+      line = NULL;
+      continue;
+    }   
+    *pt = 0;
+
+
+    /* 
+    ** Recopy the FS type
+    */
+    strcpy(FStype,pt2);
+    if ((strcmp(FStype,"ext4")!=0) && (strcmp(FStype,"xfs")!=0)){
+      free(line);
+      line = NULL;
+      continue;
+    }  
+      
+    /*
+    ** Get the mountpoint name from the result file
+    */
+    pt++;
+    pMount = pt;
+    while ((*pt!=0)&&(*pt!='\n')&&(*pt!=':')) pt++;    
+    *pt = 0;
+
+    /*
+    ** Check file system is not yet mounted
+    */
+    if (*pMount != 0) {
+      free(line);
+      line = NULL;
+      continue;
+    }
+    
+    free(line);
+    line = NULL;
+                
+    /*
+    ** Mount the file system on the working directory
+    */
+    ret = mount(devName, 
+                workDir, 
+                FStype, 
+		MS_NOATIME | MS_NODIRATIME , 
+		common_config.device_automount_option);
+    if (ret != 0) {
+      severe("mount(%s,%s,%s) %s",
+              devName,workDir,common_config.device_automount_option,
+	      strerror(errno));
+      continue;
+    }
+    /*
+    ** Open mounted device
+    */
+    if (!(dp = opendir(workDir))) {
+      severe("opendir(%s) %s",workDir,strerror(errno));
+      continue;
+    }
+  
+    /*
+    ** Look for the cid/sid/dev mark file
+    */
+    cid = 0;
+    while (readdir_r(dp,&ep,&pep) == 0) {
+         
+      /*
+      ** end of directory
+      */
+      if (pep == NULL) break;
+
+      /*
+      ** Check whether this is a mark file
+      */
+      int ret = sscanf(pep->d_name,"storage_c%d_s%d_%d",&cid, &sid, &device);
+      if (ret == 3) break; // have found a mark file
+    }  
+          
+    /*
+    ** Close directory
+    */ 
+    if (dp) {
+      closedir(dp);
+      dp = NULL;
+    }   
+  
+    /*
+    ** unmount directory to remount it at the convenient place
+    */
+    if (umount2(workDir,MNT_FORCE)==-1) {}
+
+    /*
+    ** Check we are involved in this storage
+    */
+    st = storaged_lookup(cid, sid);
+    if (st == NULL) continue; // not mine
+
+    /*
+    ** Remount the device at the right place
+    */
+    pt = cmd;
+    pt += rozofs_string_append(pt,st->root);
+    *pt++ = '/';
+    pt += rozofs_u32_append(pt,device);
+
+    ret = mount(devName, 
+                cmd, 
+		FStype, 
+		MS_NOATIME | MS_NODIRATIME ,
+		common_config.device_automount_option);
+    if (ret != 0) {
+      severe("mount(%s,%s,%s) %s",
+              devName,cmd,common_config.device_automount_option, 
+	      strerror(errno));
+      continue;
+    }
+    *count += 1;    	
+    info("%s mounted on %s",devName,cmd);
+  }
+ 
+  
+  /*
+  ** Close device file list
+  */   
+  if (fp) {
+    fclose(fp);
+    fp = NULL;
+  }  
+  unlink(fdevice);
+
+  /*
+  ** Unmount the directory
+  */
+  if (umount2(workDir,MNT_FORCE)==-1) {}
+  
+  /*
+  ** Remove working directory
+  */
+  if (rmdir(workDir)==-1) {}
+}

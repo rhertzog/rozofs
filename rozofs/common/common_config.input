@@ -82,9 +82,15 @@ BOOL	client rozofsmount_fuse_reply_thread	False
 // Support of deleted directory/file versioning.
 BOOL    export export_versioning 		False     
 // Number of MB to account a file for during file distribution phase
-INT   	export alloc_estimated_mb		32
+INT   	export alloc_estimated_mb		1
 // Name of an executable file that the storaged should call at startup
 STRING	storage	storaged_start_script		""
 // Delay from which a rozofsmoun client is declared disconnected and its 
 // file locks are automatically removed
 INT   	export client_flock_timeout		30  15:600
+// Whether the storage has to automount the devices
+BOOL	storage device_automount 		False
+// automount path where the devices should be mounted
+STRING  storage	device_automount_path           "/srv/rozofs/storages"
+// Device mounting options
+STRING  storage device_automount_option 	""
