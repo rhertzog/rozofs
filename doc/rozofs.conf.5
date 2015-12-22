@@ -13,7 +13,7 @@ is managed thanks to
 grammar.
 
 .SS numa_aware
-That boolean (true or false) enables to take into account the NUMA architecture of the board in order to collocate some RozoFS modules on a same node. This may improve the inter process communication performance. 
+That boolean (True or False) enables to take into account the NUMA architecture of the board in order to collocate some RozoFS modules on a same node. This may improve the inter process communication performance. 
 
 .SS file_distribution_rule
 This parameter enables to choose the file distribution rule at file creation. The following rules are defined:
@@ -60,13 +60,13 @@ Specifies if storaged starts one or multiple storio process(es).
 Specifies the number of threads within the STORIO process that can operate the disk read/write.
 
 .SS crc32c_check
-Boolean (true or false) indicating if a check (thanks to CRC error detecting code) will be used for detecting accidental changes to raw data.
+Boolean (True or False) indicating if a check (thanks to CRC error detecting code) will be used for detecting accidental changes to raw data.
 
 .SS crc32c_generate
-Boolean (true or false) indicating if a checksum must be generated (thanks to CRC error detecting code) for each write request.
+Boolean (True or False) indicating if a checksum must be generated (thanks to CRC error detecting code) for each write request.
 
 .SS crc32c_hw_forced
-That boolean (true or false) can be asserted if the information reported by cpuid does not indicates that hardware CRC is supported whilst the current CPU supports it.
+That boolean (True or False) can be asserted if the information reported by cpuid does not indicates that hardware CRC is supported whilst the current CPU supports it.
 This might be the case with VirtualBox.
 
 .SS disk_usage_threshold
@@ -76,7 +76,7 @@ when set to non zero value, the storios log a warning when the average read dela
 .SS disk_write_threshold
 when set to non zero value, the storios log a warning when the average write delay on a device is over or equal to this limit in micro seconds.
 .SS fid_recycle
-Boolean (true or false). When set to TRUE, RozoFS starts recycling the FID upon file deletion. The threshold for which the FID recycling starts can be also
+Boolean (True or False). When set to TRUE, RozoFS starts recycling the FID upon file deletion. The threshold for which the FID recycling starts can be also
 configured within the 
 .B rozofs.conf 
 file .
@@ -86,7 +86,7 @@ When
 is set to TRUE, that parameter provides the threshold for which the FID recycling starts  .
 
 .SS wr_ack_on_inverse
-Boolean (true or false). When set to TRUE, RozoFS acknowledges a write request once a count of inverse projections have been successfully written. Otherwise, by default
+Boolean (True or False). When set to TRUE, RozoFS acknowledges a write request once a count of inverse projections have been successfully written. Otherwise, by default
 it waits until a count of forward projections are written. By default, the write acknowlegdment anticipation is not set.
 
 .SS allow_disk_spin_down
@@ -99,20 +99,33 @@ Value that indicates the DSCP that is associated with TCP connections used to co
 .SS storio_dscp
 Value that indicates the DSCP that is associated with TCP connections used to communicate with the Storage server. By default the value corresponds to Assured Forwarding (AF41) class.
 .SS export_attr_thread
-Boolean (true or false). When set, this flag indicates that the export has its attribute writeback threads activated (default true).
+Boolean (True or False). When set, this flag indicates that the export has its attribute writeback threads activated (default true).
 .SS rozofsmount_fuse_reply_thread
-Boolean (true or false). When set, this flag indicates that the rozofsmount has its fuse reply threads activated (default true).
+Boolean (True or False). When set, this flag indicates that the rozofsmount has its fuse reply threads activated (default true).
 .SS export_versioning
-Boolean (true or false). When set, this flag indicates that any deleted object (file/directory) are save under
+Boolean (True or False). When set, this flag indicates that any deleted object (file/directory) are save under
 .B @rozofs-del@ 
 pseudo directory of the parent directory (default false).
+.SS device_automount
+Boolean (True or False). Default value is False. When set, the RozoFS devices are automatically mounted on the rigth directories provided that they have the destination mark file on them; the destination mark file is a file named storage_c<cluster>_s<storage>_<device> that tells what this RozoFS device is intended for. No mount instruction should be set in the fstab file for these devices.
 
+when device_automount is True, the following configuration parameters become effective.
+.TP 
+.SS device_automount_path
+This parameter gives the path where the devices have to be mounted. The default value is "/srv/rozofs/storages". That is device <device> of storage <storage> of cluster <cluster> will be mounted on directory <device_automount_path>/storage_c<cluster>_s<storage>/<device>. The 
+.B root 
+parameter in the 
+.B storage.conf 
+file is ignored and can even be omitted. All the pathes are automatically created when needed. 
+.TP
+.SS device_automount_option
+This parameter provides an optionnal mount option that should be supported by the lowlevel file system.
 .SH EXAMPLE
 .PP
 .nf
 .ta +3i
 # sample RozoFS common configuration file
-numa_aware           = True;
+numa_aware           = True; 
 trashed_file_per_run = 32;
 
 nb_core_file         = 1;
