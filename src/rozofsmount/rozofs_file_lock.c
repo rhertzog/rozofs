@@ -397,7 +397,7 @@ void rozofs_ll_getlk_nb(fuse_req_t req,
     int64_t start,stop;
     file_t      * file;
 
-    int lock_trc_idx;
+    int lock_trc_idx = 0;
     
     lock_stat.posix_get_lock++;
         
@@ -487,7 +487,7 @@ void rozofs_ll_getlk_nb(fuse_req_t req,
 
 error:
     fuse_reply_err(req, errno);
-    rozofs_trc_rsp(srv_rozofs_ll_getlk,ino,file->fid,1,lock_trc_idx);    
+    if (lock_trc_idx) rozofs_trc_rsp(srv_rozofs_ll_getlk,ino,file->fid,1,lock_trc_idx);    
 
     /*
     ** release the buffer if has been allocated
@@ -801,7 +801,7 @@ void rozofs_ll_setlk_nb(fuse_req_t req,
     int    ret;        
     void *buffer_p = NULL;
     file_t      * f = NULL;
-    int      lock_trc_idx;
+    int      lock_trc_idx=0;
     
     
 //    severe("FDL lock : type %s whence %s start %llu len %llu",print_lock_type(flock->l_type),print_whence(flock->l_whence),
@@ -873,9 +873,10 @@ void rozofs_ll_setlk_nb(fuse_req_t req,
 
 error:
     fuse_reply_err(req, errno);
-    if (f) rozofs_trc_rsp(srv_rozofs_ll_setlk,ino,f->fid,1,lock_trc_idx);    
-    else   rozofs_trc_rsp(srv_rozofs_ll_setlk,ino,NULL,1,lock_trc_idx);    
-
+    if (lock_trc_idx) {
+      if (f) rozofs_trc_rsp(srv_rozofs_ll_setlk,ino,f->fid,1,lock_trc_idx);    
+      else   rozofs_trc_rsp(srv_rozofs_ll_setlk,ino,NULL,1,lock_trc_idx);    
+    }
 out:    
     /*
     ** release the buffer if has been allocated
