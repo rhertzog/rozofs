@@ -717,6 +717,15 @@ def truncate():
   return os.system("./IT2/test_trunc.exe -process %d -loop %d -mount %s"%(process,loop,mnt))
 
 #___________________________________________________
+def lock_race():
+#___________________________________________________ 
+  zefile='%s/%s'%(mnt,tst_file)
+  try:
+    os.remove(zefile)
+  except:
+    pass  
+  return os.system("./IT2/test_lock_race.exe -process %d -loop %d -file %s "%(process,loop,zefile))  
+#___________________________________________________
 def lock_posix_passing():
 #___________________________________________________ 
   zefile='%s/%s'%(mnt,tst_file)
@@ -1423,7 +1432,7 @@ parser.add_option("-R","--rebuildCheck", action="store_true", dest="rebuildCheck
 # Read/write test list
 TST_RW=['read_parallel','write_parallel','rw2','wr_rd_total','wr_rd_partial','wr_rd_random','wr_rd_total_close','wr_rd_partial_close','wr_rd_random_close','wr_close_rd_total','wr_close_rd_partial','wr_close_rd_random','wr_close_rd_total_close','wr_close_rd_partial_close','wr_close_rd_random_close']
 # Basic test list
-TST_BASIC=['readdir','xattr','link','symlink', 'rename','chmod','truncate','lock_posix_passing','lock_posix_blocking','crc32']
+TST_BASIC=['readdir','xattr','link','symlink', 'rename','chmod','truncate','lock_posix_passing','lock_posix_blocking','lock_race','crc32']
 # Rebuild test list
 TST_REBUILD=['gruyere','rebuild_fid','rebuild_one_dev','relocate_one_dev','rebuild_all_dev','rebuild_one_node','gruyere_reread']
 
