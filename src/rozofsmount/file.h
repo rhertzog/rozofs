@@ -111,6 +111,7 @@ typedef struct file {
     uint64_t         lock_stop;
     int              lock_sleep;   
     int              lock_delay;
+    int              lock_trc_idx;
     uint64_t         timeStamp;
     uint64_t         read_consistency; /**< To check whether the buffer can be read safely */
     void           * ie;               /**< Pointer ot the ientry in the cache */

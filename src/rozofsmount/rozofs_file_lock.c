@@ -397,6 +397,8 @@ void rozofs_ll_getlk_nb(fuse_req_t req,
     int64_t start,stop;
     file_t      * file;
 
+    int lock_trc_idx;
+    
     lock_stat.posix_get_lock++;
         
     /*
@@ -423,7 +425,7 @@ void rozofs_ll_getlk_nb(fuse_req_t req,
     }
     
     file = (file_t *) (unsigned long) fi->fh;
-    
+        
     /*
     ** fill up the structure that will be used for creating the xdr message
     */    
@@ -446,6 +448,10 @@ void rozofs_ll_getlk_nb(fuse_req_t req,
 	lock_stat.einval++;
         goto error;
     }
+
+    lock_trc_idx = rozofs_trc_req_flock(srv_rozofs_ll_getlk,ino,file->fid, flock->l_start, flock->l_len, arg.arg_gw.lock.mode, 0);
+    file->lock_trc_idx = lock_trc_idx; 
+    
     arg.arg_gw.lock.client_ref   = rozofs_client_hash;
     arg.arg_gw.lock.owner_ref    = fi->lock_owner;
     arg.arg_gw.lock.user_range.size = rozofs_flock_canonical(flock,file, &start, &stop);
@@ -481,6 +487,8 @@ void rozofs_ll_getlk_nb(fuse_req_t req,
 
 error:
     fuse_reply_err(req, errno);
+    rozofs_trc_rsp(srv_rozofs_ll_getlk,ino,file->fid,1,lock_trc_idx);    
+
     /*
     ** release the buffer if has been allocated
     */
@@ -511,10 +519,17 @@ void rozofs_ll_getlk_cbk(void *this,void *param)
    XDR       xdrs;    
    int      bufsize;
    xdrproc_t decode_proc = (xdrproc_t)xdr_epgw_lock_ret_t;
-    
+   fuse_ino_t ino;
+   struct fuse_file_info finfo;
+   struct fuse_file_info * fi = &finfo;
+   file_t * file=NULL;
+      
    rpc_reply.acpted_rply.ar_results.proc = NULL;
    RESTORE_FUSE_PARAM(param,req);
    RESTORE_FUSE_STRUCT_PTR(param,flock);
+   RESTORE_FUSE_PARAM(param,ino);
+   RESTORE_FUSE_STRUCT(param,fi,sizeof(struct fuse_file_info));
+    
     /*
     ** get the pointer to the transaction context:
     ** it is required to get the information related to the receive buffer
@@ -596,10 +611,21 @@ void rozofs_ll_getlk_cbk(void *this,void *param)
  
     xdr_free((xdrproc_t) decode_proc, (char *) &ret);    
     fuse_reply_lock(req, flock);
+
+    file = (file_t *) (unsigned long) fi->fh;
+    if (file!= NULL) {       
+      errno = 0;
+      rozofs_trc_rsp(srv_rozofs_ll_getlk,ino,file->fid,0,file->lock_trc_idx);    
+    } 
     goto out;
 error:
     lock_stat.get_lock_error++;
     fuse_reply_err(req, errno);
+ 
+    file = (file_t *) (unsigned long) fi->fh;
+    if (file!= NULL) {       
+      rozofs_trc_rsp(srv_rozofs_ll_getlk,ino,file->fid,1,file->lock_trc_idx);    
+    }      
 out:
     /*
     ** release the transaction context and the fuse context
@@ -774,8 +800,10 @@ void rozofs_ll_setlk_nb(fuse_req_t req,
     ientry_t *ie = 0;
     int    ret;        
     void *buffer_p = NULL;
-    file_t      * f;
-
+    file_t      * f = NULL;
+    int      lock_trc_idx;
+    
+    
 //    severe("FDL lock : type %s whence %s start %llu len %llu",print_lock_type(flock->l_type),print_whence(flock->l_whence),
 //           (unsigned long long int)flock->l_start,flock->l_len);
     if (sleep) lock_stat.posix_set_blocking_lock++;   
@@ -812,12 +840,16 @@ void rozofs_ll_setlk_nb(fuse_req_t req,
 	lock_stat.ebadf++;
         goto error;
     }
-
+    
     if (prepare_lock_for_pending_list(req,fi,flock,sleep)<0) {
         errno = EINVAL;
 	lock_stat.einval++;
         goto error;
     }
+
+    lock_trc_idx = rozofs_trc_req_flock(srv_rozofs_ll_setlk,ino,f->fid, flock->l_start, flock->l_len, 
+                                        f->lock_type, sleep);
+    f->lock_trc_idx = lock_trc_idx; 
     
     /*
     ** Flush the buffer if some data is pending
@@ -841,7 +873,9 @@ void rozofs_ll_setlk_nb(fuse_req_t req,
 
 error:
     fuse_reply_err(req, errno);
-    
+    if (f) rozofs_trc_rsp(srv_rozofs_ll_setlk,ino,f->fid,1,lock_trc_idx);    
+    else   rozofs_trc_rsp(srv_rozofs_ll_setlk,ino,NULL,1,lock_trc_idx);    
+
 out:    
     /*
     ** release the buffer if has been allocated
@@ -1001,7 +1035,9 @@ void rozofs_ll_setlk_after_write_block(void *this,void *param) {
    xdrproc_t decode_proc = (xdrproc_t)xdr_epgw_io_ret_t;
    rozofs_fuse_save_ctx_t *fuse_ctx_p;
    struct fuse_file_info * fi;    
-   file_t * file;
+   file_t * file = NULL;
+   int      trc_idx;
+   fuse_ino_t ino;
     
    GET_FUSE_CTX_P(fuse_ctx_p,param);    
    
@@ -1107,7 +1143,8 @@ void rozofs_ll_setlk_after_write_block(void *this,void *param) {
         goto error;
     }
     
-    xdr_free((xdrproc_t) decode_proc, (char *) &ret);       
+    xdr_free((xdrproc_t) decode_proc, (char *) &ret);  
+    errno = 0;     
     goto out;
         
 error:
@@ -1115,6 +1152,11 @@ error:
     goto out; 
     
 out: 
+    // Trace the write block response
+    RESTORE_FUSE_PARAM(param,ino);
+    RESTORE_FUSE_PARAM(param,trc_idx);   
+    rozofs_trc_rsp(srv_rozofs_ll_ioctl,ino,NULL,(errno==0)?0:1,trc_idx);
+
 
     RESTORE_FUSE_STRUCT_PTR(param,fi); 
     file = (file_t*) (unsigned long) fi->fh;
@@ -1172,7 +1214,7 @@ int rozofs_ll_setlk_internal(file_t * file) {
 #else
     ret = rozofs_export_send_common(&exportclt,ROZOFS_TMR_GET(TMR_EXPORT_PROGRAM),EXPORT_PROGRAM, EXPORT_VERSION,
                                      EP_SET_FILE_LOCK,(xdrproc_t) xdr_epgw_lock_arg_t,(void *)&arg, 
-			             rozofs_ll_setlk_sinternal_cbk,file); 
+			             rozofs_ll_setlk_internal_cbk,file); 
 
 #endif
    if (ret == 0) return ret;
@@ -1316,8 +1358,10 @@ void rozofs_ll_setlk_internal_cbk(void *this,void * param)
        xdr_free((xdrproc_t) decode_proc, (char *) &ret);
        goto error;
     }   
-        if (ret.gw_status.status == EP_SUCCESS) {
+    if (ret.gw_status.status == EP_SUCCESS) {
       fuse_reply_err(file->fuse_req, 0);
+      errno = 0;
+      rozofs_trc_rsp(srv_rozofs_ll_setlk,0/*ino*/,file->fid,0,file->lock_trc_idx);
       file->fuse_req = NULL;      
       xdr_free((xdrproc_t) decode_proc, (char *) &ret);   
       lock_stat.set_lock_success++;       
@@ -1341,6 +1385,8 @@ void rozofs_ll_setlk_internal_cbk(void *this,void * param)
     if (file->lock_sleep== 0) 
     {
       fuse_reply_err(file->fuse_req, EAGAIN);
+      errno = EAGAIN;
+      rozofs_trc_rsp(srv_rozofs_ll_setlk,0/*ino*/,file->fid,1,file->lock_trc_idx);          
       file->fuse_req = NULL;      
       xdr_free((xdrproc_t) decode_proc, (char *) &ret);   
       lock_stat.set_lock_refused++;    
@@ -1356,6 +1402,7 @@ error:
     lock_stat.set_lock_error++;
     fuse_reply_err(file->fuse_req, errno);
     file->fuse_req = NULL;
+    rozofs_trc_rsp(srv_rozofs_ll_setlk,0/*ino*/,file->fid,1,file->lock_trc_idx);          
     
 out:   
     gettimeofday(&tv,(struct timezone *)0); 

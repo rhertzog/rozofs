@@ -54,7 +54,8 @@ typedef enum {
    rozofs_trc_type_def = 0,
    rozofs_trc_type_io ,
    rozofs_trc_type_name,
-   rozofs_trc_type_attr
+   rozofs_trc_type_attr,
+   rozofs_trc_type_flock,
 } rozofs_trc_type_e;
 
 
@@ -85,6 +86,14 @@ typedef struct _rozofs_trc_def_t
   size_t  size;    /**< size in bytes          */
 } rozofs_trc_def_t;
 
+typedef struct _rozofs_trc_flock_t
+{
+   uint64_t start;
+   uint64_t len;
+   ep_lock_mode_t mode;
+   int      block;
+} rozofs_trc_flock_t;
+
 #define ROZOFS_TRACE_BUF_SZ 128
 typedef union 
 {
@@ -110,7 +119,8 @@ typedef struct _rozofs_trace_t
     rozofs_trc_name_t name;
     rozofs_trc_io_t io;
     rozofs_trc_def_t def;
-    rozofs_trc_attr_t attr;  
+    rozofs_trc_attr_t attr; 
+    rozofs_trc_flock_t flock; 
   } par;
 } rozofs_trace_t;  
 
@@ -222,7 +232,41 @@ static inline int rozofs_trc_req_io(int service,fuse_ino_t ino,fid_t fid,size_t 
    }
    return (int) p->hdr.s.index;
 }
+/*
+**____________________________________________________
+*/
 
+static inline int rozofs_trc_req_flock(int service,fuse_ino_t ino,fid_t fid,uint64_t start,uint64_t len, int mode, int block)
+{
+   rozofs_trace_t *p;
+   if (rozofs_trc_enabled == 0) return 0;
+   {
+     p = &rozofs_trc_buffer[rozofs_trc_wr_idx];
+     p->hdr.u32 = 0;
+     p->ts = ruc_rdtsc();
+     p->hdr.s.service_id = service;
+     p->hdr.s.req = 1;
+     p->hdr.s.trc_type  = rozofs_trc_type_flock;
+     p->hdr.s.index = rozofs_trc_index++;
+     p->ino= ino;
+     if (fid != NULL) 
+     {
+        memcpy(p->par.io.fid,fid,sizeof(fid_t)); 
+	p->hdr.s.fid = 1;
+     }   
+     p->par.flock.start  = start;
+     p->par.flock.len    = len;
+     p->par.flock.mode   = mode;
+     p->par.flock.block  = block;     
+     rozofs_trc_wr_idx++;
+     if (rozofs_trc_wr_idx >= rozofs_trc_last_idx) 
+     {
+        rozofs_trc_wr_idx= 0;
+	rozofs_trc_buf_full = 1;
+     }
+   }
+   return (int) p->hdr.s.index;
+}
 
 static inline int rozofs_trc_req_name(int service,fuse_ino_t ino,char *name)
 {

@@ -1136,6 +1136,7 @@ void show_trc_fuse_buffer(char * pChar)
    fid_t fake_fid;
    int start, count;
    uint64_t cur_ts;
+   char * mode;
    
    memset(fake_fid,0,sizeof(fid_t));
    rozofs_trace_t *p ;
@@ -1182,11 +1183,23 @@ void show_trc_fuse_buffer(char * pChar)
 	  case rozofs_trc_type_name:
             pChar+=sprintf(pChar,"%s\n",p->par.name.name);
 	    break;	
+	  case rozofs_trc_type_flock:
+	    switch(p->par.flock.mode) {
+              case EP_LOCK_FREE:  mode = "free"; break;
+              case EP_LOCK_WRITE: mode = "write"; break;
+              case EP_LOCK_READ:  mode = "read"; break;	     
+              default:            mode = "??"; 
+            }	    
+            pChar+=sprintf(pChar,"%s %s %llu-%llu %s \n", str, mode,
+	                   (unsigned long long int)p->par.flock.start,
+	                   (unsigned long long int)p->par.flock.len,
+			   p->par.flock.block?"blocking":"pass");
+	    break;	
 	}
 
       }
       else
-      {
+      { 
      
   
         switch (p->hdr.s.trc_type)
