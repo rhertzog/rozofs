@@ -1318,7 +1318,6 @@ void rozofs_ll_setlk_internal_cbk(void *this,void * param)
     status = rozofs_tx_get_status(this);
     if (status < 0) 
     {
-       info("FDL lock line %d",__LINE__);
        goto again; 
     }
 
@@ -1328,7 +1327,6 @@ void rozofs_ll_setlk_internal_cbk(void *this,void * param)
     recv_buf = rozofs_tx_get_recvBuf(this);
     if (recv_buf == NULL) 
     {
-      info("FDL lock line %d",__LINE__);
       goto again;   
     }      
 

@@ -514,7 +514,33 @@ void rozofs_ll_setattr_nb(fuse_req_t req, fuse_ino_t ino, struct stat *stbuf,
     */
     if (ie->file_extend_pending) {
       to_set |= FUSE_SET_ATTR_SIZE;
-      attr.size = ie->attrs.size;       
+      attr.size = ie->attrs.size;  
+      if (to_set & FUSE_SET_ATTR_MTIME)
+      {
+	 file_t              * f;
+	 struct fuse_file_info fi;
+	 int                   ret;
+
+	 /*
+	 ** Check whether any write is pending in some buffer open on this file by any application
+	 */
+	 if ((f = ie->write_pending) != NULL) 
+	 {
+            /*
+	    ** lock the mtime to avoid a modification time at the flush and/or release
+	    */
+	    f->mtime_locked = 1;       	
+	    /*
+	    ** flush any pending data
+	    */
+	    flush_write_ientry(ie); 
+	    /*
+	    ** increment the read_consistency counter to inform opened file descriptor that
+	    ** their data must be read from disk
+	    */
+	    ie->read_consistency++;  
+	 }
+      }  
     }  
     /*
     ** set the argument to encode
