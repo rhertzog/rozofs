@@ -2876,6 +2876,7 @@ void storage_automount_devices(char * workDir, int * count) {
       */
       int ret = sscanf(pep->d_name,"storage_c%d_s%d_%d",&cid, &sid, &device);
       if (ret == 3) break; // have found a mark file
+      cid = 0; // No correct mark file. Re-initialize the cid.
     }  
           
     /*
@@ -2894,6 +2895,7 @@ void storage_automount_devices(char * workDir, int * count) {
     /*
     ** Check we are involved in this storage
     */
+    if (cid == 0) continue; // not mine
     st = storaged_lookup(cid, sid);
     if (st == NULL) continue; // not mine
 
