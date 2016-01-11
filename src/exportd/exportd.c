@@ -1564,6 +1564,10 @@ int export_reload_nb()
 
     load_volumes_conf();
 
+    list_for_each_forward(p, &volumes) {
+      volume_balance(&list_entry(p, volume_entry_t, list)->volume);
+    }
+    
     // volumes lock should be released before loading exports config
     // since load_exports_conf calls volume_lookup_volume which
     // needs to acquire volumes lock
@@ -1572,9 +1576,7 @@ int export_reload_nb()
         goto error;
     }
 
-    list_for_each_forward(p, &volumes) {
-        volume_balance(&list_entry(p, volume_entry_t, list)->volume);
-    }
+
 
     if (rm_bins_thread) {
       // Canceled the remove bins pthread before reload list of exports
@@ -1737,7 +1739,7 @@ static void on_hup() {
     ** now wait for the end of the configuration processing
     */
     int loop= 0;
-    for (loop = 0; loop < 5; loop++)
+    for (loop = 0; loop < 30; loop++)
     {
        sleep(1);
        if (export_reload_conf_status.done == 1) break;    
@@ -1768,10 +1770,10 @@ static void on_hup() {
     info("reloaded.");
     goto out;
 error:
-    severe("reload failed.");
+    severe("reload failed !!!");
     goto out;
 invalid_conf:
-    severe("reload failed: invalid configuration.");
+    severe("reload failed: invalid configuration !!!");
 out:
     econfig_release(&new);
     return;
