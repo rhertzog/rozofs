@@ -1029,6 +1029,8 @@ static void *load_trash_dir_thread(void *v) {
         return 0;
     }
 
+    export->load_trash_thread = 0;
+    
     uma_dbg_thread_remove_self();
 
     info("Load trash directory pthread completed successfully (eid=%d)",
@@ -1072,6 +1074,7 @@ int export_initialize(export_t * e, volume_t *volume, ROZOFS_BSIZE_E bsize,
     e->bsize = bsize;
     e->lv2_cache = lv2_cache;
     e->layout = volume->layout; // Layout used for this volume
+    e->load_trash_thread = 0;
     /*
     ** init of the replication context
     */

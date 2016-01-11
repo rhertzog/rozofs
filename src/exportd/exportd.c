@@ -95,11 +95,11 @@ typedef struct volume_entry {
 static list_t volumes;
 static pthread_rwlock_t volumes_lock;
 
-static pthread_t bal_vol_thread;
+static pthread_t bal_vol_thread=0;
 static pthread_t rm_bins_thread=0;
-static pthread_t monitor_thread;
-static pthread_t exp_tracking_thread;
-static pthread_t geo_poll_thread;
+static pthread_t monitor_thread=0;
+static pthread_t exp_tracking_thread=0;
+static pthread_t geo_poll_thread=0;
 
 static char exportd_config_file[PATH_MAX] = EXPORTD_DEFAULT_CONFIG;
 
@@ -1581,6 +1581,7 @@ int export_reload_nb()
       if ((errno = pthread_cancel(rm_bins_thread)) != 0)
         severe("can't canceled remove bins pthread: %s", strerror(errno));
     }
+    rm_bins_thread = 0;
     
     // Canceled the export tracking pthread before reload list of exports
     if ((errno = pthread_cancel(exp_tracking_thread)) != 0)
