@@ -413,11 +413,14 @@ int export_rmdir(export_t *e, fid_t pfid, char *name, fid_t fid, mattr_t * pattr
  * @param name: the name of the file to link.
  * @param[out] attrs: mattr_t to fill (child attributes used by upper level functions)
  * @param[out] pattrs: mattr_t to fill (parent attributes)
+ * @param uid: user identifier
+ * @param gid: group identifier 
  *
  * @return: 0 on success -1 otherwise (errno is set)
  */
-int export_symlink(export_t *e, char *link, fid_t pfid, char *name,
-        mattr_t * attrs,mattr_t * pattrs);
+int export_symlink(export_t * e, char *link, fid_t pfid, char *name,
+        mattr_t * attrs,mattr_t *pattrs, 
+	uint32_t uid, uint32_t gid) ;
 
 /** read a symbolic link
  *

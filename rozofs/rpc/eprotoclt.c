@@ -490,3 +490,18 @@ ep_geo_poll_1(void *argp, CLIENT *clnt)
 	}
 	return ((void *)&clnt_res);
 }
+
+epgw_mattr_ret_t *
+ep_symlink2_1(epgw_symlink2_arg_t *argp, CLIENT *clnt)
+{
+	static epgw_mattr_ret_t clnt_res;
+
+	memset((char *)&clnt_res, 0, sizeof(clnt_res));
+	if (clnt_call (clnt, EP_SYMLINK2,
+		(xdrproc_t) xdr_epgw_symlink2_arg_t, (caddr_t) argp,
+		(xdrproc_t) xdr_epgw_mattr_ret_t, (caddr_t) &clnt_res,
+		TIMEOUT) != RPC_SUCCESS) {
+		return (NULL);
+	}
+	return (&clnt_res);
+}

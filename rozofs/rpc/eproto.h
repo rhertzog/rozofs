@@ -468,11 +468,27 @@ struct ep_symlink_arg_t {
 };
 typedef struct ep_symlink_arg_t ep_symlink_arg_t;
 
+struct ep_symlink2_arg_t {
+	uint32_t eid;
+	ep_link_t link;
+	ep_uuid_t parent;
+	ep_name_t name;
+	uint32_t uid;
+	uint32_t gid;
+};
+typedef struct ep_symlink2_arg_t ep_symlink2_arg_t;
+
 struct epgw_symlink_arg_t {
 	struct ep_gateway_t hdr;
 	ep_symlink_arg_t arg_gw;
 };
 typedef struct epgw_symlink_arg_t epgw_symlink_arg_t;
+
+struct epgw_symlink2_arg_t {
+	struct ep_gateway_t hdr;
+	ep_symlink2_arg_t arg_gw;
+};
+typedef struct epgw_symlink2_arg_t epgw_symlink2_arg_t;
 
 typedef struct ep_child_t *ep_children_t;
 
@@ -894,6 +910,9 @@ extern  epgw_status_ret_t * ep_poll_file_lock_1_svc(epgw_lock_arg_t *, struct sv
 #define EP_GEO_POLL 32
 extern  void * ep_geo_poll_1(void *, CLIENT *);
 extern  void * ep_geo_poll_1_svc(void *, struct svc_req *);
+#define EP_SYMLINK2 33
+extern  epgw_mattr_ret_t * ep_symlink2_1(epgw_symlink2_arg_t *, CLIENT *);
+extern  epgw_mattr_ret_t * ep_symlink2_1_svc(epgw_symlink2_arg_t *, struct svc_req *);
 extern int export_program_1_freeresult (SVCXPRT *, xdrproc_t, caddr_t);
 
 #else /* K&R C */
@@ -993,6 +1012,9 @@ extern  epgw_status_ret_t * ep_poll_file_lock_1_svc();
 #define EP_GEO_POLL 32
 extern  void * ep_geo_poll_1();
 extern  void * ep_geo_poll_1_svc();
+#define EP_SYMLINK2 33
+extern  epgw_mattr_ret_t * ep_symlink2_1();
+extern  epgw_mattr_ret_t * ep_symlink2_1_svc();
 extern int export_program_1_freeresult ();
 #endif /* K&R C */
 
@@ -1065,7 +1087,9 @@ extern  bool_t xdr_epgw_link_arg_t (XDR *, epgw_link_arg_t*);
 extern  bool_t xdr_ep_mkdir_arg_t (XDR *, ep_mkdir_arg_t*);
 extern  bool_t xdr_epgw_mkdir_arg_t (XDR *, epgw_mkdir_arg_t*);
 extern  bool_t xdr_ep_symlink_arg_t (XDR *, ep_symlink_arg_t*);
+extern  bool_t xdr_ep_symlink2_arg_t (XDR *, ep_symlink2_arg_t*);
 extern  bool_t xdr_epgw_symlink_arg_t (XDR *, epgw_symlink_arg_t*);
+extern  bool_t xdr_epgw_symlink2_arg_t (XDR *, epgw_symlink2_arg_t*);
 extern  bool_t xdr_ep_children_t (XDR *, ep_children_t*);
 extern  bool_t xdr_ep_child_t (XDR *, ep_child_t*);
 extern  bool_t xdr_dirlist_t (XDR *, dirlist_t*);
@@ -1176,7 +1200,9 @@ extern bool_t xdr_epgw_link_arg_t ();
 extern bool_t xdr_ep_mkdir_arg_t ();
 extern bool_t xdr_epgw_mkdir_arg_t ();
 extern bool_t xdr_ep_symlink_arg_t ();
+extern bool_t xdr_ep_symlink2_arg_t ();
 extern bool_t xdr_epgw_symlink_arg_t ();
+extern bool_t xdr_epgw_symlink2_arg_t ();
 extern bool_t xdr_ep_children_t ();
 extern bool_t xdr_ep_child_t ();
 extern bool_t xdr_dirlist_t ();

@@ -4368,7 +4368,8 @@ out:
  * @return: 0 on success -1 otherwise (errno is set)
  */
 int export_symlink(export_t * e, char *link, fid_t pfid, char *name,
-        mattr_t * attrs,mattr_t *pattrs) {
+        mattr_t * attrs,mattr_t *pattrs, 
+	uint32_t uid, uint32_t gid) {
 
     int status = -1;
     lv2_entry_t *plv2=NULL;
@@ -4434,8 +4435,8 @@ int export_symlink(export_t * e, char *link, fid_t pfid, char *name,
             S_IXGRP | S_IROTH | S_IWOTH | S_IXOTH;
     rozofs_clear_xattr_flag(&ext_attrs.s.attrs.mode);
 
-    ext_attrs.s.attrs.uid = getuid();
-    ext_attrs.s.attrs.gid = getgid();
+    ext_attrs.s.attrs.uid = uid;
+    ext_attrs.s.attrs.gid = gid;
     ext_attrs.s.attrs.nlink = 1;
     if ((ext_attrs.s.attrs.ctime = ext_attrs.s.attrs.atime = ext_attrs.s.attrs.mtime = ext_attrs.s.cr8time = time(NULL)) == -1)
         goto error;

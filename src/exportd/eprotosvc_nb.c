@@ -192,6 +192,14 @@ void expnb_req_rcv_cbk(void *userRef,uint32_t  socket_ctx_idx, void *recv_buf)
 	     size = sizeof(epgw_symlink_arg_t);
 	     break;
 
+     case EP_SYMLINK2:
+	     rozorpc_srv_ctx_p->arg_decoder = (xdrproc_t) xdr_epgw_symlink2_arg_t;
+	     rozorpc_srv_ctx_p->xdr_result = (xdrproc_t) xdr_epgw_mattr_ret_t;
+	     local =  ep_symlink2_1_svc_nb;
+	     size = sizeof(epgw_symlink2_arg_t);
+	     break;
+
+
      case EP_RENAME:
 	     rozorpc_srv_ctx_p->arg_decoder = (xdrproc_t) xdr_epgw_rename_arg_t;
 	     rozorpc_srv_ctx_p->xdr_result = (xdrproc_t) xdr_epgw_rename_ret_t;

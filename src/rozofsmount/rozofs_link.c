@@ -572,8 +572,9 @@ void rozofs_ll_symlink_nb(fuse_req_t req, const char *link, fuse_ino_t parent,
         const char *name) 
 {
     ientry_t *ie = 0;
-    epgw_symlink_arg_t arg;
-
+    epgw_symlink2_arg_t arg;
+    const struct fuse_ctx *ctx;
+    ctx = fuse_req_ctx(req);
     int    ret;        
     void *buffer_p = NULL;
 
@@ -623,18 +624,15 @@ void rozofs_ll_symlink_nb(fuse_req_t req, const char *link, fuse_ino_t parent,
     memcpy(arg.arg_gw.parent,ie->fid, sizeof (uuid_t));
     arg.arg_gw.link = (char*)link;
     arg.arg_gw.name = (char*)name;    
-    /*
+    arg.arg_gw.uid  = ctx->uid;
+    arg.arg_gw.gid  = ctx->gid;
+        /*
     ** now initiates the transaction towards the remote end
     */
-#if 1
     ret = rozofs_expgateway_send_routing_common(arg.arg_gw.eid,(unsigned char*)ie->fid,EXPORT_PROGRAM, EXPORT_VERSION,
-                              EP_SYMLINK,(xdrproc_t) xdr_epgw_symlink_arg_t,(void *)&arg,
+                              EP_SYMLINK2,(xdrproc_t) xdr_epgw_symlink2_arg_t,(void *)&arg,
                               rozofs_ll_symlink_cbk,buffer_p); 
-#else
-    ret = rozofs_export_send_common(&exportclt,EXPORT_PROGRAM, EXPORT_VERSION,
-                              EP_SYMLINK,(xdrproc_t) xdr_epgw_symlink_arg_t,(void *)&arg,
-                              rozofs_ll_symlink_cbk,buffer_p); 
-#endif
+
     if (ret < 0) goto error;
     
     /*

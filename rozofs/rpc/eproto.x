@@ -414,12 +414,25 @@ struct ep_symlink_arg_t {
     ep_uuid_t   parent;
     ep_name_t   name;
 };
+
+struct ep_symlink2_arg_t {
+    uint32_t    eid;
+    ep_link_t   link;
+    ep_uuid_t   parent;
+    ep_name_t   name;
+    uint32_t    uid;
+    uint32_t    gid;    
+};
 struct  epgw_symlink_arg_t 
 {
   struct ep_gateway_t hdr;
   ep_symlink_arg_t    arg_gw;
 };
-
+struct  epgw_symlink2_arg_t 
+{
+  struct ep_gateway_t hdr;
+  ep_symlink2_arg_t    arg_gw;
+};
 
 typedef struct ep_child_t *ep_children_t;
 
@@ -786,5 +799,9 @@ program EXPORT_PROGRAM {
 
         void
         EP_GEO_POLL(void)                           = 32;
+
+        epgw_mattr_ret_t
+        EP_SYMLINK2(epgw_symlink2_arg_t)            = 33;
+	
     } = 1;
 } = 0x20000001;

@@ -1013,6 +1013,26 @@ xdr_ep_symlink_arg_t (XDR *xdrs, ep_symlink_arg_t *objp)
 }
 
 bool_t
+xdr_ep_symlink2_arg_t (XDR *xdrs, ep_symlink2_arg_t *objp)
+{
+	//register int32_t *buf;
+
+	 if (!xdr_uint32_t (xdrs, &objp->eid))
+		 return FALSE;
+	 if (!xdr_ep_link_t (xdrs, &objp->link))
+		 return FALSE;
+	 if (!xdr_ep_uuid_t (xdrs, objp->parent))
+		 return FALSE;
+	 if (!xdr_ep_name_t (xdrs, &objp->name))
+		 return FALSE;
+	 if (!xdr_uint32_t (xdrs, &objp->uid))
+		 return FALSE;
+	 if (!xdr_uint32_t (xdrs, &objp->gid))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
 xdr_epgw_symlink_arg_t (XDR *xdrs, epgw_symlink_arg_t *objp)
 {
 	//register int32_t *buf;
@@ -1020,6 +1040,18 @@ xdr_epgw_symlink_arg_t (XDR *xdrs, epgw_symlink_arg_t *objp)
 	 if (!xdr_ep_gateway_t (xdrs, &objp->hdr))
 		 return FALSE;
 	 if (!xdr_ep_symlink_arg_t (xdrs, &objp->arg_gw))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
+xdr_epgw_symlink2_arg_t (XDR *xdrs, epgw_symlink2_arg_t *objp)
+{
+	//register int32_t *buf;
+
+	 if (!xdr_ep_gateway_t (xdrs, &objp->hdr))
+		 return FALSE;
+	 if (!xdr_ep_symlink2_arg_t (xdrs, &objp->arg_gw))
 		 return FALSE;
 	return TRUE;
 }

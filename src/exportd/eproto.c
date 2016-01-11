@@ -1169,7 +1169,8 @@ epgw_mattr_ret_t * ep_symlink_1_svc(epgw_symlink_arg_t * arg, struct svc_req * r
 
     if (export_symlink(exp, arg->arg_gw.link, (unsigned char *) arg->arg_gw.parent, arg->arg_gw.name,
             (mattr_t *) & ret.status_gw.ep_mattr_ret_t_u.attrs,
-            (mattr_t *) & ret.parent_attr.ep_mattr_ret_t_u.attrs) != 0)
+            (mattr_t *) & ret.parent_attr.ep_mattr_ret_t_u.attrs,
+	    getuid(),getgid()) != 0)
         goto error;
 
     ret.hdr.eid = arg->arg_gw.eid ;  
@@ -1185,7 +1186,51 @@ out:
     STOP_PROFILING(ep_symlink);
     return &ret;
 }
+/*
+**______________________________________________________________________________
+*/
+/**
+*   exportd symlink: create a symbolic link
 
+    @param args : fid of the parent and symlink name  and target link (name)
+    
+    @retval: EP_SUCCESS :attributes of the parent and  of the created symlink
+    @retval: EP_FAILURE :error code associated with the operation (errno)
+*/
+epgw_mattr_ret_t * ep_symlink2_1_svc(epgw_symlink2_arg_t * arg, struct svc_req * req) {
+    static epgw_mattr_ret_t ret;
+    export_t *exp;
+    DEBUG_FUNCTION;
+
+    // Set profiler export index
+    export_profiler_eid = arg->arg_gw.eid;
+
+    START_PROFILING(ep_symlink);
+
+    ret.parent_attr.status = EP_EMPTY;
+
+    if (!(exp = exports_lookup_export(arg->arg_gw.eid)))
+        goto error;
+
+    if (export_symlink(exp, arg->arg_gw.link, (unsigned char *) arg->arg_gw.parent, arg->arg_gw.name,
+            (mattr_t *) & ret.status_gw.ep_mattr_ret_t_u.attrs,
+            (mattr_t *) & ret.parent_attr.ep_mattr_ret_t_u.attrs,
+	    arg->arg_gw.uid,arg->arg_gw.gid) != 0)
+        goto error;
+
+    ret.hdr.eid = arg->arg_gw.eid ;  
+    ret.parent_attr.status = EP_SUCCESS;
+    ret.status_gw.status = EP_SUCCESS;
+    ret.free_quota = exportd_get_free_quota(exp);    
+    goto out;
+error:
+    ret.hdr.eid = arg->arg_gw.eid ;  
+    ret.status_gw.status = EP_FAILURE;
+    ret.status_gw.ep_mattr_ret_t_u.error = errno;
+out:
+    STOP_PROFILING(ep_symlink);
+    return &ret;
+}
 /*
 **______________________________________________________________________________
 */
