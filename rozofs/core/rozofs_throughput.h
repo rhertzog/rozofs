@@ -64,6 +64,18 @@ static inline void rozofs_thr_cnt_update_with_time(rozofs_thr_cnts_t * counters,
 *
 * @param counters the counter structure
 * @param count    a count to increment counters with
+* @param t        the time in microseconds
+*/
+static inline void rozofs_thr_cnt_update_with_time_us(rozofs_thr_cnts_t * counters, uint64_t count, uint64_t t) {
+  t = t/1000000;
+  return rozofs_thr_cnt_update_with_time(counters,count,t);
+  
+}  
+/*_______________________________________________________________________
+* Update throughput counter
+*
+* @param counters the counter structure
+* @param count    a count to increment counters with
 */
 static inline void rozofs_thr_cnt_update(rozofs_thr_cnts_t * counters, uint64_t count) {
   if (counters == NULL) return;

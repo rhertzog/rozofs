@@ -35,6 +35,7 @@ static rozofs_fuse_conf_t *args_p;
 
 
 pthread_t heartbeat_thrdId;
+rozofs_thr_cnts_t *rozofs_thr_counter[2];
 
 int module_test_id = 0;
 
@@ -253,6 +254,62 @@ uint32_t ruc_init(uint32_t test, uint16_t debug_port,uint16_t export_listening_p
 
     return ret;
 }
+/*_______________________________________________________________________
+* Display throughput counters
+*
+* @param pChar    Where to format the ouput
+*/
+void display_throughput (char * argv[], uint32_t tcpRef, void *bufRef) {
+  char * pChar = uma_dbg_get_buffer();
+  
+
+  
+  if (argv[1] != NULL) {
+
+
+    
+    if (strcasecmp(argv[1],"read")==0) {
+ 
+      pChar = rozofs_thr_display(pChar, &rozofs_thr_counter[ROZOFS_READ_THR_E],1);
+      uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   
+      return;
+    }  
+    
+    if (strcasecmp(argv[1],"write")==0) {      
+      pChar = rozofs_thr_display(pChar, &rozofs_thr_counter[ROZOFS_WRITE_THR_E],1);
+      uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   
+      return;
+    }  
+      
+    pChar += rozofs_string_append(pChar,"\nthroughput [read|write]\n");   
+    uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   
+    return;
+  }
+   
+  
+  pChar = rozofs_thr_display(pChar, rozofs_thr_counter, 2);
+  uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   
+  return;   
+}
+/*_______________________________________________________________________
+* Initialize the thoughput measurement service
+*
+*/
+void rozofs_throughput_counter_init(void) {
+
+    
+  /*
+  ** allocate memory for bandwidth computation
+  */
+  rozofs_thr_counter[ROZOFS_READ_THR_E]= rozofs_thr_cnts_allocate(NULL, "Read");
+  rozofs_thr_counter[ROZOFS_WRITE_THR_E]= rozofs_thr_cnts_allocate(NULL, "Write");
+
+  
+  /*
+  ** Register the diagnostic function
+  */
+  uma_dbg_addTopic("throughput", display_throughput); 
+}
 
 /*
  *_______________________________________________________________________
@@ -281,7 +338,11 @@ int rozofs_stat_start(void *args) {
     uint16_t export_listening_port = (uint16_t)exportclt_p->listen_port;
     
     info("exportd listening port %d",export_listening_port);
-
+    /*
+    ** allocate memory for bandwidth computation
+    */
+    rozofs_throughput_counter_init();
+   
     ret = ruc_init(FALSE, debug_port,export_listening_port);
     if (ret != RUC_OK) {
         /*

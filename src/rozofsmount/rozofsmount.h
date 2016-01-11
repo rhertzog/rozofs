@@ -26,6 +26,7 @@
 #include <rozofs/rpc/rozofs_rpc_util.h>
 #include <rozofs/core/rozofs_tx_common.h>
 #include <rozofs/core/af_unix_socket_generic.h>
+#include <rozofs/core/rozofs_throughput.h>
 
 #include "file.h"
 
@@ -632,4 +633,10 @@ void rozofs_export_lbg_cnx_polling(af_unix_ctx_generic_t  *sock_p);
  @retval none
 */
 void rozofs_ll_clear_client_file_lock(int eid, uint64_t client_hash);
+/**
+* Read/write bandwidth counters
+*/
+#define ROZOFS_READ_THR_E 0
+#define ROZOFS_WRITE_THR_E 1
+extern rozofs_thr_cnts_t *rozofs_thr_counter[];
 #endif

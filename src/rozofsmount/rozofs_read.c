@@ -782,6 +782,7 @@ void rozofs_ll_read_cbk(void *this,void *param)
     int received_len = ret.storcli_read_ret_no_data_t_u.len.len;
     uint32_t alignment = (uint32_t) ret.storcli_read_ret_no_data_t_u.len.alignment;
     xdr_free((xdrproc_t) decode_proc, (char *) &ret); 
+
     if (alignment == 0x53535353)
     {
       /*
@@ -799,6 +800,12 @@ void rozofs_ll_read_cbk(void *this,void *param)
       */
       position = XDR_GETPOS(&xdrs);
     }
+    /*
+    ** Update the bandwidth statistics
+    */
+    rozofs_thr_cnt_update_with_time_us(rozofs_thr_counter[ROZOFS_READ_THR_E],
+                                      (uint64_t)received_len,
+				      rozofs_get_ticker_us());
     /*
     ** check the length: caution, the received length can
     ** be zero by it might be possible that the information 

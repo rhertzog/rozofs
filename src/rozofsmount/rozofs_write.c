@@ -903,6 +903,12 @@ static int64_t write_buf_nb(void *buffer_p,file_t * f, uint64_t off, const char 
     memcpy(args.fid, f->fid, sizeof (fid_t));
     args.off = off;
     args.data.data_len = len;
+    /*
+    ** Update the bandwidth statistics
+    */
+    rozofs_thr_cnt_update_with_time_us(rozofs_thr_counter[ROZOFS_WRITE_THR_E],
+                                      (uint64_t)len,
+				      rozofs_get_ticker_us());    
     /**
     * write alignement stats
     */
