@@ -133,6 +133,12 @@ static inline void rozofs_thr_cnts_free(rozofs_thr_cnts_t ** counters) {
   free(*counters);
   *counters = NULL;
 }
+/*_______________________________________________________________________
+* Change the number of columns of the display
+*
+* @param columns The number of columns per minutes
+*/
+void rozofs_thr_set_column(int columns);
 #endif
 
 

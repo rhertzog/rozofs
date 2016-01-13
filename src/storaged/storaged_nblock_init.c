@@ -235,7 +235,7 @@ static void show_storage_device_status(char * argv[], uint32_t tcpRef, void *buf
       pChar += rozofs_string_append(pChar,"| C | S | D | status |  free  |  max   |free| dev  |busy| rd  | Avg. | wr  | Avg. |  last  |\n");
       pChar += rozofs_string_append(pChar,"| I | I | E |        |  size  |  size  |  % | name |  % | /s  | rd   | /s  | wr   | access |\n");
       pChar += rozofs_string_append(pChar,"| D | D | V |        |        |        |    |      |    |     | usec |     | usec |  (sec) |\n");
-        pChar += rozofs_string_append(pChar,"|___|___|___|________|________|________|____|______|____|_____|______|_____|______|________|\n");
+      pChar += rozofs_string_append(pChar,"|___|___|___|________|________|________|____|______|____|_____|______|_____|______|________|\n");
       	
       /* 
       ** Resolve the share memory address|
@@ -261,13 +261,15 @@ static void show_storage_device_status(char * argv[], uint32_t tcpRef, void *buf
 	  pChar += rozofs_bytes_padded_append(pChar,7,pdev->free);
 	  pChar += rozofs_string_append(pChar," |");
 	  pChar += rozofs_bytes_padded_append(pChar,7,pdev->size); 
-	  if (pdev->size==pdev->free) {
+	  
+	  if ((pdev->size!=0) && (pdev->size==pdev->free)) {
 	    pChar += rozofs_string_append(pChar," |100 |");
 	  }
 	  else {
 	    pChar += rozofs_string_append(pChar," | ");
 	    if (pdev->size==0) {
 	      pChar += rozofs_string_append(pChar, "00");
+	      pdev->lastActivityDelay = 0;
 	    }
 	    else { 
 	      pChar += rozofs_u32_padded_append(pChar, 2, rozofs_zero, pdev->free*100/pdev->size);
@@ -275,7 +277,7 @@ static void show_storage_device_status(char * argv[], uint32_t tcpRef, void *buf
 	    pChar += rozofs_string_append(pChar," |");
 	  }
 	  
-	  if (pdev->devName==0) {
+	  if (pdev->devName[0] == 0) {
  	    pChar += rozofs_u32_padded_append(pChar, 2, rozofs_right_alignment, pdev->major);
 	    *pChar++= '/';
 	    pChar += rozofs_u32_padded_append(pChar, 3, rozofs_left_alignment, pdev->minor);

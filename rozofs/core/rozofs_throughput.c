@@ -25,7 +25,15 @@
 #include <stdint.h>
 #include "rozofs_throughput.h"
 
-
+uint32_t COLS=1;
+/*_______________________________________________________________________
+* Change the number of columns of the display
+*
+* @param columns The number of columns per minutes
+*/
+void rozofs_thr_set_column(int columns) {
+  if ((columns>0)&&(columns<=6)) COLS = columns;
+}
 /*_______________________________________________________________________
 * Display throughput counters
 *
@@ -33,13 +41,13 @@
 * @param pChar    The counters
 * @param pChar    The counters
 */
+
 char * rozofs_thr_display(char * pChar, rozofs_thr_cnts_t * counters[], int nb) {
   uint32_t t;
   struct timeval tv;
   int    rank;
   int    idx,line,col;
   rozofs_thr_1_cnt_t *p;
-  uint32_t COLS=4;
   uint32_t LINES;
   int      value;
 
@@ -53,21 +61,7 @@ char * rozofs_thr_display(char * pChar, rozofs_thr_cnts_t * counters[], int nb) 
       return pChar;
     }
   }
-
-  switch(nb) {
-    case 1: 
-    case 2: 
-      COLS = 4;
-      break;
-    case 3:
-      COLS=3;
-    case 4:
-    case 5:
-      COLS=2;  
-      break;
-    default:
-      COLS=1;
-  }           
+     
   LINES=60/COLS;
 
     
@@ -114,14 +108,10 @@ char * rozofs_thr_display(char * pChar, rozofs_thr_cnts_t * counters[], int nb) 
 
       for (value=0; value< nb; value++) {  
 	p = &(counters[value]->counters[idx]);
-	if (p->ts == (t-line-(col*LINES))) {
-	  pChar += rozofs_string_append(pChar," ");	
-	  pChar += rozofs_bytes_padded_append(pChar,7, p->count);
-	  pChar += rozofs_string_append(pChar," |");
-	}
-	else {
-	  pChar += rozofs_string_append(pChar,"         |");
-	}
+	if (p->ts != (t-line-(col*LINES))) p->count = 0;	
+	pChar += rozofs_string_append(pChar," ");	
+	pChar += rozofs_bytes_padded_append(pChar,7, p->count);
+	pChar += rozofs_string_append(pChar," |");
       }    
     }
     pChar += rozofs_eol(pChar);  
@@ -136,3 +126,4 @@ char * rozofs_thr_display(char * pChar, rozofs_thr_cnts_t * counters[], int nb) 
   pChar += rozofs_eol(pChar);
   return pChar;    
 }
+

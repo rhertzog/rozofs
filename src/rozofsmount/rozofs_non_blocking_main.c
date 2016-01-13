@@ -261,35 +261,63 @@ uint32_t ruc_init(uint32_t test, uint16_t debug_port,uint16_t export_listening_p
 */
 void display_throughput (char * argv[], uint32_t tcpRef, void *bufRef) {
   char * pChar = uma_dbg_get_buffer();
-  
+  int ret,val,what=0;
 
+  int i=1;
+  while (argv[i] != NULL) {
   
-  if (argv[1] != NULL) {
-
+    if (strcasecmp(argv[i],"col")==0) {
+      i++;
+      if (argv[i] == NULL) {
+	pChar += rozofs_string_append(pChar,"\nthroughput col <#col>\n");   
+	uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   
+	return;      
+      } 
+      ret = sscanf(argv[i],"%d",&val);
+      if (ret != 1) {
+	pChar += rozofs_string_append(pChar,"\nthroughput col <#col>\n");   
+	uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   
+	return;      
+      } 
+      i++;
+      rozofs_thr_set_column(val);
+      continue;
+    }  
 
     
-    if (strcasecmp(argv[1],"read")==0) {
- 
+    if (strcasecmp(argv[i],"read")==0) { 
+      i++;
+      what |= 1;
+      continue;
+    }  
+    
+    if (strcasecmp(argv[i],"write")==0) {      
+      i++;
+      what |= 2;
+      continue;
+    }
+    
+    pChar += rozofs_string_append(pChar,"\nunexpected parameter ");
+    pChar += rozofs_string_append(pChar,argv[i]);       
+    pChar += rozofs_string_append(pChar,"\nthroughput [read|write|col <#col>]\n");   
+    uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   
+    return;    
+  } 
+     
+  switch (what) {
+    case 1:
       pChar = rozofs_thr_display(pChar, &rozofs_thr_counter[ROZOFS_READ_THR_E],1);
       uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   
       return;
-    }  
-    
-    if (strcasecmp(argv[1],"write")==0) {      
+    case 2:
       pChar = rozofs_thr_display(pChar, &rozofs_thr_counter[ROZOFS_WRITE_THR_E],1);
       uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   
       return;
-    }  
-      
-    pChar += rozofs_string_append(pChar,"\nthroughput [read|write]\n");   
-    uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   
-    return;
-  }
-   
-  
-  pChar = rozofs_thr_display(pChar, rozofs_thr_counter, 2);
-  uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   
-  return;   
+    default:
+      pChar = rozofs_thr_display(pChar, rozofs_thr_counter, 2);
+      uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer()); 
+      return; 
+  }                  
 }
 /*_______________________________________________________________________
 * Initialize the thoughput measurement service
