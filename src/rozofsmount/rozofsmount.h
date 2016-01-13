@@ -111,10 +111,12 @@ typedef struct ientry {
     fuse_ino_t inode; ///< value of the inode allocated by rozofs
     fid_t fid; ///< unique file identifier associated with the file or directory
     fid_t pfid; ///< unique file identifier associated with the parent
-//    uint64_t size;   /**< size of the file */
+     /**< assert to 1 when there is a setattr on mtime  , clear on write */
     int64_t file_extend_size; /**< The pending size extenstion */
-    int  file_extend_pending; /**< assert to one when file is extended by not yet confirm on exportd */
-    int  file_extend_running; /**< assert to one when file is extended by not yet confirm on exportd */
+    /* some bit fields... */
+    uint64_t  mtime_locked:1;  
+    uint64_t  file_extend_pending:1; /**< assert to one when file is extended by not yet confirm on exportd */
+    uint64_t  file_extend_running:1; /**< assert to one when file is extended by not yet confirm on exportd */
     dirbuf_t db; ///< buffer used for directory listing
     unsigned long nlookup; ///< number of lookup done on this entry (used for forget)
     mattr_t attrs;   /**< attributes caching for fs_mode = block mode   */
@@ -340,6 +342,7 @@ static inline ientry_t *alloc_ientry(fid_t fid) {
 	ie->file_extend_size = 0;
 	ie->file_extend_pending = 0;
 	ie->file_extend_running = 0;
+	ie->mtime_locked        = 0;
 	ie->timestamp_wr_block = 0;
 	ie->symlink_target = NULL;
         ie->symlink_ts     = 0;

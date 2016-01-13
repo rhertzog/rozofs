@@ -499,43 +499,51 @@ void rozofs_ll_setattr_nb(fuse_req_t req, fuse_ino_t ino, struct stat *stbuf,
 	return;
       }	
     }
-    
-    /*
-    ** The size is not given as argument of settattr, 
-    ** nevertheless a size modification is pending.
-    ** so let's send the size modification along with 
-    ** the other modified attributes
-    */
-    if (ie->file_extend_pending) {
-      to_set |= FUSE_SET_ATTR_SIZE;
-      attr.size = ie->attrs.size;  
-      if (to_set & FUSE_SET_ATTR_MTIME)
-      {
-	 file_t              * f;
-	 struct fuse_file_info fi;
-	 int                   ret;
 
+    /*
+    ** This is a MTIME restoration 
+    */
+    if (to_set & FUSE_SET_ATTR_MTIME) {  
+      file_t              * f;
+      struct fuse_file_info fi;
+      int                   ret;
+	 
+      /*
+      ** Set the lock on mtime to prevent previous writes 
+      ** to trigger a write block that would update the mtime
+      ** to the current time and cancal the mtime restoration.
+      */      
+      ie->mtime_locked = 1; 
+       
+      /*
+      ** The size is not given as argument of settattr, 
+      ** nevertheless a size modification is pending or running.
+      ** The mtime_locked will prevent sending the write_block 
+      ** so let's send the size modification along with 
+      ** the other modified attributes.
+      */
+      if ((ie->file_extend_pending)||(ie->file_extend_running)) {
+	to_set |= FUSE_SET_ATTR_SIZE;
+	attr.size = ie->attrs.size;  
+      }	
+      
+      /*
+      ** Check whether any write is pending in some buffer open on this file by any application
+      */
+      if ((f = ie->write_pending) != NULL) 
+      {     	
 	 /*
-	 ** Check whether any write is pending in some buffer open on this file by any application
+	 ** flush any pending data
 	 */
-	 if ((f = ie->write_pending) != NULL) 
-	 {
-            /*
-	    ** lock the mtime to avoid a modification time at the flush and/or release
-	    */
-	    f->mtime_locked = 1;       	
-	    /*
-	    ** flush any pending data
-	    */
-	    flush_write_ientry(ie); 
-	    /*
-	    ** increment the read_consistency counter to inform opened file descriptor that
-	    ** their data must be read from disk
-	    */
-	    ie->read_consistency++;  
-	 }
-      }  
+	 flush_write_ientry(ie); 
+	 /*
+	 ** increment the read_consistency counter to inform opened file descriptor that
+	 ** their data must be read from disk
+	 */
+	 ie->read_consistency++;  
+      }
     }  
+    
     /*
     ** set the argument to encode
     */ 

@@ -86,7 +86,6 @@ typedef struct file {
     //char buffer[ROZOFS_BUF_SIZE];
     char *buffer;
     int closing;             /**< assert to 1 when the file has to be closed and there are some disks operation pending */
-    int mtime_locked;       /**< assert to 1 when there is a setattr on mtime  , clear on write */
     int buf_write_wait;
     int buf_write_pending;   /**< number of write requests that are pending */
     int buf_read_pending;    /**< number of read requests that are pending */
@@ -196,8 +195,7 @@ static inline file_t * rozofs_file_working_var_init(void * ientry, fid_t fid)
     file->file2create = 0;
     file->pending_read_count = 0;
     rozofs_geo_write_reset(file);
-    file->mtime_locked = 0;
-    
+
     rozofs_opened_file++;
     
     return file;

@@ -981,7 +981,7 @@ static int64_t write_buf_nb(void *buffer_p,file_t * f, uint64_t off, const char 
     if (shared_buf_ref == NULL) severe("Out of buffer");
     GET_FUSE_CALLBACK(buffer_p,callback);
     f->buf_write_pending++;
-    if (f->mtime_locked==0) f->write_block_pending = 1;
+    f->write_block_pending = 1;
     ret = rozofs_storcli_send_common(NULL,ROZOFS_TMR_GET(TMR_STORCLI_PROGRAM),STORCLI_PROGRAM, STORCLI_VERSION,
                               STORCLI_WRITE,
 			      (shared_buf_idx!=-1)?(xdrproc_t) xdr_storcli_write_arg_no_data_t: (xdrproc_t)xdr_storcli_write_arg_t,
@@ -1039,10 +1039,6 @@ void rozofs_ll_write_nb(fuse_req_t req, fuse_ino_t ino, const char *buf,
    size_t size_out     = size;
 
     file_t *file = (file_t *) (unsigned long) fi->fh;
-    /*
-    ** clear the lock on mtime that prevents a write block to occur
-    */
-    file->mtime_locked = 0;
 
     int trc_idx = rozofs_trc_req_io(srv_rozofs_ll_write,(fuse_ino_t)file,(file==NULL)?NULL:file->fid,size,off);
 
@@ -1083,6 +1079,12 @@ void rozofs_ll_write_nb(fuse_req_t req, fuse_ino_t ino, const char *buf,
         errno = ENOENT;
         goto error;
     }
+    /*
+    ** clear the lock on mtime since a modification just occurs 
+    ** that require a mtime update
+    */
+    ie->mtime_locked = 0;
+    
     /*
     ** file KPI 
     */
@@ -2480,6 +2482,15 @@ void export_write_block_nb(void *fuse_ctx_p, file_t *file_p)
     
     }
     /*
+    ** When mtime is locked, do not send any write block to prevent mtime modification
+    */
+    if (ie->mtime_locked) {
+      file_p->write_block_req     = 0;
+      file_p->write_block_pending = 0;
+      goto out;
+    }
+    
+    /*
     ** check if the update is requested
     */
     if (file_p->write_block_req == 0) 
@@ -2487,7 +2498,7 @@ void export_write_block_nb(void *fuse_ctx_p, file_t *file_p)
       /*
       ** assert the pending flag in order to trigger the writeblock on flush and release
       */
-      if (file_p->mtime_locked == 0) file_p->write_block_pending = 1;
+      file_p->write_block_pending = 1;
       goto out;
     }
     /*
