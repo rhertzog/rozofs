@@ -365,20 +365,14 @@ void rozofs_ll_setattr_nb(fuse_req_t req, fuse_ino_t ino, struct stat *stbuf,
     int     ret;
     void *buffer_p = NULL;
     int trc_idx;
-    uint32_t bbytes = ROZOFS_BSIZE_BYTES(exportclt.bsize);
+    uint32_t bbytes = ROZOFS_BSIZE_BYTES(exportclt.bsize);    
 
     /*
     ** set to attr the attributes that must be set: indicated by to_set
     */
     stat_to_mattr(stbuf, &attr, to_set);
-    if (to_set & FUSE_SET_ATTR_SIZE)
-    {
-      trc_idx = rozofs_trc_req_io(srv_rozofs_ll_setattr,ino,NULL,attr.size,0);    
-    }
-    else
-    {
-      trc_idx = rozofs_trc_req(srv_rozofs_ll_setattr,ino,NULL);
-    }
+    trc_idx = rozofs_trc_req_setattr(srv_rozofs_ll_setattr,ino,NULL,to_set, &attr);    
+
     /*
     ** allocate a context for saving the fuse parameters
     */

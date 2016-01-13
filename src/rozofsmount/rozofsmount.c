@@ -1183,6 +1183,28 @@ void show_trc_fuse_buffer(char * pChar)
 	  case rozofs_trc_type_name:
             pChar+=sprintf(pChar,"%s\n",p->par.name.name);
 	    break;	
+	  case rozofs_trc_type_setattr:
+	    pChar+=sprintf(pChar,"%s ", str);
+	    if (p->par.setattr.to_set&FUSE_SET_ATTR_SIZE) {
+	      pChar+=sprintf(pChar," SZ(%d)", p->par.setattr.attr.size);
+	    }
+	    if (p->par.setattr.to_set&FUSE_SET_ATTR_MODE) {
+              pChar+=sprintf(pChar," MODE(%o)",p->par.setattr.attr.mode);
+	    }
+	    if (p->par.setattr.to_set&FUSE_SET_ATTR_UID) {
+              pChar+=sprintf(pChar," UID(%d)", p->par.setattr.attr.uid);
+	    }
+	    if (p->par.setattr.to_set&FUSE_SET_ATTR_GID) {
+              pChar+=sprintf(pChar," GID(%d)", p->par.setattr.attr.gid);
+	    }	    	     
+	    if (p->par.setattr.to_set&FUSE_SET_ATTR_ATIME) {
+              pChar+=sprintf(pChar," ATIME");
+	    }	    
+	    if (p->par.setattr.to_set&FUSE_SET_ATTR_MTIME) {
+              pChar+=sprintf(pChar," MTIME");
+	    }
+	    pChar+=sprintf(pChar,"\n");	
+	    break;	
 	  case rozofs_trc_type_flock:
 	    switch(p->par.flock.mode) {
               case EP_LOCK_FREE:  mode = "free"; break;
@@ -1207,6 +1229,7 @@ void show_trc_fuse_buffer(char * pChar)
 	  default:
 	  case rozofs_trc_type_io:
 	  case rozofs_trc_type_def:
+	  case rozofs_trc_type_setattr:
             pChar+=sprintf(pChar,"[%8llu ]<-- %-8s %4d %12.12llx %s %d:%s\n",
 	               (unsigned long long int)(p->ts - cur_ts),
 		       trc_fuse_display_srv(p->hdr.s.service_id),
