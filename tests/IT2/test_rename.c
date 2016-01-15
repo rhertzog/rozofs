@@ -245,13 +245,13 @@ int loop_test_process() {
     count ++;
        
     sprintf(directoryName1, "%s/d1_%u", mount, pid);
-    ret = mkdir(directoryName1,755);
+    ret = mkdir(directoryName1,0755);
     if (ret < 0) {
       printf("proc %3d - mkdir(%s) %s\n", myProcId, directoryName1,strerror(errno));  
       return -1;       
     }
     sprintf(directoryName2, "%s/d2_%u", mount,pid);
-    ret = mkdir(directoryName2,755);
+    ret = mkdir(directoryName2,0755);
     if (ret < 0) {
       printf("proc %3d - mkdir(%s) %s\n", myProcId, directoryName2,strerror(errno));  
       return -1;       

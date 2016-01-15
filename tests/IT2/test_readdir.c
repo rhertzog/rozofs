@@ -195,7 +195,7 @@ int do_one_test(int count) {
   char d[32];
   
   sprintf(d,"d%u",count);
-  ret = mkdir(d, 755);
+  ret = mkdir(d, 0755);
   if (ret < 0) {
     printf("proc %3d - ERROR in loop %d mkdir(%s) %s\n", myProcId, d,strerror(errno));  
     return -1;       
@@ -250,7 +250,7 @@ int loop_test_process() {
        
   
   sprintf(directoryName, "/%s/d%u", mount, pid);
-  ret = mkdir(directoryName,755);
+  ret = mkdir(directoryName,0755);
   if (ret < 0) {
     printf("proc %3d - mkdir(%s) %s\n", myProcId, directoryName,strerror(errno));  
     return -1;       

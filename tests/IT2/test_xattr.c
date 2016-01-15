@@ -257,7 +257,7 @@ int set_attr (char * file, int option, int exist, int symlink) {
       /* set xattr on symlink not allowed in user mode */
       if ((symlink) && (prefix==0)) {
         if ((res >= 0)||(errno!=EPERM)) {
-	  printf("lsetxattr(%s) on file %s should be refused\n", name, file);
+	  printf("lsetxattr(%s,%s) on file %s should be refused\n", name, value, file);
 	  return -1;	  
 	}
 	continue;
@@ -265,7 +265,7 @@ int set_attr (char * file, int option, int exist, int symlink) {
       
       if (option == XATTR_REPLACE) {
 	if (res < 0) {
-	  printf("REPLACE setxattr(%s) on file %s %s\n", name, file, strerror(errno));
+	  printf("REPLACE setxattr(%s,%s) on file %s %s\n", name, value, file, strerror(errno));
 	  return -1;
 	}
 	continue;   
@@ -273,14 +273,14 @@ int set_attr (char * file, int option, int exist, int symlink) {
       
       if (exist) {
 	if ((res >= 0)||(errno!=EEXIST)) {
-	  printf("CREATE & exist setxattr(%s) on file %s %s\n", name, file, strerror(errno));
+	  printf("CREATE & exist setxattr(%s,%s) on file %s %s\n", name, value, file, strerror(errno));
 	  return -1;
 	}
 	continue;   
       }
       
       if (res < 0) {
-	printf("CREATE & !exist setxattr(%s) on file %s %s\n", name, file, strerror(errno));
+	printf("CREATE & !exist setxattr(%s,%s) on file %s %s\n", name, value, file, strerror(errno));
 	return -1;   
       }  
     }
@@ -476,6 +476,7 @@ int loop_test_process() {
   char dirname[256];  
   char cmd[256];
   pid_t pid = getpid();
+  int ret;
        
   
   pid = getpid();
@@ -483,15 +484,18 @@ int loop_test_process() {
   sprintf(symlink, "%s/test_slink_xattr.%u", mount, pid);
   sprintf(dirname, "%s/test_dir_xattr.%u", mount, pid);
   
-  sprintf(cmd, "echo HJKNKJNKNKhuezfqr > %s", filename);
-  if (system(cmd) == -1) {
-      return -1;
-  }
-  sprintf(cmd, "mkdir %s", dirname);
-  if (system(cmd) == -1) {
-      return -1;
+  ret = mknod(filename,S_IFREG | 0700,0);
+  if (ret < 0) {
+    printf("proc %3d - mknod(%s) %s\n", myProcId, filename,strerror(errno));  
+    return -1;       
+  } 
+    
+  ret = mkdir(dirname,0700); 
+  if (ret < 0) {
+    printf("proc %3d - mkdir(%s) %s\n", myProcId, dirname,strerror(errno));  
+    return -1;       
   }  
-
+  
   sprintf(cmd, "ln -s %s %s", filename, symlink); 
   if (system(cmd) == -1) {
       return -1;
