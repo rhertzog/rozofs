@@ -203,7 +203,7 @@ sym_resymlink(char * base, int target,int link) {
   
   int ret = lsetxattr(flink, ROZOFS_RESYMLINK_XATTR, ftarget, strlen(ftarget), XATTR_CREATE);   
   if (ret < 0) {
-    printf("Error lsetxattr(%s,%s) %s\n",flink, ftarget, strerror(errno));
+    printf("sym_resymlink lsetxattr(%s,%s) %s\n",flink, ftarget, strerror(errno));
   } 
 }
 #define ROZOFS_REDIRSYMLINK_XATTR "user.rozofs.dirsymlink"
@@ -214,7 +214,7 @@ sym_redirsymlink(char * base, int target,int link) {
   
   int ret = setxattr(mount, ROZOFS_REDIRSYMLINK_XATTR, ftarget, strlen(ftarget), XATTR_CREATE);   
   if (ret < 0) {
-    printf("Error setxattr(%s,%s) %s\n",mount, ftarget, strerror(errno));
+    printf("sym_redirsymlink setxattr(%s,%s) %s\n",mount, ftarget, strerror(errno));
   } 
 }
 int do_one_test(char * base, int count) {
@@ -247,10 +247,12 @@ int do_one_test(char * base, int count) {
       return -1;
   
     /* Use rozofs extended attribute to change the target */
-    sym_resymlink(base,f,link); 
-    if (check_symlink_file(base,f,link,__LINE__)<0)
-      return -1;
-
+    if (getgid()==0) {
+      sym_resymlink(base,f,link); 
+      if (check_symlink_file(base,f,link,__LINE__)<0)
+	return -1;
+    }
+    
     idx = (idx+1)%4;
     f = nb[idx];
       

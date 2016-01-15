@@ -148,7 +148,19 @@ int list_xattr (char * file,int option, int exist, int symlink) {
   int nb;
   int idx;
   int prefix;
-  
+  int expected = 0;
+
+  if (exist) {
+    if (getgid()==0) {
+      if (symlink) expected = nbAttr*(nb_prefixes-1);
+      else         expected = nbAttr*nb_prefixes;
+    }  
+    else {
+      if (symlink) expected = 0;
+      else         expected = nbAttr;
+    }  
+  }
+     
   if (symlink) {
     /* Apply on symbolic link and not the target */
     size = llistxattr(file,buff,BUFFER_SIZE);    
@@ -170,7 +182,7 @@ int list_xattr (char * file,int option, int exist, int symlink) {
     return 0;
   }
   
-  if (size == 0) {
+  if ((size == 0) && (expected!=0)){
     printf("Xattr exist but listxattr(%s) returns 0 size\n", file);
     return -1;
   }
@@ -218,18 +230,12 @@ int list_xattr (char * file,int option, int exist, int symlink) {
     }           
     pAttr += (strlen(pAttr)+1);
   }
-  if (symlink) {
-    if (nb != (nbAttr*(nb_prefixes-1))) {
-	printf("Read %d attr while expecting %d\n", nb, (nbAttr*nb_prefixes));
-	return -1;
-    }  
-  }
-  else {
-    if (nb != (nbAttr*nb_prefixes)) {
-	printf("Read %d attr while expecting %d\n", nb, (nbAttr*nb_prefixes));
-	return -1;
-    }
+
+  if (nb != expected) {
+      printf("Read %d attr while expecting %d\n", nb, expected);
+      return -1;
   }  
+ 
   return 0;    
 }
 int set_attr (char * file, int option, int exist, int symlink) {
@@ -239,6 +245,14 @@ int set_attr (char * file, int option, int exist, int symlink) {
   for (idx = 0 ; idx < nbAttr; idx++) {
     for (prefix=0; prefix<nb_prefixes; prefix++) {
   
+      // skip trusted prefix when not root
+      if (getgid()!= 0) {
+        if ((strcmp(prefixes[prefix],"trusted")==0)
+	||  (strcmp(prefixes[prefix],"security")==0))  {
+	  continue;
+        }  
+      }
+      
       if (option == XATTR_CREATE) {
 	value_initial(prefixes[prefix],idx);
       }
@@ -293,7 +307,14 @@ int remove_attr (char * file, int exist, int symlink) {
   
   for (idx = 0 ; idx < nbAttr; idx++) {
     for (prefix=0; prefix<nb_prefixes;prefix++) {
-    
+
+      // skip trusted prefix when not root
+      if (getgid()!= 0) {
+        if ((strcmp(prefixes[prefix],"trusted")==0)
+	||  (strcmp(prefixes[prefix],"security")==0))  {
+	  continue;
+        }  
+      }    
       myAttributes(prefixes[prefix],idx);
       
       if (symlink) {
