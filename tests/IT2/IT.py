@@ -7,8 +7,11 @@ import subprocess
 import time
 import re
 import shlex
+import filecmp
 from adaptative_tbl import *
 import syslog
+import string
+import random
 from optparse import OptionParser
 
 fileSize=int(4)
@@ -775,7 +778,165 @@ def lock_bsd_blocking():
   except:
     pass  
   return os.system("./IT2/test_file_lock.exe -process %d -loop %d -file %s -nonBlocking"%(process,loop,zefile))  
+#___________________________________________________
+def check_one_criteria(attr,f1,f2):
+#___________________________________________________
+  one=getattr(os.stat(f1),attr)
+  two=getattr(os.stat(f2),attr)
+  try: 
+    one=int(one)
+    two=int(two)
+  except: pass  
+  #print "%s %s %s"%(attr,one,two)
+  if one != two:
+    print "%s %s for %s"%(one,attr,f1)
+    print "%s %s for %s"%(two,attr,f2)
+    return False 
+  return True
 
+#___________________________________________________
+def check_rsync(src,dst):
+#___________________________________________________
+  criterias=['st_nlink','st_size','st_mode','st_uid','st_gid','st_mtime']
+  
+  for dirpath, dirnames, filenames in os.walk(src):
+    
+    for fileName in filenames:
+    	  
+      f1 = os.path.join(dirpath, fileName)
+      f2 = "%s/rsync_dest/%s/%s"%(mnt,dirpath[len(src):], fileName) 
+
+      if os.path.exists(f1) == False:
+        print "source file %s does not exist"%(f1)
+	return False
+	
+      if os.path.exists(f2) == False:
+        print "destination file %s does not exist"%(f2)
+	return False
+ 
+      for criteria in criterias:
+        if check_one_criteria(criteria,f1,f2) == False:
+	  return False
+
+      if filecmp.cmp(f1,f2) == False:
+	print "%s and %s differ"
+	return False
+  return True
+#___________________________________________________
+def internal_rsync(src,count,delete=False):
+#___________________________________________________
+    
+  if delete == True: os.system("/bin/rm -rf %s/rsync_dest; mkdir -p %s/rsync_dest"%(mnt,mnt))
+
+  bytes=0
+  string="rsync -aHr --stats %s/ %s/rsync_dest"%(src,mnt)
+  parsed = shlex.split(string)
+  cmd = subprocess.Popen(parsed, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+  for line in cmd.stdout:
+    if "Total transferred file size:" in line:
+      bytes=line.split(':')[1].split()[0]  
+
+  if int(bytes) != int(count):
+    print "%s bytes transfered while expecting %d!!!"%(bytes,count)
+    return False
+  return check_rsync(src,"%s/rsync_dest"%(mnt))
+#___________________________________________________
+def create_rsync_file(f,rights,owner=None):
+#___________________________________________________
+ size = random.randint(1,50)
+ string=''.join(random.choice("ABCDEFGHIJKLMNOPQRSTUVWXYZ") for _ in range(size))
+ os.system("echo %s > %s"%(string,f))
+ os.system("chmod %s %s"%(rights,f))
+ if owner != None:
+  os.system("chown -h %s:%s %s"%(owner,owner,f)) 
+ return int(os.stat(f).st_size)
+#___________________________________________________
+def create_rsync_hlink(f,h):
+#___________________________________________________
+  os.system("ln %s %s"%(f,h))
+#___________________________________________________
+def create_rsync_slink(f,s,owner=None):
+#___________________________________________________
+  os.system("ln -s %s %s"%(f,s))
+  if owner != None:
+    os.system("chown -h %s:%s %s"%(owner,owner,s))   
+
+#___________________________________________________
+def create_rsync_dir(src):
+#___________________________________________________
+  os.system("/bin/rm -rf %s/"%(src))
+  os.system("mkdir -p %s"%(src))
+
+  size = int(0)
+
+  size =        create_rsync_file("%s/A"%(src),"777")
+  size = size + create_rsync_file("%s/B"%(src),"700")
+  size = size + create_rsync_file("%s/C"%(src),"754")
+  
+  size = size + create_rsync_file("%s/a"%(src),"774","rozo")
+  size = size + create_rsync_file("%s/b"%(src),"744","rozo")
+  size = size + create_rsync_file("%s/c"%(src),"750","rozo")
+  
+  create_rsync_hlink("%s/A"%(src),"%s/HA"%(src))
+  create_rsync_hlink("%s/B"%(src),"%s/HB"%(src))
+  create_rsync_hlink("%s/C"%(src),"%s/HC"%(src))
+
+  create_rsync_hlink("%s/a"%(src),"%s/ha1"%(src))
+  create_rsync_hlink("%s/a"%(src),"%s/ha2"%(src))
+  create_rsync_hlink("%s/a"%(src),"%s/ha3"%(src))
+
+  create_rsync_slink("A","%s/SA"%(src))
+  create_rsync_slink("B","%s/SB"%(src))
+  create_rsync_slink("C","%s/SC"%(src))
+  create_rsync_slink("c","%s/Sc"%(src))
+  
+  create_rsync_slink("a","%s/sa"%(src),"rozo")
+  create_rsync_slink("b","%s/sb"%(src),"rozo")
+  create_rsync_slink("c","%s/sc"%(src),"rozo")
+  create_rsync_slink("C","%s/sC"%(src),"rozo")
+  return size
+
+  
+
+
+#___________________________________________________
+def touch_one_file(f):
+  os.system("touch %s"%(f))
+  return int(os.stat(f).st_size)
+#___________________________________________________
+def rsync():
+
+  src="%s/rsync_source"%(mnt) 
+  size = create_rsync_dir(src)
+  size = size + create_rsync_dir(src+'/subdir1')
+  size = size + create_rsync_dir(src+'/subdir1/subdir2')
+  size = size + create_rsync_dir(src+'/subdir1/subdir2/subdir3')
+  size = size + create_rsync_dir(src+'/subdir1/subdir2/subdir4')
+     
+  if internal_rsync(src,size,True) == False: return 1 
+   
+  time.sleep(2)
+  if internal_rsync(src,int(0)) == False: return 1
+
+  size = touch_one_file("%s/a"%(src))
+  time.sleep(2)
+  if internal_rsync(src,size) == False: return 1
+  
+  size = touch_one_file("%s/HB"%(src))
+  size = size + touch_one_file("%s/subdir1/a"%(src))
+  time.sleep(2)
+  if internal_rsync(src,size) == False: return 1 
+   
+  size = touch_one_file("%s/c"%(src))
+  size = size + touch_one_file("%s/subdir1/subdir2/subdir3/ha1"%(src))
+  size = size + touch_one_file("%s/subdir1/subdir2/B"%(src))
+  time.sleep(2)
+  if internal_rsync(src,size) == False: return 1  
+  
+  time.sleep(2)
+  if internal_rsync(src,int(0)) == False: return 1  
+   
+  return 0
 #___________________________________________________
 def gruyere_one_reread():
 # reread files create by test_rebuild utility to check
@@ -1279,7 +1440,7 @@ def do_list():
     dis.set_column(1,"%s"%num)
     dis.set_column(2,tst)
     dis.set_column(3,'rw') 
-
+     
   dis.end_separator()         
   for tst in TST_RW:
     num=num+1
@@ -1432,7 +1593,7 @@ parser.add_option("-R","--rebuildCheck", action="store_true", dest="rebuildCheck
 # Read/write test list
 TST_RW=['read_parallel','write_parallel','rw2','wr_rd_total','wr_rd_partial','wr_rd_random','wr_rd_total_close','wr_rd_partial_close','wr_rd_random_close','wr_close_rd_total','wr_close_rd_partial','wr_close_rd_random','wr_close_rd_total_close','wr_close_rd_partial_close','wr_close_rd_random_close']
 # Basic test list
-TST_BASIC=['readdir','xattr','link','symlink', 'rename','chmod','truncate','lock_posix_passing','lock_posix_blocking','lock_race','crc32']
+TST_BASIC=['readdir','xattr','link','symlink', 'rename','chmod','truncate','lock_posix_passing','lock_posix_blocking','lock_race','crc32','rsync']
 # Rebuild test list
 TST_REBUILD=['gruyere','rebuild_fid','rebuild_one_dev','relocate_one_dev','rebuild_all_dev','rebuild_one_node','gruyere_reread']
 
@@ -1509,7 +1670,7 @@ for arg in args:
     list.extend(TST_REBUILD)
     list.extend(TST_RW)
     append_circumstance_test_list(list,TST_RW,'storageFailed')
-    append_circumstance_test_list(list,TST_RW,'storageReset')
+    append_circumstance_test_list(list,TST_RW,'storageReset') 
     if int(ifnumber) > int(1):
       append_circumstance_test_list(list,TST_RW,'ifUpDown')
        
