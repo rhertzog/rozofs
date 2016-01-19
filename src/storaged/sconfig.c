@@ -285,9 +285,9 @@ int sconfig_read(sconfig_t *config, const char *fname, int cluster_id) {
 	  char * p = rootPath;
 	  p += rozofs_string_append(p, common_config.device_automount_path);
 	  *p++ = '/';
-	  p += rozofs_string_append(p, "storage_c");
+	  p += rozofs_string_append(p, "storage_");
 	  p += rozofs_u32_append(p, cid);
-	  p += rozofs_string_append(p, "_s");	
+	  p += rozofs_string_append(p, "_");	
 	  p += rozofs_u32_append(p, sid);
 	  
 	  root = rootPath;
