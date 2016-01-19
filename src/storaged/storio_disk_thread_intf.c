@@ -83,12 +83,12 @@ static inline void storio_update_write_counter(uint32_t t, uint64_t count) {
 */
 void display_throughput (char * argv[], uint32_t tcpRef, void *bufRef) {
   char * pChar = uma_dbg_get_buffer();
-  
+  int ret,val,what=0;  
 
-  
-  if (argv[1] != NULL) {
+  int i=1;
+  while (argv[i] != NULL) {
 
-    if (strcasecmp(argv[1],"enable")==0) {
+    if (strcasecmp(argv[i],"enable")==0) {
       storio_throughput_enable = 1;
       pChar += rozofs_string_append(pChar,"troughput measurement enabled\n");
       storio_cnts[STORIO_RD_CNT] = rozofs_thr_cnts_allocate(storio_cnts[STORIO_RD_CNT],"Read");
@@ -97,7 +97,7 @@ void display_throughput (char * argv[], uint32_t tcpRef, void *bufRef) {
       return;
     }
 
-    if (strcasecmp(argv[1],"disable")==0) {
+    if (strcasecmp(argv[i],"disable")==0) {
       storio_throughput_enable = 0;
       rozofs_thr_cnts_free(&storio_cnts[STORIO_RD_CNT]);
       rozofs_thr_cnts_free(&storio_cnts[STORIO_WR_CNT]);
@@ -105,39 +105,72 @@ void display_throughput (char * argv[], uint32_t tcpRef, void *bufRef) {
       uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   
       return;
     }  
-    
-    if (strcasecmp(argv[1],"read")==0) {
+
+    if (strcasecmp(argv[i],"col")==0) {
+      i++;
+      if (argv[i] == NULL) {
+	pChar += rozofs_string_append(pChar,"\nthroughput col <#col>\n");   
+	uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   
+	return;      
+      } 
+      ret = sscanf(argv[i],"%d",&val);
+      if (ret != 1) {
+	pChar += rozofs_string_append(pChar,"\nthroughput col <#col>\n");   
+	uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   
+	return;      
+      } 
+      i++;
+      rozofs_thr_set_column(val);
+      continue;
+    }  
+        
+    if (strcasecmp(argv[i],"read")==0) {
       if (storio_throughput_enable == 0) {
 	pChar += rozofs_string_append(pChar,"troughput measurement is disabled\n");
 	uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   
 	return;
       }    
-      pChar = rozofs_thr_display(pChar, &storio_cnts[STORIO_RD_CNT],1);
-      uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   
-      return;
+      i++;
+      what |= 1;
+      continue;
     }  
     
-    if (strcasecmp(argv[1],"write")==0) {
+    if (strcasecmp(argv[i],"write")==0) {
       if (storio_throughput_enable == 0) {
 	pChar += rozofs_string_append(pChar,"troughput measurement is disabled\n");
 	uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   
 	return;
       }       
-      pChar = rozofs_thr_display(pChar, &storio_cnts[STORIO_WR_CNT],1);
-      uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   
-      return;
+      i++;
+      what |= 2;
+      continue;
     }  
-      
-    pChar += rozofs_string_append(pChar,"troughput {enable|disable]\ntroughput [read|write]\n");   
+    
+    pChar += rozofs_string_append(pChar,"\nunexpected parameter ");
+    pChar += rozofs_string_append(pChar,argv[i]);       
+    pChar += rozofs_string_append(pChar,"\nthroughput [enable|disable|read|write|col <#col>]\n");   
     uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   
-    return;
-  }
-   
-  if (storio_throughput_enable == 0) {
-    pChar += rozofs_string_append(pChar,"troughput measurement is disabled\n");
+    return;    
+  }     
+
+  if (storio_throughput_enable) {
+    switch (what) {
+      case 1:
+	pChar = rozofs_thr_display(pChar, &storio_cnts[STORIO_RD_CNT],1);
+	uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   
+	return;
+      case 2:
+	pChar = rozofs_thr_display(pChar, &storio_cnts[STORIO_WR_CNT],1);
+	uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   
+	return;
+      default:
+	pChar = rozofs_thr_display(pChar, storio_cnts, 2);
+	uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer()); 
+	return; 
+    }    
   }
   else {  
-    pChar = rozofs_thr_display(pChar, storio_cnts, 2);
+    pChar += rozofs_string_append(pChar,"troughput measurement is disabled\n");
   }
   uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   
   return;   
