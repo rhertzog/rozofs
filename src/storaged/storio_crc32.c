@@ -641,13 +641,32 @@ uint64_t  storio_check_crc32_vect(struct iovec *vector,int nb_proj,uint16_t prj_
    }
    return result;
 }
-
+/*
+**__________________________________________________________________
+*/
+char * show_data_integrity_syntax(char * pChar)
+{  
+  pChar += rozofs_string_append(pChar,"syntax: data_integrity [reset]\n");
+  return pChar;
+}
 /*
 **__________________________________________________________________
 */
 static void show_data_integrity(char * argv[], uint32_t tcpRef, void *bufRef)
 {
     char *pChar = uma_dbg_get_buffer();
+    
+     if (argv[1] != NULL) {
+       if (strcmp(argv[1],"reset")==0) {
+         storio_crc_error = 0;
+	 pChar += rozofs_string_append(pChar,"error counter has been cleared\n");
+       }
+       else {
+         pChar = show_data_integrity_syntax(pChar);
+         uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
+       }	 
+     }
+     
      pChar += rozofs_string_append(pChar,"Data integrity :\n");
      pChar += rozofs_string_append(pChar,"  crc32c generation      : ");
      if (crc32c_generate_enable==0) {
@@ -696,5 +715,5 @@ void crc32c_init(int generate_enable,int check_enable,int hw_forced)
     {
       crc32c_check_enable = check_enable;    
     }
-    uma_dbg_addTopic("data_integrity", show_data_integrity);
+    uma_dbg_addTopic_option("data_integrity", show_data_integrity, UMA_DBG_OPTION_RESET);
 }
