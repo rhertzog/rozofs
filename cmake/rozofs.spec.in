@@ -12,7 +12,7 @@ Source0: rozofs-@VERSION@.tar.gz
 # Manage by cmake
 BuildRequires: libuuid-devel libattr-devel readline-devel cmake numactl-devel
 BuildRequires: fuse-devel >= 2.9, python-devel swig libconfig-devel
-%if 0%{?rhel} > 7
+%if 0%{?rhel} >= 7
 %{?systemd_requires}
 %endif
 
@@ -123,7 +123,7 @@ mkdir -p %{buildroot}%{_sysconfdir}/sysconfig/
 mkdir -p %{buildroot}/sbin
 ln -sf %{_sbindir}/mount.fuse %{buildroot}/sbin/mount.rozofs
 
-%if 0%{?rhel} > 7
+%if 0%{?rhel} >= 7
 #install init script (systemd)
 mkdir -p %{buildroot}%{_unitdir}
 %{__cp} redhat/rozofs-exportd.service %{buildroot}%{_unitdir}/rozofs-exportd.service
@@ -164,7 +164,7 @@ mkdir -p %{buildroot}%{_initrddir}
 %{_bindir}/rozo_buildfid_list
 %config(noreplace) %{_sysconfdir}/rozofs/export.conf
 %{_sysconfdir}/rozofs/export.conf.sample
-%if 0%{?rhel} > 7
+%if 0%{?rhel} >= 7
 %{_unitdir}/rozofs-exportd.service
 %else
 %{_initrddir}/rozofs-exportd
@@ -187,7 +187,7 @@ mkdir -p %{buildroot}%{_initrddir}
 %{_bindir}/rozodump
 %config(noreplace) %{_sysconfdir}/rozofs/storage.conf
 %{_sysconfdir}/rozofs/storage.conf.sample
-%if 0%{?rhel} > 7
+%if 0%{?rhel} >= 7
 %{_unitdir}/rozofs-storaged.service
 %else
 %{_initrddir}/rozofs-storaged
@@ -227,7 +227,7 @@ mkdir -p %{buildroot}%{_initrddir}
 
 %files manager-agent
 %defattr(-,root,root)
-%if 0%{?rhel} > 7
+%if 0%{?rhel} >= 7
 %{_unitdir}/rozofs-manager-agent.service
 %else
 %config(noreplace) %{_sysconfdir}/sysconfig/rozofs-manager-agent
@@ -241,13 +241,13 @@ mkdir -p %{buildroot}%{_initrddir}
 %{_mandir}/man5/geomgr.conf.5.gz
 %{_mandir}/man8/geomgr.8.gz
 %{_mandir}/man8/geocli.8.gz
-%if 0%{?rhel} > 7
+%if 0%{?rhel} >= 7
 %{_unitdir}/rozofs-geomgr.service
 %else
 %{_initrddir}/rozofs-geomgr
 %endif
 
-%if 0%{?rhel} > 7
+%if 0%{?rhel} >= 7
 %post exportd
 %systemd_post rozofs-exportd.service
 
@@ -266,7 +266,7 @@ fi
 %endif
 
 
-%if 0%{?rhel} > 7
+%if 0%{?rhel} >= 7
 %post storaged
 %systemd_post rozofs-storaged.service
 
@@ -285,7 +285,7 @@ elif [ -x /sbin/chkconfig ]; then
 fi
 %endif
 
-%if 0%{?rhel} > 7
+%if 0%{?rhel} >= 7
 %post manager-agent
 %systemd_post rozofs-manager-agent.service
 
