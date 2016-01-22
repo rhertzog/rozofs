@@ -657,14 +657,20 @@ static void show_data_integrity(char * argv[], uint32_t tcpRef, void *bufRef)
     char *pChar = uma_dbg_get_buffer();
     
      if (argv[1] != NULL) {
+     
        if (strcmp(argv[1],"reset")==0) {
+         if (storio_crc_error) {
+	   warning("CRC32 counter was %llu",(long long unsigned int) storio_crc_error);
+	 }
          storio_crc_error = 0;
 	 pChar += rozofs_string_append(pChar,"error counter has been cleared\n");
+         uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());	 
+	 return;
        }
-       else {
-         pChar = show_data_integrity_syntax(pChar);
-         uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
-       }	 
+
+       pChar = show_data_integrity_syntax(pChar);
+       uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
+       return;      
      }
      
      pChar += rozofs_string_append(pChar,"Data integrity :\n");
