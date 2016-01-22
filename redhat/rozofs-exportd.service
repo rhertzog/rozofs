@@ -2,7 +2,8 @@
 Description=RozoFS filesystem (export daemon)
 Documentation=man:rozofs(8) man:exportd(8) man:export.conf(5)
 Documentation=http://rozofs.github.io/rozofs/
-After=syslog.target network.target rpcbind.service
+After=syslog.target network.target
+Requires=rpcbind.service
 
 [Service]
 Type=forking
