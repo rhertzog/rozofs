@@ -17,7 +17,7 @@
  */
 
 #include <rozofs/rpc/eproto.h>
-
+#include <rozofs/core/rozofs_host_list.h>
 #include "rozofs_fuse_api.h"
 #include "rozofs_xattr_flt.h"
 #include "rozofs_acl.h"
@@ -366,12 +366,19 @@ void rozofs_ll_getxattr_nb(fuse_req_t req, fuse_ino_t ino, const char *name, siz
         (strncmp(name,ROZOFS_USER_EXPORT_XATTR,strlen(ROZOFS_EXPORT_XATTR))==0))
     {
        char *pChar = buf_export_attr;
+       int export_index;
+       char * pHost = NULL;
        /*
        ** Get the IP address of the active exportd
-       */
-       uint32_t ipAddr =north_lbg_get_remote_ip_address(exportclt.rpcclt.lbg_id);
-       pChar += sprintf(pChar, "%u.%u.%u.%u ", (ipAddr >> 24)&0xFF, (ipAddr >> 16)&0xFF, (ipAddr >> 8)&0xFF, (ipAddr)&0xFF);
-       pChar += sprintf(pChar, "%u ",exportclt.eid);
+       */    
+       for (export_index=0; export_index < ROZOFS_HOST_LIST_MAX_HOST; export_index++) { 
+
+	   pHost = rozofs_host_list_get_host(export_index);
+	   if (pHost == NULL) break;
+	   if (export_index==0) pChar += sprintf(pChar, "%s", pHost);
+	   else                 pChar += sprintf(pChar, "/%s", pHost);
+       }
+       pChar += sprintf(pChar, " %u ",exportclt.eid);
        pChar += sprintf(pChar, "%s\n",conf.export);
        fuse_reply_buf(req, (char *)buf_export_attr, strlen(buf_export_attr));   
        goto out; 

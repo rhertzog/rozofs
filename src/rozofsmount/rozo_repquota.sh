@@ -18,16 +18,38 @@
 # setup.sh will generates a full working rozofs locally
 # it's a useful tool for testing and debugging purposes. 
 #
+#set -x 
+local=/tmp/rozo_rep_quota.$$
+status=1
+
 where=`pwd`
 res=`attr -qg rozofs.export .`
-ip=`echo $res | awk '{print $1}'`
-case "$ip" in
-  "") echo "$where is not a rozofs mount point !"; exit;;
+hosts=`echo $res | awk '{print $1}'`
+case "$hosts" in
+  "") echo "$where is not a rozofs mount point !"; exit $status;;
 esac
 eid=`echo $res | awk '{print $2}'`
 id=`id -u`
 
 
-path=`rozodiag -i $ip -T export:0 -c export_conf_path | grep -v "\[exportd-M\]"`
+for host in `echo $hosts | awk -F'/' '{print $1" "$2" "$3" "$4" "$5" "$6" "$7" "$8}'`
+do
 
-rozodiag -i $ip -T export:0 -c system "rozo_repquota -n -i $EUID -f $path $eid" | grep -v "\[exportd-M\]"
+  rozodiag -i $host -T export:0 -c export_conf_path > $local
+  success=`grep "\[exportd-M\]" $local`
+  case "$success" in
+    "") continue;;
+    *)  path=`grep -v "\[exportd-M\]" $local` 
+  esac
+  
+  case "$path" in
+    "") continue;;
+  esac 
+   
+  rozodiag -i $host -T export:0 -c system "rozo_repquota -n -i $EUID -f $path $eid" | grep -v "\[exportd-M\]"
+  status=0
+  break
+done  
+
+rm -f $local
+exit $status
