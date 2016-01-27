@@ -129,6 +129,8 @@ typedef struct _common_config_global_t {
   char *      device_automount_path;
   // Device mounting options
   char *      device_automount_option;
+  // Paralellism factor for device self healing feature
+  uint32_t    device_self_healing_process;
 } common_config_t;
 
 extern common_config_t common_config;

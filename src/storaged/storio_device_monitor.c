@@ -100,6 +100,8 @@ void * storio_device_relocate_thread(void *arg) {
     pChar += rozofs_string_append(pChar,storaged_config_file);
     pChar += rozofs_string_append(pChar," -R -l 4 -r ");
     pChar += rozofs_string_append(pChar,pRelocate->st->export_hosts);
+    pChar += rozofs_string_append(pChar," -p ");
+    pChar += rozofs_u32_append(pChar,common_config.device_self_healing_process);
     pChar += rozofs_string_append(pChar," --sid ");
     pChar += rozofs_u32_append(pChar,pRelocate->st->cid);
     *pChar++ ='/';

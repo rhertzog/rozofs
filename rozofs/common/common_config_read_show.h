@@ -149,6 +149,8 @@ char *pChar = uma_dbg_get_buffer();
   COMMON_CONFIG_SHOW_STRING(device_automount_path,"/srv/rozofs/storages");
   pChar += rozofs_string_append(pChar,"// Device mounting options\n");
   COMMON_CONFIG_SHOW_STRING(device_automount_option,"");
+  pChar += rozofs_string_append(pChar,"// Paralellism factor for device self healing feature\n");
+  COMMON_CONFIG_SHOW_INT_OPT(device_self_healing_process,8,"1:64");
 
   uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
   return;
@@ -270,6 +272,8 @@ static inline void common_config_generated_read(char * fname) {
   COMMON_CONFIG_READ_STRING(device_automount_path,"/srv/rozofs/storages");
   // Device mounting options 
   COMMON_CONFIG_READ_STRING(device_automount_option,"");
+  // Paralellism factor for device self healing feature 
+  COMMON_CONFIG_READ_INT_MINMAX(device_self_healing_process,8,1,64);
  
   config_destroy(&cfg);
 }

@@ -94,3 +94,5 @@ BOOL	storage device_automount 		False
 STRING  storage	device_automount_path           "/srv/rozofs/storages"
 // Device mounting options
 STRING  storage device_automount_option 	""
+// Paralellism factor for device self healing feature
+INT     storage device_self_healing_process 	8 1:64
