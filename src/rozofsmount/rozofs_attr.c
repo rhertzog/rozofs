@@ -505,8 +505,6 @@ void rozofs_ll_setattr_nb(fuse_req_t req, fuse_ino_t ino, struct stat *stbuf,
     */
     if (to_set & FUSE_SET_ATTR_MTIME) {  
       file_t              * f;
-      struct fuse_file_info fi;
-      int                   ret;
 	 
       /*
       ** Set the lock on mtime to prevent previous writes 
