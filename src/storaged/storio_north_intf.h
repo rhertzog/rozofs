@@ -50,8 +50,8 @@ extern void *storage_receive_buffer_pool_p ;  /**< reference of the read/write b
 extern void *storage_xmit_buffer_pool_p ;  /**< reference of the read/write buffer pool */
 
 #define STORIO_BUF_RECV_CNT 8
-#define STORIO_BUF_RECV_SZ  (1024*131*2)  
-#define STORIO_BUF_XMIT_SZ  (1024*131*2) 
+#define STORIO_BUF_RECV_SZ  (1024*145*2)  
+#define STORIO_BUF_XMIT_SZ  (1024*145*2) 
 
 
 /*

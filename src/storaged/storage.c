@@ -1556,13 +1556,13 @@ open:
     ** Writing the projections on a different size on disk
     */
     else {
-      struct iovec       vector[ROZOFS_MAX_BLOCK_PER_MSG]; 
+      struct iovec       vector[ROZOFS_MAX_BLOCK_PER_MSG*2]; 
       int                i;
       char *             pMsg;
       
-      if (nb_proj > (ROZOFS_MAX_BLOCK_PER_MSG)) {  
+      if (nb_proj > (ROZOFS_MAX_BLOCK_PER_MSG*2)) {  
         severe("storage_write more blocks than possible %d vs max %d",
-	        nb_proj,ROZOFS_MAX_BLOCK_PER_MSG);
+	        nb_proj,ROZOFS_MAX_BLOCK_PER_MSG*2);
         errno = ESPIPE;	
         goto out;
       }
@@ -1767,7 +1767,7 @@ int storage_read_chunk(storage_t * st, storio_device_mapping_t * fidCtx, uint8_t
     uint16_t rozofs_disk_psize;
     int    device_id_is_given = 1;
     int                       storage_slice;
-    struct iovec vector[ROZOFS_MAX_BLOCK_PER_MSG];
+    struct iovec vector[ROZOFS_MAX_BLOCK_PER_MSG*2];
     uint64_t    crc32_errors; 
     uint8_t * device = fidCtx->device;
     
@@ -1929,9 +1929,9 @@ retry:
       int          i;
       char *       pMsg;
       
-      if (nb_proj > ROZOFS_MAX_BLOCK_PER_MSG) {  
+      if (nb_proj > ROZOFS_MAX_BLOCK_PER_MSG*2) {  
         severe("storage_read more blocks than possible %d vs max %d",
-	        nb_proj,ROZOFS_MAX_BLOCK_PER_MSG);
+	        nb_proj,ROZOFS_MAX_BLOCK_PER_MSG*2);
         errno = ESPIPE;			
         goto out;
       }

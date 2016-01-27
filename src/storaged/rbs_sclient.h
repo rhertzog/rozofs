@@ -31,15 +31,16 @@
 #include "rbs_transform.h"
 #include "rbs.h"
 
-#define ROZOFS_READ_BUFFER_SIZE (256*1024) 
-#define ROZOFS_BLOCKS_IN_BUFFER(bsize) (ROZOFS_READ_BUFFER_SIZE/ROZOFS_BSIZE_BYTES(bsize))
-#define ROZOFS_BLOCKS_MAX (ROZOFS_BLOCKS_IN_BUFFER(ROZOFS_BSIZE_MIN))
-
-
+#define ROZOFS_REBUILD_BLOCKS_MAX (512)
+static inline int ROZOFS_BLOCKS_IN_BUFFER(int layout) {
+  if (layout == 0) return ROZOFS_REBUILD_BLOCKS_MAX/4;
+  if (layout == 1) return ROZOFS_REBUILD_BLOCKS_MAX/2;
+  return ROZOFS_REBUILD_BLOCKS_MAX;
+}
 
 typedef struct rbs_storcli_ctx {
     rbs_projection_ctx_t prj_ctx[ROZOFS_SAFE_MAX];
-    rbs_inverse_block_t block_ctx_table[ROZOFS_BLOCKS_MAX];
+    rbs_inverse_block_t block_ctx_table[ROZOFS_REBUILD_BLOCKS_MAX];
     uint8_t redundancy_stor_idx_current;
     char *data_read_p;
 } rbs_storcli_ctx_t;
