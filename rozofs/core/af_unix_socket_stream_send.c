@@ -318,6 +318,7 @@ void af_unix_send_stream_fsm(af_unix_ctx_generic_t *socket_p,com_xmit_template_t
         /*
         ** Check the xmit credit
         */
+#if 0
         if (xmit_p->xmit_credit >= xmit_p->xmit_credit_conf)
         {
           xmit_p->xmit_credit = 0;
@@ -329,6 +330,7 @@ void af_unix_send_stream_fsm(af_unix_ctx_generic_t *socket_p,com_xmit_template_t
 	  FD_SET(socket_p->socketRef,&rucWrFdSetCongested);
           return;
         }
+#endif
 	FD_CLR(socket_p->socketRef,&rucWrFdSetCongested);
 
         /*
@@ -367,8 +369,8 @@ void af_unix_send_stream_fsm(af_unix_ctx_generic_t *socket_p,com_xmit_template_t
         /*
         ** the transmitter is congested: check of the threshold has reached 0
         */
-        xmit_p->eoc_threshold--;
-        if (xmit_p->eoc_threshold == 0)
+//        xmit_p->eoc_threshold--;
+//        if (xmit_p->eoc_threshold == 0)
         {
            xmit_p->eoc_flag  = 1;
            xmit_p->congested_flag = 0;
@@ -376,10 +378,12 @@ void af_unix_send_stream_fsm(af_unix_ctx_generic_t *socket_p,com_xmit_template_t
 	   FD_CLR(socket_p->socketRef,&rucWrFdSetCongested);
            break;
         }
+#if 0
 	else
 	{
 	  FD_SET(socket_p->socketRef,&rucWrFdSetCongested);
 	}
+#endif
         return;
 
        case XMIT_DEAD:
