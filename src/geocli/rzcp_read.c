@@ -222,7 +222,7 @@ void rzcp_read_cbk(void *this,void *param)
       */
       uint32_t *p32 = (uint32_t*)ruc_buf_getPayload(shared_buf_ref);
       received_len = p32[1];
-      payload = (uint8_t*)&p32[2];
+      payload = (uint8_t*)&p32[4096/4];   
     }
     /*
     ** success

@@ -235,7 +235,6 @@ void geo_cli_geo_file_sync_read_end_cbk(void *param,int status)
        ** something wrong in copy
        */
        RZCP_CTX_STATS(RZCP_CTX_CPY_BAD_READ_LEN);
-       //severe("FDL bad read size %d ",cpy_p->received_len);
        goto abort_check;
     }  
     /*
@@ -243,10 +242,22 @@ void geo_cli_geo_file_sync_read_end_cbk(void *param,int status)
     ** we need to copy read buffer towards write buffer
     */
     {
-       uint8_t *from = (uint8_t*)ruc_buf_getPayload(cpy_p->shared_buf_ref[SHAREMEM_IDX_READ]) + 8;
-       uint8_t *to = (uint8_t*)ruc_buf_getPayload(cpy_p->shared_buf_ref[SHAREMEM_IDX_WRITE]) + 8;
-       memcpy(to,from,cpy_p->received_len);    
+       rzcp_file_ctx_t *rw_ctx_p;
+       int alignment;
+
+       uint8_t *from = (uint8_t*)ruc_buf_getPayload(cpy_p->shared_buf_ref[SHAREMEM_IDX_READ]) + (4096);
+       rw_ctx_p = &cpy_p->write_ctx;
+       uint32_t *to = (uint32_t*)ruc_buf_getPayload(cpy_p->shared_buf_ref[SHAREMEM_IDX_WRITE]);
+       alignment = rw_ctx_p->off_cur%16;
+       to[2] = alignment;
+       /*
+       ** Set pointer to the buffer start and adjust with alignment
+       */
+       uint8_t * buf_start = (uint8_t *)&to[4];
+       buf_start += alignment;
+       memcpy(buf_start,from,cpy_p->received_len);    
     }
+
     RZCPY_PROFILING_BYTES(copy_file,cpy_p->received_len);
     cpy_p->rzcp_caller_cbk = geo_cli_geo_file_sync_write_end_cbk;
     cpy_p->storcli_idx = 1;
@@ -254,7 +265,6 @@ void geo_cli_geo_file_sync_read_end_cbk(void *param,int status)
     if (ret < 0)
     {
         RZCP_CTX_STATS(RZCP_CTX_CPY_WRITE_ERR);
-       // severe("FDL direct write failure");
        goto abort;    
     }
     /*

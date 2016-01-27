@@ -305,6 +305,7 @@ void rozofs_start_one_storcli(int instance) {
       cmd_p += sprintf(cmd_p, "-l %d ",rozofs_storcli_shared_mem[SHAREMEM_IDX_READ].buf_sz);       
       cmd_p += sprintf(cmd_p, "-c %d ",rozofs_storcli_shared_mem[SHAREMEM_IDX_READ].buf_count);       
     }
+    cmd_p += sprintf(cmd_p, "-L %d -B %d ",exportclt.layout, exportclt.bsize);       
     
     sprintf(pid_file,"/var/run/launcher_geocli_%d_storcli_%d.pid", conf.instance, instance);
     rozo_launcher_start(pid_file,cmd);
