@@ -72,7 +72,7 @@ char prompt[64];
 /**
 **   lnkdebug <IPADDR> <PORT>
 */
-void syntax() {
+void syntax_display() {
   printf("\n%s ([-i <hostname>] {-p <port>|-T <target>})... [-c <cmd|all>]... [-f <cmd file>]... [-period <seconds>] [-t <seconds>]\n\n",prgName);
   printf("Several diagnostic targets can be specified ( [-i <hostname>] {-p <port>|-T <target>} )...\n");
   printf("  -i <hostname>  IP address or hostname of the diagnostic target.\n");
@@ -105,6 +105,19 @@ void syntax() {
   printf("\ne.g\n%s -i 192.168.1.1 -p 50003 -p 50004 -p 50005 -c profiler reset\n",prgName) ;          
   printf("%s -i 192.168.1.1 -p 50003 -i 192.168.1.2 -p 50003 -c profiler -period 10\n",prgName) ;          
   exit(0);
+}
+void stop_on_error(char *fmt, ... ) {
+  va_list         vaList;
+
+  if (fmt != NULL) {
+    /* Format the string */
+    va_start(vaList,fmt);
+    printf(fmt, vaList);
+    va_end(vaList);
+  }
+
+  printf("Check syntax with: %s -h\n",prgName);
+  exit(1);  
 }
 int debug_receive(int socketId, int silent) {
   int             ret;
@@ -210,8 +223,7 @@ void read_file(const char * fileName ) {
     
   fd = open(fileName, O_RDONLY); 
   if (fd < 0) {
-    printf("File %s not found\n",fileName);
-    syntax();
+    stop_on_error("File %s not found\n",fileName);
   } 
   
   while (nbCmd < MAX_CMD) {
@@ -380,21 +392,27 @@ char *argv[];
   if (chdir("/")!=0) {}
     
   idx = 1;
+  if (1 == argc) syntax_display();
+  
   /* Scan parameters */
   while (idx < argc) {
-    
+
+    /* -h */
+    if (strcmp(argv[idx],"-h")==0) {
+      syntax_display();
+    }    
+
     /* -i <ipAddr> */
     if (strcmp(argv[idx],"-i")==0) {
       idx++;
       if (idx == argc) {
-	printf ("%s option but missing value !!!\n",argv[idx-1]);
-	syntax();
+	stop_on_error ("%s option but missing value !!!\n",argv[idx-1]);
       }
 //      ipAddr = inet_addr(argv[idx]);
       status = rozofs_host2ip_netw(argv[idx],&ipAddr[nbTarget]);
       if (status < 0) 
       {
-        syntax();      
+	stop_on_error ("Bad -i value \"%s\" !!!\n",argv[idx]);
       }
       idx++;
       continue;
@@ -410,7 +428,7 @@ char *argv[];
       ret = system("grep ip_local_reserved_ports /etc/sysctl.conf");
       printf("\ncat /proc/sys/net/ipv4/ip_local_reserved_ports\n");
       ret += system("cat /proc/sys/net/ipv4/ip_local_reserved_ports"); 
-      exit(ret);
+      exit(0);
     }
     
     
@@ -418,17 +436,14 @@ char *argv[];
     if (strcmp(argv[idx],"-p")==0) {
       idx++;
       if (idx == argc) {
-	printf ("%s option but missing value !!!\n",argv[idx-1]);
-	syntax();
+	stop_on_error ("%s option but missing value !!!\n",argv[idx-1]);
       }
       ret = sscanf(argv[idx],"%u",&port32);
       if (ret != 1) {
-	printf ("%s option with unexpected value \"%s\" !!!\n",argv[idx-1],argv[idx]);
-        syntax();
+	stop_on_error ("%s option with unexpected value \"%s\" !!!\n",argv[idx-1],argv[idx]);
       }	
       if ((port32<0) || (port32>0xFFFF)) {
-	printf ("%s option with unexpected value \"%s\" !!!\n",argv[idx-1],argv[idx]);
-	syntax();
+	stop_on_error ("%s option with unexpected value \"%s\" !!!\n",argv[idx-1],argv[idx]);
       }
       
       serverPort[nbTarget] = (uint16_t) port32;
@@ -451,8 +466,7 @@ char *argv[];
     if (strcmp(argv[idx],"-T")==0) {
       idx++;
       if (idx == argc) {
-	printf ("%s option but missing value !!!\n",argv[idx-1]);
-	syntax();
+	stop_on_error ("%s option but missing value !!!\n",argv[idx-1]);
       }
       pt = argv[idx];
       if (strncasecmp(pt,"storio",strlen("storio"))==0) {
@@ -462,9 +476,8 @@ char *argv[];
 	  pt++;
 	  ret = sscanf(pt,"%u",&port32);
 	  if (ret != 1) {
-	    printf ("%s option with unexpected value \"%s\" !!!\n",argv[idx-1],argv[idx]);
-            syntax();
-	  }		  
+	    stop_on_error ("%s option with unexpected value \"%s\" !!!\n",argv[idx-1],argv[idx]);
+          }		  
 	}
         port32 = rozofs_get_service_port_storio_diag(port32);
 	
@@ -478,9 +491,8 @@ char *argv[];
 	  pt++;
 	  ret = sscanf(pt,"%u",&port32);
 	  if (ret != 1) {
-	    printf ("%s option with unexpected value \"%s\" !!!\n",argv[idx-1],argv[idx]);
-            syntax();
-	  }
+	    stop_on_error ("%s option with unexpected value \"%s\" !!!\n",argv[idx-1],argv[idx]);
+          }
 	  port32 = rozofs_get_service_port_export_slave_diag(port32);	  
 	}
 	else port32 = rozofs_get_service_port_export_master_diag();	  	
@@ -491,14 +503,13 @@ char *argv[];
       else if (strncasecmp(pt,"geocli",strlen("geocli"))==0) {
 	pt += strlen("geocli");  	
         if (*pt != ':') { 
-	  syntax();
+	  stop_on_error ("%s option with unexpected value \"%s\" !!!\n",argv[idx-1],argv[idx]);
 	}  
 	pt++;
 	ret = sscanf(pt,"%u",&port32);
 	if (ret != 1) {
-	  printf ("%s option with unexpected value \"%s\" !!!\n",argv[idx-1],argv[idx]);
-          syntax();
-	}
+	  stop_on_error ("%s option with unexpected value \"%s\" !!!\n",argv[idx-1],argv[idx]);
+        }
 	while ((*pt != 0)&&(*pt != ':')) pt++;
 	if (*pt == 0) { 
 	  port32 = rozofs_get_service_port_geocli_diag(port32);
@@ -507,9 +518,8 @@ char *argv[];
 	  pt++;
 	  ret = sscanf(pt,"%u",&val32);
 	  if (ret != 1) {
-	    printf ("%s option with unexpected value \"%s\" !!!\n",argv[idx-1],argv[idx]);
-            syntax();
-	  }	
+	    stop_on_error ("%s option with unexpected value \"%s\" !!!\n",argv[idx-1],argv[idx]);
+          }	
 	  // storcli:x:y 
 	  port32 = rozofs_get_service_port_geocli_storcli_diag(port32,val32);
 	}
@@ -517,14 +527,13 @@ char *argv[];
       else if (strncasecmp(pt,"mount",strlen("mount"))==0) {
 	pt += strlen("mount");
         if (*pt != ':') { 
-	  syntax();
+	  stop_on_error ("%s option with unexpected value \"%s\" !!!\n",argv[idx-1],argv[idx]);
 	}  
 	pt++;
 	ret = sscanf(pt,"%u",&port32);
 	if (ret != 1) {
-	  printf ("%s option with unexpected value \"%s\" !!!\n",argv[idx-1],argv[idx]);
-          syntax();
-	}
+	  stop_on_error ("%s option with unexpected value \"%s\" !!!\n",argv[idx-1],argv[idx]);
+        }
 	while ((*pt != 0)&&(*pt != ':')) pt++;
 	if (*pt == 0) { 
 	  port32 = rozofs_get_service_port_fsmount_diag(port32);
@@ -533,20 +542,18 @@ char *argv[];
 	  pt++;
 	  ret = sscanf(pt,"%u",&val32);
 	  if (ret != 1) {
-	    printf ("%s option with unexpected value \"%s\" !!!\n",argv[idx-1],argv[idx]);
-            syntax();
-	  }	
+	    stop_on_error ("%s option with unexpected value \"%s\" !!!\n",argv[idx-1],argv[idx]);
+            	  }	
 	  // storcli:x:y 
 	  port32 = rozofs_get_service_port_fsmount_storcli_diag(port32,val32);
 	}
       }          
       else {
-	syntax();           
+	stop_on_error ("%s option with unexpected value \"%s\" !!!\n",argv[idx-1],argv[idx]);       
       }
 
       if ((port32<0) || (port32>0xFFFF)) {
-	printf ("%s option with unexpected value \"%s\" !!!\n",argv[idx-1],argv[idx]);
-	syntax();
+	stop_on_error ("%s option with unexpected value \"%s\" !!!\n",argv[idx-1],argv[idx]);
       }
       
       serverPort[nbTarget] = (uint16_t) port32;
@@ -561,13 +568,11 @@ char *argv[];
     if (strcmp(argv[idx],"-period")==0) {
       idx++;
       if (idx == argc) {
-	printf ("%s option but missing value !!!\n",argv[idx-1]);
-	syntax();
+	stop_on_error ("%s option but missing value !!!\n",argv[idx-1]);
       }
       ret = sscanf(argv[idx],"%u",&period);
       if (ret != 1) {
-	printf ("%s option with unexpected value \"%s\" !!!\n",argv[idx-1],argv[idx]);   
-        syntax();
+	stop_on_error ("%s option with unexpected value \"%s\" !!!\n",argv[idx-1],argv[idx]);   
       }
       idx++;
       continue;
@@ -577,13 +582,11 @@ char *argv[];
     if (strcmp(argv[idx],"-t")==0) {
       idx++;
       if (idx == argc) {
-	printf ("%s option but missing value !!!\n",argv[idx-1]);
-	syntax();
+	stop_on_error ("%s option but missing value !!!\n",argv[idx-1]);
       }
       ret = sscanf(argv[idx],"%u",&timeout);
       if (ret != 1) {
-	printf ("%s option with unexpected value \"%s\" !!!\n",argv[idx-1],argv[idx]);   
-        syntax();
+	stop_on_error ("%s option with unexpected value \"%s\" !!!\n",argv[idx-1],argv[idx]);           
       }
       idx++;
       continue;
@@ -593,8 +596,7 @@ char *argv[];
     if (strcmp(argv[idx],"-c")==0) {
       idx++;
       if (idx == argc) {
-	printf ("%s option but missing value !!!\n",argv[idx-1]);
-	syntax();
+	stop_on_error ("%s option but missing value !!!\n",argv[idx-1]);
       }
       if (strcmp(argv[idx],"all") == 0) {
         allCmd = 1;
@@ -624,8 +626,7 @@ char *argv[];
     if (strcmp(argv[idx],"-c")==0) {
       idx++;
       if (idx == argc) {
-	printf ("%s option but missing value !!!\n",argv[idx-1]);
-	syntax();
+	stop_on_error ("%s option but missing value !!!\n",argv[idx-1]);
       }
       if (strcmp(argv[idx],"all") == 0) {
         allCmd = 1;
@@ -655,16 +656,14 @@ char *argv[];
     if (strcmp(argv[idx],"-f")==0) {
       idx++;
       if (idx == argc) {
-	printf ("%s option but missing value !!!\n",argv[idx-1]);
-	syntax();
+	stop_on_error ("%s option but missing value !!!\n",argv[idx-1]);
       }
       read_file(argv[idx]);
       idx++;
       continue;
     }
 
-    printf("Unexpected option \"%s\" !!!\n", argv[idx]);
-    syntax();
+    stop_on_error("Unexpected option \"%s\" !!!\n", argv[idx]);
   }  
   
 }
@@ -678,7 +677,7 @@ int connect_to_server(uint32_t   ipAddr, uint16_t  serverPort) {
   */
   if ((socketId = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
     printf("Unable to create a socket !!!\n");
-    exit(0);
+    exit(2);
   }  
   
   /* 
@@ -688,7 +687,7 @@ int connect_to_server(uint32_t   ipAddr, uint16_t  serverPort) {
 		  SO_SNDBUF,(char*)&sockSndSize,sizeof(int)) == -1)  {
     printf("Error on setsockopt SO_SNDBUF %d\n",sockSndSize);
     close(socketId);
-    exit(0);
+    exit(2);
   }
   /* 
   ** change sizeof the buffer of socket for receiving
@@ -697,7 +696,7 @@ int connect_to_server(uint32_t   ipAddr, uint16_t  serverPort) {
                   SO_RCVBUF,(char*)&sockRcvdSize,sizeof(int)) == -1)  {
     printf("Error on setsockopt SO_RCVBUF %d !!!\n",sockRcvdSize);
     close(socketId);
-    exit(0);
+    exit(2);
   }
   
 
@@ -706,8 +705,8 @@ int connect_to_server(uint32_t   ipAddr, uint16_t  serverPort) {
   vSckAddr.sin_port   = htons(serverPort);
   memcpy(&vSckAddr.sin_addr.s_addr, &ipAddr, 4); 
   if (connect(socketId,(struct sockaddr *)&vSckAddr,sizeof(struct sockaddr_in)) == -1) {
-    printf("error on connect %s!!!", strerror(errno));
-    exit(0);
+    printf("error on connect %s!!!\n", strerror(errno));
+    exit(2);
   }
   return socketId;
 }
@@ -729,7 +728,7 @@ int main(int argc, const char **argv) {
   nbCmd         = 0;
   allCmd        = 0;
   read_parameters(argc, argv);
-  if (nbTarget == 0) syntax();
+  if (nbTarget == 0) stop_on_error("No target defined");
 
 
 reloop:
@@ -765,5 +764,5 @@ reloop:
     goto reloop;
   }
 
-  exit(1);
+  exit(0);
 }
