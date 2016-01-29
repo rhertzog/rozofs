@@ -120,6 +120,8 @@ file is ignored and can even be omitted. All the pathes are automatically create
 .TP
 .SS device_automount_option
 This parameter provides an optionnal mount option that should be supported by the lowlevel file system.
+.SS device_self_healing_process
+This parameter sets the number of rebuilder processes that run in parallel in case of an automatic rebuild for selfhealing purpose. This is also the default number of rebuilder processes for operator rebuild commands.
 .SH EXAMPLE
 .PP
 .nf

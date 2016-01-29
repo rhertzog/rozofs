@@ -219,7 +219,7 @@ void rbs_conf_init(rbs_parameter_t * par) {
   par->cid                  = -1;
   par->sid                  = -1;
   memset(par->fid2rebuild,0,sizeof(fid_t));
-  par->parallel             = DEFAULT_PARALLEL_REBUILD_PER_SID;
+  par->parallel             = common_config.device_self_healing_process;
   par->relocate             = 0;
   par->max_reloop           = DEFAULT_REBUILD_RELOOP;
   par->output               = NULL;
@@ -254,7 +254,7 @@ void usage_display() {
     printf("   -f, --fid <FID>           \tSpecify one FID to rebuild. -s must also be set.\n");
     printf("   -p, --parallel=<val>      \tNumber of rebuild processes in parallel per cid/sid\n");
     printf("                             \t(default is %d, maximum is %d)\n",
-           DEFAULT_PARALLEL_REBUILD_PER_SID,MAXIMUM_PARALLEL_REBUILD_PER_SID);   
+           common_config.device_self_healing_process,MAXIMUM_PARALLEL_REBUILD_PER_SID);   
     printf("   -g, --geosite             \tTo force site number in case of geo-replication\n");
     printf("   -R, --relocate            \tTo rebuild a device by relocating files\n");
     printf("   -l, --loop                \tNumber of reloop in case of error (default %d)\n",DEFAULT_REBUILD_RELOOP);
