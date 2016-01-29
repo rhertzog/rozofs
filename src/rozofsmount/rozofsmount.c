@@ -1186,7 +1186,7 @@ void show_trc_fuse_buffer(char * pChar)
 	  case rozofs_trc_type_setattr:
 	    pChar+=sprintf(pChar,"%s ", str);
 	    if (p->par.setattr.to_set&FUSE_SET_ATTR_SIZE) {
-	      pChar+=sprintf(pChar," SZ(%d)", p->par.setattr.attr.size);
+	      pChar+=sprintf(pChar," SZ(%llu)", (long long unsigned int) p->par.setattr.attr.size);
 	    }
 	    if (p->par.setattr.to_set&FUSE_SET_ATTR_MODE) {
               pChar+=sprintf(pChar," MODE(%o)",p->par.setattr.attr.mode);
