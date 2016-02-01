@@ -877,7 +877,19 @@ void show_eid_exportd_assoc(char * argv[], uint32_t tcpRef, void *bufRef) {
 
     uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
 }
+/*__________________________________________________________________________
+*/
+void show_mount(char * argv[], uint32_t tcpRef, void *bufRef) {
 
+    char *pChar = uma_dbg_get_buffer();
+    
+    pChar += sprintf(pChar, "instance : %d\n",conf.instance);
+    pChar += sprintf(pChar, "mount    : %s\n",mountpoint);
+    pChar += sprintf(pChar, "export   : %s\n",conf.export);
+    pChar += sprintf(pChar, "host     : %s\n",conf.host);
+    pChar += sprintf(pChar, "eid      : %d\n",exportclt.eid);
+    uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
+}
 /*__________________________________________________________________________
 */
 static char * show_blockmode_cache_help(char * pChar) {
@@ -1717,6 +1729,7 @@ int fuseloop(struct fuse_args *args, int fg) {
     uma_dbg_addTopic_option("profiler", show_profiler,UMA_DBG_OPTION_RESET);
     uma_dbg_addTopic("exp_route", show_exp_routing_table);
     uma_dbg_addTopic("exp_eid", show_eid_exportd_assoc);
+    uma_dbg_addTopic("mount",show_mount);
     uma_dbg_addTopic("cache_set", rozofs_set_cache);
     uma_dbg_addTopic("fsmode_set", rozofs_set_fsmode);
     uma_dbg_addTopic("shared_mem", rozofs_shared_mem_display);
