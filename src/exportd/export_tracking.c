@@ -1478,7 +1478,7 @@ int export_getattr(export_t *e, fid_t fid, mattr_t *attrs) {
       if (ts>last_export_getattr_log+5000000000UL) {
         char fidstring[256];
 	fid2string(fid,fidstring);
-        severe("export_getattr failed: %s %s", fidstring, strerror(errno));
+        warning("export_getattr failed: %s %s", fidstring, strerror(errno));
 	last_export_getattr_log = ts;
       }
       goto out;
