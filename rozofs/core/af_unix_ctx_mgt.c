@@ -309,6 +309,7 @@ void af_unix_debug_show_first(char *pChar) {
       af_unix_debug_show_one(pChar,sock_p);
       return;
   }
+  pChar += sprintf(pChar, "END\n"); 
   next_display_af_unix_ctx = NULL;
 }
 /*__________________________________________________________________________
@@ -352,7 +353,7 @@ void af_unix_debug_show_name(char *pChar, char * name) {
       
       rozofs_socket_stats_t *stats_p = &sock_p->stats;
       
-      if (af_unix_check_empty_stats(stats_p) == 1) continue;
+      //if (af_unix_check_empty_stats(stats_p) == 1) continue;
       if (strcmp(name,sock_p->nickname) != 0) continue;
 
       af_unix_debug_show_one(pChar,sock_p);
