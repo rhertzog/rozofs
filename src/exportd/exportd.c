@@ -457,10 +457,13 @@ static void *balance_volume_thread(void *v) {
     uma_dbg_thread_add_self("Volume balance");
 
     /* In round robin mode less frequent polling is needed */    
-    if (common_config.file_distribution_rule == rozofs_file_distribution_weigthed_round_robin) {
+    if (common_config.file_distribution_rule == rozofs_file_distribution_size_balancing) {
+      ts.tv_sec = 6;
+    }
+    else if (common_config.file_distribution_rule == rozofs_file_distribution_weigthed_round_robin) {
       ts.tv_sec = 12;
     }
-    else if (common_config.file_distribution_rule == rozofs_file_distribution_strict_round_robin) {  
+    else  {  
       ts.tv_sec = 18;
     }
     

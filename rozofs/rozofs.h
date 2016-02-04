@@ -44,8 +44,8 @@ static __inline__ unsigned long long rdtsc(void)
 typedef enum _rozofs_file_distribution_rule_e {
   rozofs_file_distribution_size_balancing,
   rozofs_file_distribution_weigthed_round_robin,
-  rozofs_file_distribution_strict_round_robin,
-  
+  rozofs_file_distribution_strict_round_robin_forward,
+  rozofs_file_distribution_strict_round_robin_inverse,  
   rozofs_file_distribution_max
 } rozofs_file_distribution_rule_e;
 
@@ -53,7 +53,8 @@ static inline char * rozofs_file_distribution_rule2sting(rozofs_file_distributio
   switch(rule) {
     case rozofs_file_distribution_size_balancing:          return "size balancing";
     case rozofs_file_distribution_weigthed_round_robin:    return "weigthed round robin";
-    case rozofs_file_distribution_strict_round_robin:      return "strict round robin";
+    case rozofs_file_distribution_strict_round_robin_forward:      return "strict round robin forward";
+    case rozofs_file_distribution_strict_round_robin_inverse:      return "strict round robin inverse";
     default: return "??";
   }  
 }

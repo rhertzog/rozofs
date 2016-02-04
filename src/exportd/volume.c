@@ -457,11 +457,15 @@ void volume_balance(volume_t *volume) {
     ** --> exception: in stict round robin mode, keep the the distribution list as it is
     **     --> exception: on the 1rst call, the cluster distibution list has to be initialized
     */    
-    if ((common_config.file_distribution_rule != rozofs_file_distribution_strict_round_robin)
-    ||  (volume->balanced == 0)) {  
-      volume->active_list = 1 - volume->active_list;
-      volume->balanced = 1;
+    if  (volume->balanced == 0) goto swap;
+    switch(common_config.file_distribution_rule) {
+      case rozofs_file_distribution_strict_round_robin_forward: 
+      case rozofs_file_distribution_strict_round_robin_inverse: goto out;
     }
+    
+swap:
+    volume->active_list = 1 - volume->active_list;
+    volume->balanced = 1;    
 out:
     STOP_PROFILING_0(volume_balance);
 }
@@ -482,6 +486,7 @@ static int do_cluster_distribute(uint8_t layout,int site_idx, cluster_t *cluster
   list_t           *pList = &cluster->storages[site_idx];
   list_t           *p;
   uint64_t          decrease_size;
+  int               max;
   
   uint8_t rozofs_inverse=0; 
   uint8_t rozofs_forward=0;
@@ -555,10 +560,14 @@ success:
   ** In strict round robin just put the selected storages 
   ** at the end of the list 
   */
-  if (common_config.file_distribution_rule == rozofs_file_distribution_strict_round_robin) {
+  max = 0;
   
+  if      (common_config.file_distribution_rule == rozofs_file_distribution_strict_round_robin_forward) max = rozofs_forward;
+  else if (common_config.file_distribution_rule == rozofs_file_distribution_strict_round_robin_inverse) max = rozofs_inverse;
+  
+  if (max) {
     idx = 0;    
-    while(idx < rozofs_forward) {
+    while(idx < max) {
       vs = selected[idx];
       sids[idx] = vs->sid;
       list_remove(&vs->list);
