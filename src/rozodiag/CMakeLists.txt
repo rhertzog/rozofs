@@ -35,3 +35,4 @@ install(TARGETS rozodiag
     COMPONENT rozodiag
 )
 install(PROGRAMS rozo_status.py DESTINATION bin)
+install(PROGRAMS rozo_node_status.py DESTINATION bin)

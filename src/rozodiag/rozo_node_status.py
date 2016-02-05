@@ -24,6 +24,7 @@ fulldiagnostic=False
 alarm_level = int(-1)
 
 time_limit_minutes=0
+
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
@@ -324,15 +325,11 @@ def add_error_table(host, port, module, addr, criticity, string, tip=None):
   tbl.set_column(4,criticity) 
   tbl.set_column(5,string) 
   if tip == None: return
-  
-  if port =="":
-    tbl.set_column(6,tip)
-  else:      
-    try:
-      port = int(self.port)
-      tbl.set_column(6,"%sdiag -i %s -p %s -c %s"%(base,addr,port,tip))
-    except:
-      tbl.set_column(6,"%sdiag -i %s -T %s -c %s"%(base,addr,port,tip))
+  try:
+    port = int(self.port)
+    tbl.set_column(6,"%sdiag -i %s -p %s -c %s"%(base,addr,port,tip))
+  except:
+    tbl.set_column(6,"%sdiag -i %s -T %s -c %s"%(base,addr,port,tip))
 
 #_______________________________________________  
 # Display the error table
@@ -349,16 +346,16 @@ def display_error_table():
 #_______________________________________________
 class rozofs_module:
 
-  def __init__(self,host,port,module):
+  def __init__(self,port,module):
     global modules
+    host = "127.0.0.1"
     self.host   = host
     self.addr   = self.host.split('/')
     self.port   = port
     self.module = module
-    self.activeAddr = None
-    self.ping()
+    self.activeAddr = host
     
-  def id(self): return "[%s-%s-%s]"%(self.module, self.host, self.port) 
+  def id(self): return "[%s-%s]"%(self.module, self.port) 
                         
   def CRITICAL(self,string,tip=None): 
     add_error_table(self.host,self.port,self.module,self.activeAddr,'CRITICAL',string, tip)
@@ -366,35 +363,6 @@ class rozofs_module:
     add_error_table(self.host,self.port,self.module,self.activeAddr,'ERROR',string,tip) 
   def WARNING(self,string,tip=None): 
     add_error_table(self.host,self.port,self.module,self.activeAddr,'WARNING',string,tip)
-
-  def ping(self):
-    """Sends a ping to destination
-       sous forme d'une liste de lignes unicode
-    """   
-    #print "PING %s"%(self.id()) 
-    self.activeAddr = None
-    for addr in self.addr:
-      if addr == '': continue
-      parsed = ["ping", addr,"-c","1","-w","2"]
-      increment_counter(parsed)
-      cmd = subprocess.Popen(parsed, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-      output, error = cmd.communicate()
-      if error != '':
-	self.WARNING("No response to ping on address %s"%(addr))
-      else:
-        for line in output.split('\n'):
-	  words = line.split()
-	  for i in range(len(words)):
-	    if words[i] == "received,":
-	      nb=int(words[i-1])
-	      if nb == int(0):  
-	         self.WARNING("No response to ping on address %s"%(addr))
-              else:		        
-                self.activeAddr = addr
-    if self.activeAddr == None: 
-      self.CRITICAL("does not respond to ping")    
-      return False	
-    return True
 
   def rozodiag_one_addr(self,cmd,addr):
     global ROZODIAG        
@@ -404,9 +372,9 @@ class rozofs_module:
     # who is either a port number or a target name 
     try:
       port = int(self.port)
-      parsed = [ROZODIAG, "-t", "2", "-i",addr,"-p","%s"%(self.port),"-c",cmd] 
+      parsed = [ROZODIAG, "-i",addr,"-p","%s"%(self.port),"-c",cmd] 
     except:
-      parsed = [ROZODIAG, "-t", "2", "-i",addr,"-T",self.port,"-c",cmd]  
+      parsed = [ROZODIAG, "-i",addr,"-T",self.port,"-c",cmd]  
 
     increment_counter(parsed)
 
@@ -416,8 +384,9 @@ class rozofs_module:
     try:    output, error = command.communicate()
     except: return None
 
-    if "error on connect Connection refused!!!" in output: return None
-    if "List of available topics"  in output: return None   
+    if "error on connect Connection refused!!!" in output: 
+      self.CRITICAL("Not responding")
+      return None
     if error != '': return None
 
     self.activeAddr = addr
@@ -426,23 +395,12 @@ class rozofs_module:
             
   def rozodiag(self,cmd):
     """Run a rozodiag command toward this rozofs module
-    """    
-    global ROZODIAG    
-    global base
-    
-    if self.activeAddr != None:
-      lines = self.rozodiag_one_addr(cmd,self.activeAddr)
-      if lines != None: return lines
-      
-    for addr in self.addr:
-      lines = self.rozodiag_one_addr(cmd,addr)
-      if lines != None: return lines
-    
-    if cmd == "uptime": self.CRITICAL("Not responding !!!")  
-    if cmd == "version" and self.module == "exportd" : return None       
-    else:               self.CRITICAL("Can not run %sdiag \"%s\"!!!"%(base,cmd),"%s"%(cmd))
-    return None
+    """        
+    return self.rozodiag_one_addr(cmd,self.activeAddr)
 
+
+  def check_accessibility(self):
+    return self.rozodiag("?")  
 
   def check_version(self):
     """Get the version of a process
@@ -574,7 +532,7 @@ class rozofs_module:
 	initial=count.split('/')[0]
 	allocated=count.split('/')[1]   
 	if int(initial) ==  int(allocated):
-          self.CRITICAL("All TRX context allocated","trx")
+          self.WARNING("All TRX context allocated","trx")
 	  status = False
 	else:
 	  percent = int(allocated)*100/int(initial)
@@ -587,14 +545,14 @@ class rozofs_module:
 
       if words[1] in TOCHECK:
 	if words[3] != 0: 
-	  self.ERROR("%s %s"%(words[3],words[1]),"trx");	     
+	  self.WARNING("%s %s"%(words[3],words[1]),"trx");	     
 	  status = False
       
 #_______________________________________________
 class storio(rozofs_module):
 
-  def __init__(self,host,port):
-    rozofs_module.__init__(self,host,port,'storio')
+  def __init__(self,port):
+    rozofs_module.__init__(self,port,'storio')
 
   def check_storio_log(self):
     """
@@ -620,7 +578,7 @@ class storio(rozofs_module):
       if "out of ctx" not in line: continue
       val=line.split(':')[1].split()[0]
       if int(val) > int(0):
-	self.ERROR("has %s out of FID ctx"%(val),"fid")
+	self.WARNING("has %s out of FID ctx"%(val),"fid")
 	return False
       return True  
     return False	
@@ -648,7 +606,7 @@ class storio(rozofs_module):
 	continue
       if "error counter" in line:
 	if words[4] != "0": 
-          self.ERROR("%s CRC32 errors detected"%(words[4]),"data_integrity")
+          self.WARNING("%s CRC32 errors detected"%(words[4]),"data_integrity")
 	continue	   
 
 
@@ -671,9 +629,9 @@ class storio(rozofs_module):
 #_______________________________________________
 class storage(rozofs_module):
 
-  def __init__(self,site,cid,sid,host):
+  def __init__(self,site,cid,sid):
     global storaged
-    rozofs_module.__init__(self,host,'storaged','storaged')    
+    rozofs_module.__init__(self,'storaged','storaged')    
     self.site    = site
     self.cid     = cid
     self.sid     = sid
@@ -705,12 +663,13 @@ class storage(rozofs_module):
     return 0	
              
   def check_storaged(self):    
-    global fulldiagnostic    
+    global fulldiagnostic 
+    if self.check_accessibility() == None: return -1
+    
     res = self.check_devices() 
     if res == -1: return -1
          
     if fulldiagnostic == True:
-      self.rozodiag("uptime")
       self.check_version()     
       self.check_uptime()
       self.check_buffer()
@@ -729,79 +688,21 @@ class storage(rozofs_module):
 	if len(words) < 1:    continue
 	if words[0] == "mode":
 	  if words[2] == "single":
-	    stio = storio(self.host,"storio:0")
+	    stio = storio("storio:0")
 	    if stio.check() == False: self.failed = True	    
 	    return 0
 	if words[0] == "cids":
 	  for idx in range(2,len(words)):   
-	    stio = storio(self.host,"storio:%s"%(words[idx]))
+	    stio = storio("storio:%s"%(words[idx]))
 	    if stio.check() == False: self.failed = True	    
 	  return 0
       return -1
-
-#_______________________________________________
-class cluster:
-
-  def __init__(self,site,cid):
-    self.site = site
-    self.cid  = cid
-    self.sids = []
-
-  def equal(self,cid):     
-    if int(self.cid) != int(cid): return False
-    return True    
-
-  def display(self):
-    print "      cid %s"%(self.cid)
-    for sid in sorted(self.sids,key=lambda storage:storage.sid): sid.display() 
-   
-#_______________________________________________
-class volume:
-
-  def __init__(self,vid,free,freeSz,InitSz):
-    self.vid = vid
-    self.clusters_0 = []
-    self.clusters_1 = []
-    self.free = free
-    self.freeSz = int(freeSz)*1024
-    self.InitSz = int(InitSz)*1024
-
-  def get_cluster(self,site,cid):
-    if int(site) == int(0): clusters = self.clusters_0
-    else:                   clusters = self.clusters_1
-    for c in clusters:
-      if c.equal(cid): return c
-    c=cluster(site,cid)
-    clusters.append(c)
-    return c
-   
-        	      
-  def add_storage(self,site,cid,sid,host):
-    c = self.get_cluster(site,cid)
-    s = storage(site,cid,sid,host)
-    c.sids.append(s)
-    return 0      
-
-  def display(self):
-    print "\n  Volume %s - Free %s/%s %s%c"%(self.vid,display_unit(self.freeSz),display_unit(self.InitSz),self.free,'%')
-    if len(self.clusters_0) != 0:
-      print "    site: 0"
-      for c in sorted(self.clusters_0,key=lambda cluster:cluster.cid): c.display()
-    if len(self.clusters_1) != 0:      
-      print "    site: 1"
-      for c in sorted(self.clusters_1,key=lambda cluster:cluster.cid): c.display()
-#_______________________________________________
-class export_id:
-
-  def __init__(self,eid,vid,path):
-    self.eid  = eid
-    self.vid  = vid
-    self.path = path
+  
 #_______________________________________________
 class storcli(rozofs_module):
 
-  def __init__(self,host,port):
-    rozofs_module.__init__(self,host,port,'storcli')          
+  def __init__(self,port):
+    rozofs_module.__init__(self,port,'storcli')          
 
   def check(self): 
     global fulldiagnostic
@@ -848,27 +749,30 @@ class storcli(rozofs_module):
 #_______________________________________________
 class client(rozofs_module):
 
-  def __init__(self,host,port,age):
-    rozofs_module.__init__(self,host,port,'rozofsmount')          
-    self.nbstorcli = "0" 
+  def __init__(self,port,age):
+    rozofs_module.__init__(self,port,'rozofsmount')          
+    self.nbstorcli = "?" 
     self.status    = "OK"
-    self.eid       = "0"
+    self.eid       = "?"
     self.vid       = "?"
     self.bsize     = "?"
     self.layout    = "?"
     self.age       = age
     self.site      = "?"
+    self.mount     = "?"
     
-    res = self.rozodiag("start_config") 
+    res = self.rozodiag("?") 
     if res == None: 
       self.status = "Failed"
       return
-    else:
-     for line in res:
-        if "running_site" in line:
-	  self.site=line.split('=')[1].split()[0]
-	  break        
-             
+    res = self.rozodiag("start_config") 
+    for line in res:
+      if "running_site" in line:
+	self.site=line.split('=')[1].split()[0]
+	break        
+           
+    self.check_vid()
+	     
     res = self.rozodiag("stclbg")
     if res == None: 
       self.status = "Failed"
@@ -883,7 +787,7 @@ class client(rozofs_module):
       for line in res:
         words=line.split()
 	if len(words) < 2: continue
-	if words[0] == "eid":
+	if words[0] == "mount":
 	  self.eid="%d"%(int(words[1]))
 	  break
     res = self.rozodiag("layout")
@@ -895,8 +799,30 @@ class client(rozofs_module):
 	  self.bsize  = words[4]
 	  break
 	  
-  def add_vid(self,vid):
-    self.vid = vid
+  def check_vid(self):
+    res = self.rozodiag("mount")
+    if res == None: return
+
+    for line in res:
+      words=line.split()
+      if len(words) < 3: continue
+      if words[0] == "mount":
+        self.mount = words[2]
+	break
+           
+    try:
+      parsed = ["attr", "-g","rozofs",self.mount]        
+      command = subprocess.Popen(parsed, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+      output, error = command.communicate()
+      for line in output.split('\n'):
+        words=line.split()
+        if len(words) < 3: continue
+        if words[0] == "VID":
+          self.vid = words[2]
+        if words[0] == "EID":
+          self.eid = words[2]	        
+    except: 
+      pass
       
   def check(self): 
     global diagnostic
@@ -912,9 +838,9 @@ class client(rozofs_module):
     for idx in range (1,int(self.nbstorcli)+1):
       try:
         storcli_port=int(self.port)+int(idx)
-        stc = storcli(self.host,storcli_port)
+        stc = storcli(storcli_port)
       except:
-        stc = storcli(self.host,self.port+':'+"%d"%(idx))        	
+        stc = storcli(self.port+':'+"%d"%(idx))        	
       if stc.check() == False: self.status = "STORCLI failed" 
        
   def display(self):
@@ -958,230 +884,10 @@ class client(rozofs_module):
   @staticmethod   
   def output():
     global dis
-    dis.display()
+    if dis != None: dis.display()
     dis = None
     
-#_______________________________________________
-class export_slave(rozofs_module):
-   
-  def __init__(self,host,number,master):
-    rozofs_module.__init__(self,host,'export:%s'%(number),"export_slave")
-    self.master = master          
 
-    # Create its eid
-    res = self.rozodiag("vfstat_exp")
-    if res == None:
-      self.ERROR("do not respond to rozodiag") 
-      raise ValueError() 
-    for line in res:
-      words=line.split()
-      try:
-        eid=int(words[0])
-	vid=words[2]
-	self.master.add_eid(eid,vid,"")
-      except:
-      	continue    
-
-  def check(self):
-    global fulldiagnostic
-    # Check storage status
-    res = self.rozodiag("vfstat_stor")
-    for v in self.master.volumes:
-      up=0
-      for line in res:
-	words = line.split()
-	if len(words) < 6: continue
-	try:   vol=int(words[0])
-	except:continue
-	if int(v.vid) == int(words[0]):
-          status = words[6]
-	  if status != 'UP': self.CRITICAL("sees storage cid%s/sid%s of volume %s down"%(words[2],words[4],v.vid),"vfstat_stor")
-	  else:              up=up+1
-      if up == 0: self.CRITICAL("sees all storages of volume %s down"%(v.vid),"vfstat_stor")    
-    if fulldiagnostic == True:
-      self.check_version()  
-      self.check_trx()
-      self.check_buffer()
-      self.check_rpc_resources() 
-      self.check_uptime()
-      #self.check_tcp_info()
-      self.check_core_files()
-                       
-#_______________________________________________
-class exportd(rozofs_module):
-   
-  def __init__(self,host):
-    global fulldiagnostic
-    
-    rozofs_module.__init__(self,host,'exportd','exportd')          
-
-    # Check it responds to ping
-    if self.activeAddr == None: raise ValueError()
-   
-    # Get exportd version number
-    if self.get_version() == None: raise valueError()    
-    self.tag = self.get_git_tag()
-    
-    self.volumes = []  
-    self.clients = []
-    self.eids    = []    
-
-    # Check it responds to rozodiag
-    res = self.rozodiag("vfstat_vol")
-    if res == None:
-      raise ValueError()   
-
-    # add it to the list of exportd
-    global exportds  
-    exportds.append(self)
-    
-    # Create its volumes
-    for line in res:
-      if len(line.split()) < 12: continue
-      free = line.split()[11]
-      freeSz=line.split()[9]
-      InitSz=line.split()[7]
-      v    = self.add_volume(line.split()[1],free,freeSz,InitSz)
-
-      # Check free space
-      if int(free) < 3:    self.CRITICAL("volume %s on export %s has only %s%c of free space"%(v.vid,self.host,free,'%'),"vfstat_vol")
-      elif int(free) < 6:  self.ERROR("volume %s on export %s has only %s%c of free space"%(v.vid,self.host,free,'%'),"vfstat_vol")
-      elif int(free) < 9:  self.WARNING("volume %s on export %s has only %s%c of free space"%(v.vid,self.host,free,'%'),"vfstat_vol")    
-
-    
-    # Create storages        
-    res = self.rozodiag("vstor") 
-    for line in res:
-      words = line.split()
-      if len(words) < 9: continue
-      v = self.get_volume(words[2])
-      v.add_storage(words[0],words[4],words[6],words[8])	    
-    
-    # Check storage status
-    res = self.rozodiag("vfstat_stor")
-    for v in self.volumes:
-      up=0
-      for line in res:
-	words = line.split()
-	if len(words) < 6: continue
-	try:   vol=int(words[0])
-	except:continue
-	if int(v.vid) == int(words[0]):
-          status = words[6]
-	  if status != 'UP': self.CRITICAL("sees storage cid%s/sid%s of volume %s down"%(words[2],words[4],v.vid),"vfstat_stor")
-	  else:              up=up+1
-      if up == 0: self.CRITICAL("sees all storages of volume %s down"%(v.vid),"vfstat_stor")
-
-  def get_version(self):
-    """Get the exportd version
-    """    
-    global version
-    res = self.rozodiag("version")
-    if res == None: return None
-
-    for line in res:
-      words = line.split()
-      if len(words) < 3: continue
-      if words[0] == "version":
-	version = words[2]
-	return version
-    return None  
-
-  def check_drbd(self):
-    res = self.rozodiag("synchro drbd")
-    if res == None: return None
-    status = None
-    for  line in res:
-      words = line.split()
-      if len(words)<int(4):continue
-      if words[0] ==  "0:" or words[0] ==  ":1":
-        if status == None: status = "Success"
-        if words[1] != "cs:Connected" or words[2] != "ro:Primary/Secondary" or words[3] != "ds:UpToDate/UpToDate":
-	  status = "Failed"
-    if status == None       : self.WARNING("No DRBD synchronization","synchro")  
-    elif status == "Failed" : self.CRITICAL("DRBD not synchronized","synchro drbd")
-
-  def check_pacemaker(self):
-    res = self.rozodiag("synchro crm")
-    if res == None: return None
-    for  line in res:
-      if "Failed" in line:
-	self.CRITICAL("CRM failure","synchro crm")
-  
-      
-  def check_export(self):
-    global fulldiagnostic
-    self.check_drbd()
-    self.check_pacemaker()
-    if fulldiagnostic == True:
-      self.check_trx()
-      self.check_buffer()	  
-      self.check_rpc_resources()    
-      #self.check_tcp_info()
-      self.check_uptime()
-      self.check_core_files() 
-    for v in self.volumes:
-      for c in (v.clusters_0+v.clusters_1):
-	for s in c.sids:
-	  if s.activeAddr == None: continue
-	  if s.check_storaged() == 0: s.check_storios()
-    self.check_clients()
-    
-  def add_eid(self,eid,vid,path):
-    e = export_id(int(eid),vid,path)
-    self.eids.append(e)
-    return 0    
-    
-  def get_eid(self,eid):
-    for e in self.eids:
-      if int(e.eid) == int(eid): return e
-    return None	
-
-  def get_volume(self,vid):
-    for v in self.volumes:
-      if int(v.vid) == int(vid): return v
-    return None		
-    
-  def add_volume(self,vid,free,freeSz,InitSz):
-    v = self.get_volume(vid)
-    if v != None: return v	
-    v = volume (vid,free,freeSz,InitSz)
-    self.volumes.append(v)
-    return v   
-
-  def display(self):
-    print "\nexportd: %s"%(self.host)
-    print " %s"%(self.tag)
-    for v in sorted(self.volumes,key=lambda volume:volume.vid): 
-      v.display()
-      print"    export id :"
-      for e in sorted(self.eids,key=lambda export_id:export_id.vid): 
-        if e.vid != v.vid: continue
-        print "        . %3s "%(e.eid)
-    if len(self.clients) != 0:
-      for cl in sorted(self.clients,key=lambda client:client.host): cl.display()
-      client.output()
-                     
-  def get_clients(self):
-    for idx in range (1,9):
-      slave = export_slave(self.host,idx,self)
-      slave.check()
-      res = slave.rozodiag("client")
-      if res == None: continue  
-      for line in res:
-	words = line.split()
-	if len(words) != 10: continue
-	ip   = words[7].split(':')[0]
-	port = words[7].split(':')[1]
-	c = client(ip,port,words[3])
-	e = self.get_eid(c.eid)
-	if e != None:
-	  c.add_vid(e.vid)
-        self.clients.append(c)
-	    	  
-  def check_clients(self):
-    self.get_clients()
-    for cl in self.clients: cl.check()
 #_______________________________________________
 def display_unit(val,precision=1):
 
@@ -1195,38 +901,43 @@ def display_unit(val,precision=1):
        format="%3."+("%d"%(precision))+"f%s"
        return format % (num, x)
     num /= 1000
+    for cl in self.clients: cl.check()
 
 #_______________________________________________
-def total_check(exports):
-  
-  # Create every export responding to rozodiag
-  for host in exports.split('/'):
-    try:    e=exportd(host)
-    except: pass
-    
-  if len(exportds) == 0:
-    e = rozofs_module(exports,'exportd','exportd')
-    e.CRITICAL("No export available")     
-    return
-     
-  # Loop on exports 
-  for e in exportds: 
-  
-    e.check_export()
-    if fulldiagnostic: e.display()
+def test_client(instance):
+  c = client("mount:%s"%(instance),"0")
+  c.check()
+  c.display()  
 
 #_______________________________________________
-def syntax(string):
-  """Displays error message as well as command syntex
-  """
+def do_execute():
     
-  if string != None: print "!!! %s !!!\n"%(string)
- 
-  
-  print " -e <export1>[/<export2>...] "
-  print "    This is a \'/\' separated list of export IP addresses or host names."
-  
-  sys.exit(-1) 
+  # Check local storage configured in storage.conf
+  s = storage(0,0,0)  
+  s.activeAddr = "localhost1" 
+  if s.check_storaged() == 0: s.check_storios()
+
+  # check local clients from /etc/fstab  
+  test_client(0)
+  #test_client(1)
+  test_client(2)  
+  with open("/etc/fstab") as f:
+    for line in f:
+      if len(line.split()) < 3: continue
+      if line.split()[2] == "rozofs":
+	instance="0"
+	if "instance" in line:
+	  i=0
+	  string=line.split("instance=")[1]
+	  while string[i] != ',' and string[i] != ' ': 
+	    instance=instance+string[i]
+	    i=i+1
+        c = client("mount:%d"%(int(instance)),"0")
+        c.check()
+        c.display()
+  client.output()
+    
+
   
 #_______________________________________________
 def do_exit():
@@ -1258,16 +969,15 @@ def fatal(string):
 #
 ###############################################
 base=os.path.basename(sys.argv[0])
-base=base.split("_status")[0]
+base=base.split("_node_status")[0]
 
 parser = OptionParser()
-parser.add_option("-e","--export", action="store",type="string", dest="exports", help="A \'/\' separated list of IP addresses or host names of the export nodes.")
 parser.add_option("-d","--diagnostic", action="store_true",default=False, dest="diagnostic", help="Display the error list.")
 parser.add_option("-f","--full", action="store_true",default=False, dest="full", help="Process to a full diagnostic of the system.")
 parser.add_option("-g","--debug", action="store_true",default=False, dest="debug", help="Debug trace.")
-parser.add_option("-n","--nocrm", action="store_true",default=False, dest="nocrm", help="Meta data redundancy is not mandatory.")
 
 (options, args) = parser.parse_args()
+
 
 time_limit_minutes = 2
 
@@ -1281,10 +991,8 @@ if options.full == True:
 else:
   fulldiagnostic=False  
 
-if options.debug == True: 
-  debug=True
-else:
-  debug=False
+debug=False
+if options.debug == True: debug=True
 
 
 # Find out rozodiag path
@@ -1295,33 +1003,8 @@ for path in ["./rozodiag","/usr/bin/rozodiag","/usr/sbin/rozodiag","/usr/local/b
     break
 if ROZODIAG == None: fatal("Can not find rozodiag")
  
-   
-exportd_host=None
-  
-try:    
-  parsed = ["crm", "resource","status","exportd-rozofs"]
-  cmd = subprocess.Popen(parsed, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-  output, error = cmd.communicate()
-    
-  for line in output.split('\n'):
-    if "is running on" in output:    
-      exportd_host=line.split(":")[1].strip()
-      break
 
-  if exportd_host == None:
-    add_error_table("","","crm","",'CRITICAL',"exportd not running","crm resource status exportd-rozofs")
-
-except: 
-  if options.nocrm == False: fatal("crm is not installed and nocrm option is not set")
-  exportd_host="127.0.0.1"
-
-if  exportd_host != None: 
-  try:  
-    total_check(exportd_host)
-  except: 
-    fatal("execution failure")
-
+try:     do_execute()
+except:  fatal("execution failure")
 do_exit()
-
-
-
+  
