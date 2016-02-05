@@ -179,12 +179,11 @@ class host_class:
 #____________________________________
 class sid_class:
 
-  def __init__(self, cid, sid, host_site0, host_site1):  
+  def __init__(self, cid, sid, site, host):  
     self.cid        = cid
     self.sid        = sid 
     self.host       = []   
-    self.add_host(0,host_site0)
-    self.add_host(1,host_site1)
+    self.add_host(site,host)
  
   def add_host(self,site,name):
     if name == None: return
@@ -193,7 +192,7 @@ class sid_class:
       h = host_class(name,site)
     else:
       if site != h.site:
-        print "host localhost%s can not be used on site 0 as well as site 1"%(h.number)
+        print "host localhost%s is used on site %s as well as site %s"%(h.number,h.site,site)
 	sys.exit(1)
     self.host.append(h)
     h.add_sid(self)    
@@ -385,10 +384,12 @@ class sid_class:
     print "cid = %s"%(self.cid.cid)
     print "sid = %s"%(self.sid)
     print "site0 = %s"%(self.host[0].number)
+    print "siteNum = %s"%(self.host[0].site)
     print "@site0 = %s"%(self.host[0].addr)
     print "path0 = %s"%(self.get_root_path(self.host[0].number))
     if len(self.host) > 1:
       print "site1 = %s"%(self.host[1].number)
+      print "siteNum = %s"%(self.host[1].site)    
       print "@site1 = %s"%(self.host[1].addr)      
       print "path1 = %s"%(self.get_root_path(self.host[1].number))
 #____________________________________
@@ -429,13 +430,16 @@ class cid_class:
         print "gereplication inconsistency on cid %s"%(self.cid)
 	sys.exit(1)
 	    
-  def add_sid_on_host(self,host_site0, host_site1=None):
+  def add_sid_on_host(self, host0, site0=0, host1=None, site1=1):
     sid=len(self.sid)
     sid+=1  
-    s = sid_class(self, sid, host_site0, host_site1) 
+    s = sid_class(self, sid, site0, host0)
+    # For geo repliction
+    if host1 != None:
+      s.add_host(host1, site1) 
     self.sid.append(s)
-    if host_site1 == None: self.set_georep(False)
-    else                 : self.set_georep(True)    	
+    if host1 == None: self.set_georep(False)
+    else            : self.set_georep(True)    	
     return s   
   
   def create_path(self):
@@ -459,6 +463,7 @@ class mount_point_class:
     self.instance = instance
     self.eid = eid
     self.site= site    
+    self.nfs_path="/mnt/nfs-%s"%(self.instance) 
     mount_points.append(self)
 
   def info(self):
@@ -493,12 +498,14 @@ class mount_point_class:
     parsed = shlex.split(string)
     cmd = subprocess.Popen(parsed, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     for line in cmd.stdout:
-      if self.instance == 0:
-	if not "instance" in line:
+      if not "instance" in line:
+        if int(self.instance) == int(0):
 	  pid=line.split()[0]
 	  break	
-      if "instance=%s"%(self.instance) in line: 
-	if not "instance" in line:
+	else:
+	  continue
+      else:	    
+        if "instance=%s"%(self.instance) in line: 
 	  pid=line.split()[0]
 	  break	
     try:
@@ -512,7 +519,8 @@ class mount_point_class:
     
   def create_path(self):
     global rozofs
-    try:os.mkdir(self.get_mount_path())
+    try:
+      os.mkdir(self.get_mount_path())
     except: pass
     
   def delete_path(self):
@@ -538,17 +546,61 @@ class mount_point_class:
     if rozofs.mojette_threads_threshold != None: options += " -o mojThreadThreshold=%s"%(rozofs.mojette_threads_threshold)
 
     cmd_system("rozofsmount -H %s -E %s %s %s"%(exportd.export_host,self.eid.get_root_path(),self.get_mount_path(),options))
-    
+    cmd_system("chmod 0777 %s"%(self.get_mount_path()))
+          
   def stop(self):
+    try: self.nfs(False)
+    except: pass
     if os.path.exists(self.get_mount_path()):
-      cmd_system("umount %s"%(self.get_mount_path()))
-      if os.path.exists(self.get_mount_path()): 
-        cmd_system("umount -l %s"%(self.get_mount_path()))
+      if os.path.ismount(self.get_mount_path()):
+        cmd_system("umount %s"%(self.get_mount_path()))
+        if os.path.ismount(self.get_mount_path()): 
+          cmd_system("umount -l %s"%(self.get_mount_path()))
      
   def reset(self): 
     self.stop()
     self.start()
-       
+
+  def nfs_add_mount_path(self):
+    with open('/etc/exports', 'r') as exp_file:
+      for line in exp_file.readlines():
+        path = line.split()[0]
+	if path == self.get_mount_path(): return
+    with open('/etc/exports', 'a') as exp_file :	
+      exp_file.write("%s *(rw,no_root_squash,fsid=1,no_subtree_check)\n"%(self.get_mount_path()))
+                 
+  def nfs_server(self,status):   
+    if status == "check":   
+      # NFS server must be running
+      string="/etc/init.d/nfs-kernel-server status"
+      parsed = shlex.split(string)
+      cmd = subprocess.Popen(parsed, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+      for line in cmd.stdout:
+	if "nfsd running" in line: 
+          return "on"
+      return "off"
+      
+    if status == "on":
+      self.nfs_server("off")
+      self.nfs_add_mount_path()
+      cmd_system("/etc/init.d/nfs-kernel-server start")
+      return
+      
+    if status == "off":
+      cmd_system("/etc/init.d/nfs-kernel-server stop")  
+      return
+          
+  def nfs(self,status):      
+    if status == True: 
+      self.nfs_server("on")
+      if not os.path.exists(self.nfs_path):  
+	try:os.mkdir(self.nfs_path)
+	except: pass 
+      if os.path.ismount(self.nfs_path): cmd_system("umount %s"%(self.nfs_path))
+      cmd_system("mount 127.0.0.1:%s %s"%(self.get_mount_path(),self.nfs_path))
+    else:
+      if os.path.ismount(self.nfs_path): cmd_system("umount %s"%(self.nfs_path))
+           
   def display(self):   
     d = adaptative_tbl(2,"Mount points") 
     d.new_center_line()
@@ -793,7 +845,7 @@ class exportd_class:
 	nexts=" "
 	for s in c.sid:
 	  if len(s.host) == 1 :
-	    print "          %s{sid=%s; host=\"%s\";}"%(nexts,s.sid,s.host[0].addr)
+	    print "          %s{sid=%s; host=\"%s\"; site=%s;}"%(nexts,s.sid,s.host[0].addr,s.host[0].site)
 	  else:
 	    print "          %s{sid=%s; site0=\"%s\"; site1=\"%s\";}"%(nexts,s.sid,s.host[0].addr,s.host[1].addr)
 	  nexts=","
@@ -945,7 +997,9 @@ class rozofs_class:
     self.alloc_mb = None
     self.storaged_start_script = None
     self.device_automount = False
-  
+    self.site_number = 1
+
+  def set_site_number(self,number): self.site_number = number      
   def set_device_automount(self): self.device_automount = True
   def set_storaged_start_script(self,storaged_start_script):
     self.storaged_start_script = storaged_start_script
@@ -968,7 +1022,7 @@ class rozofs_class:
   def dual_storcli(self): self.nb_storcli = 2
   def no_posix_lock(self): self.posix_lock = False
   def no_bsd_lock(self): self.bsd_lock = False
-  def set_file_distribution_origin(self): self.file_distribution = 0
+  def set_file_distribution(self,val): self.file_distribution = val
   def set_xfs(self,mb,allocsize=None):
     self.fstype       = "xfs"
     self.disk_size_mb = mb
@@ -1033,6 +1087,7 @@ class rozofs_class:
     if self.alloc_mb != None: print "alloc_estimated_mb   = %s;"%(self.alloc_mb)
     if self.storaged_start_script != None: print "storaged_start_script = \"%s\";"%(self.storaged_start_script)
     if self.device_automount == True: print "device_automount = True;"
+    print "device_self_healing_process = 2;"
 
   def create_common_config(self):
     save_stdout = sys.stdout
@@ -1206,7 +1261,7 @@ class rozofs_class:
     cmd_system("./monitor.py 5 -c monitor.cfg")
 
   def status(self,opt="-df"): 
-    cmd_system("../src/rozodiag/rozo_status.py %s -e %s"%(opt,exportd.export_host))
+    cmd_system("../src/rozodiag/rozo_status.py %s -e %s; echo $?"%(opt,exportd.export_host))
           
   def core(self,argv):
     if len(argv) == 2:
@@ -1305,6 +1360,7 @@ def syntax_geomgr() :
 #_____________________________________________  
 def syntax_mount() :
   print  "./setup.py \tmount   \tall|<instance> start|stop|reset|pid|info"
+  print  "./setup.py \tmount   \tall|<instance> nfs [on|off]"
 #_____________________________________________  
 def syntax_storage() :
   print  "./setup.py \tstorage \tall|<host idx> start|stop|reset|rebuild|pid"
@@ -1354,7 +1410,7 @@ def syntax_all() :
   syntax_if()
   syntax_debug()
   print  "./setup.py \tprocess \t[pid]"
-  print  "./setup.py \tit ..."
+  print  "./setup.py \tvnr ..."
   print  "./setup.py \tbuild|rebuild|clean"
   sys.exit(-1)   
           
@@ -1506,13 +1562,24 @@ def test_parse(command, argv):
     except: syntax("Bad interface number","if")
     for h in hosts: h.del_if(itf)
 
-  elif command == "it"                 : 
+  elif command == "it" or command == "vnr" : 
     param=""
+    mount = mount_points[0]
     i=int(2)
-    while int(i) < len(argv): 
-      param +=" %s"%(argv[i])
+    while int(i) < len(argv):
+      if argv[i] == "-m" or argv[i] == "--mount":
+        i+=1
+	try:mount = mount_points[int(argv[i])]
+	except:
+	  print "-mount without valid mount point instance !!!"
+	  sys.exit(1)
+      elif argv[i] == "-nfs":
+        param += " --nfs -e %s"%(mount.nfs_path)
+      else:
+        param +=" %s"%(argv[i])
       i+=1
-    cmd_system("%s/IT2/IT.py %s"%(os.getcwd(),param))
+    cmd_system("%s/IT2/IT.py -m %s %s"%(os.getcwd(),mount.instance,param))    
+
   elif command == "process"            : 
     if len(argv) == 2: rozofs.process('-a') 
     else:              rozofs.process('-ap') 
@@ -1552,10 +1619,15 @@ def test_parse(command, argv):
          syslog.syslog("mount %s %s"%(idx,argv[3]))
 	 obj = mount_points[idx]       
 	 if argv[3] == "stop"        : obj.stop()
-	 if argv[3] == "start"       : obj.start()     
-	 if argv[3] == "reset"       : obj.reset()          
-	 if argv[3] == "pid"         : obj.process('-ap') 
-	 if argv[3] == "info"        : obj.info() 
+	 elif argv[3] == "start"       : obj.start()     
+	 elif argv[3] == "reset"       : obj.reset()          
+	 elif argv[3] == "pid"         : obj.process('-ap') 
+	 elif argv[3] == "info"        : obj.info() 
+	 elif argv[3] == "nfs"         : 
+	   if argv[4] == None: syntax("Missing nfs action","mount")
+	   if argv[4] == "on": obj.nfs(True)
+	   else:               obj.nfs(False)
+	 else: syntax("No such action %s"%(argv[3]),"mount")
 
   elif command == "storage"             :
        if len(argv) <= 3: syntax("storage requires instance + action","storage")
