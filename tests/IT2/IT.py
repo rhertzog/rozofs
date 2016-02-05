@@ -22,10 +22,6 @@ STORCLI_SID_NB=int(8)
 nbGruyere=int(256)
 stopOnFailure=True
 fuseTrace=False
-DEFAULT_MNT="mnt1_1_g0"
-ALL_MNT="mnt1_1_g0,mnt2_1_g0,mnt3_1_g0,mnt4_1_g0"
-mnts=DEFAULT_MNT
-mnt=""
 DEFAULT_RETRIES=int(20)
 tst_file="tst_file"
 device_number=""
@@ -38,6 +34,7 @@ site=None
 eid=None
 vid=None
 mnt=None
+exepath=None
 inverse=None
 forward=None
 safe=None
@@ -570,73 +567,73 @@ def snipper (target):
 #___________________________________________________
 def wr_rd_total ():
 #___________________________________________________
-  ret=os.system("./IT2/rw.exe -process %d -loop %d -fileSize %d -file %s -total -mount %s"%(process,loop,fileSize,tst_file,mnt))
+  ret=os.system("./IT2/rw.exe -process %d -loop %d -fileSize %d -file %s -total -mount %s"%(process,loop,fileSize,tst_file,exepath))
   return ret  
 
 #___________________________________________________
 def wr_rd_partial ():
 #___________________________________________________
-  return os.system("./IT2/rw.exe -process %d -loop %d -fileSize %d -file %s -partial -mount %s"%(process,loop,fileSize,tst_file,mnt))
+  return os.system("./IT2/rw.exe -process %d -loop %d -fileSize %d -file %s -partial -mount %s"%(process,loop,fileSize,tst_file,exepath))
 
 #___________________________________________________
 def wr_rd_random ():
 #___________________________________________________
-  return os.system("./IT2/rw.exe -process %d -loop %d -fileSize %d -file %s -random -mount %s"%(process,loop,fileSize,tst_file,mnt))
+  return os.system("./IT2/rw.exe -process %d -loop %d -fileSize %d -file %s -random -mount %s"%(process,loop,fileSize,tst_file,exepath))
 
 #___________________________________________________
 def wr_rd_total_close ():
 #___________________________________________________
-  return os.system("./IT2/rw.exe -process %d -loop %d -fileSize %d -total -file %s -closeAfter -mount %s"%(process,loop,fileSize,tst_file,mnt))
+  return os.system("./IT2/rw.exe -process %d -loop %d -fileSize %d -total -file %s -closeAfter -mount %s"%(process,loop,fileSize,tst_file,exepath))
 
 #___________________________________________________
 def wr_rd_partial_close ():
 #___________________________________________________
-  return os.system("./IT2/rw.exe -process %d -loop %d -fileSize %d -partial -file %s -closeAfter -mount %s"%(process,loop,fileSize,tst_file,mnt))
+  return os.system("./IT2/rw.exe -process %d -loop %d -fileSize %d -partial -file %s -closeAfter -mount %s"%(process,loop,fileSize,tst_file,exepath))
 
 #___________________________________________________
 def wr_rd_random_close ():
 #___________________________________________________
-  return os.system("./IT2/rw.exe -process %d -loop %d -fileSize %d -random -file %s -closeAfter -mount %s"%(process,loop,fileSize,tst_file,mnt))
+  return os.system("./IT2/rw.exe -process %d -loop %d -fileSize %d -random -file %s -closeAfter -mount %s"%(process,loop,fileSize,tst_file,exepath))
 
 #___________________________________________________
 def wr_close_rd_total ():
 #___________________________________________________
-  return os.system("./IT2/rw.exe -process %d -loop %d -fileSize %d -file %s -total -closeBetween -mount %s"%(process,loop,fileSize,tst_file,mnt))
+  return os.system("./IT2/rw.exe -process %d -loop %d -fileSize %d -file %s -total -closeBetween -mount %s"%(process,loop,fileSize,tst_file,exepath))
 
 #___________________________________________________
 def wr_close_rd_partial ():
 #___________________________________________________
-  ret=os.system("./IT2/rw.exe -process %d -loop %d -fileSize %d -file %s -partial -closeBetween -mount %s"%(process,loop,fileSize,tst_file,mnt))
+  ret=os.system("./IT2/rw.exe -process %d -loop %d -fileSize %d -file %s -partial -closeBetween -mount %s"%(process,loop,fileSize,tst_file,exepath))
   return ret 
 
 #___________________________________________________
 def wr_close_rd_random ():
 #___________________________________________________
-  return os.system("./IT2/rw.exe -process %d -loop %d -fileSize %d -file %s -random -closeBetween -mount %s"%(process,loop,fileSize,tst_file,mnt))
+  return os.system("./IT2/rw.exe -process %d -loop %d -fileSize %d -file %s -random -closeBetween -mount %s"%(process,loop,fileSize,tst_file,exepath))
 
 #___________________________________________________
 def wr_close_rd_total_close ():
 #___________________________________________________
-  return os.system("./IT2/rw.exe -process %d -loop %d -fileSize %d -file %s -total -closeBetween -closeAfter -mount %s"%(process,loop,fileSize,tst_file,mnt))
+  return os.system("./IT2/rw.exe -process %d -loop %d -fileSize %d -file %s -total -closeBetween -closeAfter -mount %s"%(process,loop,fileSize,tst_file,exepath))
 
 #___________________________________________________
 def wr_close_rd_partial_close ():
 #___________________________________________________
-  return os.system("./IT2/rw.exe -process %d -loop %d -fileSize %d -file %s -partial -closeBetween -closeAfter -mount %s"%(process,loop,fileSize,tst_file,mnt))
+  return os.system("./IT2/rw.exe -process %d -loop %d -fileSize %d -file %s -partial -closeBetween -closeAfter -mount %s"%(process,loop,fileSize,tst_file,exepath))
 
 #___________________________________________________
 def wr_close_rd_random_close ():
 #___________________________________________________
-  return os.system("./IT2/rw.exe -process %d -loop %d -fileSize %d -file %s -random -closeBetween -closeAfter -mount %s"%(process,loop,fileSize,tst_file,mnt))
+  return os.system("./IT2/rw.exe -process %d -loop %d -fileSize %d -file %s -random -closeBetween -closeAfter -mount %s"%(process,loop,fileSize,tst_file,exepath))
 
 #___________________________________________________
 def rw2 ():
 #___________________________________________________
-  return os.system("./IT2/rw2.exe -loop %s -file %s/%s"%(loop,mnt,tst_file))
+  return os.system("./IT2/rw2.exe -loop %s -file %s/%s"%(loop,exepath,tst_file))
 #___________________________________________________
 def write_parallel ():
 #___________________________________________________
-  return os.system("./IT2/write_parallel.exe -file %s/%s"%(mnt,tst_file))
+  return os.system("./IT2/write_parallel.exe -file %s/%s"%(exepath,tst_file))
 
 #___________________________________________________
 def prepare_file_to_read(filename,mega):
@@ -649,13 +646,13 @@ def prepare_file_to_read(filename,mega):
 def read_parallel ():
 #___________________________________________________
 
-  zefile='%s/%s'%(mnt,tst_file)
+  zefile='%s/%s'%(exepath,tst_file)
   prepare_file_to_read(zefile,fileSize) 
   ret=os.system("./IT2/read_parallel.exe -process %s -loop %s -file %s"%(process,loop,zefile)) 
   return ret 
 #___________________________________________________
 def crc32_reread():
-  ret = os.system("./IT2/test_crc32.exe -action REREAD -mount %s -file crc32"%(mnt))
+  ret = os.system("./IT2/test_crc32.exe -action REREAD -mount %s -file crc32"%(exepath))
   if ret != 0:
     print "Reread error"
   return ret    
@@ -671,8 +668,8 @@ def crc32():
     return 1 
     
   # Create CRC32 errors  
-  os.system("./IT2/test_crc32.exe -action CREATE -mount %s -file crc32"%(mnt))
-  os.system("./IT2/test_crc32.exe -action CORRUPT -mount %s -file crc32"%(mnt))
+  os.system("./IT2/test_crc32.exe -action CREATE -mount %s -file crc32"%(exepath))
+  os.system("./IT2/test_crc32.exe -action CORRUPT -mount %s -file crc32"%(exepath))
   ret = crc32_reread()
   if ret != 0: return ret
   
@@ -686,43 +683,43 @@ def crc32():
 #___________________________________________________
 def xattr():
 #___________________________________________________
-  return os.system("./IT2/test_xattr.exe -process %d -loop %d -mount %s"%(process,loop,mnt))
+  return os.system("./IT2/test_xattr.exe -process %d -loop %d -mount %s"%(process,loop,exepath))
 
 #___________________________________________________
 def link():
 #___________________________________________________
-  return os.system("./IT2/test_link.exe -process %d -loop %d -mount %s"%(process,loop,mnt))
+  return os.system("./IT2/test_link.exe -process %d -loop %d -mount %s"%(process,loop,exepath))
 
 #___________________________________________________
 def symlink():
 #___________________________________________________
-  return os.system("./IT2/test_symlink.exe -process %d -loop %d -mount %s"%(process,loop,mnt))
+  return os.system("./IT2/test_symlink.exe -process %d -loop %d -mount %s"%(process,loop,exepath))
 
 #___________________________________________________
 def readdir():
 #___________________________________________________ 
-  return os.system("./IT2/test_readdir.exe -process %d -loop %d -mount %s"%(process,loop,mnt))
+  return os.system("./IT2/test_readdir.exe -process %d -loop %d -mount %s"%(process,loop,exepath))
 
 #___________________________________________________
 def rename():
 #___________________________________________________
-  ret=os.system("./IT2/test_rename.exe -process %d -loop %d -mount %s"%(process,loop,mnt))
+  ret=os.system("./IT2/test_rename.exe -process %d -loop %d -mount %s"%(process,loop,exepath))
   return ret 
 
 #___________________________________________________
 def chmod():
 #___________________________________________________
-  return os.system("./IT2/test_chmod.exe -process %d -loop %d -mount %s"%(process,loop,mnt))
+  return os.system("./IT2/test_chmod.exe -process %d -loop %d -mount %s"%(process,loop,exepath))
 
 #___________________________________________________
 def truncate():
 #___________________________________________________
-  return os.system("./IT2/test_trunc.exe -process %d -loop %d -mount %s"%(process,loop,mnt))
+  return os.system("./IT2/test_trunc.exe -process %d -loop %d -mount %s"%(process,loop,exepath))
 
 #___________________________________________________
 def lock_race():
 #___________________________________________________ 
-  zefile='%s/%s'%(mnt,tst_file)
+  zefile='%s/%s'%(exepath,tst_file)
   try:
     os.remove(zefile)
   except:
@@ -731,7 +728,7 @@ def lock_race():
 #___________________________________________________
 def lock_posix_passing():
 #___________________________________________________ 
-  zefile='%s/%s'%(mnt,tst_file)
+  zefile='%s/%s'%(exepath,tst_file)
   try:
     os.remove(zefile)
   except:
@@ -741,7 +738,7 @@ def lock_posix_passing():
 #___________________________________________________
 def lock_posix_blocking():
 #___________________________________________________
-  zefile='%s/%s'%(mnt,tst_file)
+  zefile='%s/%s'%(exepath,tst_file)
   try:
     os.remove(zefile)
   except:
@@ -753,7 +750,7 @@ def lock_posix_blocking():
 #___________________________________________________
 def lock_bsd_passing():
 #___________________________________________________  
-  zefile='%s/%s'%(mnt,tst_file)
+  zefile='%s/%s'%(exepath,tst_file)
   try:
     os.remove(zefile)
   except:
@@ -772,7 +769,7 @@ def quiet(val=10):
 #___________________________________________________
 def lock_bsd_blocking():
 #___________________________________________________
-  zefile='%s/%s'%(mnt,tst_file)
+  zefile='%s/%s'%(exepath,tst_file)
   try:
     os.remove(zefile)
   except:
@@ -800,11 +797,26 @@ def check_rsync(src,dst):
   criterias=['st_nlink','st_size','st_mode','st_uid','st_gid','st_mtime']
   
   for dirpath, dirnames, filenames in os.walk(src):
+
+    d1 = dirpath
+    d2 = "%s/rsync_dest/%s"%(exepath,dirpath[len(src):]) 
+
+    if os.path.exists(d1) == False:
+      print "source directory %s does not exist"%(d1)
+      return False
+
+    if os.path.exists(d2) == False:
+      print "destination directory %s does not exist"%(d2)
+      return False
+
+    for criteria in criterias:
+      if check_one_criteria(criteria,d1,d2) == False:
+	return False
     
     for fileName in filenames:
     	  
       f1 = os.path.join(dirpath, fileName)
-      f2 = "%s/rsync_dest/%s/%s"%(mnt,dirpath[len(src):], fileName) 
+      f2 = "%s/rsync_dest/%s/%s"%(exepath,dirpath[len(src):], fileName) 
 
       if os.path.exists(f1) == False:
         print "source file %s does not exist"%(f1)
@@ -826,10 +838,10 @@ def check_rsync(src,dst):
 def internal_rsync(src,count,delete=False):
 #___________________________________________________
     
-  if delete == True: os.system("/bin/rm -rf %s/rsync_dest; mkdir -p %s/rsync_dest"%(mnt,mnt))
+  if delete == True: os.system("/bin/rm -rf %s/rsync_dest; mkdir -p %s/rsync_dest"%(exepath,exepath))
 
   bytes=0
-  string="rsync -aHr --stats %s/ %s/rsync_dest"%(src,mnt)
+  string="rsync -aHr --stats %s/ %s/rsync_dest"%(src,exepath)
   parsed = shlex.split(string)
   cmd = subprocess.Popen(parsed, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
   for line in cmd.stdout:
@@ -839,7 +851,7 @@ def internal_rsync(src,count,delete=False):
   if int(bytes) != int(count):
     print "%s bytes transfered while expecting %d!!!"%(bytes,count)
     return False
-  return check_rsync(src,"%s/rsync_dest"%(mnt))
+  return check_rsync(src,"%s/rsync_dest"%(exepath))
 #___________________________________________________
 def create_rsync_file(f,rights,owner=None):
 #___________________________________________________
@@ -906,7 +918,7 @@ def touch_one_file(f):
 #___________________________________________________
 def rsync():
 
-  src="%s/rsync_source"%(mnt) 
+  src="%s/rsync_source"%(exepath) 
   size = create_rsync_dir(src)
   size = size + create_rsync_dir(src+'/subdir1')
   size = size + create_rsync_dir(src+'/subdir1/subdir2')
@@ -944,7 +956,7 @@ def gruyere_one_reread():
 #___________________________________________________ 
   clean_cache()
   syslog.syslog("re-read %d files"%(int(nbGruyere)))
-  res=os.system("./IT2/test_rebuild.exe -action check -nbfiles %d -mount %s"%(int(nbGruyere),mnt))
+  res=os.system("./IT2/test_rebuild.exe -action check -nbfiles %d -mount %s"%(int(nbGruyere),exepath))
   syslog.syslog("re-read result %s"%(res))
   return res
   
@@ -966,7 +978,7 @@ def gruyere_reread():
 def gruyere_write():
 # Use test_rebuild utility to create a bunch of files
 #___________________________________________________ 
-  return os.system("rm -f %s/rebuild/*; ./IT2/test_rebuild.exe -action create -nbfiles %d -mount %s"%(mnt,int(nbGruyere),mnt))  
+  return os.system("rm -f %s/rebuild/*; ./IT2/test_rebuild.exe -action create -nbfiles %d -mount %s"%(exepath,int(nbGruyere),exepath))  
 #___________________________________________________
 def gruyere():
 # call gruyere_write that create a bunch of files while
@@ -1201,7 +1213,7 @@ def rebuild_one_node() :
 def delete_rebuild() :
 # test re-building a whole storage
 #___________________________________________________
-  os.system("rm -rf %s/rebuild  1> /dev/null"%(mnt))
+  os.system("rm -rf %s/rebuild  1> /dev/null"%(exepath))
   return 0
 #___________________________________________________
 def rebuild_fid() :
@@ -1392,7 +1404,7 @@ def do_run_list(list):
   dis.end_separator()   
   dis.new_line()  
   dis.set_column(1,'%s'%(success+failed))
-  dis.set_column(2,mnt)
+  dis.set_column(2,exepath)
   if failed == 0:
     dis.set_column(3,'OK')
   else:
@@ -1498,6 +1510,7 @@ def resolve_mnt(inst):
   global eid
   global vid
   global mnt
+  global exp
   global inverse
   global forward
   global safe
@@ -1589,11 +1602,14 @@ parser.add_option("-L","--long", action="store_true",dest="long", default=False,
 parser.add_option("-r","--repeat", action="store", type="string", dest="repeat", help="A repetition count.")
 parser.add_option("-m","--mount", action="store", type="string", dest="mount", help="A comma separated list of mount points to test on.")
 parser.add_option("-R","--rebuildCheck", action="store_true", dest="rebuildCheck", default=False, help="To request for stron rebuild check after each rebuild.")
+parser.add_option("-e","--exepath", action="store", type="string", dest="exepath", help="re-exported path to run the test on.")
+parser.add_option("-n","--nfs", action="store_true",dest="nfs", default=False, help="Running through NFS.")
 
 # Read/write test list
 TST_RW=['read_parallel','write_parallel','rw2','wr_rd_total','wr_rd_partial','wr_rd_random','wr_rd_total_close','wr_rd_partial_close','wr_rd_random_close','wr_close_rd_total','wr_close_rd_partial','wr_close_rd_random','wr_close_rd_total_close','wr_close_rd_partial_close','wr_close_rd_random_close']
 # Basic test list
 TST_BASIC=['readdir','xattr','link','symlink', 'rename','chmod','truncate','lock_posix_passing','lock_posix_blocking','lock_race','crc32','rsync']
+TST_BASIC_NFS=['readdir','link', 'rename','chmod','truncate','lock_posix_passing','lock_posix_blocking','lock_race','crc32','rsync']
 # Rebuild test list
 TST_REBUILD=['gruyere','rebuild_fid','rebuild_one_dev','relocate_one_dev','rebuild_all_dev','rebuild_one_node','gruyere_reread']
 
@@ -1607,6 +1623,8 @@ syslog.openlog("RozoTests",syslog.LOG_INFO)
 
 (options, args) = parser.parse_args()
  
+if options.nfs == True:
+  TST_BASIC=TST_BASIC_NFS
  
 if options.rebuildCheck == True:  
   rebuildCheck=True 
@@ -1648,15 +1666,19 @@ elif options.long == True:
   loop=loop*2 
   nbGruyere=nbGruyere*2
 
-if options.mount == None: mnts="0"
-else:               mnts=options.mount
+if options.mount == None: mnt="0"
+else:                     mnt=options.mount
+
+resolve_mnt(int(mnt))
+EXPORT_SID_NB,STORCLI_SID_NB=get_sid_nb()
   
-  
+if options.exepath == None: exepath = mnt
+else:                       exepath = options.exepath
+
+#print "mnt %s exepath %s"%(mnt,exepath)
+
 # Snipper   
 if options.snipper != None:
-  instance=mnts.split(',')[0]
-  resolve_mnt(instance)
-  EXPORT_SID_NB,STORCLI_SID_NB=get_sid_nb()
   snipper(options.snipper)
   exit(0)  
   
@@ -1706,7 +1728,6 @@ else:
 
 do_compile_programs() 
 
-for instance in mnts.split(','):
-  resolve_mnt(instance)
-  EXPORT_SID_NB,STORCLI_SID_NB=get_sid_nb()
-  do_run_list(new_list)
+
+
+do_run_list(new_list)
