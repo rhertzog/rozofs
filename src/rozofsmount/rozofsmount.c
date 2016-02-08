@@ -690,10 +690,10 @@ void show_profiler(char * argv[], uint32_t tcpRef, void *bufRef) {
     pChar += sprintf(pChar, "   procedure  |     count       |  time(us) | cumulated time(us) |     bytes       |\n");
     pChar += sprintf(pChar, "--------------+-----------------+-----------+--------------------+-----------------+\n");
     SHOW_PROFILER_PROBE(lookup);
+    SHOW_PROFILER_PROBE(lookup_agg);
     SHOW_PROFILER_PROBE(forget);
     SHOW_PROFILER_PROBE(getattr);
     SHOW_PROFILER_PROBE(setattr);
-    SHOW_PROFILER_PROBE(truncate);    
     SHOW_PROFILER_PROBE(readlink);
     SHOW_PROFILER_PROBE(mknod);
     SHOW_PROFILER_PROBE(mkdir);
@@ -728,10 +728,10 @@ void show_profiler(char * argv[], uint32_t tcpRef, void *bufRef) {
     {
       if (strcmp(argv[1],"reset")==0) {
 	RESET_PROFILER_PROBE(lookup);
+	RESET_PROFILER_PROBE(lookup_agg);
 	RESET_PROFILER_PROBE(forget);
 	RESET_PROFILER_PROBE(getattr);
 	RESET_PROFILER_PROBE(setattr);
-	RESET_PROFILER_PROBE(truncate);	
 	RESET_PROFILER_PROBE(readlink);
 	RESET_PROFILER_PROBE(mknod);
 	RESET_PROFILER_PROBE(mkdir);

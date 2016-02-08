@@ -34,6 +34,7 @@ struct mpp_profiler_t {
 	uint64_t now;
 	uint8_t vers[20];
 	uint64_t rozofs_ll_lookup[2];
+	uint64_t rozofs_ll_lookup_agg[2];
 	uint64_t rozofs_ll_forget[2];
 	uint64_t rozofs_ll_getattr[2];
 	uint64_t rozofs_ll_setattr[2];
@@ -66,7 +67,6 @@ struct mpp_profiler_t {
 	uint64_t rozofs_ll_setlk_int[2];
 	uint64_t rozofs_ll_ioctl[2];
 	uint64_t rozofs_ll_clearlkowner[2];
-	uint64_t rozofs_ll_truncate[2];
 };
 typedef struct mpp_profiler_t mpp_profiler_t;
 

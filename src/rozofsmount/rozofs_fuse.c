@@ -923,6 +923,7 @@ void rozofs_fuse_scheduler_entry_point(uint64_t current_time)
 int rozofs_fuse_init(struct fuse_chan *ch,struct fuse_session *se,int rozofs_fuse_buffer_count)
 {
   int status = 0;
+  int i;
   
 //   return 0;
 
@@ -974,6 +975,14 @@ int rozofs_fuse_init(struct fuse_chan *ch,struct fuse_session *se,int rozofs_fus
         break;
      }
      ruc_buffer_debug_register_pool("fuseCtx",  rozofs_fuse_ctx_p->fuseReqPoolRef);
+     /*
+     ** Allocate a head of list for queueing pending lookup requests
+     */
+     for (i=0; i< ROZOFS_MAX_LKUP_QUEUE ; i++)
+     {
+       ruc_listHdrInit(&rozofs_lookup_queue[i]);
+     }
+     
      
      /*
      ** allocate a buffer for receiving the fuse request
@@ -1089,7 +1098,6 @@ int rozofs_fuse_init(struct fuse_chan *ch,struct fuse_session *se,int rozofs_fus
   */
 //#warning no poller
   ruc_sockCtrl_attach_applicative_poller(rozofs_fuse_scheduler_entry_point); 
-  int i;
   for(i = 0; i < 3;i++) fuse_profile[i] = 0;
   
   uma_dbg_addTopic("fuse", rozofs_fuse_show);

@@ -28,6 +28,7 @@
 #include "rozofs_fuse.h"
 #include "rozofs_fuse_thread_intf.h"
 #include "rozofs_kpi.h"
+#include "rozofs_dentry_cache.h"
 // For trace purpose
 struct timeval Global_timeDay;
 unsigned long long Global_timeBefore, Global_timeAfter;
@@ -470,7 +471,14 @@ int rozofs_stat_start(void *args) {
        fatal("Cannot create fuse threads");
     }
     fuse_reply_thread_init();
-    uma_dbg_addTopic("fuse_reply_thread", show_fuse_reply_thread);    
+    uma_dbg_addTopic("fuse_reply_thread", show_fuse_reply_thread);  
+    
+    /*
+    ** init of the dentry cache
+    */
+    dentry_cache_initialize(&dentry_cache);
+    uma_dbg_addTopic("dentry_cache", show_dentry_cache);  
+      
     /*
      ** main loop
      */

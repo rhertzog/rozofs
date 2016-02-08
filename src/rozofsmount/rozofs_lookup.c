@@ -20,6 +20,7 @@
 
 #include "rozofs_fuse_api.h"
 #include <rozofs/core/rozofs_string.h>
+#include "rozofs_dentry_cache.h"
 
 DECLARE_PROFILING(mpp_profiler_t);
 
@@ -43,7 +44,86 @@ int rozofs_get_safe(int layout)
   }
   return -1;
 }
+ruc_obj_desc_t  rozofs_lookup_queue[ROZOFS_MAX_LKUP_QUEUE];  /**< pending list of the lookup */
 
+/**
+ * hashing function used to find a dentry in the cache
+ */
+static inline uint32_t dentry_hash(fuse_ino_t parent,char *name) {
+    uint32_t       hash = 0;
+    uint8_t       *c;
+    int            i;
+    /*
+    ** hash on the fid
+    */
+    c = (uint8_t *) &parent;
+    for (i = 0; i < sizeof(fuse_ino_t); c++,i++)
+        hash = *c + (hash << 6) + (hash << 16) - hash;
+    /*
+    ** hash on the name
+    */
+    c = (uint8_t *) name;
+    i = 0;
+    while (*c !=0)
+    {
+        hash = *c + (hash << 6) + (hash << 16) - hash; 
+	c++;
+	i++;
+	if (i == 16) break;
+    }
+    return hash;
+}
+/*
+**___________________________________________________________________________________ 
+*/ 
+/**
+*   Search if there is already a pending lookup for the same object
+
+    @param buffer: rozofs fuse context
+    @param parent: inode parent
+    @param name: name to look for
+    
+    @retval 1 : found
+    @retval 0: not found
+*/
+int rozofs_lookup_insert_queue(void *buffer,fuse_ino_t parent, const char *name,fuse_req_t req,int trc_idx)
+{
+   ruc_obj_desc_t   * phead;
+   ruc_obj_desc_t   * elt;
+   ruc_obj_desc_t   * pnext;
+   rozofs_fuse_save_ctx_t *fuse_save_ctx_p;  
+   uint32_t hash; 
+   /*
+    ** scan the pending lookup request searching for the same request (ino+name)
+    */
+   hash = dentry_hash(parent,(char*)name);
+   phead = &rozofs_lookup_queue[hash%ROZOFS_MAX_LKUP_QUEUE];   
+   pnext = (ruc_obj_desc_t*)NULL;
+   while ((elt = ruc_objGetNext(phead, &pnext)) != NULL) 
+   {
+      /*
+      ** Check if the inode and the name are the same
+      */
+      fuse_save_ctx_p = (rozofs_fuse_save_ctx_t*)ruc_buf_getPayload(elt); 
+      if (fuse_save_ctx_p->parent != parent) continue;
+      if (strcmp(name,fuse_save_ctx_p->name) !=0) continue;
+      /*
+      ** it is the same request: so queue it on the current one if there is enough room
+      */
+      if (fuse_save_ctx_p->lkup_cpt < ROZOFS_MAX_PENDING_LKUP)
+      {
+         fuse_save_ctx_p->lookup_tb[fuse_save_ctx_p->lkup_cpt].req = req;
+         fuse_save_ctx_p->lookup_tb[fuse_save_ctx_p->lkup_cpt].trc_idx = trc_idx;
+	 fuse_save_ctx_p->lkup_cpt++;
+	 return 1;
+      }
+    }
+    /*
+    ** this a new request: insert it in the global pending list
+    */
+    ruc_objInsertTail(phead,(ruc_obj_desc_t*)buffer);   
+    return 0;
+}
 /*
 **___________________________________________________________________________________ 
 */ 
@@ -223,6 +303,7 @@ void rozofs_ll_lookup_nb(fuse_req_t req, fuse_ino_t parent, const char *name)
     struct fuse_entry_param fep;
     struct stat stbuf;
     int allocated = 0;
+    int len_name;
     
     trc_idx = rozofs_trc_req_name(srv_rozofs_ll_lookup,parent,(char*)name);
     /*
@@ -244,8 +325,8 @@ void rozofs_ll_lookup_nb(fuse_req_t req, fuse_ino_t parent, const char *name)
     DEBUG("lookup (%lu,%s)\n", (unsigned long int) parent, name);
 
     START_PROFILING_NB(buffer_p,rozofs_ll_lookup);
-
-    if (strlen(name) > ROZOFS_FILENAME_MAX) {
+    len_name=strlen(name);
+    if (len_name > ROZOFS_FILENAME_MAX) {
         errno = ENAMETOOLONG;
         goto error;
     }
@@ -267,8 +348,20 @@ void rozofs_ll_lookup_nb(fuse_req_t req, fuse_ino_t parent, const char *name)
 	//errno = ENOENT;
 	goto lookup_objectmode;
       }     
+    }    
+    /*
+    ** Queue the request and attempt to check if there is already the same
+    ** request queued
+    */
+    if (rozofs_lookup_insert_queue(buffer_p,parent,name,req,trc_idx)== 1)
+    {
+      /*
+      ** There is already a pending request, so nothing to send to the export
+      */
+      gprofiler.rozofs_ll_lookup_agg[P_COUNT]++;
+      rozofs_fuse_release_saved_context(buffer_p);
+      return;
     }
-
     /*
     ** fill up the structure that will be used for creating the xdr message
     */    
@@ -293,10 +386,15 @@ void rozofs_ll_lookup_nb(fuse_req_t req, fuse_ino_t parent, const char *name)
     /*
     ** no error just waiting for the answer
     */
+
     return;
 
 error:
     fuse_reply_err(req, errno);
+    /*
+    ** remove the context from the lookup queue
+    */
+    if (buffer_p != NULL) ruc_objRemove(buffer_p);
     /*
     ** release the buffer if has been allocated
     */
@@ -370,7 +468,6 @@ void rozofs_ll_lookup_cbk(void *this,void *param)
    epgw_mattr_ret_t ret ;
    struct rpc_msg  rpc_reply;
    char *name;
-
    
    int status;
    uint8_t  *payload;
@@ -384,8 +481,13 @@ void rozofs_ll_lookup_cbk(void *this,void *param)
    errno = 0;
    ientry_t *pie = 0;
    mattr_t  pattrs;
+   int errcode=0;
     
-   GET_FUSE_CTX_P(fuse_ctx_p,param);    
+   GET_FUSE_CTX_P(fuse_ctx_p,param);  
+   /*
+   ** dequeue the buffer from the pending list
+   */
+   ruc_objRemove(param);  
     
    rpc_reply.acpted_rply.ar_results.proc = NULL;
    RESTORE_FUSE_PARAM(param,req);
@@ -494,10 +596,28 @@ void rozofs_ll_lookup_cbk(void *this,void *param)
 	*/
 	if (errno == ENOENT) {
 	  memset(&fep, 0, sizeof (fep));
+	  errcode = errno;
 	  fep.ino = 0;
 	  fep.attr_timeout = rozofs_tmr_get(TMR_FUSE_ATTR_CACHE);
 	  fep.entry_timeout = rozofs_tmr_get(TMR_FUSE_ENTRY_CACHE);
 	  rz_fuse_reply_entry(req, &fep);
+	  /*
+	  ** OK now let's check if there was some other lookup request for the same
+	  ** object
+	  */
+	  {
+	    int trc_idx,i;      
+	    for (i = 0; i < fuse_ctx_p->lkup_cpt;i++)
+	    {
+	       /*
+	       ** Check if the inode and the name are the same
+	       */
+               rz_fuse_reply_entry(fuse_ctx_p->lookup_tb[i].req, &fep);
+	       trc_idx = fuse_ctx_p->lookup_tb[i].trc_idx;
+	       errno=errcode;
+               rozofs_trc_rsp_attr(srv_rozofs_ll_lookup,0xdeadbeef,(nie==NULL)?NULL:nie->attrs.fid,status,(nie==NULL)?-1:nie->attrs.size,trc_idx);
+	    }        
+	  }
 	  goto out;	
 	}
         goto error;
@@ -557,7 +677,8 @@ void rozofs_ll_lookup_cbk(void *this,void *param)
     stbuf.st_size = nie->attrs.size;
 
     fep.attr_timeout = rozofs_tmr_get(TMR_FUSE_ATTR_CACHE);
-    fep.entry_timeout = rozofs_tmr_get(TMR_FUSE_ENTRY_CACHE);
+    if (S_ISDIR(attrs.mode))fep.entry_timeout = rozofs_tmr_get(TMR_FUSE_ENTRY_CACHE);
+    else fep.entry_timeout = rozofs_tmr_get(TMR_FUSE_ENTRY_CACHE);
     memcpy(&fep.attr, &stbuf, sizeof (struct stat));
     nie->nlookup++;
 
@@ -565,9 +686,45 @@ void rozofs_ll_lookup_cbk(void *this,void *param)
     fep.generation = finode->fid[0];  
     
     rz_fuse_reply_entry(req, &fep);
+    /*
+    ** OK now let's check if there was some other lookup request for the same
+    ** object
+    */
+
+    {
+      int trc_idx,i;      
+      for (i = 0; i < fuse_ctx_p->lkup_cpt;i++)
+      {
+	 /*
+	 ** Check if the inode and the name are the same
+	 */
+         rz_fuse_reply_entry(fuse_ctx_p->lookup_tb[i].req, &fep);
+         nie->nlookup++;
+	 trc_idx = fuse_ctx_p->lookup_tb[i].trc_idx;
+         rozofs_trc_rsp_attr(srv_rozofs_ll_lookup,0xdeadbeef,(nie==NULL)?NULL:nie->attrs.fid,status,(nie==NULL)?-1:nie->attrs.size,trc_idx);
+      }        
+    }
     goto out;
 error:
+    errcode = errno;
     fuse_reply_err(req, errno);
+    /*
+    ** OK now let's check if there was some other lookup request for the same
+    ** object
+    */
+    {
+      int trc_idx,i;      
+      for (i = 0; i < fuse_ctx_p->lkup_cpt;i++)
+      {
+	 /*
+	 ** Check if the inode and the name are the same
+	 */
+         fuse_reply_err(fuse_ctx_p->lookup_tb[i].req,errcode);
+	 trc_idx = fuse_ctx_p->lookup_tb[i].trc_idx;
+	 errno = errcode;
+         rozofs_trc_rsp_attr(srv_rozofs_ll_lookup,0xdeadbeef,(nie==NULL)?NULL:nie->attrs.fid,status,(nie==NULL)?-1:nie->attrs.size,trc_idx);
+      }        
+    }
 out:
     /*
     ** release the transaction context and the fuse context
