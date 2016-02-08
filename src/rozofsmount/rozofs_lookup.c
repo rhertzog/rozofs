@@ -20,7 +20,6 @@
 
 #include "rozofs_fuse_api.h"
 #include <rozofs/core/rozofs_string.h>
-#include "rozofs_dentry_cache.h"
 
 DECLARE_PROFILING(mpp_profiler_t);
 

@@ -28,7 +28,6 @@
 #include "rozofs_fuse.h"
 #include "rozofs_fuse_thread_intf.h"
 #include "rozofs_kpi.h"
-#include "rozofs_dentry_cache.h"
 // For trace purpose
 struct timeval Global_timeDay;
 unsigned long long Global_timeBefore, Global_timeAfter;
