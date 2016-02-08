@@ -472,11 +472,6 @@ int rozofs_stat_start(void *args) {
     fuse_reply_thread_init();
     uma_dbg_addTopic("fuse_reply_thread", show_fuse_reply_thread);  
     
-    /*
-    ** init of the dentry cache
-    */
-    dentry_cache_initialize(&dentry_cache);
-    uma_dbg_addTopic("dentry_cache", show_dentry_cache);  
       
     /*
      ** main loop
