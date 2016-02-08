@@ -98,6 +98,8 @@ char *pChar = uma_dbg_get_buffer();
   pChar += rozofs_string_append(pChar,"// Delay from which a rozofsmoun client is declared disconnected and its \n");
   pChar += rozofs_string_append(pChar,"// file locks are automatically removed\n");
   COMMON_CONFIG_SHOW_INT_OPT(client_flock_timeout,30,"15:600");
+  pChar += rozofs_string_append(pChar,"// Time out between export and storage for remove and stat\n");
+  COMMON_CONFIG_SHOW_INT_OPT(mproto_timeout,10,"1:60");
 
   /*
   ** client scope configuration elements
@@ -230,6 +232,8 @@ static inline void common_config_generated_read(char * fname) {
   // Delay from which a rozofsmoun client is declared disconnected and its  
   // file locks are automatically removed 
   COMMON_CONFIG_READ_INT_MINMAX(client_flock_timeout,30,15,600);
+  // Time out between export and storage for remove and stat 
+  COMMON_CONFIG_READ_INT_MINMAX(mproto_timeout,10,1,60);
   /*
   ** client scope configuration elements
   */

@@ -159,9 +159,6 @@ typedef enum _ROZOFS_BSIZE_E {
 #define SHAREMEM_PER_FSMOUNT (1<<SHAREMEM_PER_FSMOUNT_POWER2)
 #define SHAREMEM_IDX_READ 0
 #define SHAREMEM_IDX_WRITE 1
-/* Timeout in seconds for storaged requests by mproto */
-#define ROZOFS_MPROTO_TIMEOUT_SEC 4
-
 
 /*
 ** Projection files on storages are split in chunks. Each chunk is allocated 

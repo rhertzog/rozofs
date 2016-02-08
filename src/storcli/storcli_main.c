@@ -736,7 +736,7 @@ static int get_storage_ports(mstorage_t *s) {
     mclient_new(&mclt, s->host, 0, 0);
 
     struct timeval timeo;
-    timeo.tv_sec = ROZOFS_MPROTO_TIMEOUT_SEC;
+    timeo.tv_sec = common_config.mproto_timeout;
     timeo.tv_usec = 0;
 
 
