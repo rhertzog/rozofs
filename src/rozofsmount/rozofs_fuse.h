@@ -24,7 +24,7 @@
 #include "rozofsmount.h"
 
 #define ROZOFS_FUSE_CTX_MAX 64
-
+extern ruc_obj_desc_t  rozofs_lookup_queue[];  /**< pending list of the lookup */
 typedef enum
 {
    RZ_FUSE_WRITE_0 = 0,
@@ -73,8 +73,13 @@ typedef struct _rozofs_fuse_conf_t
    int      max_transactions; /**< max number of simultaneous transactions */
 } rozofs_fuse_conf_t;
 
-
-
+#define ROZOFS_MAX_LKUP_QUEUE   16
+#define ROZOFS_MAX_PENDING_LKUP 32
+typedef struct _rozofs_fuse_lookup_entry_t
+{
+  fuse_req_t req;
+  int        trc_idx;
+} rozofs_fuse_lookup_entry_t;
 
 /**
 * fuse request context
@@ -88,9 +93,12 @@ typedef struct _rozofs_fuse_save_ctx_t
    ruc_obj_desc_t link;   /**< uwe to queue to context on the file_t structure */
    char  fct_name[64]  ;        /**< for trace purpose    */
    void  *buf_ref;        /**< pointer to the mabagement part of the buffer    */
+   ruc_obj_desc_t link_req;   /**< use to queue the fuse request relative to the same object */
    fuse_req_t req;  /**< fuse request  */
    fuse_ino_t ino;  /**< fuse inode input argument  */
    fuse_ino_t parent;
+   int  len;       /**< length of name (without \0) */
+   char *name;
    fuse_ino_t newparent;
    char *newname;
    struct fuse_file_info *fi;
@@ -98,7 +106,6 @@ typedef struct _rozofs_fuse_save_ctx_t
    int    sleep;
    int    deferred_fuse_write_response;
    struct stat *stbuf;          /**< pointer to the setattr attributes */
-   char *name;
    mode_t mode;
    off_t off;
    size_t size;
@@ -112,6 +119,8 @@ typedef struct _rozofs_fuse_save_ctx_t
    uint32_t readahead;                   /**< assert to 1 for readahead case */
    void     *shared_buf_ref;             /**< reference of the shared buffer (used for STORCLI READ */
    int       trc_idx;                    /**< trace index */
+   int       lkup_cpt;
+   rozofs_fuse_lookup_entry_t lookup_tb[ROZOFS_MAX_PENDING_LKUP];
    /*
    ** Parameters specific to the exportd gateway management
    */

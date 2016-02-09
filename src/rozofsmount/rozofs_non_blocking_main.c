@@ -470,7 +470,9 @@ int rozofs_stat_start(void *args) {
        fatal("Cannot create fuse threads");
     }
     fuse_reply_thread_init();
-    uma_dbg_addTopic("fuse_reply_thread", show_fuse_reply_thread);    
+    uma_dbg_addTopic("fuse_reply_thread", show_fuse_reply_thread);  
+    
+      
     /*
      ** main loop
      */

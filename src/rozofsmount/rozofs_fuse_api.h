@@ -538,6 +538,9 @@ static inline void *_rozofs_fuse_alloc_saved_context(char *name )
   */
   expgw_routing_ctx_init(&fuse_save_ctx_p->expgw_routing_ctx);
   ruc_listEltInit(&fuse_save_ctx_p->link);
+  ruc_listHdrInit(&fuse_save_ctx_p->link_req);
+  fuse_save_ctx_p->lkup_cpt = 0;
+  /*save the reference of the buffer */
   
 //  STOP_PROFILING_FUSE();
   
@@ -764,9 +767,9 @@ static inline void  *fuse_ctx_write_pending_queue_get(file_t *f)
 #define SAVE_FUSE_STRING(buffer,string_ptr) \
 { \
   rozofs_fuse_save_ctx_t *fuse_save_ctx_p = (rozofs_fuse_save_ctx_t*)ruc_buf_getPayload(buffer); \
-  int len = strlen(string_ptr);\
-  fuse_save_ctx_p->string_ptr = malloc(len+1); \
-  memcpy(fuse_save_ctx_p->string_ptr,string_ptr,len+1);\
+  fuse_save_ctx_p->len = strlen(string_ptr);\
+  fuse_save_ctx_p->string_ptr = malloc(fuse_save_ctx_p->len+1); \
+  memcpy(fuse_save_ctx_p->string_ptr,string_ptr,fuse_save_ctx_p->len+1);\
 }
 
 /*

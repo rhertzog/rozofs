@@ -3601,7 +3601,7 @@ static int init_storages_cnx(volume_t *volume, list_t *list) {
 	      }
 
               struct timeval timeo;
-              timeo.tv_sec = ROZOFS_MPROTO_TIMEOUT_SEC;
+              timeo.tv_sec = common_config.mproto_timeout;
               timeo.tv_usec = 0;
 
               if (mclient_connect(mclt, timeo) != 0) {
