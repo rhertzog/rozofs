@@ -81,7 +81,7 @@ def layout2_8servers():
   e1 = v1.add_export(rozofs.bsize4K())
   m1 = e1.add_mount()    
 #_____________________________________ 
-def clusters():
+def clusters(clients_nb):
   global layout
   global nbclusters
   
@@ -97,31 +97,37 @@ def clusters():
   # The 2 clusters use the same host for a given sid number
   for s in range(rozofs.min_sid(layout)):
     for c in cnf_clusters:    
-      c.add_sid_on_host(s+1)
+      c.add_sid_on_host(s+1,s % rozofs.site_number)
     	  
   # Create on export for 4K, and one moun point
   e1 = v1.add_export(rozofs.bsize4K())
-  m1 = e1.add_mount()
+  for i in range(1,clients_nb+1): m = e1.add_mount()
+  
 #_____________________________________   
-def layout2_16servers():
+def layout2_16servers(clients_nb=1):
   global layout
   layout = rozofs.layout_8_12_16()
-  clusters()
+  clusters(clients_nb)
 #_____________________________________   
-def layout1_8servers():
+def layout1_8servers(clients_nb=1):
   global layout
   layout = rozofs.layout_4_6_8()
-  clusters()
+  clusters(clients_nb)
 #_____________________________________ 
-def layout0_4servers():
+def layout0_4servers(clients_nb=1):
   global layout
   layout = rozofs.layout_2_3_4()
-  clusters()
+  clusters(clients_nb)
 
 
 #_____________________________________ 
 
+# Number of sites
+rozofs.set_site_number(4)
+
 #rozofs.set_trace()
+
+rozofs.set_alloc_mb(0);
 
 # Change number of core files
 # rozofs.set_nb_core_file(1);
@@ -131,7 +137,7 @@ def layout0_4servers():
 #--------------STORIO GENERAL
 
 # Set original RozoFS file distribution
-# rozofs.set_file_distribution_origin()
+rozofs.set_file_distribution(3)
 
 # Set single storio mode
 # rozofs.storio_mode_single()
@@ -140,7 +146,7 @@ def layout0_4servers():
 # rozofs.set_crc32(False)
 
 # Disable self healing
-# rozofs.set_self_healing(0)
+rozofs.set_self_healing(1)
 
 # Modify number of listen port/ per storio
 # rozofs.set_nb_listen(4)
@@ -149,7 +155,7 @@ def layout0_4servers():
 # rozofs.set_threads(8)
 
 # Use fixed size file mounted through losetup for devices
-#rozofs.set_ext4(300)
+#rozofs.set_ext4(100)
 #rozofs.set_xfs(1000,None)
 #rozofs.set_xfs(1000,"4096")
 #rozofs.set_xfs(1000,"64K")
@@ -170,17 +176,17 @@ def layout0_4servers():
 # rozofs.dual_storcli()
 
 # Disable POSIX lock
-# rozofs.no_posix_lock
+#rozofs.no_posix_lock
 
 # Disable BSD lock
-# rozofs.no_bsd_lock
+#rozofs.no_bsd_lock
 
 
 #-------------- NB devices
-devices    = 3
+devices    = 4
 mapper     = 2
 redundancy = 2
-nbclusters = 2
+nbclusters = 1
 
 #__LAYOUT 2__
 #layout2_4servers()
@@ -188,11 +194,11 @@ nbclusters = 2
 #layout2_16servers()
 
 #__LAYOUT 1__
-#layout1_4servers()
-#layout1_8servers()
+layout1_4servers()
+#layout1_8servers(2)
 
 #__LAYOUT 0__
-layout0_4servers()
+#layout0_4servers()
 
 
 # Set host 1 faulty
