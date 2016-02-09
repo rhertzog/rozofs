@@ -82,6 +82,8 @@ typedef struct _common_config_global_t {
   // Delay from which a rozofsmoun client is declared disconnected and its 
   // file locks are automatically removed
   uint32_t    client_flock_timeout;
+  // Time out between export and storage for remove and stat
+  uint32_t    mproto_timeout;
 
   /*
   ** client scope configuration elements

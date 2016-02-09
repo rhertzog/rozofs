@@ -343,7 +343,7 @@ void volume_balance(volume_t *volume) {
 	    
 
             struct timeval timeo;
-            timeo.tv_sec  = ROZOFS_MPROTO_TIMEOUT_SEC;
+            timeo.tv_sec  = common_config.mproto_timeout;
             timeo.tv_usec = 0;
 	    int new       = 0;
             
@@ -388,7 +388,7 @@ void volume_balance(volume_t *volume) {
 	      mclient_new(&mclt, vs->host, cluster->cid, vs->sid);
 
               struct timeval timeo;
-              timeo.tv_sec = ROZOFS_MPROTO_TIMEOUT_SEC;
+              timeo.tv_sec = common_config.mproto_timeout;
               timeo.tv_usec = 0;
 
               if (mclient_connect(&mclt, timeo) != 0) {

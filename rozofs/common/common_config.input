@@ -97,3 +97,5 @@ STRING  storage	device_automount_path           "/srv/rozofs/storages"
 STRING  storage device_automount_option 	""
 // Paralellism factor for device self healing feature
 INT     storage device_self_healing_process 	8 1:64
+// Time out between export and storage for remove and stat
+INT     export mproto_timeout 	10           1:60

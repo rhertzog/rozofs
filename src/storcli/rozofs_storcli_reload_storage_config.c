@@ -118,7 +118,7 @@ int exportclt_reload_check_mstorage(epgw_conf_ret_t *ret,exportclt_t *exportclt_
       mclient_new(&mclt, mstor->host, 0, 0);
 
       struct timeval timeout_mproto;
-      timeout_mproto.tv_sec = ROZOFS_MPROTO_TIMEOUT_SEC;
+      timeout_mproto.tv_sec = common_config.mproto_timeout;
       timeout_mproto.tv_usec = 0;
       /* Initialize connection with storage (by mproto) */
       if (mclient_connect(&mclt,timeout_mproto) != 0) 
