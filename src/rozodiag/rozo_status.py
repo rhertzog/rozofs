@@ -23,7 +23,6 @@ fulldiagnostic=False
 
 alarm_level = int(-1)
 
-
 time_limit_minutes=0
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
