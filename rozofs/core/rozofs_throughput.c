@@ -25,7 +25,22 @@
 #include <stdint.h>
 #include "rozofs_throughput.h"
 
-uint32_t COLS=1;
+static uint32_t COLS=1;
+static int      AVERAGE=0;
+
+typedef uint64_t     colaverage_t[6];
+colaverage_t         elementaverage[30];
+
+
+/*
+*_______________________________________________________________________
+* Request for average display at the end of the colums
+*
+* @param average wether average is requested or not
+*/
+void rozofs_thr_set_average(int average) {
+  AVERAGE = average;
+}
 /*_______________________________________________________________________
 * Change the number of columns of the display
 *
@@ -50,6 +65,10 @@ char * rozofs_thr_display(char * pChar, rozofs_thr_cnts_t * counters[], int nb) 
   rozofs_thr_1_cnt_t *p;
   uint32_t LINES;
   int      value;
+
+  if (AVERAGE) {
+    memset(elementaverage,0, nb*sizeof(colaverage_t));
+  }
 
   if (counters==NULL) {
     pChar += rozofs_string_append(pChar,"Counters not initialized\n");
@@ -111,6 +130,7 @@ char * rozofs_thr_display(char * pChar, rozofs_thr_cnts_t * counters[], int nb) 
 	if (p->ts != (t-line-(col*LINES))) p->count = 0;	
 	pChar += rozofs_string_append(pChar," ");	
 	pChar += rozofs_bytes_padded_append(pChar,7, p->count);
+	if (AVERAGE) elementaverage[value][col] += p->count;
 	pChar += rozofs_string_append(pChar," |");
       }    
     }
@@ -124,6 +144,25 @@ char * rozofs_thr_display(char * pChar, rozofs_thr_cnts_t * counters[], int nb) 
     }  
   }  
   pChar += rozofs_eol(pChar);
+  
+  if (AVERAGE) {
+    for (col=0; col<COLS; col++) {
+      pChar += rozofs_string_append(pChar,"| Avg |");
+      for (value=0; value< nb; value++) {  	
+	pChar += rozofs_string_append(pChar," ");	
+	pChar += rozofs_bytes_padded_append(pChar,7, elementaverage[value][col]/LINES);
+	pChar += rozofs_string_append(pChar," |");
+      }
+    }
+    pChar += rozofs_eol(pChar);
+    for (col=0; col<COLS; col++) {  
+      pChar += rozofs_string_append(pChar,"|_____|");
+      for (value=0; value< nb; value++) {  
+	pChar += rozofs_string_append(pChar,"_________|");
+      }  
+    }           
+  }
+  pChar += rozofs_eol(pChar);  
   return pChar;    
 }
 

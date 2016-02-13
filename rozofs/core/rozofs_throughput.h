@@ -139,6 +139,13 @@ static inline void rozofs_thr_cnts_free(rozofs_thr_cnts_t ** counters) {
 * @param columns The number of columns per minutes
 */
 void rozofs_thr_set_column(int columns);
+/*
+*_______________________________________________________________________
+* Request for average display at the end of the colums
+*
+* @param average wether average is requested or not
+*/
+void rozofs_thr_set_average(int average) ;
 #endif
 
 

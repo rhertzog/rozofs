@@ -262,6 +262,7 @@ uint32_t ruc_init(uint32_t test, uint16_t debug_port,uint16_t export_listening_p
 void display_throughput (char * argv[], uint32_t tcpRef, void *bufRef) {
   char * pChar = uma_dbg_get_buffer();
   int ret,val,what=0;
+  int avg=0;
 
   int i=1;
   while (argv[i] != NULL) {
@@ -283,7 +284,12 @@ void display_throughput (char * argv[], uint32_t tcpRef, void *bufRef) {
       rozofs_thr_set_column(val);
       continue;
     }  
-
+    
+    if (strcasecmp(argv[i],"avg")==0) {
+      i++;
+      avg=1;
+      continue;
+    }  
     
     if (strcasecmp(argv[i],"read")==0) { 
       i++;
@@ -299,10 +305,12 @@ void display_throughput (char * argv[], uint32_t tcpRef, void *bufRef) {
     
     pChar += rozofs_string_append(pChar,"\nunexpected parameter ");
     pChar += rozofs_string_append(pChar,argv[i]);       
-    pChar += rozofs_string_append(pChar,"\nthroughput [read|write|col <#col>]\n");   
+    pChar += rozofs_string_append(pChar,"\nthroughput [read|write|col <#col>|avg]\n");   
     uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   
     return;    
   } 
+  
+  rozofs_thr_set_average(avg);
      
   switch (what) {
     case 1:
