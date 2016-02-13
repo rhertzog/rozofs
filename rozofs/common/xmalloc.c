@@ -29,6 +29,7 @@
 
 xmalloc_stats_t *xmalloc_size_table_p = NULL;
 uint32_t         xmalloc_entries = 0;
+static int       traced_idx=-1;
 
 /*__________________________________________________________________________
 */
@@ -41,19 +42,33 @@ void show_xmalloc(char * argv[], uint32_t tcpRef, void *bufRef) {
         pChar += sprintf(pChar, "xmalloc stats not available\n");
         uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
         return;
-
+    }
+    
+    if (argv[1] != NULL) {
+       if (strcmp(argv[1],"trace") !=0 ) goto syntax;
+       if (argv[2] == NULL) traced_idx = -1;
+       else if (sscanf(argv[2],"%d",&traced_idx)!=1) goto syntax;
     }
 
     for (i = 0; i < xmalloc_entries; i++,p++) {
-        pChar += sprintf(pChar, "size %8.8u count %10.10llu = %llu\n", p->size, (long long unsigned int) p->count,
+        if (i==traced_idx) pChar += sprintf(pChar, "->%2d) ",i);
+	else               pChar += sprintf(pChar, "  %2d) ",i);
+        pChar += sprintf(pChar, "size %8.8u count %10.10llu = %llu\n", 
+	                 p->size, 
+			 (long long unsigned int) p->count,
 	                 (long long unsigned int)(p->size * (long long unsigned int)p->count));
-    }
+    }    
     uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
-
+    return;
+    
+syntax:
+    pChar += sprintf(pChar,"xmalloc [ trace [<traceIdx>] ]\n");       
+    uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
+    return;
 }
 /*__________________________________________________________________________
 */
-void *xmalloc(size_t n) {
+void *xmalloc_internal(char * file, int line, size_t n) {
     void *p = 0;
     if (xmalloc_size_table_p == NULL)
     {
@@ -65,7 +80,9 @@ void *xmalloc(size_t n) {
     p = memalign(32,n);
     check_memory(p);
 
-    xmalloc_stats_insert(malloc_usable_size(p));
+    if (xmalloc_stats_insert(malloc_usable_size(p))==traced_idx) {
+      info("%s:%d xmalloc(%d) -> %p",file,line,(int)n,p);
+    }
     return p;
 }
 /*__________________________________________________________________________

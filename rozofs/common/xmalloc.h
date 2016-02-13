@@ -41,7 +41,7 @@ extern xmalloc_stats_t *xmalloc_size_table_p;
 extern uint32_t         xmalloc_entries;
 extern unsigned int     xmalloc_entries;
 
-static inline void xmalloc_stats_insert(int n)
+static inline int xmalloc_stats_insert(int n)
 {
    int i;
    xmalloc_stats_t *p = xmalloc_size_table_p;
@@ -51,14 +51,14 @@ static inline void xmalloc_stats_insert(int n)
       if (p->size == n)
       {
          p->count++;
-         return;      
+         return i;      
       }
    }  
    
    p->size  = n;
    p->count = 1; 
    xmalloc_entries++;
-   return;                 
+   return i;                 
 }
 static inline void xmalloc_stats_release(int n)
 {
@@ -80,7 +80,11 @@ static inline void xmalloc_stats_release(int n)
       memcpy(p,&p[1],sizeof(xmalloc_stats_t));
    } 
 }
-void *xmalloc(size_t n);
+
+
+#define xmalloc(n) xmalloc_internal(__FILE__,__LINE__,n) 
+void *xmalloc_internal(char * file, int line, size_t n);
+
 void xfree(void * p);
 
 void *xcalloc(size_t n, size_t s);

@@ -170,8 +170,6 @@ set (librozofs_sources
     core/disk_table_service.h
     core/rozofs_numa.h
     core/rozofs_numa.c
-    core/malloc_tracking.h
-    core/malloc_tracking.c
     core/rozofs_throughput.h
     core/rozofs_throughput.c            
 )

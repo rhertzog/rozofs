@@ -30,7 +30,7 @@
 #include <rozofs/core/rozo_launcher.h>
 #include <rozofs/core/rozofs_string.h>
 #include <rozofs/core/rozofs_numa.h>
-#include <rozofs/core/malloc_tracking.h>
+//#include <rozofs/core/malloc_tracking.h>
 #include <rozofs/common/rozofs_site.h>
 #include <rozofs/common/common_config.h>
 
@@ -1748,7 +1748,7 @@ int fuseloop(struct fuse_args *args, int fg) {
     /*
     ** Register malloc tracking diagnostic service
     */
-    malloc_tracking_register();    
+    //malloc_tracking_register();    
     /*
     ** Disable extended attributes if required
     */
