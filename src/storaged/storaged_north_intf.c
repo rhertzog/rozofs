@@ -54,6 +54,109 @@ int storage_read_write_buf_sz = 0;      /**<read:write buffer size on north inte
 
 void *storaged_buffer_pool_p = NULL;  /**< reference of the read/write buffer pool */
 extern char * pHostArray[];
+extern void * storaged_decoded_rpc_buffer_pool;
+/*
+**__________________________________________________________________________
+*/
+/**
+  Server callback  for GW_PROGRAM protocol:
+
+*/
+void mproto_sub_thread(rozorpc_srv_ctx_t *rozorpc_srv_ctx_p, rozofs_rpc_call_hdr_t  * hdr) {
+    uint32_t  *com_hdr_p;
+    mp_status_ret_t  arg_err;
+    char * arguments;
+    int size = 0;
+
+    
+    /*
+    ** Allocate buffer for decoded aeguments
+    */
+    rozorpc_srv_ctx_p->decoded_arg = ruc_buf_getBuffer(storaged_decoded_rpc_buffer_pool);
+    if (rozorpc_srv_ctx_p->decoded_arg == NULL) {
+      rozorpc_srv_ctx_p->xmitBuf = rozorpc_srv_ctx_p->recv_buf;
+      rozorpc_srv_ctx_p->recv_buf = NULL;
+      rozorpc_srv_ctx_p->xdr_result =(xdrproc_t) xdr_mp_status_ret_t;
+      arg_err.status = MP_FAILURE;
+      arg_err.mp_status_ret_t_u.error = ENOMEM;        
+      rozorpc_srv_forward_reply(rozorpc_srv_ctx_p,(char*)&arg_err);
+      rozorpc_srv_release_context(rozorpc_srv_ctx_p);    
+      return;
+    } 
+       
+    arguments = ruc_buf_getPayload(rozorpc_srv_ctx_p->decoded_arg);
+
+    void (*local)(void *, rozorpc_srv_ctx_t *);
+
+    switch (hdr->proc) {
+
+    case MP_REMOVE:
+      rozorpc_srv_ctx_p->arg_decoder = (xdrproc_t) xdr_mp_remove_arg_t;
+      rozorpc_srv_ctx_p->xdr_result  = (xdrproc_t) xdr_mp_status_ret_t;
+      local = mp_subthread_remove;
+      size = sizeof(mp_remove_arg_t);
+      break;
+      
+    case MP_LIST_BINS_FILES:
+      rozorpc_srv_ctx_p->arg_decoder = (xdrproc_t) xdr_mp_list_bins_files_arg_t;
+      rozorpc_srv_ctx_p->xdr_result  = (xdrproc_t) xdr_mp_list_bins_files_ret_t;
+      local = mp_subthread_list_bins_files;
+      size = sizeof(mp_list_bins_files_arg_t);
+      break;
+
+    case MP_REMOVE2:
+      rozorpc_srv_ctx_p->arg_decoder = (xdrproc_t) xdr_mp_remove2_arg_t;
+      rozorpc_srv_ctx_p->xdr_result  = (xdrproc_t) xdr_mp_status_ret_t;
+      local = mp_subthread_remove2;
+      size = sizeof(mp_remove2_arg_t);
+      break;
+    
+
+    default:
+      rozorpc_srv_ctx_p->xmitBuf = rozorpc_srv_ctx_p->recv_buf;
+      rozorpc_srv_ctx_p->recv_buf = NULL;
+      rozorpc_srv_ctx_p->xdr_result =(xdrproc_t) xdr_mp_status_ret_t;
+      arg_err.status = MP_FAILURE;
+      arg_err.mp_status_ret_t_u.error = EPROTO;        
+      rozorpc_srv_forward_reply(rozorpc_srv_ctx_p,(char*)&arg_err);
+      rozorpc_srv_release_context(rozorpc_srv_ctx_p);    
+      return;
+    }
+    
+    if (size > ruc_buf_getMaxPayloadLen(rozorpc_srv_ctx_p->decoded_arg)) {
+      fatal("size of request %d is %d although max payload len is %d",
+            hdr->proc, size, ruc_buf_getMaxPayloadLen(rozorpc_srv_ctx_p->decoded_arg));
+    }
+    
+    memset(arguments,0, size);
+    ruc_buf_setPayloadLen(rozorpc_srv_ctx_p->decoded_arg,size); // for debug 
+    
+    /*
+    ** decode the payload of the rpc message
+    */
+    if (!rozorpc_srv_getargs_with_position (rozorpc_srv_ctx_p->recv_buf, 
+                                            (xdrproc_t) rozorpc_srv_ctx_p->arg_decoder, 
+                                            (caddr_t) arguments, 
+					    &rozorpc_srv_ctx_p->position)) 
+    {    
+      rozorpc_srv_ctx_p->xmitBuf = rozorpc_srv_ctx_p->recv_buf;
+      rozorpc_srv_ctx_p->recv_buf = NULL;
+      rozorpc_srv_ctx_p->xdr_result = (xdrproc_t)xdr_mp_status_ret_t;
+      arg_err.status = MP_FAILURE;
+      arg_err.mp_status_ret_t_u.error = errno;        
+      rozorpc_srv_forward_reply(rozorpc_srv_ctx_p,(char*)&arg_err);
+      /*
+      ** release the context
+      */
+      rozorpc_srv_release_context(rozorpc_srv_ctx_p);    
+      return;
+    }  
+    
+    /*
+    ** call the user call-back
+    */
+    (*local)(arguments, rozorpc_srv_ctx_p);    
+}
 
 /*
 **__________________________________________________________________________
@@ -101,21 +204,21 @@ static void mproto_svc(rozorpc_srv_ctx_t *rozorpc_srv_ctx_p, rozofs_rpc_call_hdr
       local = mp_stat_1_svc_nb;
       size = sizeof(mp_stat_arg_t);
       break;
-      
+#if 0      
     case MP_REMOVE:
       rozorpc_srv_ctx_p->arg_decoder = (xdrproc_t) xdr_mp_remove_arg_t;
       rozorpc_srv_ctx_p->xdr_result  = (xdrproc_t) xdr_mp_status_ret_t;
       local = mp_remove_1_svc_nb;
       size = sizeof(mp_remove_arg_t);
       break;
-
+#endif      
     case MP_PORTS:
       rozorpc_srv_ctx_p->arg_decoder = (xdrproc_t) NULL;
       rozorpc_srv_ctx_p->xdr_result  = (xdrproc_t) xdr_mp_ports_ret_t;
       local = mp_ports_1_svc_nb;
       size = 0;
       break;
-      
+#if 0      
     case MP_LIST_BINS_FILES:
       rozorpc_srv_ctx_p->arg_decoder = (xdrproc_t) xdr_mp_list_bins_files_arg_t;
       rozorpc_srv_ctx_p->xdr_result  = (xdrproc_t) xdr_mp_list_bins_files_ret_t;
@@ -127,9 +230,9 @@ static void mproto_svc(rozorpc_srv_ctx_t *rozorpc_srv_ctx_p, rozofs_rpc_call_hdr
       rozorpc_srv_ctx_p->arg_decoder = (xdrproc_t) xdr_mp_remove2_arg_t;
       rozorpc_srv_ctx_p->xdr_result  = (xdrproc_t) xdr_mp_status_ret_t;
       local = mp_remove2_1_svc_nb;
-      size = sizeof(mp_remove_arg_t);
+      size = sizeof(mp_remove2_arg_t);
       break;
-      
+#endif      
     default:
       rozorpc_srv_ctx_p->xdr_result =(xdrproc_t) xdr_mp_status_ret_t;
       mproto_response.status.mp_status_ret_t_u.error = EPROTO;        
@@ -158,9 +261,9 @@ static void mproto_svc(rozorpc_srv_ctx_t *rozorpc_srv_ctx_p, rozofs_rpc_call_hdr
     /*
     ** call the user call-back
     */
-    (*local)(&mproto_request, rozorpc_srv_ctx_p, &mproto_response, cnx_id);   
+    (*local)(&mproto_request, rozorpc_srv_ctx_p, &mproto_response, cnx_id);  
 
-
+    
 send_response:
 
     /*
@@ -233,13 +336,23 @@ void storaged_req_rcv_cbk(void *userRef,uint32_t  socket_ctx_idx, void *recv_buf
     switch (hdr.prog) {
     
       case MONITOR_PROGRAM :
-        mproto_svc(rozorpc_srv_ctx_p, &hdr, socket_ctx_idx);
-	break;
+        switch(hdr.proc) {
 	
+	  case MP_REMOVE2:
+	  case MP_REMOVE:
+	  case MP_LIST_BINS_FILES:
+	    mproto_sub_thread(rozorpc_srv_ctx_p, &hdr);
+	    break;
+	    
+	  default:
+            mproto_svc(rozorpc_srv_ctx_p, &hdr, socket_ctx_idx);
+	    break;
+	}
+	break;
+
       default:
         severe("Received RCP request 0x%x/0x%x",hdr.prog,hdr.proc);
-        rozorpc_srv_release_context(rozorpc_srv_ctx_p);    
-      	    	
+        rozorpc_srv_release_context(rozorpc_srv_ctx_p);          	    	
     }
 }
 

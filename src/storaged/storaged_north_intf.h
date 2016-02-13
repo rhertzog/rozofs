@@ -47,7 +47,7 @@ extern int storage_read_write_buf_sz;      /**<read:write buffer size on north i
 extern void *storage_receive_buffer_pool_p ;  /**< reference of the read/write buffer pool */
 extern void *storage_xmit_buffer_pool_p ;  /**< reference of the read/write buffer pool */
 
-#define STORAGED_BUF_RECV_CNT  4
+#define STORAGED_BUF_RECV_CNT  16
 #define STORAGED_BUF_RECV_SZ  (1024*16) 
 
 

@@ -35,6 +35,9 @@ add_executable(storaged
     storaged_north_intf.h
     storio_crc32.c
     storio_crc32.h
+    storaged_sub_thread.c
+    storaged_sub_thread_intf.c
+    storaged_sub_thread_intf.h    
 )
 target_link_libraries(storaged rozofs ${PTHREAD_LIBRARY} ${UUID_LIBRARY} ${CONFIG_LIBRARY} ${NUMA_LIBRARY})
 

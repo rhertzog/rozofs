@@ -266,6 +266,11 @@ int main(int argc, char *argv[]) {
     uma_dbg_thread_add_self("Main");
 
     /*
+    ** Do not log each remote end disconnection
+    */
+    af_unix_socket_no_disconnect_log();
+
+     /*
      ** init of the timer configuration
      */
     rozofs_tmr_init_configuration();

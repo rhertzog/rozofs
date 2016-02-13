@@ -62,6 +62,7 @@
 #include "storaged_nblock_init.h"
 #include "storaged_north_intf.h"
 #include "storage.h"
+#include "storaged_sub_thread_intf.h"
 
 uint32_t storio_nb = 0;
 DECLARE_PROFILING(spp_profiler_t);
@@ -70,6 +71,9 @@ extern sconfig_t storaged_config;
 extern char * pHostArray[];
 
 int storaged_update_device_info(storage_t * st);
+
+void * storaged_decoded_rpc_buffer_pool = NULL;
+
 /*
  **_________________________________________________________________________
  *      PUBLIC FUNCTIONS
@@ -511,65 +515,6 @@ uint32_t ruc_init(uint32_t test, storaged_start_conf_param_t *arg_p) {
     return ret;
 }
 
-/*
- *_______________________________________________________________________
- */
-
-/**
- *  This function is the entry point for setting rozofs in non-blocking mode
-
-   @param args->ch: reference of the fuse channnel
-   @param args->se: reference of the fuse session
-   @param args->max_transactions: max number of transactions that can be handled in parallel
-   
-   @retval -1 on error
-   @retval : no retval -> only on fatal error
-
- */
-int storaged_start_nb_blocking_th(void *args) {
-  int ret;
-  storaged_start_conf_param_t *args_p = (storaged_start_conf_param_t*) args;
-
-  ret = ruc_init(FALSE, args_p);
-  if (ret != RUC_OK) {
-    /*
-     ** fatal error
-     */
-    fdl_debug_loop(__LINE__);
-    fatal("can't initialize non blocking thread");
-    return -1;
-  }
-
-
-  /*
-  ** Init of the north interface (read/write request processing)
-  */ 
-  ret = storaged_north_interface_buffer_init(STORAGED_BUF_RECV_CNT, STORAGED_BUF_RECV_SZ);
-  if (ret < 0) {
-    fatal("Fatal error on storage_north_interface_buffer_init()\n");
-    return -1;
-  }
-  ret = storaged_north_interface_init();
-  if (ret < 0) {
-    fatal("Fatal error on storage_north_interface_init()\n");
-    return -1;
-  }
-   
-  uma_dbg_addTopic_option("profiler", show_profile_storaged_master_display,UMA_DBG_OPTION_RESET);
-
-    info("storaged non-blocking thread started "
-            "(instance: %d, host: %s, port: %d).",
-            args_p->instance_id, (pHostArray[0]==NULL)?"":pHostArray[0], args_p->debug_port);
-
-    /*
-     ** main loop
-     */
-    while (1) {
-        ruc_sockCtrl_selectWait();
-    }
-    fatal("Exit from ruc_sockCtrl_selectWait()");
-    fdl_debug_loop(__LINE__);
-}
 
 /*
  *_______________________________________________________________________
@@ -588,6 +533,7 @@ int storaged_start_nb_blocking_th(void *args) {
 int storaged_start_nb_th(void *args) {
     int ret;
     storaged_start_conf_param_t *args_p = (storaged_start_conf_param_t*) args;
+    int size;
 
     ret = ruc_init(FALSE, args_p);
     if (ret != RUC_OK) {
@@ -613,6 +559,25 @@ int storaged_start_nb_th(void *args) {
         fatal("Fatal error on storaged_north_interface_init()\n");
         return -1;
     }
+    
+    /*
+    ** Pool for decoded RPC request
+    */
+    size = sizeof(mp_remove2_arg_t);
+    if (size < sizeof(mp_remove_arg_t)) size = sizeof(mp_remove_arg_t);  
+    if (size < sizeof(mp_list_bins_files_arg_t)) size = sizeof(mp_list_bins_files_arg_t);
+    
+    storaged_decoded_rpc_buffer_pool = ruc_buf_poolCreate(STORAGED_BUF_RECV_CNT,size);
+    if (storaged_decoded_rpc_buffer_pool == NULL) {
+      fatal("Can not allocate storaged_decoded_rpc_buffer_pool");
+      return -1;
+    }
+    ruc_buffer_debug_register_pool("rpcDecodedRequest",storaged_decoded_rpc_buffer_pool);
+    
+    /*
+    ** Create storaged subthreads
+    */
+    storaged_sub_thread_intf_create((pHostArray[0]==NULL)?"":pHostArray[0], 2);
 
     /*
      ** add profiler subject 

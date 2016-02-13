@@ -184,6 +184,115 @@ void mp_remove2_1_svc_nb(void * pt_req,
 out:
     STOP_PROFILING(remove);
 }
+void mp_subthread_remove2(void * pt, rozorpc_srv_ctx_t *req_ctx_p) {
+    mp_remove2_arg_t        * args = (mp_remove2_arg_t*) pt;
+    storage_t               * st = 0;
+    static    mp_status_ret_t ret;
+    
+    START_PROFILING(remove);
+    
+    /*
+    ** Use received buffer for the response
+    */
+    req_ctx_p->xmitBuf  = req_ctx_p->recv_buf;
+    req_ctx_p->recv_buf = NULL;
+
+
+    if ((st = get_storage(args->cid, args->sid, req_ctx_p->socketRef)) == 0) {
+      goto error;
+    }
+
+    if (storaged_sub_thread_intf_send_req(MP_REMOVE2,req_ctx_p,st,tic)==0) { 
+      return;
+    }
+    
+
+error:    
+    ret.status                  = MP_FAILURE;            
+    ret.mp_status_ret_t_u.error = errno;
+    
+    rozorpc_srv_forward_reply(req_ctx_p,(char*)&ret); 
+    /*
+    ** release the context
+    */
+    rozorpc_srv_release_context(req_ctx_p);
+    
+out:
+    STOP_PROFILING(remove);
+}
+void mp_subthread_remove(void * pt, rozorpc_srv_ctx_t *req_ctx_p) {
+    mp_remove_arg_t         * args = (mp_remove_arg_t*) pt;
+    storage_t               * st = 0;
+    static    mp_status_ret_t ret;
+    
+    START_PROFILING(remove);
+    
+    /*
+    ** Use received buffer for the response
+    */
+    req_ctx_p->xmitBuf  = req_ctx_p->recv_buf;
+    req_ctx_p->recv_buf = NULL;
+
+
+    if ((st = get_storage(args->cid, args->sid, req_ctx_p->socketRef)) == 0) {
+      goto error;
+    }
+
+    if (storaged_sub_thread_intf_send_req(MP_REMOVE,req_ctx_p,st,tic)==0) { 
+      return;
+    }
+    
+
+error:    
+    ret.status                  = MP_FAILURE;            
+    ret.mp_status_ret_t_u.error = errno;
+    
+    rozorpc_srv_forward_reply(req_ctx_p,(char*)&ret); 
+    /*
+    ** release the context
+    */
+    rozorpc_srv_release_context(req_ctx_p);
+    
+out:
+    STOP_PROFILING(remove);
+}
+void mp_subthread_list_bins_files(void * pt, rozorpc_srv_ctx_t *req_ctx_p) {
+    mp_list_bins_files_arg_t * args = (mp_list_bins_files_arg_t*) pt;
+    storage_t                * st = 0;
+    static    mp_status_ret_t ret;
+
+    
+    START_PROFILING(list_bins_files);
+    
+    /*
+    ** Use received buffer for the response
+    */
+    req_ctx_p->xmitBuf  = req_ctx_p->recv_buf;
+    req_ctx_p->recv_buf = NULL;
+
+
+    if ((st = get_storage(args->cid, args->sid, req_ctx_p->socketRef)) == 0) {
+      goto error;
+    }
+
+    if (storaged_sub_thread_intf_send_req(MP_LIST_BINS_FILES,req_ctx_p,st,tic)==0) { 
+      return;
+    }
+    
+
+error:    
+    ret.status                  = MP_FAILURE;            
+    ret.mp_status_ret_t_u.error = errno;
+    
+    rozorpc_srv_forward_reply(req_ctx_p,(char*)&ret); 
+    /*
+    ** release the context
+    */
+    rozorpc_srv_release_context(req_ctx_p);
+    
+out:
+    STOP_PROFILING(list_bins_files);
+}
 void mp_ports_1_svc_nb(void * pt_req, 
                        rozorpc_srv_ctx_t *rozorpc_srv_ctx_p,
                        void * pt_resp, 
