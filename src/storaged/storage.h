@@ -64,7 +64,7 @@
 /** Default mode to use for create subdirectories */
 #define ROZOFS_ST_DIR_MODE S_IRUSR | S_IWUSR | S_IXUSR
 
-#define MAX_REBUILD_ENTRIES 64
+#define MAX_REBUILD_ENTRIES 186
 
 #define STORIO_PID_FILE "storio"
 #define TIME_BETWEEN_2_RB_ATTEMPS 60

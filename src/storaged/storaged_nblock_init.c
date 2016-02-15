@@ -56,6 +56,7 @@
 #include <rozofs/core/rozofs_rpc_non_blocking_generic_srv.h>
 #include <rozofs/core/rozofs_share_memory.h>
 #include <rozofs/core/rozofs_ip_utilities.h>
+#include <rozofs/core/ruc_buffer_debug.h>
 #include <rozofs/rpc/eproto.h>
 #include <rozofs/rpc/epproto.h>
 

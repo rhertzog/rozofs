@@ -31,6 +31,7 @@
 #include "storage.h"
 #include "storaged.h"
 #include "sconfig.h"
+#include "storaged_sub_thread_intf.h"
 
 #define MAX_STORAGED_CNX_TBL 128     
 storage_t * st_per_cnx[MAX_STORAGED_CNX_TBL]={0};
@@ -217,7 +218,6 @@ error:
     */
     rozorpc_srv_release_context(req_ctx_p);
     
-out:
     STOP_PROFILING(remove);
 }
 void mp_subthread_remove(void * pt, rozorpc_srv_ctx_t *req_ctx_p) {
@@ -252,8 +252,7 @@ error:
     ** release the context
     */
     rozorpc_srv_release_context(req_ctx_p);
-    
-out:
+
     STOP_PROFILING(remove);
 }
 void mp_subthread_list_bins_files(void * pt, rozorpc_srv_ctx_t *req_ctx_p) {
@@ -290,7 +289,6 @@ error:
     */
     rozorpc_srv_release_context(req_ctx_p);
     
-out:
     STOP_PROFILING(list_bins_files);
 }
 void mp_ports_1_svc_nb(void * pt_req, 

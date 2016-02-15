@@ -55,6 +55,7 @@
 #include <rozofs/core/rozofs_numa.h>
 #include <rozofs/rozofs_timer_conf.h>
 #include <rozofs/core/rozofs_share_memory.h>
+#include <rozofs/core/af_unix_socket_generic.h>
 
 #include "config.h"
 #include "sconfig.h"

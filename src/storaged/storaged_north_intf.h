@@ -48,7 +48,7 @@ extern void *storage_receive_buffer_pool_p ;  /**< reference of the read/write b
 extern void *storage_xmit_buffer_pool_p ;  /**< reference of the read/write buffer pool */
 
 #define STORAGED_BUF_RECV_CNT  16
-#define STORAGED_BUF_RECV_SZ  (1024*16) 
+#define STORAGED_BUF_RECV_SZ  (1024*32) 
 
 
 /*

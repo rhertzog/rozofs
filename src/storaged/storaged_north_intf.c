@@ -63,7 +63,6 @@ extern void * storaged_decoded_rpc_buffer_pool;
 
 */
 void mproto_sub_thread(rozorpc_srv_ctx_t *rozorpc_srv_ctx_p, rozofs_rpc_call_hdr_t  * hdr) {
-    uint32_t  *com_hdr_p;
     mp_status_ret_t  arg_err;
     char * arguments;
     int size = 0;
