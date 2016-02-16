@@ -29,10 +29,9 @@ BOOL 	global 	numa_aware			False
 // Number of slices in the STORIO.
 INT	global 	storio_slice_number		1024 8:(32*1024)
 // File distribution mode upon cluster, storages and devices. Check rozofs.conf manual.
-// 0 = size balancing
-// 1 = weigthed round robin
-// 2 = strict round robin forward
-// 3 = strict round robin inverse
+// 0      = size balancing
+// 1      = weigthed round robin
+// 2 or 3 = strict round robin
 INT	global 	file_distribution_rule		0 0:10
 // DSCP for exchanges from/to the STORIO.
 INT	global 	storio_dscp  			46 0:46

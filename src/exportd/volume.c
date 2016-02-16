@@ -486,8 +486,7 @@ static int do_cluster_distribute(uint8_t layout,int site_idx, cluster_t *cluster
   list_t           *pList = &cluster->storages[site_idx];
   list_t           *p;
   uint64_t          decrease_size;
-  int               max;
-  
+
   uint8_t rozofs_inverse=0; 
   uint8_t rozofs_forward=0;
   uint8_t rozofs_safe=0;
@@ -559,25 +558,31 @@ success:
   /* 
   ** In strict round robin just put the selected storages 
   ** at the end of the list 
-  */
-  max = 0;
-  
-  if      (common_config.file_distribution_rule == rozofs_file_distribution_strict_round_robin_forward) max = rozofs_forward;
-  else if (common_config.file_distribution_rule == rozofs_file_distribution_strict_round_robin_inverse) max = rozofs_inverse;
-  
-  if (max) {
-    idx = 0;    
-    while(idx < max) {
+  */  
+  if ((common_config.file_distribution_rule == rozofs_file_distribution_strict_round_robin_forward) 
+  ||  (common_config.file_distribution_rule == rozofs_file_distribution_strict_round_robin_inverse)) {
+
+
+    idx = rozofs_inverse;    
+    while(idx < rozofs_forward) {
       vs = selected[idx];
       sids[idx] = vs->sid;
       list_remove(&vs->list);
       list_push_back(pList,&vs->list);
       idx++;
     }
-    
-    while(idx < rozofs_safe) {
+    while (idx < rozofs_safe) {
       vs = selected[idx];
       sids[idx] = vs->sid;
+      idx++;
+    }      
+    
+    idx = 0;
+    while(idx < rozofs_inverse) {
+      vs = selected[idx];
+      sids[idx] = vs->sid;
+      list_remove(&vs->list);
+      list_push_back(pList,&vs->list);
       idx++;
     }         
     return 0;

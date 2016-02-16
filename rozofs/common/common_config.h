@@ -49,10 +49,9 @@ typedef struct _common_config_global_t {
   // Number of slices in the STORIO.
   uint32_t    storio_slice_number;
   // File distribution mode upon cluster, storages and devices. Check rozofs.conf manual.
-  // 0 = size balancing
-  // 1 = weigthed round robin
-  // 2 = strict round robin forward
-  // 3 = strict round robin inverse
+  // 0      = size balancing
+  // 1      = weigthed round robin
+  // 2 or 3 = strict round robin
   uint32_t    file_distribution_rule;
   // DSCP for exchanges from/to the STORIO.
   uint32_t    storio_dscp;
