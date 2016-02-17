@@ -275,7 +275,33 @@ int buf_flush(void *fuse_ctx_p,file_t *p)
 
 
 }
+/*
+**__________________________________________________________________
+*/
+/**
+*  unqueue the next pending requests waiting on the file descriptor
+   and execute them
 
+  @param file  The file descriptor
+  
+*/
+void check_last_write_pending(file_t *file) {
+  fuse_end_tx_recv_pf_t   callback;
+  void                  * pending_fuse_ctx_p;
+  
+  /*
+  ** Check if there some request (flush or release waiting fro the last write to take place
+  */
+  while (file->buf_write_pending == 0) {
+  
+
+    pending_fuse_ctx_p = fuse_ctx_write_pending_queue_get(file);
+    if (pending_fuse_ctx_p == NULL) break;
+    
+    GET_FUSE_CALLBACK(pending_fuse_ctx_p,callback);
+    (*callback)(NULL,pending_fuse_ctx_p);
+  }
+}    
 /*
 **__________________________________________________________________
 */
@@ -1369,7 +1395,7 @@ void rozofs_ll_write_cbk(void *this,void *param)
     /*
     ** check if there is some request waiting for the last pending write to complete
     */
-    goto check_last_write_pending;
+    return check_last_write_pending(file);
 
 error:
     if (file != NULL)
@@ -1403,23 +1429,7 @@ error:
     if (rozofs_tx_ctx_p != NULL) rozofs_tx_free_from_ptr(rozofs_tx_ctx_p);    
     if (recv_buf != NULL) ruc_buf_freeBuffer(recv_buf);   
     
-check_last_write_pending:
-    /*
-    ** Check if there some request (flush or release waiting fro the last write to take place
-    */
-    if (file->buf_write_pending == 0)
-    {
-      fuse_end_tx_recv_pf_t  callback;
-      void *pending_fuse_ctx_p;
-      
-      pending_fuse_ctx_p = fuse_ctx_write_pending_queue_get(file);
-      if (pending_fuse_ctx_p != NULL)
-      {
-        GET_FUSE_CALLBACK(pending_fuse_ctx_p,callback);
-        (*callback)(NULL,pending_fuse_ctx_p);
-      }
-    }
-    return;
+    return check_last_write_pending(file);
 }
 
 
@@ -1763,7 +1773,7 @@ void rozofs_asynchronous_flush_cbk(void *this,void *param)
     /*
     ** check if there is some request waiting for the last pending write to complete
     */
-    goto check_last_write_pending;
+    return check_last_write_pending(file);
     
 error:
     if (file != NULL)
@@ -1779,23 +1789,7 @@ error:
     if (rozofs_tx_ctx_p != NULL) rozofs_tx_free_from_ptr(rozofs_tx_ctx_p);    
     if (recv_buf != NULL) ruc_buf_freeBuffer(recv_buf);     
     
-check_last_write_pending:
-    /*
-    ** Check if there some request (flush or release waiting fro the last write to take place
-    */
-    if (file->buf_write_pending == 0)
-    {
-      fuse_end_tx_recv_pf_t  callback;
-      void *pending_fuse_ctx_p;
-      
-      pending_fuse_ctx_p = fuse_ctx_write_pending_queue_get(file);
-      if (pending_fuse_ctx_p != NULL)
-      {
-        GET_FUSE_CALLBACK(pending_fuse_ctx_p,callback);
-        (*callback)(NULL,pending_fuse_ctx_p);
-      }
-    }
-    return;
+    return check_last_write_pending(file);
 }
 /*
 **__________________________________________________________________
@@ -1924,7 +1918,12 @@ void rozofs_ll_flush_cbk(void *this,void *param)
     ** force the flush on disk
     */
     file->write_block_req = 1;  
-    return export_write_block_nb(param,file);
+    export_write_block_nb(param,file);
+    
+    /*
+    ** check if there is some request waiting for the last pending write to complete
+    */
+    return check_last_write_pending(file);
     
 error:
     if (file != NULL)
@@ -1940,8 +1939,8 @@ error:
     rozofs_fuse_release_saved_context(param);
     if (rozofs_tx_ctx_p != NULL) rozofs_tx_free_from_ptr(rozofs_tx_ctx_p);    
     if (recv_buf != NULL) ruc_buf_freeBuffer(recv_buf);   
-    
-    return;
+
+    return check_last_write_pending(file);
 }
 
 
