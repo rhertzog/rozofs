@@ -391,7 +391,8 @@ void buf_file_write_nb(ientry_t * ie,
                     file_t * p,
                     uint64_t off, 
                     const char *buf, 
-                    uint32_t len) 
+                    uint32_t len,
+		    int creating_hole) 
 { 
 
   uint64_t off_requested = off;
@@ -471,6 +472,12 @@ void buf_file_write_nb(ientry_t * ie,
     state = BUF_ST_EMPTY;
     break;
   }
+  
+  /*
+  ** Those data will create a hole in the file. 
+  ** Let's make the flush of these data exclusive in the STORCLI.
+  */
+  if (creating_hole) p->file2create = 1;
   /*
   ** ok, now check the end
   */
@@ -899,6 +906,17 @@ void buf_file_write_nb(ientry_t * ie,
   }
 
   /*
+  ** Those data will create a hole in the file. 
+  ** Let's make the flush of these data exclusive in the STORCLI.
+  */  
+  if (creating_hole) {
+    if (p == ie->write_pending) {
+      p->file2create = 1;
+    }  
+  }
+  
+  
+  /*
   ** At the end of the write procedure, if some data is waiting to be
   ** written on disk, save the file descriptor reference in the ie.
   ** The flush will occur on a further read or write.
@@ -1073,6 +1091,7 @@ void rozofs_ll_write_nb(fuse_req_t req, fuse_ino_t ino, const char *buf,
    const char *buf_out = buf;
    off_t off_out       = off;
    size_t size_out     = size;
+   int    creating_hole = 0;
 
     file_t *file = (file_t *) (unsigned long) fi->fh;
 
@@ -1165,6 +1184,10 @@ void rozofs_ll_write_nb(fuse_req_t req, fuse_ino_t ino, const char *buf,
 	{
 	  file->file2create = 1;
 	}
+	
+	if (off > ie->attrs.size) {
+	  creating_hole = 1;
+	}
 	ie->file_extend_pending = 1;
 	ie->file_extend_size   += ((off + size) - ie->attrs.size);
         ie->attrs.size          = (off + size);
@@ -1195,7 +1218,7 @@ void rozofs_ll_write_nb(fuse_req_t req, fuse_ino_t ino, const char *buf,
     */
     rozofs_geo_write_update(file,off,size);
     
-    buf_file_write_nb(ie,buffer_p,&status,file,off_out,buf_out,size_out);
+    buf_file_write_nb(ie,buffer_p,&status,file,off_out,buf_out,size_out,creating_hole);
     /*
     ** check the returned status
     */
