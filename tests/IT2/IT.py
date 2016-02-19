@@ -950,6 +950,26 @@ def rsync():
    
   return 0
 #___________________________________________________
+def is_elf(name):
+  string="file %s/git/build/%s"%(exepath,name)
+  parsed = shlex.split(string)
+  cmd = subprocess.Popen(parsed, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+  for line in cmd.stdout:
+    if "ELF" in line: return True
+  print "%/git/build/%s not generated"%(exepath,name)
+  return False
+     
+def compil():
+  os.system("cd %s; rm -rf git; mkdir git; git clone https://github.com/rozofs/rozofs.git git 1> /dev/null; cd git; mkdir build; cd build; cmake -G \"Unix Makefiles\" ../ 1> /dev/null; make -j16 1> /dev/null"%(exepath))
+  if is_elf("src/rozodiag/rozodiag") == False: return 1
+  if is_elf("src/exportd/exportd") == False: return 1
+  if is_elf("src/rozofsmount/rozofsmount") == False: return 1
+  if is_elf("src/storcli/storcli") == False: return 1
+  if is_elf("src/storaged/storaged") == False: return 1
+  if is_elf("src/storaged/storio") == False: return 1
+  return 0     
+ 
+#___________________________________________________
 def gruyere_one_reread():
 # reread files create by test_rebuild utility to check
 # their content
@@ -1608,8 +1628,8 @@ parser.add_option("-n","--nfs", action="store_true",dest="nfs", default=False, h
 # Read/write test list
 TST_RW=['read_parallel','write_parallel','rw2','wr_rd_total','wr_rd_partial','wr_rd_random','wr_rd_total_close','wr_rd_partial_close','wr_rd_random_close','wr_close_rd_total','wr_close_rd_partial','wr_close_rd_random','wr_close_rd_total_close','wr_close_rd_partial_close','wr_close_rd_random_close']
 # Basic test list
-TST_BASIC=['readdir','xattr','link','symlink', 'rename','chmod','truncate','lock_posix_passing','lock_posix_blocking','lock_race','crc32','rsync']
-TST_BASIC_NFS=['readdir','link', 'rename','chmod','truncate','lock_posix_passing','lock_posix_blocking','lock_race','crc32','rsync']
+TST_BASIC=['readdir','xattr','link','symlink', 'rename','chmod','truncate','lock_posix_passing','lock_posix_blocking','lock_race','crc32','rsync','compil']
+TST_BASIC_NFS=['readdir','link', 'rename','chmod','truncate','lock_posix_passing','lock_posix_blocking','lock_race','crc32','rsync','compil']
 # Rebuild test list
 TST_REBUILD=['gruyere','rebuild_fid','rebuild_one_dev','relocate_one_dev','rebuild_all_dev','rebuild_one_node','gruyere_reread']
 
