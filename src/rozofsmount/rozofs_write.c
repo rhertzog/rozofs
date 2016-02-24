@@ -482,6 +482,7 @@ void buf_file_write_nb(ientry_t * ie,
   ** ok, now check the end
   */
 //  printf("state %s\n",rozofs_buf_read_write_state_e2String(state));
+  action = -1;
   switch (state)
   {
     case BUF_ST_EMPTY:

@@ -351,9 +351,6 @@ void af_unix_debug_show_name(char *pChar, char * name) {
   while ((sock_p = (af_unix_ctx_generic_t*) ruc_objGetNext(& af_unix_context_activeListHead.link,&pnext))
           != (af_unix_ctx_generic_t*) NULL) {
       
-      rozofs_socket_stats_t *stats_p = &sock_p->stats;
-      
-      //if (af_unix_check_empty_stats(stats_p) == 1) continue;
       if (strcmp(name,sock_p->nickname) != 0) continue;
 
       af_unix_debug_show_one(pChar,sock_p);
