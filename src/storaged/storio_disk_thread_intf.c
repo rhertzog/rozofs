@@ -517,6 +517,7 @@ void af_unix_disk_response(storio_disk_thread_msg_t *msg)
     }  
        
     case STORIO_DISK_THREAD_WRITE_REPAIR:
+    case STORIO_DISK_THREAD_WRITE_REPAIR2:
     {  
       STOP_PROFILING_IO(repair,msg->size);
       update_write_detailed_counters(toc - tic); 

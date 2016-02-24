@@ -60,7 +60,6 @@ typedef enum
 
 
 
-
 typedef struct _rozofs_storcli_projection_ctx_t
 {
    uint8_t valid_stor_idx:1; /**< assert to 1 if the relative storage idx is valid */
@@ -79,7 +78,7 @@ typedef struct _rozofs_storcli_projection_ctx_t
    uint64_t timestamp;       /**< monitoring timestamp                             */
    rozofs_stor_bins_hdr_t block_hdr_tab[ROZOFS_MAX_BLOCK_PER_MSG];
    uint64_t raw_file_size;    /**< file size reported from a fstat on the projection file */
-   uint64_t crc_err_bitmap;   /**< bitmap of the blocks on which a crc error has detected by storaged */
+   uint64_t crc_err_bitmap[ROZOFS_BLOCK_BITMAP_NB_UINT64];   /**< bitmap of the blocks on which a crc error has detected by storaged */
 } rozofs_storcli_projection_ctx_t;
 
 

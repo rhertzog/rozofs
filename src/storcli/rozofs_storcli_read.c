@@ -378,7 +378,7 @@ void rozofs_storcli_read_req_init(uint32_t  socket_ctx_idx,
      working_ctx_p->prj_ctx[i].prj_state = ROZOFS_PRJ_READ_IDLE;
      working_ctx_p->prj_ctx[i].prj_buf   = NULL;   
      working_ctx_p->prj_ctx[i].bins       = NULL;   
-     working_ctx_p->prj_ctx[i].crc_err_bitmap = 0;
+     ROZOFS_BITMAP64_ALL_RESET(working_ctx_p->prj_ctx[i].crc_err_bitmap);
    }
    working_ctx_p->cur_nmbs2read = 0;  /**< relative index of the starting nmbs */
    working_ctx_p->cur_nmbs = 0;

@@ -194,7 +194,7 @@ void storio_device_error_log_display (char * argv[], uint32_t tcpRef, void *bufR
   int                                nb_record = storio_device_error_log.next_record;
   storio_device_error_log_record_t * p = storio_device_error_log.record;
   struct tm                          ts;
-  char                             * line_sep = "+-----+--------------------------------------+-------+-----+-----+-----------+-------------------+-----------------+--------------------------------+\n";
+  char                             * line_sep = "+-----+--------------------------------------+-------+-----+-----+-----------+-----------+-------------------+-----------------+--------------------------------+\n";
   
     
   pChar += rozofs_string_append(pChar,"nb log  : ");
@@ -213,7 +213,7 @@ void storio_device_error_log_display (char * argv[], uint32_t tcpRef, void *bufR
   pChar += rozofs_eol(pChar);
 
   pChar += rozofs_string_append(pChar, line_sep);
-  pChar += rozofs_string_append(pChar,"|  #  |                FID                   | line  | dev | chk |  block id |   time stamp      |      action     |          error                 |\n");
+  pChar += rozofs_string_append(pChar,"|  #  |                FID                   | line  | dev | chk |  block id |  nb block |   time stamp      |      action     |          error                 |\n");
   pChar += rozofs_string_append(pChar, line_sep);
 
   for (idx=0; idx < nb_record; idx++,p++) {
@@ -230,13 +230,16 @@ void storio_device_error_log_display (char * argv[], uint32_t tcpRef, void *bufR
     pChar += rozofs_u32_padded_append(pChar, 4, rozofs_right_alignment, p->chunk); 
     *pChar++ = ' '; *pChar++ = '|';
     if (p->bid==-1) {
-      pChar += rozofs_string_append(pChar, "           | ");    
+      pChar += rozofs_string_append(pChar, "           |");    
     }
     else {
       pChar += rozofs_u32_padded_append(pChar, 10, rozofs_right_alignment, p->bid);
-      *pChar++ = ' '; *pChar++ = '|'; *pChar++ = ' ';
+      *pChar++ = ' '; *pChar++ = '|'; 
     }
-
+    
+    pChar += rozofs_u32_padded_append(pChar, 10, rozofs_right_alignment, p->nb_blocks);
+    *pChar++ = ' '; *pChar++ = '|'; *pChar++ = ' ';
+    
     time_t t = p->ts;
     ts = *localtime(&t);
     pChar += rozofs_u32_append(pChar, ts.tm_year-100);
@@ -1636,7 +1639,7 @@ out:
     return status;
 }
 int storage_write_repair_chunk(storage_t * st, uint8_t * device, uint8_t layout, uint32_t bsize, sid_t * dist_set,
-        uint8_t spare, fid_t fid, uint8_t chunk, bid_t bid, uint32_t nb_proj, uint64_t bitmap, uint8_t version,
+        uint8_t spare, fid_t fid, uint8_t chunk, bid_t bid, uint32_t nb_proj, uint64_t * bitmap, uint8_t version,
         uint64_t *file_size, const bin_t * bins, int * is_fid_faulty) {
     int status = -1;
     char path[FILENAME_MAX];
@@ -1653,7 +1656,7 @@ int storage_write_repair_chunk(storage_t * st, uint8_t * device, uint8_t layout,
     *is_fid_faulty = 0; 
 
     dbg("%d/%d repair chunk %d : ", st->cid, st->sid, chunk);
-    
+        
     /*
     ** This is a repair, so the blocks to repair have been read and the CRC32 
     ** was incorrect, so the chunk must exist.
@@ -1691,11 +1694,15 @@ int storage_write_repair_chunk(storage_t * st, uint8_t * device, uint8_t layout,
     int block_count = 0;
     int error = 0;   
     uint32_t crc32 = fid2crc32((uint32_t *)fid)+bid;
-            
-    for (block_idx = 0; block_idx < nb_proj; block_idx++)
-    {
+    
+    block_idx = -1;        
+    while (nb_proj) {
+        
+       block_idx++;
 
-       if ((bitmap & (1ULL << block_idx)) == 0) continue;
+       if (ROZOFS_BITMAP64_TEST0(block_idx,bitmap)) continue;
+       
+       nb_proj--;
        
        /*
        ** generate the crc32c for each projection block
@@ -1768,8 +1775,9 @@ int storage_read_chunk(storage_t * st, storio_device_mapping_t * fidCtx, uint8_t
     int    device_id_is_given = 1;
     int                       storage_slice;
     struct iovec vector[ROZOFS_MAX_BLOCK_PER_MSG*2];
-    uint64_t    crc32_errors; 
+    uint64_t    crc32_errors[3]; 
     uint8_t * device = fidCtx->device;
+    int result;
     
     dbg("%d/%d Read chunk %d : ", st->cid, st->sid, chunk);
 
@@ -1971,24 +1979,27 @@ retry:
     ** check the crc32c for each projection block
     */
     uint32_t crc32 = fid2crc32((uint32_t *)fid)+bid;
+    memset(crc32_errors,0,sizeof(crc32_errors));
     
     if (rozofs_msg_psize == rozofs_disk_psize) {        
-      crc32_errors = storio_check_crc32((char*)bins,
-                        		nb_proj_effective,
-                			rozofs_disk_psize,
-					&st->crc_error,
-					crc32);
+      result = storio_check_crc32((char*)bins,
+                        	  nb_proj_effective,
+                		  rozofs_disk_psize,
+				  &st->crc_error,
+				  crc32,
+				  crc32_errors);
     }
     else {
-      crc32_errors = storio_check_crc32_vect(vector,
-                        		     nb_proj_effective,
-                			     rozofs_disk_psize,
-					     &st->crc_error,
-					     crc32);      
+      result = storio_check_crc32_vect(vector,
+                        	       nb_proj_effective,
+                		       rozofs_disk_psize,
+				       &st->crc_error,
+				       crc32,
+				       crc32_errors);      
     }
-    if (crc32_errors!=0) { 
-      storio_fid_error(fid, device[chunk], chunk, bid, nb_proj,"read crc32"); 		     
-      storage_error_on_device(st,device[chunk]); 
+    if (result!=0) { 
+      storio_fid_error(fid, device[chunk], chunk, bid, result,"read crc32"); 		     
+      if (result>1) storage_error_on_device(st,device[chunk]); 
     }	  
 
     // Update the length read

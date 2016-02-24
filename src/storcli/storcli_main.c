@@ -73,7 +73,7 @@ DEFINE_PROFILING(stcpp_profiler_t) = {0};
 */
 storcli_shared_t storcli_rozofsmount_shared_mem[SHAREMEM_PER_FSMOUNT];
 
-
+void show_repair2(char * argv[], uint32_t tcpRef, void *bufRef);
 
 
 /*
@@ -83,7 +83,6 @@ storcli_shared_t storcli_rozofsmount_shared_mem[SHAREMEM_PER_FSMOUNT];
  storcli_kpi_t storcli_kpi_transform_inverse;
 
 int storcli_site_number = 0;
-
 
 /*__________________________________________________________________________
  */
@@ -259,7 +258,6 @@ void show_profiler(char * argv[], uint32_t tcpRef, void *bufRef) {
     SHOW_PROFILER_PROBE_BYTE(delete_prj);
     SHOW_PROFILER_PROBE_COUNT(delete_prj_tmo);
     SHOW_PROFILER_PROBE_COUNT(delete_prj_err);
-    
     
     if (argv[1] != NULL)
     {
@@ -1670,6 +1668,11 @@ int main(int argc, char *argv[]) {
      ** add the topic for the local profiler
      */
     uma_dbg_addTopic_option("profiler", show_profiler,UMA_DBG_OPTION_RESET);
+    /*
+    ** add the topic for repair capabilities
+    */
+    uma_dbg_addTopic("repair2", show_repair2);
+
     /*
      ** add the topic to display the storcli configuration
      */    

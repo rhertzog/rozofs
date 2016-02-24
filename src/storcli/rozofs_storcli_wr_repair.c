@@ -48,6 +48,8 @@
 #include "rozofs_storcli_mojette_thread_intf.h"
 
 
+static int storcli_storage_supports_repair2 = 1;
+
 DECLARE_PROFILING(stcpp_profiler_t);
 
 /*
@@ -66,6 +68,33 @@ DECLARE_PROFILING(stcpp_profiler_t);
 extern uint32_t rozofs_storcli_allocate_read_seqnum();
 extern int rozofs_storcli_fake_encode(xdrproc_t encode_fct,void *msg2encode_p);
 
+void show_repair2(char * argv[], uint32_t tcpRef, void *bufRef) {
+  char *pChar = uma_dbg_get_buffer();
+
+  if (argv[1] != NULL) {
+    if (strcasecmp(argv[1],"on")==0) {
+      storcli_storage_supports_repair2 = 1;
+    }
+    else if (strcasecmp(argv[1],"off")==0) {
+      storcli_storage_supports_repair2 = 0;
+    }
+    else {
+	  pChar += sprintf(pChar,"repair2 [on|off]\n");
+	}
+  }
+
+  switch(storcli_storage_supports_repair2) {
+    case 0:
+	  pChar += sprintf(pChar,"storages DO NOT support REPAIR2\n");    	 
+	  break;
+	case 1:
+	  pChar += sprintf(pChar,"storages SHOULD support REPAIR2\n");    	 
+ 	  break;
+	default:   
+	  pChar += sprintf(pChar,"storages DO support REPAIR2\n");
+  }
+  uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
+}
 
 /**
 *  END PROTOTYPES
@@ -102,7 +131,7 @@ int rozofs_storcli_repair_get_position_of_first_byte2write()
     position = rozofs_storcli_fake_encode((xdrproc_t) xdr_sp_write_repair_arg_no_bins_t, (caddr_t) request);
     if (position < 0)
     {
-      fatal("Cannot get the size of the rpc header for writing");
+      fatal("Cannot get the size of the rpc header for repair");
       return 0;    
     }
     storcli_write_repair_bin_first_byte = position;
@@ -110,10 +139,35 @@ int rozofs_storcli_repair_get_position_of_first_byte2write()
   return storcli_write_repair_bin_first_byte;
 
 }
+int storcli_write_repair2_bin_first_byte = 0;
+
+int rozofs_storcli_repair2_get_position_of_first_byte2write()
+{
+  sp_write_repair2_arg_no_bins_t *request; 
+  sp_write_repair2_arg_no_bins_t  repair2_prj_args;
+  int position;
+  
+  
+  if (storcli_write_repair2_bin_first_byte == 0)
+  {
+    request = &repair2_prj_args;
+    memset(request,0,sizeof(sp_write_repair2_arg_no_bins_t));
+    position = rozofs_storcli_fake_encode((xdrproc_t) xdr_sp_write_repair2_arg_no_bins_t, (caddr_t) request);
+    if (position < 0)
+    {
+      fatal("Cannot get the size of the rpc header for repair2");
+      return 0;    
+    }
+    storcli_write_repair2_bin_first_byte = position;
+  }
+  return storcli_write_repair2_bin_first_byte;
+
+}
+
 /*
 **__________________________________________________________________________
 */
-/**
+/**"
 * The purpose of that function is to return TRUE if there are enough projection received for
   rebuilding the associated initial message
   
@@ -176,12 +230,11 @@ static inline int rozofs_storcli_all_prj_write_repair_check(uint8_t layout,rozof
     int moj_prj_id;
     int block_idx;
     int k;
-    uint64_t crc_err_bitmap = 0;
     storcli_read_arg_t *storcli_read_rq_p = (storcli_read_arg_t*)&working_ctx_p->storcli_read_arg;
     uint8_t  bsize  = storcli_read_rq_p->bsize;
     uint32_t bbytes = ROZOFS_BSIZE_BYTES(bsize);
     int prj_size_in_msg = rozofs_get_max_psize_in_msg(layout,bsize);
-       
+              
     projections = rozofs_fwd_projections;
 
     // For each projection
@@ -196,11 +249,10 @@ static inline int rozofs_storcli_all_prj_write_repair_check(uint8_t layout,rozof
     for (k = 0; k < rozofs_safe; k++)
     {
 	block_idx = 0;
-       if (prj_ctx_p[k].crc_err_bitmap == 0) continue;
+       if (ROZOFS_BITMAP64_TEST_ALL0(prj_ctx_p[k].crc_err_bitmap)) continue;
        /*
        **  Get the sid associated with the projection context
        */
-       crc_err_bitmap = prj_ctx_p[k].crc_err_bitmap;
        sid = (uint8_t) rozofs_storcli_lbg_prj_get_sid(working_ctx_p->lbg_assoc_tb,
                                                       prj_ctx_p[k].stor_idx);
        /*
@@ -216,9 +268,8 @@ static inline int rozofs_storcli_all_prj_write_repair_check(uint8_t layout,rozof
        }
        for (i = 0; i < number_of_blocks; i++) 
        {
-//CRC    if ((crc_err_bitmap & (1<< i)) == 0) 
-         if ((crc_err_bitmap & (1ULL<< i)) == 0) 
-	 {
+          if (ROZOFS_BITMAP64_TEST0(i,prj_ctx_p[k].crc_err_bitmap)) 
+	  {
 	    /*
 	    ** nothing to generate for that block
 	    */
@@ -338,14 +389,31 @@ int rozofs_storcli_check_repair(rozofs_storcli_ctx_t *working_ctx_p,int rozofs_s
     rozofs_storcli_projection_ctx_t *prj_ctx_p   = working_ctx_p->prj_ctx;   
     int prj_ctx_idx;
      
-    for (prj_ctx_idx = 0; prj_ctx_idx < rozofs_safe; prj_ctx_idx++,prj_ctx_p++)
+	// Storages support repair2 procedure 
+    if (storcli_storage_supports_repair2) { 	 
+      for (prj_ctx_idx = 0; prj_ctx_idx < rozofs_safe; prj_ctx_idx++,prj_ctx_p++)
+      {
+    	/*
+    	** check for crc error
+    	*/
+    	if (!ROZOFS_BITMAP64_TEST_ALL0(prj_ctx_p->crc_err_bitmap)) {
+          return 1;
+    	}	
+      }
+      return 0;
+    }
+
+    // Storage only support repair procedure
+	for (prj_ctx_idx = 0; prj_ctx_idx < rozofs_safe; prj_ctx_idx++,prj_ctx_p++)
     {
       /*
       ** check for crc error
       */
-      if (prj_ctx_p->crc_err_bitmap != 0) return 1;
-    }
-    return 0;
+      if (prj_ctx_p->crc_err_bitmap[0]!=0) {
+        return 1;
+      }	
+    }	
+    return 0;		  
 }
 /*
 **__________________________________________________________________________
@@ -395,7 +463,14 @@ void rozofs_storcli_repair_req_init(rozofs_storcli_ctx_t *working_ctx_p)
      /*
      ** set the pointer to the bins
      */
-     int position = rozofs_storcli_repair_get_position_of_first_byte2write();
+     int position;
+	 // For compatibility between new clients and old storages
+	 if (storcli_storage_supports_repair2) {
+ 	   position = rozofs_storcli_repair2_get_position_of_first_byte2write();
+	 }
+	 else {
+ 	   position = rozofs_storcli_repair_get_position_of_first_byte2write();	   
+	 }	
      uint8_t *pbuf = (uint8_t*)ruc_buf_getPayload(working_ctx_p->prj_ctx[i].prj_buf); 
 
      working_ctx_p->prj_ctx[i].bins       = (bin_t*)(pbuf+position);   
@@ -443,11 +518,14 @@ void rozofs_storcli_write_repair_req_processing(rozofs_storcli_ctx_t *working_ct
   uint8_t   rozofs_forward;
   uint8_t   projection_id;
   int       error=0;
-  int       k;
   int       ret;
   rozofs_storcli_projection_ctx_t *prj_cxt_p   = working_ctx_p->prj_ctx;   
   uint8_t  bsize  = storcli_read_rq_p->bsize;
   int prj_size_in_msg = rozofs_get_max_psize_in_msg(layout,bsize);
+  sp_write_repair_arg_no_bins_t  *request; 
+  sp_write_repair_arg_no_bins_t   repair_prj_args;
+  sp_write_repair2_arg_no_bins_t *request2; 
+  sp_write_repair2_arg_no_bins_t  repair2_prj_args;
       
   rozofs_forward = rozofs_get_rozofs_forward(layout);
   
@@ -498,15 +576,20 @@ void rozofs_storcli_write_repair_req_processing(rozofs_storcli_ctx_t *working_ct
   */
   for (projection_id = 0; projection_id < rozofs_forward; projection_id++)
   {
-     sp_write_repair_arg_no_bins_t *request; 
-     sp_write_repair_arg_no_bins_t  repair_prj_args;
      void  *xmit_buf;  
      int ret;  
+	 
      /*
-     ** skip the projections for whihc no error has been detected 
+     ** skip the projections for which no error has been detected 
      */
-     if (working_ctx_p->prj_ctx[projection_id].crc_err_bitmap == 0) continue;
-     
+     if (storcli_storage_supports_repair2) {
+	   if (ROZOFS_BITMAP64_TEST_ALL0(working_ctx_p->prj_ctx[projection_id].crc_err_bitmap)) continue;
+	 }
+	 else {
+	   if (working_ctx_p->prj_ctx[projection_id].crc_err_bitmap[0] == 0)  continue;
+	 } 
+	 
+	 
      xmit_buf = prj_cxt_p[projection_id].prj_buf;
      if (xmit_buf == NULL)
      {
@@ -519,57 +602,107 @@ void rozofs_storcli_write_repair_req_processing(rozofs_storcli_ctx_t *working_ct
      /*
      ** fill partially the common header
      */
-     request   = &repair_prj_args;
-     request->cid = storcli_read_rq_p->cid;
-     request->sid = (uint8_t) rozofs_storcli_lbg_prj_get_sid(working_ctx_p->lbg_assoc_tb,prj_cxt_p[projection_id].stor_idx);
-     request->layout        = storcli_read_rq_p->layout;
-     request->bsize         = storcli_read_rq_p->bsize;
-     /*
-     ** the case of spare 1 must not occur because repair is done for th eoptimal distribution only
-     */
-     if (prj_cxt_p[projection_id].stor_idx >= rozofs_forward) request->spare = 1;
-     else request->spare = 0;
-     memcpy(request->dist_set, storcli_read_rq_p->dist_set, ROZOFS_SAFE_MAX_STORCLI*sizeof (uint8_t));
-     memcpy(request->fid, storcli_read_rq_p->fid, sizeof (sp_uuid_t));
-//CRCrequest->proj_id = projection_id;
-     request->proj_id = rozofs_storcli_get_mojette_proj_id(storcli_read_rq_p->dist_set,request->sid,rozofs_forward);
-     request->bid     = storcli_read_rq_p->bid;
-     request->nb_proj = storcli_read_rq_p->nb_proj;     
-     request->bitmap  = working_ctx_p->prj_ctx[projection_id].crc_err_bitmap;     
-     /*
-     ** set the length of the bins part: need to compute the number of blocks
-     */
-     int nb_blocks = 0;
-     for (k = 0; k < storcli_read_rq_p->nb_proj;k++)
-     {
-//CRC  if (request->bitmap & (1<<k)) nb_blocks++; 
-       if (request->bitmap & (1ULL<<k)) nb_blocks++; 
-     
-     } 
-     int bins_len = (prj_size_in_msg * nb_blocks);
-     request->len = bins_len; /**< bins length MUST be in bytes !!! */
-     uint32_t  lbg_id = rozofs_storcli_lbg_prj_get_lbg(working_ctx_p->lbg_assoc_tb,prj_cxt_p[projection_id].stor_idx);
-     STORCLI_START_NORTH_PROF((&working_ctx_p->prj_ctx[projection_id]),repair_prj,bins_len);
-     /*
-     ** caution we might have a direct reply if there is a direct error at load balancing group while
-     ** ateempting to send the RPC message-> typically a disconnection of the TCP connection 
-     ** As a consequence the response fct 'rozofs_storcli_write_repair_req_processing_cbk) can be called
-     ** prior returning from rozofs_sorcli_send_rq_common')
-     ** anticipate the status of the xmit state of the projection and lock the section to
-     ** avoid a reply error before returning from rozofs_sorcli_send_rq_common() 
-     ** --> need to take care because the write context is released after the reply error sent to rozofsmount
-     */
-     working_ctx_p->write_ctx_lock = 1;
-     prj_cxt_p[projection_id].prj_state = ROZOFS_PRJ_WR_IN_PRG;
-     
-     ret =  rozofs_sorcli_send_rq_common(lbg_id,ROZOFS_TMR_GET(TMR_STORAGE_PROGRAM),STORAGE_PROGRAM,STORAGE_VERSION,SP_WRITE_REPAIR,
-                                         (xdrproc_t) xdr_sp_write_repair_arg_no_bins_t, (caddr_t) request,
-                                          xmit_buf,
-                                          working_ctx_p->read_seqnum,
-                                          (uint32_t) projection_id,
-                                          bins_len,
-                                          rozofs_storcli_write_repair_req_processing_cbk,
-                                         (void*)working_ctx_p);
+	 if (storcli_storage_supports_repair2) {
+       request2   = &repair2_prj_args;
+       request2->cid = storcli_read_rq_p->cid;
+       request2->sid = (uint8_t) rozofs_storcli_lbg_prj_get_sid(working_ctx_p->lbg_assoc_tb,prj_cxt_p[projection_id].stor_idx);
+       request2->layout        = storcli_read_rq_p->layout;
+       request2->bsize         = storcli_read_rq_p->bsize;
+       /*
+       ** the case of spare 1 must not occur because repair is done for th eoptimal distribution only
+       */
+       if (prj_cxt_p[projection_id].stor_idx >= rozofs_forward) request2->spare = 1;
+       else request2->spare = 0;
+       memcpy(request2->dist_set, storcli_read_rq_p->dist_set, ROZOFS_SAFE_MAX_STORCLI*sizeof (uint8_t));
+       memcpy(request2->fid, storcli_read_rq_p->fid, sizeof (sp_uuid_t));
+  //CRCrequest->proj_id = projection_id;
+       request2->proj_id = rozofs_storcli_get_mojette_proj_id(storcli_read_rq_p->dist_set,request2->sid,rozofs_forward);
+       request2->bid     = storcli_read_rq_p->bid;
+       request2->bitmap[0]  = working_ctx_p->prj_ctx[projection_id].crc_err_bitmap[0];     
+       request2->bitmap[1]  = working_ctx_p->prj_ctx[projection_id].crc_err_bitmap[1];     
+       request2->bitmap[2]  = working_ctx_p->prj_ctx[projection_id].crc_err_bitmap[2];     
+       int nb_blocks       = ROZOFS_BITMAP64_NB_BIT1(request2->bitmap);
+       request2->nb_proj    = nb_blocks;     
+
+       /*
+       ** set the length of the bins part: need to compute the number of blocks
+       */
+
+       int bins_len = (prj_size_in_msg * nb_blocks);
+       request2->len = bins_len; /**< bins length MUST be in bytes !!! */
+       uint32_t  lbg_id = rozofs_storcli_lbg_prj_get_lbg(working_ctx_p->lbg_assoc_tb,prj_cxt_p[projection_id].stor_idx);
+       STORCLI_START_NORTH_PROF((&working_ctx_p->prj_ctx[projection_id]),repair_prj,bins_len);
+       /*
+       ** caution we might have a direct reply if there is a direct error at load balancing group while
+       ** ateempting to send the RPC message-> typically a disconnection of the TCP connection 
+       ** As a consequence the response fct 'rozofs_storcli_write_repair_req_processing_cbk) can be called
+       ** prior returning from rozofs_sorcli_send_rq_common')
+       ** anticipate the status of the xmit state of the projection and lock the section to
+       ** avoid a reply error before returning from rozofs_sorcli_send_rq_common() 
+       ** --> need to take care because the write context is released after the reply error sent to rozofsmount
+       */
+       working_ctx_p->write_ctx_lock = 1;
+       prj_cxt_p[projection_id].prj_state = ROZOFS_PRJ_WR_IN_PRG;
+
+       ret =  rozofs_sorcli_send_rq_common(lbg_id,ROZOFS_TMR_GET(TMR_STORAGE_PROGRAM),STORAGE_PROGRAM,STORAGE_VERSION,SP_WRITE_REPAIR2,
+                                           (xdrproc_t) xdr_sp_write_repair2_arg_no_bins_t, (caddr_t) request2,
+                                        	xmit_buf,
+                                        	working_ctx_p->read_seqnum,
+                                        	(uint32_t) projection_id,
+                                        	bins_len,
+                                        	rozofs_storcli_write_repair_req_processing_cbk,
+                                           (void*)working_ctx_p);
+     }
+	 else {
+	 
+       request   = &repair_prj_args;
+       request->cid = storcli_read_rq_p->cid;
+       request->sid = (uint8_t) rozofs_storcli_lbg_prj_get_sid(working_ctx_p->lbg_assoc_tb,prj_cxt_p[projection_id].stor_idx);
+       request->layout        = storcli_read_rq_p->layout;
+       request->bsize         = storcli_read_rq_p->bsize;
+       /*
+       ** the case of spare 1 must not occur because repair is done for th eoptimal distribution only
+       */
+       if (prj_cxt_p[projection_id].stor_idx >= rozofs_forward) request->spare = 1;
+       else request->spare = 0;
+       memcpy(request->dist_set, storcli_read_rq_p->dist_set, ROZOFS_SAFE_MAX_STORCLI*sizeof (uint8_t));
+       memcpy(request->fid, storcli_read_rq_p->fid, sizeof (sp_uuid_t));
+  //CRCrequest->proj_id = projection_id;
+       request->proj_id = rozofs_storcli_get_mojette_proj_id(storcli_read_rq_p->dist_set,request->sid,rozofs_forward);
+       request->bid     = storcli_read_rq_p->bid;
+       request->bitmap  = working_ctx_p->prj_ctx[projection_id].crc_err_bitmap[0];     
+       int nb_blocks       = ROZOFS_BITMAP64_NB_BIT1_FUNC((uint8_t*)&request->bitmap,8);
+       request->nb_proj    = nb_blocks;     
+
+       /*
+       ** set the length of the bins part: need to compute the number of blocks
+       */
+
+       int bins_len = (prj_size_in_msg * nb_blocks);
+       request->len = bins_len; /**< bins length MUST be in bytes !!! */
+       uint32_t  lbg_id = rozofs_storcli_lbg_prj_get_lbg(working_ctx_p->lbg_assoc_tb,prj_cxt_p[projection_id].stor_idx);
+       STORCLI_START_NORTH_PROF((&working_ctx_p->prj_ctx[projection_id]),repair_prj,bins_len);
+       /*
+       ** caution we might have a direct reply if there is a direct error at load balancing group while
+       ** ateempting to send the RPC message-> typically a disconnection of the TCP connection 
+       ** As a consequence the response fct 'rozofs_storcli_write_repair_req_processing_cbk) can be called
+       ** prior returning from rozofs_sorcli_send_rq_common')
+       ** anticipate the status of the xmit state of the projection and lock the section to
+       ** avoid a reply error before returning from rozofs_sorcli_send_rq_common() 
+       ** --> need to take care because the write context is released after the reply error sent to rozofsmount
+       */
+       working_ctx_p->write_ctx_lock = 1;
+       prj_cxt_p[projection_id].prj_state = ROZOFS_PRJ_WR_IN_PRG;
+
+       ret =  rozofs_sorcli_send_rq_common(lbg_id,ROZOFS_TMR_GET(TMR_STORAGE_PROGRAM),STORAGE_PROGRAM,STORAGE_VERSION,SP_WRITE_REPAIR,
+                                           (xdrproc_t) xdr_sp_write_repair_arg_no_bins_t, (caddr_t) request,
+                                        	xmit_buf,
+                                        	working_ctx_p->read_seqnum,
+                                        	(uint32_t) projection_id,
+                                        	bins_len,
+                                        	rozofs_storcli_write_repair_req_processing_cbk,
+                                           (void*)working_ctx_p);	   
+	 }										   
 
      working_ctx_p->write_ctx_lock = 0;
      if (ret < 0)
@@ -711,6 +844,9 @@ void rozofs_storcli_write_repair_req_processing_cbk(void *this,void *param)
        }
        else
        {
+	     if (storcli_storage_supports_repair2!=2) {
+		   if ((errno==EPROTO)||(errno==ENOTSUP)) storcli_storage_supports_repair2 = 0;
+		 }  
          STORCLI_ERR_PROF(repair_prj_err);
        } 
        error = 1;      
@@ -794,6 +930,7 @@ void rozofs_storcli_write_repair_req_processing_cbk(void *this,void *param)
     }
     else
     {
+	   if (storcli_storage_supports_repair2==1) storcli_storage_supports_repair2 = 2;
        /*
        ** set the pointer to the read context associated with the projection for which a response has
        ** been received

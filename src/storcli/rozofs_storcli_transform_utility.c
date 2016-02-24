@@ -73,7 +73,7 @@ void rozofs_storcli_transform_update_headers(rozofs_storcli_projection_ctx_t *pr
     rozofs_stor_bins_hdr_t* rozofs_bins_hdr_p;
     int prj_size_in_msg =  rozofs_get_max_psize_in_msg(layout,bsize);
     int prj_effective_size = 0; 
-                       
+    		       
     for (block_idx = 0; block_idx < number_of_blocks_returned; block_idx++) 
     {
       /*
@@ -87,8 +87,7 @@ void rozofs_storcli_transform_update_headers(rozofs_storcli_projection_ctx_t *pr
       */
       if (rozofs_bins_hdr_p->s.projection_id == 0xff)
       {
-//CRC   prj_ctx_p->crc_err_bitmap |= (1<<block_idx); 
-        prj_ctx_p->crc_err_bitmap |= (1ULL<<block_idx);
+        ROZOFS_BITMAP64_SET(block_idx,prj_ctx_p->crc_err_bitmap);
         prj_ctx_p->block_hdr_tab[block_idx].s.projection_id = 0;      	
         prj_ctx_p->block_hdr_tab[block_idx].s.timestamp = 0;
         prj_ctx_p->block_hdr_tab[block_idx].s.effective_length = bbytes;

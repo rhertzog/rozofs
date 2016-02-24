@@ -51,9 +51,17 @@
 #define POLY 0x82f63b78
 
 
+/*
+** To count the number of block in fault on each read that has CRC32 errors
+*/
+#define  STORIO_MAX_CRC32_ERROR_PER_READ_COUNT 128
+uint64_t storio_crc32_error_per_read[STORIO_MAX_CRC32_ERROR_PER_READ_COUNT] = {0};
+
+
 /* Table for a quadword-at-a-time software crc. */
 static pthread_once_t crc32c_once_sw = PTHREAD_ONCE_INIT;
 static uint32_t crc32c_table[8][256];
+
 
 /* Construct table for software CRC-32C calculation. */
 static void crc32c_init_sw(void)
@@ -467,9 +475,11 @@ void storio_gen_crc32(char *bins,int nb_proj,uint16_t prj_size, uint32_t initial
    {
       crc = initial_crc + i;
       ((rozofs_stor_bins_hdr_t*)(buf))->s.filler = 0;
-      crc = crc32c(crc,buf,crc_size);
-      if (crc == 0) crc = 1;
-      ((rozofs_stor_bins_hdr_t*)(buf))->s.filler = crc;
+      if (crc32c_generate_enable) {
+        crc = crc32c(crc,buf,crc_size);
+        if (crc == 0) crc = 1;
+        ((rozofs_stor_bins_hdr_t*)(buf))->s.filler = crc;
+      }	
       buf+=prj_size;   
    }
 }
@@ -487,17 +497,23 @@ void storio_gen_crc32(char *bins,int nb_proj,uint16_t prj_size, uint32_t initial
     @param prj_size: size of a projection including the prj header
     @param crc_errorcnt_p: pointer to the crc error counter of the storage (cid/sid).
     @param initial_crc: Value to intializae the CRC to    
+    @param errors: a returned bitmask of the blocks in error   
     
     @retval the number of CRC32 error detected
 */
-uint64_t storio_check_crc32(char *bins,int nb_proj,uint16_t prj_size,uint64_t *crc_error_cnt_p, uint32_t initial_crc)
+int storio_check_crc32(char     * bins,
+                       int        nb_proj,
+		       uint16_t   prj_size,
+		       uint64_t * crc_error_cnt_p, 
+		       uint32_t   initial_crc, 
+		       uint64_t * errors)
 {
    size_t crc_size = prj_size;
    uint32_t crc = 0;
    uint32_t cur_crc;
    int i;
    char *buf=bins;
-   uint64_t result = 0;
+   int result = 0;
 #if 0
    uint64_t encode_cycles_start;
    uint64_t encode_cycles_stop;
@@ -536,7 +552,8 @@ uint64_t storio_check_crc32(char *bins,int nb_proj,uint16_t prj_size,uint64_t *c
 	*/
 	__atomic_fetch_add(&storio_crc_error,1,__ATOMIC_SEQ_CST);
 	__atomic_fetch_add(crc_error_cnt_p,1,__ATOMIC_SEQ_CST);
-	result |= (1ULL<<i);
+	errors[i/64] |= (1ULL<<(i%64));
+	result++;
       }
       buf+=prj_size;   
    }
@@ -545,6 +562,14 @@ uint64_t storio_check_crc32(char *bins,int nb_proj,uint16_t prj_size,uint64_t *c
         severe("FDL(%d) encode cycles %llu length %d count %d\n",crc32c_hw_supported,
 	       (unsigned long long int)(encode_cycles_stop - encode_cycles_start),prj_size,nb_proj);
 #endif
+  if (result) {
+    if (result<STORIO_MAX_CRC32_ERROR_PER_READ_COUNT) {
+      storio_crc32_error_per_read[result]++;
+    }  
+    else {
+      storio_crc32_error_per_read[STORIO_MAX_CRC32_ERROR_PER_READ_COUNT-1]++;
+    }
+  }
   return result;
 }
 
@@ -567,16 +592,17 @@ void storio_gen_crc32_vect(struct iovec *vector,int nb_proj,uint16_t prj_size, u
    int i;
    char *buf;
 
-   if (crc32c_generate_enable == 0) return;
 
    for (i = 0; i < nb_proj ; i++)
    {
       crc = initial_crc + i;
       buf = vector[i].iov_base;
       ((rozofs_stor_bins_hdr_t*)(buf))->s.filler = 0;
-      crc = crc32c(crc,buf,crc_size);
-      if (crc==0) crc = 1;
-      ((rozofs_stor_bins_hdr_t*)(buf))->s.filler = crc;
+      if (crc32c_generate_enable) {
+        crc = crc32c(crc,buf,crc_size);
+        if (crc==0) crc = 1;
+        ((rozofs_stor_bins_hdr_t*)(buf))->s.filler = crc;
+      }	
    }
 }
 
@@ -593,17 +619,23 @@ void storio_gen_crc32_vect(struct iovec *vector,int nb_proj,uint16_t prj_size, u
     @param prj_size: size of a projection including the prj header
     @param crc_errorcnt_p: pointer to the crc error counter of the storage (cid/sid).
     @param initial_crc: Value to intializae the CRC to    
-    
+    @param errors: a returned bitmask of the blocks in error   
+        
     @retval the number of CRC32 error detected
 */
-uint64_t  storio_check_crc32_vect(struct iovec *vector,int nb_proj,uint16_t prj_size,uint64_t *crc_error_cnt_p, uint32_t initial_crc)
+int  storio_check_crc32_vect(struct iovec * vector,
+                             int            nb_proj,
+			     uint16_t       prj_size,
+			     uint64_t     * crc_error_cnt_p, 
+			     uint32_t       initial_crc, 
+			     uint64_t     * errors)
 {
    size_t crc_size = prj_size;
    uint32_t crc = 0;
    uint32_t cur_crc;
    int i;
    char *buf;
-   uint64_t  result=0;
+   int  result=0;
 
    if (crc32c_check_enable == 0) return 0;
       
@@ -636,8 +668,17 @@ uint64_t  storio_check_crc32_vect(struct iovec *vector,int nb_proj,uint16_t prj_
 	*/
 	__atomic_fetch_add(&storio_crc_error,1,__ATOMIC_SEQ_CST);
 	__atomic_fetch_add(crc_error_cnt_p,1,__ATOMIC_SEQ_CST);
-	result |= (1ULL<<i);	
+        errors[i/64] |= (1ULL<<(i%64));
+	result++;	
       }
+   }
+   if (result) {
+     if (result<STORIO_MAX_CRC32_ERROR_PER_READ_COUNT) {
+       storio_crc32_error_per_read[result]++;
+     }  
+     else {
+       storio_crc32_error_per_read[STORIO_MAX_CRC32_ERROR_PER_READ_COUNT-1]++;
+     }
    }
    return result;
 }
@@ -663,6 +704,7 @@ static void show_data_integrity(char * argv[], uint32_t tcpRef, void *bufRef)
 	   warning("CRC32 counter was %llu",(long long unsigned int) storio_crc_error);
 	 }
          storio_crc_error = 0;
+	 memset(storio_crc32_error_per_read,0,sizeof(storio_crc32_error_per_read));
 	 pChar += rozofs_string_append(pChar,"error counter has been cleared\n");
          uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());	 
 	 return;
@@ -697,6 +739,23 @@ static void show_data_integrity(char * argv[], uint32_t tcpRef, void *bufRef)
      }       
      pChar += rozofs_string_append(pChar,"  crc32c error counter   : ");
      pChar += rozofs_u64_append(pChar, storio_crc_error);
+     pChar += rozofs_eol(pChar);
+     
+     // Display the number 
+     if (storio_crc_error) {
+       int i;
+       pChar += rozofs_string_append(pChar,"  Blocks | Times\n");
+       uint64_t * p64 = storio_crc32_error_per_read;
+       for (i=0; i < STORIO_MAX_CRC32_ERROR_PER_READ_COUNT; i++,p64++) {    
+         if (*p64) {
+	   pChar += rozofs_i32_padded_append(pChar, 8, rozofs_right_alignment, i);
+	   pChar += rozofs_string_append(pChar," | ");
+	   pChar += rozofs_u64_append(pChar, *p64);  
+	   pChar += rozofs_eol(pChar);
+	 }
+       }  
+     
+     }
      pChar += rozofs_eol(pChar);
      
     uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());

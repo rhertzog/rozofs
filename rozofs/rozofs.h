@@ -26,6 +26,7 @@
 #include <rozofs/common/common_config.h>
 #include <rozofs/core/rozofs_string.h>
 
+//#include <rozofs/common/log.h>
 /*
 ** Get ticker
 */
@@ -51,13 +52,111 @@ typedef enum _rozofs_file_distribution_rule_e {
 
 static inline char * rozofs_file_distribution_rule2sting(rozofs_file_distribution_rule_e rule) {
   switch(rule) {
-    case rozofs_file_distribution_size_balancing:          return "size balancing";
-    case rozofs_file_distribution_weigthed_round_robin:    return "weigthed round robin";
+    case rozofs_file_distribution_size_balancing:                  return "size balancing";
+    case rozofs_file_distribution_weigthed_round_robin:            return "weigthed round robin";
     case rozofs_file_distribution_strict_round_robin_forward:      return "strict round robin";
     case rozofs_file_distribution_strict_round_robin_inverse:      return "strict round robin";
     default: return "??";
   }  
 }
+
+
+
+
+
+
+
+
+
+
+
+
+/*
+** ___________________________________________________________________________________
+**
+**       SOME USEFULL MACROS FOR BITMAPS BUILD UPON ARRAY OF 64 BIT UNSIGNED
+** ___________________________________________________________________________________
+**
+*/
+
+#define ROZOFS_BITMAP64_BIT(bitNumber)            ( 1ULL<<((bitNumber)%64) )
+#define ROZOFS_BITMAP64_IDX(bitNumber)            ( (bitNumber)/64 )
+ 
+#define ROZOFS_BITMAP64_SET(bitNumber, bitmap)    ( bitmap[ROZOFS_BITMAP64_IDX(bitNumber)] |=  ROZOFS_BITMAP64_BIT(bitNumber) ) 
+#define ROZOFS_BITMAP64_RESET(bitNumber, bitmap)  ( bitmap[ROZOFS_BITMAP64_IDX(bitNumber)] &=  ~ROZOFS_BITMAP64_BIT(bitNumber) )
+#define ROZOFS_BITMAP64_TEST0(bitNumber, bitmap)  ( (bitmap[ROZOFS_BITMAP64_IDX(bitNumber)] & ROZOFS_BITMAP64_BIT(bitNumber)) == 0 )
+#define ROZOFS_BITMAP64_TEST1(bitNumber, bitmap)  ( (bitmap[ROZOFS_BITMAP64_IDX(bitNumber)] & ROZOFS_BITMAP64_BIT(bitNumber)) != 0 )
+
+#define ROZOFS_BITMAP64_NB_UINT64(nb)             ( ROZOFS_BITMAP64_IDX(nb-1) + 1 )
+
+#define ROZOFS_BITMAP64_ALL_RESET(bitmap) memset(bitmap, 0, sizeof(bitmap))
+#define ROZOFS_BITMAP64_ALL_SET(bitmap)   memset(bitmap, 0xFF, sizeof(bitmap))
+
+static inline int ROZOFS_BITMAP64_TEST_ALL1_FUNC(uint64_t * bitmap, int sz64)  {
+  while(--sz64>=0) { 
+    if (bitmap[sz64] != 0xFFFFFFFF) return 0; 
+  }
+  return 1;
+}   
+#define ROZOFS_BITMAP64_TEST_ALL1(bitmap)  (ROZOFS_BITMAP64_TEST_ALL1_FUNC(bitmap,sizeof(bitmap)/sizeof(uint64_t)))
+
+static inline int ROZOFS_BITMAP64_TEST_ALL0_FUNC(uint64_t * bitmap, int sz64)  {
+  while(--sz64>=0) {
+    if (bitmap[sz64] != 0) return 0;
+  }  
+  return 1;
+} 
+#define ROZOFS_BITMAP64_TEST_ALL0(bitmap)  (ROZOFS_BITMAP64_TEST_ALL0_FUNC(bitmap,sizeof(bitmap)/sizeof(uint64_t)))
+
+static inline int ROZOFS_BITMAP64_NB_BIT1_FUNC(uint8_t * p8, int sz8)  {
+  int count=0;
+  uint8_t   mask;
+  int       i;
+
+  while(--sz8>=0) {
+    if (*p8 != 0) {
+      mask=1;  
+      for (i=0; i<8; i++,mask=mask<<1) {
+        if (mask & *p8) {
+          count++;
+        }
+      }
+    }  
+    p8++;
+  }
+  return count;
+}
+#define ROZOFS_BITMAP64_NB_BIT1(bitmap)  ROZOFS_BITMAP64_NB_BIT1_FUNC((uint8_t *)bitmap, sizeof(bitmap))
+
+static inline int ROZOFS_BITMAP64_NB_BIT0_FUNC(uint8_t * p8, int sz8)  {
+  int count=0;
+  uint8_t   mask;
+  int       i;
+    
+  while(--sz8>=0) {
+    if (*p8 != 0xFF) {
+      mask=1;  
+      for (i=0; i<8; i++,mask=mask<<1) {
+        if ((mask &*p8) == 0) count++;
+      }
+    }
+    p8++;
+  }
+  return count;  
+}
+#define ROZOFS_BITMAP64_NB_BIT0(bitmap)  ROZOFS_BITMAP64_NB_BIT0_FUNC((uint8_t *)bitmap, sizeof(bitmap))
+
+/*___________________________________________________________________________________*/
+
+
+
+
+
+
+
+
+
+
 
 
 /**
@@ -95,9 +194,12 @@ typedef enum _ROZOFS_BSIZE_E {
 #define ROZOFS_BSIZE_MAX        ROZOFS_BSIZE_32K
 #define ROZOFS_BSIZE_NB         (ROZOFS_BSIZE_MAX+1)
 #define ROZOFS_BSIZE_BYTES(val) ((4*1024)<<val)
-// Maximum number of block per message
+// Maximum number of block per message 
 #define ROZOFS_MAX_FILE_BUF_SZ_READ (512*1024)
 #define ROZOFS_MAX_BLOCK_PER_MSG ((ROZOFS_MAX_FILE_BUF_SZ_READ/4096)+1)
+
+// The number of 64bit words necessary for a bitmap of blocks of a message
+#define ROZOFS_BLOCK_BITMAP_NB_UINT64 (ROZOFS_BITMAP64_NB_UINT64(ROZOFS_MAX_BLOCK_PER_MSG))
 
 #define ROZOFS_MAX_FILE_BUF_SZ (256*1024)
 #define ROZOFS_SAFE_MAX 36
@@ -164,7 +266,6 @@ typedef enum _ROZOFS_BSIZE_E {
 ** Projection files on storages are split in chunks. Each chunk is allocated 
 ** a specific device on the storage.
 */
-
 #define ROZOFS_STORAGE_FILE_MAX_SIZE_POWER2      43 // 8 TiB
 #define ROZOFS_STORAGE_FILE_MAX_SIZE             (1ULL<<ROZOFS_STORAGE_FILE_MAX_SIZE_POWER2)
 #define ROZOFS_STORAGE_MAX_CHUNK_PER_FILE        128
@@ -399,7 +500,7 @@ static inline void mstor_get_slice_and_subslice(fid_t fid, uint32_t *slice, uint
     //uint32_t hash = 0;
     //uint8_t *c = 0;
 
-    rozofs_inode_t *rozo_inode_p = (rozofs_inode_t*)fid;
+     rozofs_inode_t *rozo_inode_p = (rozofs_inode_t*)fid;
      *subslice = 0;
      *slice = rozo_inode_p->s.usr_id & ((1 << MAX_SLICE_BIT) - 1);;
 #if 0    

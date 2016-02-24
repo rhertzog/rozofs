@@ -87,6 +87,25 @@ struct sp_write_repair_arg_t {
 };
 typedef struct sp_write_repair_arg_t sp_write_repair_arg_t;
 
+struct sp_write_repair2_arg_t {
+	uint16_t cid;
+	uint8_t sid;
+	uint8_t layout;
+	uint8_t spare;
+	uint32_t dist_set[ROZOFS_SAFE_MAX_RPC];
+	sp_uuid_t fid;
+	uint8_t proj_id;
+	uint64_t bid;
+	uint32_t nb_proj;
+	uint32_t bsize;
+	uint64_t bitmap[3];
+	struct {
+		u_int bins_len;
+		char *bins_val;
+	} bins;
+};
+typedef struct sp_write_repair2_arg_t sp_write_repair2_arg_t;
+
 struct sp_write_repair_arg_no_bins_t {
 	uint16_t cid;
 	uint8_t sid;
@@ -102,6 +121,22 @@ struct sp_write_repair_arg_no_bins_t {
 	uint32_t len;
 };
 typedef struct sp_write_repair_arg_no_bins_t sp_write_repair_arg_no_bins_t;
+
+struct sp_write_repair2_arg_no_bins_t {
+	uint16_t cid;
+	uint8_t sid;
+	uint8_t layout;
+	uint8_t spare;
+	uint32_t dist_set[ROZOFS_SAFE_MAX_RPC];
+	sp_uuid_t fid;
+	uint8_t proj_id;
+	uint64_t bid;
+	uint32_t nb_proj;
+	uint32_t bsize;
+	uint64_t bitmap[3];
+	uint32_t len;
+};
+typedef struct sp_write_repair2_arg_no_bins_t sp_write_repair2_arg_no_bins_t;
 
 struct sp_read_arg_t {
 	uint16_t cid;
@@ -289,6 +324,9 @@ extern  sp_status_ret_t * sp_remove_chunk_1_svc(sp_remove_chunk_arg_t *, struct 
 #define SP_CLEAR_ERROR 9
 extern  sp_status_ret_t * sp_clear_error_1(sp_clear_error_arg_t *, CLIENT *);
 extern  sp_status_ret_t * sp_clear_error_1_svc(sp_clear_error_arg_t *, struct svc_req *);
+#define SP_WRITE_REPAIR2 10
+extern  sp_write_ret_t * sp_write_repair2_1(sp_write_repair2_arg_t *, CLIENT *);
+extern  sp_write_ret_t * sp_write_repair2_1_svc(sp_write_repair2_arg_t *, struct svc_req *);
 extern int storage_program_1_freeresult (SVCXPRT *, xdrproc_t, caddr_t);
 
 #else /* K&R C */
@@ -322,6 +360,9 @@ extern  sp_status_ret_t * sp_remove_chunk_1_svc();
 #define SP_CLEAR_ERROR 9
 extern  sp_status_ret_t * sp_clear_error_1();
 extern  sp_status_ret_t * sp_clear_error_1_svc();
+#define SP_WRITE_REPAIR2 10
+extern  sp_write_ret_t * sp_write_repair2_1();
+extern  sp_write_ret_t * sp_write_repair2_1_svc();
 extern int storage_program_1_freeresult ();
 #endif /* K&R C */
 
@@ -334,7 +375,9 @@ extern  bool_t xdr_sp_status_ret_t (XDR *, sp_status_ret_t*);
 extern  bool_t xdr_sp_write_arg_t (XDR *, sp_write_arg_t*);
 extern  bool_t xdr_sp_write_arg_no_bins_t (XDR *, sp_write_arg_no_bins_t*);
 extern  bool_t xdr_sp_write_repair_arg_t (XDR *, sp_write_repair_arg_t*);
+extern  bool_t xdr_sp_write_repair2_arg_t (XDR *, sp_write_repair2_arg_t*);
 extern  bool_t xdr_sp_write_repair_arg_no_bins_t (XDR *, sp_write_repair_arg_no_bins_t*);
+extern  bool_t xdr_sp_write_repair2_arg_no_bins_t (XDR *, sp_write_repair2_arg_no_bins_t*);
 extern  bool_t xdr_sp_read_arg_t (XDR *, sp_read_arg_t*);
 extern  bool_t xdr_sp_truncate_arg_no_bins_t (XDR *, sp_truncate_arg_no_bins_t*);
 extern  bool_t xdr_sp_truncate_arg_t (XDR *, sp_truncate_arg_t*);
@@ -357,7 +400,9 @@ extern bool_t xdr_sp_status_ret_t ();
 extern bool_t xdr_sp_write_arg_t ();
 extern bool_t xdr_sp_write_arg_no_bins_t ();
 extern bool_t xdr_sp_write_repair_arg_t ();
+extern bool_t xdr_sp_write_repair2_arg_t ();
 extern bool_t xdr_sp_write_repair_arg_no_bins_t ();
+extern bool_t xdr_sp_write_repair2_arg_no_bins_t ();
 extern bool_t xdr_sp_read_arg_t ();
 extern bool_t xdr_sp_truncate_arg_no_bins_t ();
 extern bool_t xdr_sp_truncate_arg_t ();

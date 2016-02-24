@@ -374,6 +374,7 @@ int storio_start_nb_th(void *args) {
   if (size < sizeof(sp_remove_chunk_arg_t)) size = sizeof(sp_remove_chunk_arg_t);
   if (size < sizeof(sp_clear_error_arg_t)) size = sizeof(sp_clear_error_arg_t);
   if (size < sizeof(sp_write_repair_arg_no_bins_t)) size = sizeof(sp_write_repair_arg_no_bins_t);
+  if (size < sizeof(sp_write_repair2_arg_no_bins_t)) size = sizeof(sp_write_repair2_arg_no_bins_t);
 
 
   decoded_rpc_buffer_pool = ruc_buf_poolCreate(common_config.storio_buf_cnt,size);
