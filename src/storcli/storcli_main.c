@@ -432,7 +432,7 @@ char *display_mstorage(mstorage_t *s,char *buffer)
      cid = s->cids[i];
      sid = s->sids[i];
      buffer += sprintf(buffer," %3.3d  |  %2.2d  |",cid,sid);
-     buffer += sprintf(buffer," %-20s |",s->host);
+     buffer += sprintf(buffer," %-26s |",s->host);
      
      sid_lbg_id_p = rozofs_storcli_cid_table[cid-1];
      if (sid_lbg_id_p == NULL) {
@@ -456,7 +456,8 @@ char *display_mstorage(mstorage_t *s,char *buffer)
      buffer += sprintf(buffer," %5d |",storcli_lbg_cnx_supervision_tab[lbg_id].tmo_counter); 
      buffer += sprintf(buffer," %5d |",storcli_lbg_cnx_supervision_tab[lbg_id].poll_counter); 
      buffer += sprintf(buffer," %2d |",STORCLI_LBG_SP_NULL_INTERVAL);         
-     buffer += sprintf(buffer,"  %s      |\n",show_storcli_display_poll_state(bufall,storcli_lbg_cnx_supervision_tab[lbg_id].poll_state));         
+     buffer += sprintf(buffer,"  %s      |",show_storcli_display_poll_state(bufall,storcli_lbg_cnx_supervision_tab[lbg_id].poll_state)); 
+	 buffer += sprintf(buffer," %4d |\n",s->site);         
   }
   return buffer;
 }
@@ -471,9 +472,13 @@ char *display_mstorage(mstorage_t *s,char *buffer)
 void show_storage_configuration(char * argv[], uint32_t tcpRef, void *bufRef) 
 {
     char *pchar = uma_dbg_get_buffer();
+	
+   pchar +=sprintf(pchar,"multi site : %s\n",rozofs_get_msite()?"Yes":"No");
+   pchar +=sprintf(pchar,"local site : %d\n",conf.site);
+   
 
-   pchar +=sprintf(pchar," cid  |  sid |      hostname        |  lbg_id  | state  | Path state | Sel | tmo   | Poll. |Per.|  poll state  |\n");
-   pchar +=sprintf(pchar,"------+------+----------------------+----------+--------+------------+-----+-------+-------+----+--------------+\n");
+   pchar +=sprintf(pchar,"\n cid  |  sid |         hostname           |  lbg_id  | state  | Path state | Sel | tmo   | Poll. |Per.|  poll state  | site |\n");
+   pchar +=sprintf(pchar,"------+------+----------------------------+----------+--------+------------+-----+-------+-------+----+--------------+------+\n");
 
    list_t *iterator = NULL;
    /* Search if the node has already been created  */
@@ -1355,13 +1360,6 @@ int main(int argc, char *argv[]) {
                 errno = 0;
                 val = (int) strtol(optarg, (char **) NULL, 10);
                 if (errno != 0) {
-                    strerror(errno);
-                    usage();
-                    exit(EXIT_FAILURE);
-                }
-		if (val > 1) 
-		{
-		    errno = ERANGE;
                     strerror(errno);
                     usage();
                     exit(EXIT_FAILURE);

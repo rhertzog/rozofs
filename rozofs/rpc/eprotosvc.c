@@ -53,6 +53,7 @@ export_program_1(struct svc_req *rqstp, register SVCXPRT *transp)
 		epgw_lock_arg_t ep_clear_client_file_lock_1_arg;
 		epgw_lock_arg_t ep_poll_file_lock_1_arg;
 		epgw_symlink2_arg_t ep_symlink2_1_arg;
+		epgw_mount_arg_t ep_mount_msite_1_arg;
 	} argument;
 	char *result;
 	xdrproc_t _xdr_argument, _xdr_result;
@@ -255,6 +256,12 @@ export_program_1(struct svc_req *rqstp, register SVCXPRT *transp)
 		_xdr_argument = (xdrproc_t) xdr_epgw_symlink2_arg_t;
 		_xdr_result = (xdrproc_t) xdr_epgw_mattr_ret_t;
 		local = (char *(*)(char *, struct svc_req *)) ep_symlink2_1_svc;
+		break;
+
+	case EP_MOUNT_MSITE:
+		_xdr_argument = (xdrproc_t) xdr_epgw_mount_arg_t;
+		_xdr_result = (xdrproc_t) xdr_epgw_mount_msite_ret_t;
+		local = (char *(*)(char *, struct svc_req *)) ep_mount_msite_1_svc;
 		break;
 
 	default:

@@ -106,6 +106,15 @@ struct epgw_cluster_arg_t {
 };
 typedef struct epgw_cluster_arg_t epgw_cluster_arg_t;
 
+struct ep_storage_node_msite_t {
+	ep_host_t host;
+	uint8_t site;
+	uint8_t sids_nb;
+	uint8_t sids[STORAGES_MAX_BY_STORAGE_NODE];
+	uint16_t cids[STORAGES_MAX_BY_STORAGE_NODE];
+};
+typedef struct ep_storage_node_msite_t ep_storage_node_msite_t;
+
 struct ep_storage_node_t {
 	ep_host_t host;
 	uint8_t sids_nb;
@@ -113,6 +122,20 @@ struct ep_storage_node_t {
 	uint16_t cids[STORAGES_MAX_BY_STORAGE_NODE];
 };
 typedef struct ep_storage_node_t ep_storage_node_t;
+
+struct ep_export_msite_t {
+	uint32_t hash_conf;
+	uint32_t eid;
+	uint32_t listen_port;
+	ep_md5_t md5;
+	ep_uuid_t rfid;
+	uint8_t rl;
+	uint8_t msite;
+	uint32_t bs;
+	uint8_t storage_nodes_nb;
+	ep_storage_node_msite_t storage_nodes[STORAGE_NODES_MAX];
+};
+typedef struct ep_export_msite_t ep_export_msite_t;
 
 struct ep_export_t {
 	uint32_t hash_conf;
@@ -127,6 +150,15 @@ struct ep_export_t {
 };
 typedef struct ep_export_t ep_export_t;
 
+struct ep_mount_msite_ret_t {
+	ep_status_t status;
+	union {
+		ep_export_msite_t export;
+		int error;
+	} ep_mount_msite_ret_t_u;
+};
+typedef struct ep_mount_msite_ret_t ep_mount_msite_ret_t;
+
 struct ep_mount_ret_t {
 	ep_status_t status;
 	union {
@@ -135,6 +167,12 @@ struct ep_mount_ret_t {
 	} ep_mount_ret_t_u;
 };
 typedef struct ep_mount_ret_t ep_mount_ret_t;
+
+struct epgw_mount_msite_ret_t {
+	struct ep_gateway_t hdr;
+	ep_mount_msite_ret_t status_gw;
+};
+typedef struct epgw_mount_msite_ret_t epgw_mount_msite_ret_t;
 
 struct epgw_mount_ret_t {
 	struct ep_gateway_t hdr;
@@ -798,6 +836,13 @@ struct ep_gw_gateway_configuration_ret_t {
 };
 typedef struct ep_gw_gateway_configuration_ret_t ep_gw_gateway_configuration_ret_t;
 
+struct epgw_mount_msite_host_arg_t {
+	struct ep_gateway_t hdr;
+	int eid;
+	int host_num;
+};
+typedef struct epgw_mount_msite_host_arg_t epgw_mount_msite_host_arg_t;
+
 struct epgw_mount_arg_t {
 	struct ep_gateway_t hdr;
 	ep_path_t path;
@@ -913,6 +958,9 @@ extern  void * ep_geo_poll_1_svc(void *, struct svc_req *);
 #define EP_SYMLINK2 33
 extern  epgw_mattr_ret_t * ep_symlink2_1(epgw_symlink2_arg_t *, CLIENT *);
 extern  epgw_mattr_ret_t * ep_symlink2_1_svc(epgw_symlink2_arg_t *, struct svc_req *);
+#define EP_MOUNT_MSITE 34
+extern  epgw_mount_msite_ret_t * ep_mount_msite_1(epgw_mount_arg_t *, CLIENT *);
+extern  epgw_mount_msite_ret_t * ep_mount_msite_1_svc(epgw_mount_arg_t *, struct svc_req *);
 extern int export_program_1_freeresult (SVCXPRT *, xdrproc_t, caddr_t);
 
 #else /* K&R C */
@@ -1015,6 +1063,9 @@ extern  void * ep_geo_poll_1_svc();
 #define EP_SYMLINK2 33
 extern  epgw_mattr_ret_t * ep_symlink2_1();
 extern  epgw_mattr_ret_t * ep_symlink2_1_svc();
+#define EP_MOUNT_MSITE 34
+extern  epgw_mount_msite_ret_t * ep_mount_msite_1();
+extern  epgw_mount_msite_ret_t * ep_mount_msite_1_svc();
 extern int export_program_1_freeresult ();
 #endif /* K&R C */
 
@@ -1042,9 +1093,13 @@ extern  bool_t xdr_ep_cluster_t (XDR *, ep_cluster_t*);
 extern  bool_t xdr_ep_cluster_ret_t (XDR *, ep_cluster_ret_t*);
 extern  bool_t xdr_epgw_cluster_ret_t (XDR *, epgw_cluster_ret_t*);
 extern  bool_t xdr_epgw_cluster_arg_t (XDR *, epgw_cluster_arg_t*);
+extern  bool_t xdr_ep_storage_node_msite_t (XDR *, ep_storage_node_msite_t*);
 extern  bool_t xdr_ep_storage_node_t (XDR *, ep_storage_node_t*);
+extern  bool_t xdr_ep_export_msite_t (XDR *, ep_export_msite_t*);
 extern  bool_t xdr_ep_export_t (XDR *, ep_export_t*);
+extern  bool_t xdr_ep_mount_msite_ret_t (XDR *, ep_mount_msite_ret_t*);
 extern  bool_t xdr_ep_mount_ret_t (XDR *, ep_mount_ret_t*);
+extern  bool_t xdr_epgw_mount_msite_ret_t (XDR *, epgw_mount_msite_ret_t*);
 extern  bool_t xdr_epgw_mount_ret_t (XDR *, epgw_mount_ret_t*);
 extern  bool_t xdr_ep_cnf_storage_node_t (XDR *, ep_cnf_storage_node_t*);
 extern  bool_t xdr_ep_conf_export_t (XDR *, ep_conf_export_t*);
@@ -1130,6 +1185,7 @@ extern  bool_t xdr_ep_gw_header_t (XDR *, ep_gw_header_t*);
 extern  bool_t xdr_ep_gateway_configuration_t (XDR *, ep_gateway_configuration_t*);
 extern  bool_t xdr_ep_gateway_configuration_ret_t (XDR *, ep_gateway_configuration_ret_t*);
 extern  bool_t xdr_ep_gw_gateway_configuration_ret_t (XDR *, ep_gw_gateway_configuration_ret_t*);
+extern  bool_t xdr_epgw_mount_msite_host_arg_t (XDR *, epgw_mount_msite_host_arg_t*);
 extern  bool_t xdr_epgw_mount_arg_t (XDR *, epgw_mount_arg_t*);
 extern  bool_t xdr_epgw_conf_stor_arg_t (XDR *, epgw_conf_stor_arg_t*);
 
@@ -1155,9 +1211,13 @@ extern bool_t xdr_ep_cluster_t ();
 extern bool_t xdr_ep_cluster_ret_t ();
 extern bool_t xdr_epgw_cluster_ret_t ();
 extern bool_t xdr_epgw_cluster_arg_t ();
+extern bool_t xdr_ep_storage_node_msite_t ();
 extern bool_t xdr_ep_storage_node_t ();
+extern bool_t xdr_ep_export_msite_t ();
 extern bool_t xdr_ep_export_t ();
+extern bool_t xdr_ep_mount_msite_ret_t ();
 extern bool_t xdr_ep_mount_ret_t ();
+extern bool_t xdr_epgw_mount_msite_ret_t ();
 extern bool_t xdr_epgw_mount_ret_t ();
 extern bool_t xdr_ep_cnf_storage_node_t ();
 extern bool_t xdr_ep_conf_export_t ();
@@ -1243,6 +1303,7 @@ extern bool_t xdr_ep_gw_header_t ();
 extern bool_t xdr_ep_gateway_configuration_t ();
 extern bool_t xdr_ep_gateway_configuration_ret_t ();
 extern bool_t xdr_ep_gw_gateway_configuration_ret_t ();
+extern bool_t xdr_epgw_mount_msite_host_arg_t ();
 extern bool_t xdr_epgw_mount_arg_t ();
 extern bool_t xdr_epgw_conf_stor_arg_t ();
 

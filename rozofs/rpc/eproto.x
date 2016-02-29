@@ -98,11 +98,34 @@ struct epgw_cluster_arg_t {
   int16_t                       cid;  
 };
 
+struct ep_storage_node_msite_t {
+    ep_host_t       host;
+    uint8_t         site;
+    uint8_t         sids_nb;
+    uint8_t         sids[STORAGES_MAX_BY_STORAGE_NODE];
+    uint16_t        cids[STORAGES_MAX_BY_STORAGE_NODE];
+};
+
+
 struct ep_storage_node_t {
     ep_host_t       host;
     uint8_t         sids_nb;
     uint8_t         sids[STORAGES_MAX_BY_STORAGE_NODE];
     uint16_t        cids[STORAGES_MAX_BY_STORAGE_NODE];
+};
+
+struct ep_export_msite_t {
+    uint32_t            hash_conf;
+    uint32_t            eid;
+    uint32_t            listen_port;
+    ep_md5_t            md5;
+    ep_uuid_t           rfid;   /*root fid*/
+    uint8_t             rl;     /* rozofs layout */
+	uint8_t             msite;  /* Is it a multi site config */	
+    uint32_t            bs;     /* Block size. From enum ROZOFS_BSIZE_E */
+    uint8_t             storage_nodes_nb;
+    ep_storage_node_msite_t   storage_nodes[STORAGE_NODES_MAX];
+	
 };
 
 struct ep_export_t {
@@ -117,10 +140,24 @@ struct ep_export_t {
     ep_storage_node_t   storage_nodes[STORAGE_NODES_MAX];
 };
 
+
+
+union ep_mount_msite_ret_t switch (ep_status_t status) {
+    case EP_SUCCESS:    ep_export_msite_t export;
+    case EP_FAILURE:    int          error;
+    default:            void;
+};
+
 union ep_mount_ret_t switch (ep_status_t status) {
     case EP_SUCCESS:    ep_export_t export;
     case EP_FAILURE:    int         error;
     default:            void;
+};
+
+struct epgw_mount_msite_ret_t
+{
+  struct ep_gateway_t hdr;
+  ep_mount_msite_ret_t    status_gw;
 };
 
 struct epgw_mount_ret_t
@@ -128,6 +165,7 @@ struct epgw_mount_ret_t
   struct ep_gateway_t hdr;
   ep_mount_ret_t    status_gw;
 };
+
 
 struct ep_cnf_storage_node_t {
     string       host<ROZOFS_HOSTNAME_MAX>;
@@ -150,6 +188,7 @@ union ep_conf_ret_t switch (ep_status_t status) {
     case EP_FAILURE:    int         error;
     default:            void;
 };
+
 
 struct epgw_conf_ret_t
 {
@@ -686,6 +725,12 @@ struct ep_gw_gateway_configuration_ret_t
         ep_gateway_configuration_ret_t status_gw;
 };
 
+struct  epgw_mount_msite_host_arg_t 
+{
+  struct ep_gateway_t hdr;
+  int                 eid;
+  int                 host_num;
+};
 
 struct  epgw_mount_arg_t 
 {
@@ -802,6 +847,9 @@ program EXPORT_PROGRAM {
 
         epgw_mattr_ret_t
         EP_SYMLINK2(epgw_symlink2_arg_t)            = 33;
+
+        epgw_mount_msite_ret_t
+        EP_MOUNT_MSITE(epgw_mount_arg_t)               = 34;
 	
     } = 1;
 } = 0x20000001;

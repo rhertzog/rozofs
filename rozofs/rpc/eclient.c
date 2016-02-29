@@ -36,6 +36,192 @@
 
  uint32_t exportd_configuration_file_hash = 0; /**< hash value of the configuration file */
 
+static int rozofs_msite = 0;
+static int rozofs_mount_msite_support = 1; // A priori msite mount is supported
+/**______________________________________________________________________________
+*  Re intialize the storage direct access table 
+*/
+int rozofs_get_msite(void) { return rozofs_msite; }
+
+
+
+/**______________________________________________________________________________
+*  storage direct access table with cid&sid keys
+*/
+typedef mstorage_t  * storage_table_t[SID_MAX];
+storage_table_t     * storage_direct[ROZOFS_CLUSTERS_MAX] = {0};
+
+/**______________________________________________________________________________
+*  Re intialize the storage direct access table 
+*/
+void storage_direct_reinit(void) {
+  int i;
+  for (i=0; i<ROZOFS_CLUSTERS_MAX; i++) {
+    if (storage_direct[i] != 0) {
+	  free(storage_direct[i]);
+	  storage_direct[i] = NULL;
+	}
+  }
+}
+/**______________________________________________________________________________
+*  Add a storage address in the storage direct access table 
+*/
+void storage_direct_add(mstorage_t *storage) {
+  int i;
+  sid_t sid;
+  cid_t cid;
+  
+  for (i=0; i<storage->sids_nb; i++) {
+  
+    sid = storage->sids[i];
+    cid = storage->cids[i];	
+
+	if (storage_direct[cid] == NULL) {
+      storage_direct[cid] = xmalloc(sizeof (storage_table_t));
+	}
+
+	if (storage_direct[cid] == NULL) {
+      severe("allocation %d",sizeof (storage_table_t));
+	  return;
+	}
+
+	(*storage_direct[cid])[sid] = storage; 	
+  }
+}
+/**______________________________________________________________________________
+*  Get a storage address from the storage direct access table 
+*/
+mstorage_t * storage_direct_get(cid_t cid, sid_t sid) {
+
+  if (storage_direct[cid] == NULL) {
+    return NULL;
+  }
+  
+  return (*storage_direct[cid])[sid]; 	
+}
+
+
+
+
+
+
+int exportclt_msite_initialize(exportclt_t * clt, const char *host, char *root,int site_number,
+        const char *passwd, uint32_t bufsize, uint32_t min_read_size,
+        uint32_t retries, struct timeval timeout) {
+    int status = -1;
+    epgw_mount_msite_ret_t *ret = 0;
+    char *md5pass = 0;
+    int i = 0;
+    epgw_mount_arg_t args;
+	int xerrno = 0;	
+    DEBUG_FUNCTION;
+
+
+    /* Prepare mount request */
+    strncpy(clt->host, host, ROZOFS_HOSTNAME_MAX);
+    clt->root = strdup(root);
+    clt->passwd = strdup(passwd);
+    clt->retries = retries;
+    clt->bufsize = bufsize;
+    clt->min_read_size  = min_read_size;
+    clt->timeout = timeout;
+
+    args.hdr.gateway_rank = 0; // Not in georeplication
+    args.path = clt->root ;
+
+    rpcclt_release(&clt->rpcclt);
+    //init_rpcctl_ctx(&clt->rpcclt);    
+	
+    /* Initialize connection with export server */
+    uint16_t export_nb_port = rozofs_get_service_port_export_master_eproto();
+    if (rpcclt_initialize
+            (&clt->rpcclt, host, EXPORT_PROGRAM, EXPORT_VERSION,
+            ROZOFS_RPC_BUFFER_SIZE, ROZOFS_RPC_BUFFER_SIZE, export_nb_port,
+            clt->timeout) != 0) {
+		xerrno = errno;	
+        goto error;
+    }
+    /* Send mount request */
+    ret = ep_mount_msite_1(&args, clt->rpcclt.client);
+    if (ret == 0) {
+        errno = EPROTO;
+        goto error;
+    }
+    if (ret->status_gw.status == EP_FAILURE) {
+        xerrno = ret->status_gw.ep_mount_msite_ret_t_u.error;
+		rozofs_mount_msite_support = 0;
+		rozofs_msite = 0;
+        goto error;
+    }
+
+    /* Check password */
+    if (memcmp(ret->status_gw.ep_mount_msite_ret_t_u.export.md5, ROZOFS_MD5_NONE, ROZOFS_MD5_SIZE) != 0) {
+        md5pass = crypt(passwd, "$1$rozofs$");
+        if (memcmp(md5pass + 10, ret->status_gw.ep_mount_msite_ret_t_u.export.md5, ROZOFS_MD5_SIZE) != 0) {
+            xerrno = EACCES;
+            goto error;
+        }
+    }
+
+    /*
+    ** Is it a multi site config
+    */
+	if (ret->status_gw.ep_mount_msite_ret_t_u.export.msite) rozofs_msite = 1;
+	
+    /* Copy eid, layout, root fid */
+    clt->eid = ret->status_gw.ep_mount_msite_ret_t_u.export.eid;
+    clt->layout = ret->status_gw.ep_mount_msite_ret_t_u.export.rl;
+    clt->listen_port = ret->status_gw.ep_mount_msite_ret_t_u.export.listen_port;
+    clt->bsize = ret->status_gw.ep_mount_msite_ret_t_u.export.bs;
+    memcpy(clt->rfid, ret->status_gw.ep_mount_msite_ret_t_u.export.rfid, sizeof (fid_t));
+
+    /* Initialize the list of physical storage nodes */
+    list_init(&clt->storages);
+
+    /* For each storage node */
+    for (i = 0; i < ret->status_gw.ep_mount_msite_ret_t_u.export.storage_nodes_nb; i++) {
+
+        ep_storage_node_msite_t stor_node = ret->status_gw.ep_mount_msite_ret_t_u.export.storage_nodes[i];
+
+        /* Prepare storage node */
+        mstorage_t *mstor = (mstorage_t *) xmalloc(sizeof (mstorage_t));
+        memset(mstor, 0, sizeof (mstorage_t));
+		mstor->site = stor_node.site;
+        strncpy(mstor->host, stor_node.host, ROZOFS_HOSTNAME_MAX);
+        mstor->sids_nb = stor_node.sids_nb;
+        memcpy(mstor->sids, stor_node.sids, sizeof (sid_t) * stor_node.sids_nb);
+        memcpy(mstor->cids, stor_node.cids, sizeof (cid_t) * stor_node.sids_nb);
+	    memset(mstor->lbg_id,-1,sizeof(mstor->lbg_id));
+
+        /* Add to the list */
+        list_push_back(&clt->storages, &mstor->list);
+		
+		/*
+		** Update direct access storage table
+		*/
+		storage_direct_add(mstor);
+    }
+
+    status = 0;
+    goto out;
+    
+error:
+    if (clt->root) free(clt->root);
+    clt->root = NULL;
+    if (clt->passwd) free(clt->passwd);
+    clt->passwd = NULL;    
+out:
+    if (md5pass)
+        free(md5pass);
+    if (ret)
+        xdr_free((xdrproc_t) xdr_epgw_mount_ret_t, (char *) ret);
+    rpcclt_release(&clt->rpcclt);
+
+	errno = xerrno;  
+    return status;
+}
+
+
 int exportclt_initialize(exportclt_t * clt, const char *host, char *root,int site_number,
         const char *passwd, uint32_t bufsize, uint32_t min_read_size,
         uint32_t retries, struct timeval timeout) {
@@ -44,9 +230,18 @@ int exportclt_initialize(exportclt_t * clt, const char *host, char *root,int sit
     char *md5pass = 0;
     int i = 0;
     epgw_mount_arg_t args;
+	int xerrno = 0;
     DEBUG_FUNCTION;
-
-
+	
+	/*
+	** When Multi site mode, call the right function 
+	*/
+	if (rozofs_mount_msite_support) {
+	  status = exportclt_msite_initialize(clt, host, root,site_number,passwd, 
+	                                    bufsize, min_read_size,retries, timeout);
+	  if (rozofs_mount_msite_support) return status;									
+    }
+	
     /* Prepare mount request */
     strncpy(clt->host, host, ROZOFS_HOSTNAME_MAX);
     clt->root = strdup(root);
@@ -67,17 +262,19 @@ int exportclt_initialize(exportclt_t * clt, const char *host, char *root,int sit
     if (rpcclt_initialize
             (&clt->rpcclt, host, EXPORT_PROGRAM, EXPORT_VERSION,
             ROZOFS_RPC_BUFFER_SIZE, ROZOFS_RPC_BUFFER_SIZE, export_nb_port,
-            clt->timeout) != 0)
+            clt->timeout) != 0) {
+		xerrno = errno;	
         goto error;
-
+    }
+	
     /* Send mount request */
     ret = ep_mount_1(&args, clt->rpcclt.client);
     if (ret == 0) {
-        errno = EPROTO;
+        xerrno = EPROTO;
         goto error;
     }
     if (ret->status_gw.status == EP_FAILURE) {
-        errno = ret->status_gw.ep_mount_ret_t_u.error;
+        xerrno = ret->status_gw.ep_mount_ret_t_u.error;
         goto error;
     }
 
@@ -85,7 +282,7 @@ int exportclt_initialize(exportclt_t * clt, const char *host, char *root,int sit
     if (memcmp(ret->status_gw.ep_mount_ret_t_u.export.md5, ROZOFS_MD5_NONE, ROZOFS_MD5_SIZE) != 0) {
         md5pass = crypt(passwd, "$1$rozofs$");
         if (memcmp(md5pass + 10, ret->status_gw.ep_mount_ret_t_u.export.md5, ROZOFS_MD5_SIZE) != 0) {
-            errno = EACCES;
+            xerrno = EACCES;
             goto error;
         }
     }
@@ -112,7 +309,7 @@ int exportclt_initialize(exportclt_t * clt, const char *host, char *root,int sit
         mstor->sids_nb = stor_node.sids_nb;
         memcpy(mstor->sids, stor_node.sids, sizeof (sid_t) * stor_node.sids_nb);
         memcpy(mstor->cids, stor_node.cids, sizeof (cid_t) * stor_node.sids_nb);
-	memset(mstor->lbg_id,-1,sizeof(mstor->lbg_id));
+	    memset(mstor->lbg_id,-1,sizeof(mstor->lbg_id));
 
         /* Add to the list */
         list_push_back(&clt->storages, &mstor->list);
@@ -125,16 +322,26 @@ error:
     if (clt->root) free(clt->root);
     clt->root = NULL;
     if (clt->passwd) free(clt->passwd);
-    clt->passwd = NULL;    
+    clt->passwd = NULL; 
 out:
     if (md5pass)
         free(md5pass);
     if (ret)
         xdr_free((xdrproc_t) xdr_epgw_mount_ret_t, (char *) ret);
     rpcclt_release(&clt->rpcclt);
+	
+	/*
+	** Try multi site mount
+	*/
+	if ((status==-1)&&(xerrno == ENOTSUP)) {
+	  rozofs_mount_msite_support = 1;
+	  return exportclt_msite_initialize(clt, host, root,site_number,passwd, 
+	                                bufsize, min_read_size,retries, timeout);		  
+	}
+	errno = xerrno;   
     return status;
 }
-
+		
 /*
 int exportclt_reload(exportclt_t * clt) {
     int status = -1;
@@ -243,8 +450,14 @@ void exportclt_release(exportclt_t * clt) {
         free(entry);
     }
 
-    free(clt->passwd);
-    free(clt->root);
+    if (clt->passwd) {
+	  free(clt->passwd);
+	  clt->passwd = NULL;
+	}
+	if (clt->root) {
+      free(clt->root);
+	  clt->root = NULL;
+	}  
     rpcclt_release(&clt->rpcclt);
 }
 

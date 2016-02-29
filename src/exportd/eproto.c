@@ -225,12 +225,6 @@ epgw_conf_ret_t *ep_conf_storage_1_svc(epgw_conf_stor_arg_t * arg, struct svc_re
     ** extract the site id from the request (gateway rank)
     */
     int requested_site = arg->hdr.gateway_rank;
-    if (requested_site  >= ROZOFS_GEOREP_MAX_SITE)
-    {
-      severe("site number is out of range (%d) max %d",requested_site,ROZOFS_GEOREP_MAX_SITE-1);
-      errno = EINVAL;
-      goto error;
-    }
             
     exportd_reinit_storage_configuration_message();
 #if 0
@@ -258,10 +252,17 @@ epgw_conf_ret_t *ep_conf_storage_1_svc(epgw_conf_stor_arg_t * arg, struct svc_re
         /* Get volume with this vid */
         if (vc->vid == exp->volume->vid) {
             /*
-	    ** check if the geo-replication is supported fro the volume. If it is not
-	    ** the case the requested_site is set to 0
-	    */
-	    if (vc->georep == 0) requested_site = 0;
+	    	** check if the geo-replication is supported fro the volume. If it is not
+	    	** the case the requested_site is set to 0
+	    	*/
+	    	if (vc->georep == 0) requested_site = 0;
+    		if (requested_site  >= ROZOFS_GEOREP_MAX_SITE)
+    		{
+    		  severe("site number is out of range (%d) max %d",requested_site,ROZOFS_GEOREP_MAX_SITE-1);
+    		  errno = EINVAL;
+    		  goto error;
+    		}			
+			
             stor_idx = 0;
             ret_cnf_p->status_gw.ep_conf_ret_t_u.export.storage_nodes.storage_nodes_len = 0;
             storage_cnf_p = &exportd_storage_host_table[stor_idx];
@@ -351,6 +352,9 @@ out:
     STOP_PROFILING(ep_configuration);
     return ret_out;
 }
+
+
+
 
 static uint32_t local_expgw_eid_table[EXPGW_EID_MAX_IDX];
 static ep_gw_host_conf_t local_expgw_host_table[EXPGW_EXPGW_MAX_IDX];
@@ -518,6 +522,8 @@ epgw_mount_ret_t *ep_mount_1_svc(epgw_mount_arg_t * arg, struct svc_req * req) {
 
     DEBUG_FUNCTION;
 
+	memset(&ret,0,sizeof(ret));
+
     // XXX exportd_lookup_id could return export_t *
     eid = exports_lookup_id(arg->path);    
     if (eid) export_profiler_eid = *eid;	
@@ -528,13 +534,6 @@ epgw_mount_ret_t *ep_mount_1_svc(epgw_mount_arg_t * arg, struct svc_req * req) {
 
     
     requested_site = arg->hdr.gateway_rank;
-    if (requested_site  >= ROZOFS_GEOREP_MAX_SITE)
-    {
-      severe("site number is out of range (%d) max %d",requested_site,ROZOFS_GEOREP_MAX_SITE-1);
-      errno = EINVAL;
-      goto error;
-    }
-    
     
     if (!(exp = exports_lookup_export(*eid)))
         goto error;
@@ -551,11 +550,29 @@ epgw_mount_ret_t *ep_mount_1_svc(epgw_mount_arg_t * arg, struct svc_req * req) {
 
         /* Get volume with this vid */
         if (vc->vid == exp->volume->vid) {
+		
+		    /*
+			** If volume is declared as multi site, it can only be mounted through a
+			** mount_msite procedure to give back the storages site localization
+			*/
+			if (vc->multi_site) {
+			    pthread_rwlock_unlock(&config_lock);
+			    errno = ENOTSUP;
+				goto error;
+			}
+			
             /*
-	    ** check if the geo-replication is supported fro the volume. If it is not
-	    ** the case the requested_site is set to 0
-	    */
-	    if (vc->georep == 0) requested_site = 0;
+	    	** check if the geo-replication is supported fro the volume. If it is not
+	    	** the case the requested_site is set to 0
+	    	*/
+	    	if (vc->georep == 0) requested_site = 0;
+    		if (requested_site  >= ROZOFS_GEOREP_MAX_SITE)
+    		{
+    		  severe("site number is out of range (%d) max %d",requested_site,ROZOFS_GEOREP_MAX_SITE-1);
+    		  errno = EINVAL;
+    		  goto error;
+    		}
+				
             stor_idx = 0;
             ret.status_gw.ep_mount_ret_t_u.export.storage_nodes_nb = 0;
             memset(ret.status_gw.ep_mount_ret_t_u.export.storage_nodes, 0, sizeof (ep_cnf_storage_node_t) * STORAGE_NODES_MAX);
@@ -627,6 +644,150 @@ epgw_mount_ret_t *ep_mount_1_svc(epgw_mount_arg_t * arg, struct svc_req * req) {
 error:
     ret.status_gw.status = EP_FAILURE;
     ret.status_gw.ep_mount_ret_t_u.error = errno;
+out:
+
+    STOP_PROFILING(ep_mount);
+    return &ret;
+}
+/*
+**______________________________________________________________________________
+*/
+/**
+*   exportd mount file systems: returns to the rozofsmount the list of the
+*   volume,clusters and storages
+*/
+epgw_mount_msite_ret_t *ep_mount_msite_1_svc(epgw_mount_arg_t * arg, struct svc_req * req) {
+    static epgw_mount_msite_ret_t ret;
+    list_t *p, *q, *r;
+    eid_t *eid = NULL;
+    export_t *exp;
+    int i = 0;
+    int stor_idx = 0;
+    int exist = 0;
+    int requested_site =0;    
+
+    DEBUG_FUNCTION;
+	
+	memset(&ret,0,sizeof(ret));
+
+    // XXX exportd_lookup_id could return export_t *
+    eid = exports_lookup_id(arg->path);    
+    if (eid) export_profiler_eid = *eid;	
+    else     export_profiler_eid = 0; 
+        
+    START_PROFILING(ep_mount);
+    if (!eid) goto error;
+
+    
+    requested_site = arg->hdr.gateway_rank;
+    
+    
+    if (!(exp = exports_lookup_export(*eid)))
+        goto error;
+
+    /* Get lock on config */
+    if ((errno = pthread_rwlock_rdlock(&config_lock)) != 0) {
+        goto error;
+    }
+
+    /* For each volume */
+    list_for_each_forward(p, &exportd_config.volumes) {
+
+        volume_config_t *vc = list_entry(p, volume_config_t, list);
+
+        /* Get volume with this vid */
+        if (vc->vid == exp->volume->vid) {
+		
+		    /*
+			** Volume is declared as multi site
+			*/
+			if (vc->multi_site) {
+			   ret.status_gw.ep_mount_msite_ret_t_u.export.msite = 1; 
+			}				
+            /*
+	    	** check if the geo-replication is supported fro the volume. If it is not
+	    	** the case the requested_site is set to 0
+	    	*/
+	    	if (vc->georep == 0) requested_site = 0;
+    		if (requested_site  >= ROZOFS_GEOREP_MAX_SITE)
+    		{
+    		  severe("site number is out of range (%d) max %d",requested_site,ROZOFS_GEOREP_MAX_SITE-1);
+    		  errno = EINVAL;
+    		  goto error;
+    		}	
+					
+            stor_idx = 0;
+            ret.status_gw.ep_mount_msite_ret_t_u.export.storage_nodes_nb = 0;
+            memset(ret.status_gw.ep_mount_msite_ret_t_u.export.storage_nodes, 0, sizeof (ret.status_gw.ep_mount_msite_ret_t_u.export.storage_nodes));
+
+            /* For each cluster */
+            list_for_each_forward(q, &vc->clusters) {
+
+                cluster_config_t *cc = list_entry(q, cluster_config_t, list);
+
+                /* For each sid */
+                list_for_each_forward(r, (&cc->storages[requested_site])) {
+
+                    storage_node_config_t *s = list_entry(r, storage_node_config_t, list);
+
+                    /* Verify that this hostname does not already exist
+                     * in the list of physical storage nodes. */
+                    for (i = 0; i < stor_idx; i++) {
+
+                        if (strcmp(s->host, ret.status_gw.ep_mount_msite_ret_t_u.export.storage_nodes[i].host) == 0) {
+
+                            /* This physical storage node exist
+                             *  but we add this SID*/
+                            uint8_t sids_nb = ret.status_gw.ep_mount_msite_ret_t_u.export.storage_nodes[i].sids_nb;
+                            ret.status_gw.ep_mount_msite_ret_t_u.export.storage_nodes[i].sids[sids_nb] = s->sid;
+                            ret.status_gw.ep_mount_msite_ret_t_u.export.storage_nodes[i].cids[sids_nb] = cc->cid;
+                            ret.status_gw.ep_mount_msite_ret_t_u.export.storage_nodes[i].sids_nb++;
+                            exist = 1;
+                            break;
+                        }
+                    }
+
+                    /* This physical storage node doesn't exist*/
+                    if (exist == 0) {
+
+                        /* Add this storage node to the list */
+                        strncpy(ret.status_gw.ep_mount_msite_ret_t_u.export.storage_nodes[stor_idx].host, s->host, ROZOFS_HOSTNAME_MAX);
+                        /* Add this sid */
+                        ret.status_gw.ep_mount_msite_ret_t_u.export.storage_nodes[stor_idx].site    = s->siteNum;
+                        ret.status_gw.ep_mount_msite_ret_t_u.export.storage_nodes[stor_idx].sids[0] = s->sid;
+                        ret.status_gw.ep_mount_msite_ret_t_u.export.storage_nodes[stor_idx].cids[0] = cc->cid;
+                        ret.status_gw.ep_mount_msite_ret_t_u.export.storage_nodes[stor_idx].sids_nb++;
+
+                        /* Increments the nb. of physical storage nodes */
+                        stor_idx++;
+                    }
+                    exist = 0;
+                }
+            }
+        }
+    }
+
+    ret.status_gw.ep_mount_msite_ret_t_u.export.storage_nodes_nb = stor_idx;
+    ret.status_gw.ep_mount_msite_ret_t_u.export.eid = *eid;
+    ret.status_gw.ep_mount_msite_ret_t_u.export.hash_conf = export_configuration_file_hash;
+    ret.status_gw.ep_mount_msite_ret_t_u.export.bs = exp->bsize;
+    uint32_t eid_slice = (ret.status_gw.ep_mount_msite_ret_t_u.export.eid-1)%EXPORT_SLICE_PROCESS_NB + 1;
+    uint32_t port = rozofs_get_service_port_export_slave_eproto(eid_slice);
+    ret.status_gw.ep_mount_msite_ret_t_u.export.listen_port = port;
+    memcpy(ret.status_gw.ep_mount_msite_ret_t_u.export.md5, exp->md5, ROZOFS_MD5_SIZE);
+    ret.status_gw.ep_mount_msite_ret_t_u.export.rl = exp->layout;
+    memcpy(ret.status_gw.ep_mount_msite_ret_t_u.export.rfid, exp->rfid, sizeof (fid_t));
+
+    if ((errno = pthread_rwlock_unlock(&config_lock)) != 0) {
+        goto error;
+    }
+
+    ret.status_gw.status = EP_SUCCESS;
+
+    goto out;
+error:
+    ret.status_gw.status = EP_FAILURE;
+    ret.status_gw.ep_mount_msite_ret_t_u.error = errno;
 out:
 
     STOP_PROFILING(ep_mount);

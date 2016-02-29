@@ -1125,7 +1125,7 @@ static int load_volumes_conf() {
         ventry = (volume_entry_t *) xmalloc(sizeof (volume_entry_t));
 
         // Initialize the volume
-        volume_initialize(&ventry->volume, vconfig->vid, vconfig->layout,vconfig->georep);
+        volume_initialize(&ventry->volume, vconfig->vid, vconfig->layout,vconfig->georep,vconfig->multi_site);
 
         // For each cluster of this volume
 
@@ -1140,7 +1140,7 @@ static int load_volumes_conf() {
               list_for_each_forward(r, (&cconfig->storages[i])) {
                   storage_node_config_t *sconfig = list_entry(r, storage_node_config_t, list);
                   volume_storage_t *vs = (volume_storage_t *) xmalloc(sizeof (volume_storage_t));
-                  volume_storage_initialize(vs, sconfig->sid, sconfig->host, sconfig->host_rank);
+                  volume_storage_initialize(vs, sconfig->sid, sconfig->host, sconfig->host_rank, sconfig->siteNum);
                   list_push_back((&cluster->storages[i]), &vs->list);
               }
 	    }

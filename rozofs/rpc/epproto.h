@@ -46,6 +46,7 @@ struct epp_sstat_t {
 	uint16_t sid;
 	char host[ROZOFS_HOSTNAME_MAX];
 	uint8_t status;
+	uint8_t site;
 	uint64_t size;
 	uint64_t free;
 };

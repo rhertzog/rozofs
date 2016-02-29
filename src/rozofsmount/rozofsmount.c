@@ -66,6 +66,8 @@
 #define CONNECTION_THREAD_TIMESPEC  2
 
 
+
+
 int rozofs_rotation_read_modulo = 0;
 static char *mountpoint = NULL;
     
@@ -102,6 +104,8 @@ int rozofs_trc_index = 0;
 rozofs_trace_t *rozofs_trc_buffer = NULL;  /**< pointer to the trace buffer */
 int rozofs_xattr_disable = 0; /**< assert to one to disable xattr for the exported file system */
 int rozofs_site_number;  /**< site number for geo-replication */
+
+
 /**______________________________________________________________________________
 */
 /**
@@ -883,11 +887,13 @@ void show_mount(char * argv[], uint32_t tcpRef, void *bufRef) {
 
     char *pChar = uma_dbg_get_buffer();
     
-    pChar += sprintf(pChar, "instance : %d\n",conf.instance);
-    pChar += sprintf(pChar, "mount    : %s\n",mountpoint);
-    pChar += sprintf(pChar, "export   : %s\n",conf.export);
-    pChar += sprintf(pChar, "host     : %s\n",conf.host);
-    pChar += sprintf(pChar, "eid      : %d\n",exportclt.eid);
+    pChar += sprintf(pChar, "instance   : %d\n",conf.instance);
+    pChar += sprintf(pChar, "mount      : %s\n",mountpoint);
+    pChar += sprintf(pChar, "export     : %s\n",conf.export);
+    pChar += sprintf(pChar, "host       : %s\n",conf.host);
+    pChar += sprintf(pChar, "eid        : %d\n",exportclt.eid);
+    pChar += sprintf(pChar, "multi site : %s\n",rozofs_get_msite()?"Yes":"No");
+    pChar += sprintf(pChar, "local site : %d\n",rozofs_site_number);	
     uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
 }
 /*__________________________________________________________________________
@@ -2047,15 +2053,15 @@ int main(int argc, char *argv[]) {
     conf.conf_site_file = rozofs_get_local_site();
     while (1)
     {
-      if ((conf.site == 0) || (conf.site == 1))
+      if (conf.site != -1) 
       {
-	rozofs_site_number = conf.site;
-	break;
+	    rozofs_site_number = conf.site;
+	    break;
       }
       if (conf.conf_site_file < 0)
       {
-	rozofs_site_number = 0;
-	break;
+	    rozofs_site_number = 0;
+	    break;
       }
       rozofs_site_number = conf.conf_site_file;
       break;

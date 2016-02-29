@@ -642,4 +642,5 @@ void rozofs_ll_clear_client_file_lock(int eid, uint64_t client_hash);
 #define ROZOFS_READ_THR_E 0
 #define ROZOFS_WRITE_THR_E 1
 extern rozofs_thr_cnts_t *rozofs_thr_counter[];
+
 #endif

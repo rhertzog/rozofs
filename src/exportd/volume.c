@@ -58,12 +58,13 @@ static int cluster_compare_capacity(list_t *l1, list_t *l2) {
 }
 
 void volume_storage_initialize(volume_storage_t * vs, sid_t sid,
-        const char *hostname, int host_rank) {
+        const char *hostname, uint8_t host_rank, uint8_t siteNum) {
     DEBUG_FUNCTION;
 
     vs->sid = sid;
     strncpy(vs->host, hostname, ROZOFS_HOSTNAME_MAX);
     vs->host_rank = host_rank;
+    vs->siteNum = siteNum;
     vs->stat.free = 0;
     vs->stat.size = 0;
     vs->status = 0;
@@ -101,11 +102,12 @@ void cluster_release(cluster_t *cluster) {
     }
 }
 
-int volume_initialize(volume_t *volume, vid_t vid, uint8_t layout,uint8_t georep) {
+int volume_initialize(volume_t *volume, vid_t vid, uint8_t layout,uint8_t georep,uint8_t multi_site) {
     int status = -1;
     DEBUG_FUNCTION;
     volume->vid = vid;
     volume->georep = georep;
+    volume->multi_site = multi_site;
     volume->balanced = 0; // volume balance not yet called
     volume->layout = layout;
     list_init(&volume->clusters);
@@ -172,6 +174,7 @@ int volume_safe_copy(volume_t *to, volume_t *from) {
     to->vid = from->vid;
     to->layout = from->layout;
     to->georep = from->georep;
+    to->multi_site = from->multi_site;
 
     list_for_each_forward(p, &from->clusters) {
         cluster_t *to_cluster = xmalloc(sizeof (cluster_t));
@@ -184,7 +187,11 @@ int volume_safe_copy(volume_t *to, volume_t *from) {
           list_for_each_forward(q, (&from_cluster->storages[i])) {
               volume_storage_t *from_storage = list_entry(q, volume_storage_t, list);
               volume_storage_t *to_storage = xmalloc(sizeof (volume_storage_t));
-              volume_storage_initialize(to_storage, from_storage->sid, from_storage->host,from_storage->host_rank);
+              volume_storage_initialize(to_storage, 
+	                                from_storage->sid, 
+					from_storage->host,
+					from_storage->host_rank,
+					from_storage->siteNum);
               to_storage->stat = from_storage->stat;
               to_storage->status = from_storage->status;
               list_push_back(&to_cluster->storages[i], &to_storage->list);
@@ -238,7 +245,11 @@ int volume_safe_from_list_copy(volume_t *to, list_t *from) {
           list_for_each_forward(q, (&from_cluster->storages[i])) {
               volume_storage_t *from_storage = list_entry(q, volume_storage_t, list);
               volume_storage_t *to_storage = xmalloc(sizeof (volume_storage_t));
-              volume_storage_initialize(to_storage, from_storage->sid, from_storage->host,from_storage->host_rank);
+              volume_storage_initialize(to_storage, 
+	                                from_storage->sid, 
+					from_storage->host,
+					from_storage->host_rank,
+					from_storage->siteNum);
               to_storage->stat = from_storage->stat;
               to_storage->status = from_storage->status;
               list_push_back(&to_cluster->storages[i], &to_storage->list);
@@ -285,7 +296,11 @@ int volume_safe_to_list_copy(volume_t *from, list_t *to) {
           list_for_each_forward(q, (&from_cluster->storages[i])) {
               volume_storage_t *from_storage = list_entry(q, volume_storage_t, list);
               volume_storage_t *to_storage = xmalloc(sizeof (volume_storage_t));
-              volume_storage_initialize(to_storage, from_storage->sid, from_storage->host,from_storage->host_rank);
+              volume_storage_initialize(to_storage, 
+	                                from_storage->sid, 
+					from_storage->host,
+					from_storage->host_rank,
+					from_storage->siteNum);
               to_storage->stat = from_storage->stat;
               to_storage->status = from_storage->status;
               list_push_back(&to_cluster->storages[i], &to_storage->list);
@@ -471,15 +486,15 @@ out:
 }
 // what if a cluster is < rozofs safe
 
-static int do_cluster_distribute(uint8_t layout,int site_idx, cluster_t *cluster, sid_t *sids) {
+static int do_cluster_distribute(uint8_t layout,int site_idx, cluster_t *cluster, sid_t *sids, uint8_t multi_site) {
   int        idx;
   uint64_t   sid_taken=0;
   uint64_t   taken_bit;  
-  uint64_t   host;
-  uint64_t   host_bit;  
+  uint64_t   location_mask;
+  uint64_t   location_bit;  
   uint8_t    ms_ok = 0;;
   int        nb_selected=0; 
-  int        host_collision; 
+  int        location_collision; 
   int        loop;
   volume_storage_t *selected[ROZOFS_SAFE_MAX];
   volume_storage_t *vs;
@@ -503,9 +518,9 @@ static int do_cluster_distribute(uint8_t layout,int site_idx, cluster_t *cluster
   while (loop < 8) {
     loop++;
 
-    idx  = -1;
-    host = 0;
-    host_collision = 0;
+    idx                = -1;
+    location_mask      = 0;
+    location_collision = 0;
 
     list_for_each_forward(p, pList) {
 
@@ -515,16 +530,21 @@ static int do_cluster_distribute(uint8_t layout,int site_idx, cluster_t *cluster
       /* SID already selected */
       taken_bit = (1ULL<<idx);
       if ((sid_taken & taken_bit)!=0) {
-        //info("%d already taken", idx);
-	continue;
+        //info("idx%d/sid%d already taken", idx, vs->sid);
+	    continue;
       }
 
-      /* One sid already allocated on this host */
-      host_bit = (1ULL<<vs->host_rank);
-      if ((host & host_bit)!=0) {
-	//info("%d host collision %d", idx, vs->host_rank);
-	host_collision++;	    
-	continue;
+      /* 
+      ** In multi site location is the site number.
+      ** else location is the host number within the cluter
+      ** Is there one sid already allocated on this location ?
+      */
+      if (multi_site) location_bit = (1ULL<<vs->siteNum);
+      else            location_bit = (1ULL<<vs->host_rank);
+      if ((location_mask & location_bit)!=0) {
+		//info("idx%d/sid%d location collision %x", idx, vs->sid, location_bit);
+		location_collision++;	    
+		continue;
       }
 
       /* Is there some available space on this server */
@@ -534,21 +554,22 @@ static int do_cluster_distribute(uint8_t layout,int site_idx, cluster_t *cluster
       /*
       ** Take this guy
       */
-      sid_taken |= taken_bit;
-      host      |= host_bit;
+      sid_taken     |= taken_bit;
+      location_mask |= location_bit;
       selected[nb_selected++] = vs;
 
-      //info("idx%d/sid%d is #%d on host %d with status %d", idx, vs->sid, nb_selected, vs->host_rank, vs->status);
+      //info("idx%d/sid%d is #%d selected with location bit %x with status %d", idx, vs->sid, nb_selected, location_bit, vs->status);
 
       /* Enough sid found */
       if (rozofs_safe==nb_selected) {
-	if (ms_ok<rozofs_forward) return -1;
-	goto success;
+		if (ms_ok<rozofs_forward) return -1;
+		//info("selection done");
+		goto success;
       }	  
     }
-    //info("nb_selected %d host_collision %d", nb_selected, host_collision);
+    //info("end loop %d nb_selected %d location_collision %d", loop, nb_selected, location_collision);
     
-    if ((nb_selected+host_collision) < rozofs_safe) return  -1;    
+    if ((nb_selected+location_collision) < rozofs_safe) return  -1;    
   }
   return -1;
   
@@ -708,7 +729,7 @@ int volume_distribute(volume_t *volume,int site_number, cid_t *cid, sid_t *sids)
       cluster_t *next_cluster;
       cluster_t *cluster = list_entry(p, cluster_t, list);
 
-      if (do_cluster_distribute(volume->layout,site_idx, cluster, sids) == 0) {
+      if (do_cluster_distribute(volume->layout,site_idx, cluster, sids,volume->multi_site) == 0) {
 
         *cid = cluster->cid;
         xerrno = 0;

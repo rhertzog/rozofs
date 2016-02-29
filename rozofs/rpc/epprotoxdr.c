@@ -75,6 +75,8 @@ xdr_epp_sstat_t (XDR *xdrs, epp_sstat_t *objp)
 		 return FALSE;
 	 if (!xdr_uint8_t (xdrs, &objp->status))
 		 return FALSE;
+	 if (!xdr_uint8_t (xdrs, &objp->site))
+		 return FALSE;
 	 if (!xdr_uint64_t (xdrs, &objp->size))
 		 return FALSE;
 	 if (!xdr_uint64_t (xdrs, &objp->free))

@@ -118,9 +118,9 @@ uint64_t rozofs_max_getattr_duplicate = 0;
     /*
     ** no error just waiting for the answer: increment the pending counter of getattr
     */
-    ie->pending_getattr_cnt++;
-    if (ie->pending_getattr_cnt > rozofs_max_getattr_pending) rozofs_max_getattr_pending = ie->pending_getattr_cnt;
-    if (ie->pending_getattr_cnt > 1) rozofs_max_getattr_duplicate++;
+    //ie->pending_getattr_cnt++;
+    //if (ie->pending_getattr_cnt > rozofs_max_getattr_pending) rozofs_max_getattr_pending = ie->pending_getattr_cnt;
+    //if (ie->pending_getattr_cnt > 1) rozofs_max_getattr_duplicate++;
     return;
 
 error:
@@ -303,7 +303,7 @@ void rozofs_ll_getattr_cbk(void *this,void *param)
     /*
     ** update the getattr pending count
     */
-    if (ie->pending_getattr_cnt>=0) ie->pending_getattr_cnt--;
+    //if (ie->pending_getattr_cnt>=0) ie->pending_getattr_cnt--;
 
     rz_fuse_reply_attr(req, &stbuf, rozofs_tmr_get(TMR_FUSE_ATTR_CACHE));
     goto out;

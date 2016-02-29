@@ -31,6 +31,7 @@
 typedef struct storage_node_config {
     sid_t sid;
     char host[ROZOFS_HOSTNAME_MAX];
+    uint8_t siteNum; 
     uint8_t host_rank;
     list_t list;
 } storage_node_config_t;
@@ -39,13 +40,15 @@ typedef struct cluster_config {
     cid_t cid;
     list_t storages[ROZOFS_GEOREP_MAX_SITE];
     uint8_t nb_host[ROZOFS_GEOREP_MAX_SITE];
+    uint8_t nb_sites;
     list_t list;
 } cluster_config_t;
 
 typedef struct volume_config {
     vid_t vid;
     uint8_t layout;    
-    uint8_t georep;    
+    uint8_t georep; 
+    uint8_t multi_site;   
     list_t clusters;
     list_t list;
 } volume_config_t;

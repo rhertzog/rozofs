@@ -263,6 +263,27 @@ xdr_epgw_cluster_arg_t (XDR *xdrs, epgw_cluster_arg_t *objp)
 }
 
 bool_t
+xdr_ep_storage_node_msite_t (XDR *xdrs, ep_storage_node_msite_t *objp)
+{
+	//register int32_t *buf;
+
+	//int i;
+	 if (!xdr_ep_host_t (xdrs, objp->host))
+		 return FALSE;
+	 if (!xdr_uint8_t (xdrs, &objp->site))
+		 return FALSE;
+	 if (!xdr_uint8_t (xdrs, &objp->sids_nb))
+		 return FALSE;
+	 if (!xdr_vector (xdrs, (char *)objp->sids, STORAGES_MAX_BY_STORAGE_NODE,
+		sizeof (uint8_t), (xdrproc_t) xdr_uint8_t))
+		 return FALSE;
+	 if (!xdr_vector (xdrs, (char *)objp->cids, STORAGES_MAX_BY_STORAGE_NODE,
+		sizeof (uint16_t), (xdrproc_t) xdr_uint16_t))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
 xdr_ep_storage_node_t (XDR *xdrs, ep_storage_node_t *objp)
 {
 	//register int32_t *buf;
@@ -277,6 +298,36 @@ xdr_ep_storage_node_t (XDR *xdrs, ep_storage_node_t *objp)
 		 return FALSE;
 	 if (!xdr_vector (xdrs, (char *)objp->cids, STORAGES_MAX_BY_STORAGE_NODE,
 		sizeof (uint16_t), (xdrproc_t) xdr_uint16_t))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
+xdr_ep_export_msite_t (XDR *xdrs, ep_export_msite_t *objp)
+{
+	//register int32_t *buf;
+
+	//int i;
+	 if (!xdr_uint32_t (xdrs, &objp->hash_conf))
+		 return FALSE;
+	 if (!xdr_uint32_t (xdrs, &objp->eid))
+		 return FALSE;
+	 if (!xdr_uint32_t (xdrs, &objp->listen_port))
+		 return FALSE;
+	 if (!xdr_ep_md5_t (xdrs, objp->md5))
+		 return FALSE;
+	 if (!xdr_ep_uuid_t (xdrs, objp->rfid))
+		 return FALSE;
+	 if (!xdr_uint8_t (xdrs, &objp->rl))
+		 return FALSE;
+	 if (!xdr_uint8_t (xdrs, &objp->msite))
+		 return FALSE;
+	 if (!xdr_uint32_t (xdrs, &objp->bs))
+		 return FALSE;
+	 if (!xdr_uint8_t (xdrs, &objp->storage_nodes_nb))
+		 return FALSE;
+	 if (!xdr_vector (xdrs, (char *)objp->storage_nodes, STORAGE_NODES_MAX,
+		sizeof (ep_storage_node_msite_t), (xdrproc_t) xdr_ep_storage_node_msite_t))
 		 return FALSE;
 	return TRUE;
 }
@@ -310,6 +361,28 @@ xdr_ep_export_t (XDR *xdrs, ep_export_t *objp)
 }
 
 bool_t
+xdr_ep_mount_msite_ret_t (XDR *xdrs, ep_mount_msite_ret_t *objp)
+{
+	//register int32_t *buf;
+
+	 if (!xdr_ep_status_t (xdrs, &objp->status))
+		 return FALSE;
+	switch (objp->status) {
+	case EP_SUCCESS:
+		 if (!xdr_ep_export_msite_t (xdrs, &objp->ep_mount_msite_ret_t_u.export))
+			 return FALSE;
+		break;
+	case EP_FAILURE:
+		 if (!xdr_int (xdrs, &objp->ep_mount_msite_ret_t_u.error))
+			 return FALSE;
+		break;
+	default:
+		break;
+	}
+	return TRUE;
+}
+
+bool_t
 xdr_ep_mount_ret_t (XDR *xdrs, ep_mount_ret_t *objp)
 {
 	//register int32_t *buf;
@@ -328,6 +401,18 @@ xdr_ep_mount_ret_t (XDR *xdrs, ep_mount_ret_t *objp)
 	default:
 		break;
 	}
+	return TRUE;
+}
+
+bool_t
+xdr_epgw_mount_msite_ret_t (XDR *xdrs, epgw_mount_msite_ret_t *objp)
+{
+	//register int32_t *buf;
+
+	 if (!xdr_ep_gateway_t (xdrs, &objp->hdr))
+		 return FALSE;
+	 if (!xdr_ep_mount_msite_ret_t (xdrs, &objp->status_gw))
+		 return FALSE;
 	return TRUE;
 }
 
@@ -1661,6 +1746,20 @@ xdr_ep_gw_gateway_configuration_ret_t (XDR *xdrs, ep_gw_gateway_configuration_re
 	 if (!xdr_ep_gateway_t (xdrs, &objp->hdr))
 		 return FALSE;
 	 if (!xdr_ep_gateway_configuration_ret_t (xdrs, &objp->status_gw))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
+xdr_epgw_mount_msite_host_arg_t (XDR *xdrs, epgw_mount_msite_host_arg_t *objp)
+{
+	//register int32_t *buf;
+
+	 if (!xdr_ep_gateway_t (xdrs, &objp->hdr))
+		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->eid))
+		 return FALSE;
+	 if (!xdr_int (xdrs, &objp->host_num))
 		 return FALSE;
 	return TRUE;
 }

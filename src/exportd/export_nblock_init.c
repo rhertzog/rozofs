@@ -679,11 +679,13 @@ void show_vstor(char * argv[], uint32_t tcpRef, void *bufRef) {
 
     for (i = 0; i < gprofiler.nb_volumes; i++) {
  
-        pbuf+=sprintf(pbuf, "\n%4s| %-3s | %-3s | %-3s | %s\n","Site","Vid", "Cid", "Sid", "host");
-        pbuf+=sprintf(pbuf, "----+-----+-----+-----+----------------------\n");
+        pbuf+=sprintf(pbuf, "\n%4s | %-3s | %-3s | %-3s | %s\n","Site","Vid", "Cid", "Sid", "host");
+        pbuf+=sprintf(pbuf, "-----+-----+-----+-----+----------------------\n");
         for (j = 0; j < gprofiler.vstats[i].nb_storages; j++) {
-            pbuf+=sprintf(pbuf, " %2d | %3d | %3d | %3d | %s\n", 0,
-                   gprofiler.vstats[i].vid,gprofiler.vstats[i].sstats[j].cid,
+            pbuf+=sprintf(pbuf, " %3d | %3d | %3d | %3d | %s\n", 
+	           gprofiler.vstats[i].sstats[j].site, 
+                   gprofiler.vstats[i].vid,
+		   gprofiler.vstats[i].sstats[j].cid,
                    gprofiler.vstats[i].sstats[j].sid,
                    gprofiler.vstats[i].sstats[j].host);
         }
@@ -691,8 +693,10 @@ void show_vstor(char * argv[], uint32_t tcpRef, void *bufRef) {
         pbuf+=sprintf(pbuf, "----+-----+-----+-----+----------------------\n");
 	  int k = gprofiler.vstats[i].nb_storages;
           for (j = 0; j < gprofiler.vstats[i].nb_storages; j++) {
-            pbuf+=sprintf(pbuf, " %2d | %3d | %3d | %3d | %s\n", 1,
-                   gprofiler.vstats[i].vid,gprofiler.vstats[i].sstats[j+k].cid,
+            pbuf+=sprintf(pbuf, " %2d | %3d | %3d | %3d | %s\n",
+	           gprofiler.vstats[i].sstats[j+k].site,
+                   gprofiler.vstats[i].vid,
+		   gprofiler.vstats[i].sstats[j+k].cid,
                    gprofiler.vstats[i].sstats[j+k].sid,
 		   gprofiler.vstats[i].sstats[j+k].host);
           }

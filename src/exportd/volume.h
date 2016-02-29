@@ -37,6 +37,7 @@ typedef struct volume_storage {
     sid_t sid; ///< storage identifier
     char host[ROZOFS_HOSTNAME_MAX]; ///< storage host name
     uint8_t host_rank;   /// host number within this cluster for quick comparison
+    uint8_t siteNum;     /// Site number where this storage is located
     uint8_t status; ///< status (0 = off line)
     sstat_t stat; ///< storage stat
     list_t list; ///< used to chain storages
@@ -49,7 +50,7 @@ typedef struct volume_storage {
  * @param hostname : hostname to set (memory is copied)
  */
 void volume_storage_initialize(volume_storage_t * vs, sid_t sid,
-        const char *hostname, int hostidx);
+        const char *hostname, uint8_t hostidx, uint8_t siteNum);
 
 /** release a volume storage
  *
@@ -100,8 +101,9 @@ void cluster_release(cluster_t *cluster);
 typedef struct volume {
     vid_t vid; ///< volume identifier
     uint8_t balanced:1; // Whether volume balance has already been called
-    uint8_t layout:7;
-    uint8_t georep; /**< asserted to 1 when geo-replication is enabled */
+    uint8_t layout:6;
+    uint8_t georep:1; /**< asserted to 1 when geo-replication is enabled */
+    uint8_t multi_site:1; /**< asserted to 1 when geo-replication is enabled */ 
     list_t clusters; ///< cluster(s) list
     pthread_rwlock_t lock; ///< lock to be used by export
     /*
@@ -120,7 +122,7 @@ typedef struct volume {
  *
  * @return: 0 on success -1 otherwise (errno is set)
  */
-int volume_initialize(volume_t *volume, vid_t vid, uint8_t layout,uint8_t georep);
+int volume_initialize(volume_t *volume, vid_t vid, uint8_t layout,uint8_t georep,uint8_t multi_site);
 
 /** release a volume
  *

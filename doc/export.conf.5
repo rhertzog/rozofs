@@ -47,22 +47,28 @@ grammar.
        sid: (storage identifier)
                - must be an integer (between 1 and 255).
                - must be unique within a cluster.
-	       
+
        georep: (whether geo-replication must occur on this volume / optional)
                - must be a boolean.
                - Optional field (default value is False).
-	       
+
        host: (IP or hostname of the physical node that contains the storage)
                - must be a valid IPv4 address or a valid hostname.
+               - must only be set in case of a volume without geo-replication.
+
+       site: (site number where the host resides in a multi site configuration)
+               - must be a positive integer.
                - must only be set in case of a volume without geo-replication. 
-	       
+               - Optional field. 
+
        site0: (IP or hostname of the physical node that contains the storage on the main site)
                - must be a valid IPv4 address or a valid hostname.
                - must only be set in case of a volume with geo-replication. 	       
-	       
+
        site1: (IP or hostname of the physical node that contains the storage on the secondary site)
                - must be a valid IPv4 address or a valid hostname.
                - must only be set in case of a volume with geo-replication. 	       
+
 
 .B  WARNING:
    - Use a new cluster when scaling with storage of different capacity.

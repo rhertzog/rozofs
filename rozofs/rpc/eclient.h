@@ -31,6 +31,7 @@
 
 typedef struct mstorage {
     char host[ROZOFS_HOSTNAME_MAX];
+	int  site;
     sclient_t sclients[STORAGE_NODE_PORTS_MAX];
     sid_t sids[STORAGES_MAX_BY_STORAGE_NODE];
     cid_t cids[STORAGES_MAX_BY_STORAGE_NODE];
@@ -131,5 +132,14 @@ int exportclt_open(exportclt_t * clt, fid_t fid);
 
 int exportclt_close(exportclt_t * clt, fid_t fid);
  */
+/**______________________________________________________________________________
+*  Whether it is in multi site mode
+*/
+int rozofs_get_msite(void);
+/**______________________________________________________________________________
+*  Get a storage address from the storage direct access table 
+*/
+mstorage_t * storage_direct_get(cid_t cid, sid_t sid);
+void storage_direct_add(mstorage_t *storage);
 
 #endif

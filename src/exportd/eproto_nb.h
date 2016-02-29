@@ -36,6 +36,7 @@ void ep_poll_conf_1_svc_nb(void * pt, rozorpc_srv_ctx_t *req_ctx_p);
 void ep_conf_storage_1_svc_nb(void * pt, rozorpc_srv_ctx_t *req_ctx_p);
 void ep_conf_expgw_1_svc_nb(void * pt, rozorpc_srv_ctx_t *req_ctx_p);
 void ep_mount_1_svc_nb(void * pt, rozorpc_srv_ctx_t *req_ctx_p);
+void ep_mount_msite_1_svc_nb(void * pt, rozorpc_srv_ctx_t *req_ctx_p);
 void ep_list_cluster_1_svc_nb(void * pt, rozorpc_srv_ctx_t *req_ctx_p);
 void ep_umount_1_svc_nb(void * pt, rozorpc_srv_ctx_t *req_ctx_p);
 void ep_statfs_1_svc_nb(void * pt, rozorpc_srv_ctx_t *req_ctx_p);

@@ -41,6 +41,7 @@
 #define ESIDS       "sids"
 #define ESID	    "sid"
 #define EHOST	    "host"
+#define ESITE       "site" // Optionnal For multi site deployment w/o eplication
 #define EEXPORTS    "exports"
 #define EEID        "eid"
 #define EROOT       "root"
@@ -59,7 +60,7 @@
 #define EGWID     "gwid"
 
 int storage_node_config_initialize(storage_node_config_t *s, uint8_t sid,
-        const char *host) {
+        const char *host, uint8_t siteNum) {
     int status = -1;
 
     DEBUG_FUNCTION;
@@ -71,6 +72,7 @@ int storage_node_config_initialize(storage_node_config_t *s, uint8_t sid,
 
     s->sid = sid;
     strncpy(s->host, host, ROZOFS_HOSTNAME_MAX);
+    s->siteNum = siteNum;
     list_init(&s->list);
 
     status = 0;
@@ -240,6 +242,7 @@ void econfig_release(econfig_t *config) {
 static int load_volumes_conf(econfig_t *ec, struct config_t *config, int elayout) {
     int status = -1, v, c, s;
     struct config_setting_t *volumes_set = NULL;
+    int    multi_site = -1;
 
     DEBUG_FUNCTION;
 
@@ -315,6 +318,7 @@ static int load_volumes_conf(econfig_t *ec, struct config_t *config, int elayout
             severe("can't initialize volume.");
             goto out;
         }
+	vconfig->multi_site = 0;
 
         // Get settings for clusters for this volume
         if ((clu_list_set = config_setting_get_member(vol_set, ECIDS)) == NULL) {
@@ -370,9 +374,9 @@ static int load_volumes_conf(econfig_t *ec, struct config_t *config, int elayout
                 // Check version of libconfig
 #if (((LIBCONFIG_VER_MAJOR == 1) && (LIBCONFIG_VER_MINOR >= 4)) \
                || (LIBCONFIG_VER_MAJOR > 1))
-                int sid;
+                int sid,siteNum;
 #else
-                long int sid;
+                long int sid,siteNum;
 #endif
                 const char *host;
                 storage_node_config_t *snconfig = NULL;
@@ -392,6 +396,49 @@ static int load_volumes_conf(econfig_t *ec, struct config_t *config, int elayout
                              , cluster idx: %d,  storage idx: %d.", v, c, s);
                     goto out;
                 }
+		
+		// Check the multi site case
+		siteNum = -1; // value when no site number defined
+                if (config_setting_lookup_int(mstor_set, ESITE, &siteNum) == CONFIG_FALSE) {
+		
+		   // 1rst sid has no site information 
+		   // This is so not a multi site configuration
+                   if (multi_site == -1) {
+		     multi_site = 0;
+		   }
+		   
+		   // Every sid must be configured without site information
+		   if (multi_site == 1) {
+                     severe("cid %d sid %d has not site number, while other have.",
+			     cid, sid);
+                      goto out;
+		   }   
+                }
+		else {
+		
+		   // 1rst sid has site information 
+		   // This is so a multi site configuration
+                   if (multi_site == -1) {
+		     multi_site = 1;
+		     vconfig->multi_site = 1;
+		     
+		     // Geo replication must not be configured as well
+		     if (vgeorep) {
+                	errno = EINVAL;
+                	severe("cid %d sid %d has a site number, while geo replication is configured",
+			        cid, sid);
+			goto out;		     
+		     }
+		   }
+		   
+		   // Every sid must be configured with site information
+		   if (multi_site == 0) {
+                     severe("cid %d sid %d has a site number, while other have not.",
+			     cid, sid);
+                      goto out;
+		   }   		     
+		}		
+		
                 if (vgeorep == 0)
 		{
                   // Lookup hostname for this storage
@@ -412,7 +459,7 @@ static int load_volumes_conf(econfig_t *ec, struct config_t *config, int elayout
 
                   // Allocate a new storage_config
                   snconfig = (storage_node_config_t *) xmalloc(sizeof (storage_node_config_t));
-                  if (storage_node_config_initialize(snconfig, (uint8_t) sid, host) != 0) {
+                  if (storage_node_config_initialize(snconfig, (uint8_t) sid, host, siteNum) != 0) {
                       severe("can't initialize storage node config.");
 
                   }
@@ -441,7 +488,7 @@ static int load_volumes_conf(econfig_t *ec, struct config_t *config, int elayout
 
                   // Allocate a new storage_config
                   snconfig = (storage_node_config_t *) xmalloc(sizeof (storage_node_config_t));
-                  if (storage_node_config_initialize(snconfig, (uint8_t) sid, host) != 0) {
+                  if (storage_node_config_initialize(snconfig, (uint8_t) sid, host, -1) != 0) {
                       severe("can't initialize storage node config.");
 
                   }
@@ -466,7 +513,7 @@ static int load_volumes_conf(econfig_t *ec, struct config_t *config, int elayout
 
                   // Allocate a new storage_config
                   snconfig = (storage_node_config_t *) xmalloc(sizeof (storage_node_config_t));
-                  if (storage_node_config_initialize(snconfig, (uint8_t) sid, host) != 0) {
+                  if (storage_node_config_initialize(snconfig, (uint8_t) sid, host, -1) != 0) {
                       severe("can't initialize storage node config.");
 
                   }

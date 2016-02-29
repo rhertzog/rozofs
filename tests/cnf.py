@@ -99,9 +99,10 @@ def clusters(clients_nb):
     for c in cnf_clusters:    
       c.add_sid_on_host(s+1,s % rozofs.site_number)
     	  
-  # Create on export for 4K, and one moun point
+  # Create on export for 4K, and one mount point
   e1 = v1.add_export(rozofs.bsize4K())
-  for i in range(1,clients_nb+1): m = e1.add_mount()
+  for i in range(1,clients_nb+1): 
+    m = e1.add_mount((i-1) % rozofs.site_number)
   
 #_____________________________________   
 def layout2_16servers(clients_nb=1):
@@ -194,8 +195,8 @@ nbclusters = 1
 #layout2_16servers()
 
 #__LAYOUT 1__
-layout1_4servers()
-#layout1_8servers(2)
+#layout1_4servers()
+layout1_8servers(rozofs.site_number)
 
 #__LAYOUT 0__
 #layout0_4servers()

@@ -674,10 +674,6 @@ class export_class:
     return "%s/export_%s"%(rozofs.get_config_path(),self.eid)  
      
   def add_mount(self,site=0):
-    if site != 0:
-      if self.volume.georep() != True:
-         print "adding mount point on site 1 for eid %s of volume %s without georeplication"%(self.eid,self.volume.vid)
-	 sys.exit(1)
     m = mount_point_class(self,site)
     self.mount.append(m)
   
@@ -845,7 +841,10 @@ class exportd_class:
 	nexts=" "
 	for s in c.sid:
 	  if len(s.host) == 1 :
-	    print "          %s{sid=%s; host=\"%s\"; site=%s;}"%(nexts,s.sid,s.host[0].addr,s.host[0].site)
+	    if rozofs.site_number == 1:
+  	      print "          %s{sid=%s; host=\"%s\";}"%(nexts,s.sid,s.host[0].addr)	    
+	    else:
+  	      print "          %s{sid=%s; host=\"%s\"; site=%s;}"%(nexts,s.sid,s.host[0].addr,s.host[0].site)
 	  else:
 	    print "          %s{sid=%s; site0=\"%s\"; site1=\"%s\";}"%(nexts,s.sid,s.host[0].addr,s.host[1].addr)
 	  nexts=","

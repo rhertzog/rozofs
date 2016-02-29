@@ -69,7 +69,7 @@ int monitor_volume(volume_t *volume) {
     uint32_t nb_storages = 0;
     int local_site = export_get_local_site_number();
 
-    volume_initialize(&clone, 0, 0,0);
+    volume_initialize(&clone, 0, 0, 0, 0);
     if (volume_safe_copy(&clone, volume) != 0) {
         severe("can't clone volume: %d", volume->vid);
         goto out;
@@ -86,7 +86,8 @@ int monitor_volume(volume_t *volume) {
 
     dprintf(fd, HEADER, VERSION);
     dprintf(fd, "volume: %u\n", clone.vid);
-    dprintf(fd, "georep: %s\n", clone.georep?"YES":"NO");
+    dprintf(fd, "  georep: %s\n", clone.georep?"YES":"NO");
+    dprintf(fd, "  multi site: %s\n", clone.multi_site?"YES":"NO");
 
     //XXX TO CHANGE
     volume_stat(&clone,&vstat);
@@ -94,17 +95,17 @@ int monitor_volume(volume_t *volume) {
     gprofiler.vstats[gprofiler.nb_volumes].bfree = vstat.bfree;
     gprofiler.vstats[gprofiler.nb_volumes].blocks = vstat.blocks;
 
-    dprintf(fd, "bsize: %u\n", vstat.bsize);
-    dprintf(fd, "bfree: %"PRIu64"\n", vstat.bfree);
-    dprintf(fd, "blocks: %"PRIu64"\n", vstat.blocks);
-    dprintf(fd, "nb_clusters: %d\n", list_size(&clone.clusters));
+    dprintf(fd, "  bsize: %u\n", vstat.bsize);
+    dprintf(fd, "  bfree: %"PRIu64"\n", vstat.bfree);
+    dprintf(fd, "  blocks: %"PRIu64"\n", vstat.blocks);
+    dprintf(fd, "  nb_clusters: %d\n", list_size(&clone.clusters));
 
     list_for_each_forward(p, &clone.clusters) {
         cluster_t *cluster = list_entry(p, cluster_t, list);
-        dprintf(fd, "cluster: %u\n", cluster->cid);
-        dprintf(fd, "nb_storages: %d\n", list_size((&cluster->storages[local_site])));
-        dprintf(fd, "size: %"PRIu64"\n", cluster->size);
-        dprintf(fd, "free: %"PRIu64"\n", cluster->free);
+        dprintf(fd, "    cluster: %u\n", cluster->cid);
+        dprintf(fd, "      nb_storages: %d\n", list_size((&cluster->storages[local_site])));
+        dprintf(fd, "      size: %"PRIu64"\n", cluster->size);
+        dprintf(fd, "      free: %"PRIu64"\n", cluster->free);
 
         list_for_each_forward(q, (&cluster->storages[local_site])) {
             volume_storage_t *storage = list_entry(q, volume_storage_t, list);
@@ -115,13 +116,17 @@ int monitor_volume(volume_t *volume) {
 	    strcpy(gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].host,storage->host);
             gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].size = storage->stat.size;
             gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].free = storage->stat.free;
+	    gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].site = storage->siteNum;
             nb_storages++;
 
-            dprintf(fd, "storage: %u\n", storage->sid);
-            dprintf(fd, "host: %s\n", storage->host);
-            dprintf(fd, "status: %u\n", storage->status);
-            dprintf(fd, "size: %"PRIu64"\n", storage->stat.size);
-            dprintf(fd, "free: %"PRIu64"\n", storage->stat.free);
+            dprintf(fd, "        storage: %u\n", storage->sid);
+	    dprintf(fd, "          host: %s\n", storage->host);
+	    if ((clone.georep)||(clone.multi_site)) {
+              dprintf(fd, "          site: %d\n", storage->siteNum);
+	    }  
+            dprintf(fd, "          status: %u\n", storage->status);
+            dprintf(fd, "          size: %"PRIu64"\n", storage->stat.size);
+            dprintf(fd, "          free: %"PRIu64"\n", storage->stat.free);
         }
 
     }
@@ -143,8 +148,15 @@ int monitor_volume(volume_t *volume) {
 	      strcpy(gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].host,storage->host);	      
               gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].size = storage->stat.size;
               gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].free = storage->stat.free;
+	      gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].site = storage->siteNum;
               nb_storages++;
 
+              dprintf(fd, "        storage: %u\n", storage->sid);
+	      dprintf(fd, "          host: %s\n", storage->host);
+              dprintf(fd, "          site: %d\n", storage->siteNum);
+              dprintf(fd, "          status: %u\n", storage->status);
+              dprintf(fd, "          size: %"PRIu64"\n", storage->stat.size);
+              dprintf(fd, "          free: %"PRIu64"\n", storage->stat.free);	      
           }
       }        
     }
@@ -175,7 +187,7 @@ int monitor_volume_slave(volume_t *volume) {
     uint32_t nb_storages = 0;
     int local_site = export_get_local_site_number();
 
-    volume_initialize(&clone, 0, 0,0);
+    volume_initialize(&clone, 0, 0,0,0);
     if (volume_safe_copy(&clone, volume) != 0) {
         severe("can't clone volume: %d", volume->vid);
         goto out;
@@ -202,7 +214,8 @@ int monitor_volume_slave(volume_t *volume) {
             gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].status = storage->status;
             gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].size = storage->stat.size;
             gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].free = storage->stat.free;
-	    strcpy(gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].host,storage->host);	    
+	    strcpy(gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].host,storage->host);
+	    gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].site = storage->siteNum;	    	    
             nb_storages++;
 
        }
@@ -225,7 +238,8 @@ int monitor_volume_slave(volume_t *volume) {
               gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].status = storage->status;
               gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].size = storage->stat.size;
               gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].free = storage->stat.free;
-	      strcpy(gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].host,storage->host);
+ 	      strcpy(gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].host,storage->host);
+	      gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].site = storage->siteNum;	      	      
               nb_storages++;
 
           }
