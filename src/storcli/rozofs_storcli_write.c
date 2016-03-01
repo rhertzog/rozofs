@@ -807,7 +807,7 @@ void rozofs_storcli_write_req_init(uint32_t  socket_ctx_idx, void *recv_buf,rozo
    ** allocate a small buffer that will be used for sending the response to the write request
    */
    working_ctx_p->xmitBuf = ruc_buf_getBuffer(ROZOFS_STORCLI_NORTH_SMALL_POOL);
-   if (working_ctx_p == NULL)
+   if (working_ctx_p->xmitBuf == NULL)
    {
      /*
      ** that situation MUST not occur since there the same number of receive buffer and working context!!
