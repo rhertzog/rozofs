@@ -742,33 +742,33 @@ static int load_exports_conf(econfig_t *ec, struct config_t *config) {
         }
 
         // Default block size is 4K
-	bsize = ROZOFS_BSIZE_4K;
+	    bsize = ROZOFS_BSIZE_4K;
 	
         if (config_setting_lookup_int(mfs_setting, EBSIZE, &bsize) != CONFIG_FALSE) {
 	
-	  // bsize is given as an integer
-	  if ((bsize < ROZOFS_BSIZE_MIN) || (bsize > ROZOFS_BSIZE_MAX)) {
+	      // bsize is given as an integer
+	      if ((bsize < ROZOFS_BSIZE_MIN) || (bsize > ROZOFS_BSIZE_MAX)) {
             errno = EINVAL;
             severe("Block size must be within [%d:%d]", ROZOFS_BSIZE_MIN,ROZOFS_BSIZE_MAX);
             goto out;
           }
-	}
-	else {
-	
-	  // bsize is not int but may be a string
-	  if (config_setting_lookup_string(mfs_setting, EBSIZE, &str) != CONFIG_FALSE) {
-	    
-	    // bsize is given as a string
-	    if      (strcasecmp(str,"4K")==0)  bsize = ROZOFS_BSIZE_4K;
-	    else if (strcasecmp(str,"8K")==0)  bsize = ROZOFS_BSIZE_8K;
-	    else if (strcasecmp(str,"16K")==0) bsize = ROZOFS_BSIZE_16K;
-	    else if (strcasecmp(str,"32K")==0) bsize = ROZOFS_BSIZE_32K;
-	    else {
-              errno = EINVAL;
-              severe("Bad block size %s", str);
-              goto out;             
 	    }
-	  }     
+	    else {
+	
+	      // bsize is not int but may be a string
+	      if (config_setting_lookup_string(mfs_setting, EBSIZE, &str) != CONFIG_FALSE) {
+
+	    	// bsize is given as a string
+	    	if      (strcasecmp(str,"4K")==0)  bsize = ROZOFS_BSIZE_4K;
+	    	else if (strcasecmp(str,"8K")==0)  bsize = ROZOFS_BSIZE_8K;
+	    	else if (strcasecmp(str,"16K")==0) bsize = ROZOFS_BSIZE_16K;
+	    	else if (strcasecmp(str,"32K")==0) bsize = ROZOFS_BSIZE_32K;
+	    	else {
+            	  errno = EINVAL;
+            	  severe("Bad block size %s", str);
+            	  goto out;             
+	    	}
+		  }     
         }
 
 	
@@ -786,42 +786,33 @@ static int load_exports_conf(econfig_t *ec, struct config_t *config) {
             goto out;
         }
 
-        if (config_setting_lookup_string(mfs_setting, EMD5, &md5) == CONFIG_FALSE) {
-            errno = ENOKEY;
-            severe("can't look up md5 for export idx: %d", i);
-            goto out;
+        md5 = "";
+        if (config_setting_lookup_string(mfs_setting, EMD5, &md5) != CONFIG_FALSE) {
+          // Check md5 length
+          if (strlen(md5) > MD5_LEN) {
+              errno = EINVAL;
+              severe("md5 crypt length for export idx: %d must be lower than %d.",
+                      i, MD5_LEN);
+              goto out;
+          }
         }
 
-        // Check md5 length
-        if (strlen(md5) > MD5_LEN) {
-            errno = EINVAL;
-            severe("md5 crypt length for export idx: %d must be lower than %d.",
-                    i, MD5_LEN);
-            goto out;
+        squota = 0;		
+        if (config_setting_lookup_string(mfs_setting, ESQUOTA, &str) != CONFIG_FALSE) {
+          if (strquota_to_nbblocks(str, &squota, bsize) != 0) {
+              severe("%s: can't convert to quota)", str);
+              goto out;
+          }
         }
-
-        if (config_setting_lookup_string(mfs_setting, ESQUOTA, &str) == CONFIG_FALSE) {
-            errno = ENOKEY;
-            severe("can't look up squota for export idx: %d", i);
-            goto out;
+		
+		hquota = 0;
+        if (config_setting_lookup_string(mfs_setting, EHQUOTA, &str) != CONFIG_FALSE) {
+          if (strquota_to_nbblocks(str, &hquota, bsize) != 0) {
+              severe("%s: can't convert to quota)", str);
+              goto out;
+          }
         }
-
-        if (strquota_to_nbblocks(str, &squota, bsize) != 0) {
-            severe("%s: can't convert to quota)", str);
-            goto out;
-        }
-
-        if (config_setting_lookup_string(mfs_setting, EHQUOTA, &str) == CONFIG_FALSE) {
-            errno = ENOKEY;
-            severe("can't look up hquota for export idx: %d", i);
-            goto out;
-        }
-
-        if (strquota_to_nbblocks(str, &hquota, bsize) != 0) {
-            severe("%s: can't convert to quota)", str);
-            goto out;
-        }
-
+		
         // Lookup volume identifier
         if (config_setting_lookup_int(mfs_setting, EVID, &vid) == CONFIG_FALSE) {
             errno = ENOKEY;

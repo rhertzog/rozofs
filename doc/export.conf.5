@@ -109,18 +109,18 @@ grammar.
                            md5 is: md5pass mypass rozofs | cut \-c 11\-
                            that is: AyBvjVmNoKAkLQwNa2c4b0
 
-               - For no authentication use empty md5.
+               - When no authentication this filed may be omitted.
 
        squota: (soft quota)
                - squota stands for soft quota which are non blocking quotas
                  i.e write operations will succeeded but exceeded quotas will
                  be notified in /var/run/exportd/export_[eid] monitoring file.
-               - for no soft quota use empty squota.
+               - when no soft quota this field may be omitted.
 
        hquota: (hard quota)
                - hquota stands for blocking quotas which are blocking quotas
                  i.e every attempt to write beyond hquota will fail (EDQUOT).
-               - for no hard quota use empty hquota.
+               - when no hard quota this field may be omitted.
 
        for squota and hquota:
                - quotas are express in nb. of blocks (no suffix), Kilo, Mega,
