@@ -2466,11 +2466,67 @@ int storage_rm_file(storage_t * st, fid_t fid) {
     }
     return 0;
 } 
+void storage_rm_best_effort(storage_t * st, fid_t fid, uint8_t spare) {
+  char path[FILENAME_MAX];
+  char FID_string[64];
+  int  dev;
+  uint32_t storage_slice;
+  DIR           * dp = NULL;
+  struct dirent   ep;
+  struct dirent * pep;  
+  int             dirfd;
+    
+  /*
+  ** 1rst remove the header files
+  */
+  storage_dev_map_distribution_remove(st, fid, spare);
+
+  storage_slice = rozofs_storage_fid_slice(fid);
+  rozofs_uuid_unparse_no_recycle(fid, FID_string);
+
+  info("storage_rm_best_effort cid %d sid %d slice %d spare %d FID %s", 
+        st->cid, st->sid, storage_slice, spare, FID_string);
+
+  /*
+  ** Now remove the chunks
+  */
+  for (dev=0; dev < st->mapper_redundancy ; dev++) {
+
+    /*
+	** Get the slice path
+	*/
+    storage_build_slice_path(path, st->root, dev, spare, storage_slice);
+
+	dirfd = open(path,O_RDONLY);
+    if (dirfd< 0) {
+	  warning("open(%s) %s",path, strerror(errno));
+	  continue; 
+	}
+		
+	dp = opendir(path);
+	if (dp) {
+	
+	  // Readdir the slice content
+	  while (readdir_r(dp,&ep,&pep) == 0) {
+
+    	// end of directory
+    	if (pep == NULL) break;
+
+    	// Check whether this is the expected file
+    	if (strncmp(pep->d_name,FID_string,36) != 0) continue;
+            
+        unlinkat(dirfd,pep->d_name,0);
+		info("best effort %s%s", path, pep->d_name);
+	  }
+	}
+	closedir(dp);
+	close(dirfd);
+  }    
+}
 int storage_rm2_file(storage_t * st, fid_t fid, uint8_t spare) {
  STORAGE_READ_HDR_RESULT_E read_hdr_res;
  int chunk;
  rozofs_stor_bins_file_hdr_t file_hdr;
-
 
   /*
   ** Let's read the header file 
@@ -2485,9 +2541,12 @@ int storage_rm2_file(storage_t * st, fid_t fid, uint8_t spare) {
 
   if (read_hdr_res == STORAGE_READ_HDR_ERRORS) {
     /*
-    ** Error that prevents the file deletion
-    */
-    return -1;
+    ** No header file is correct
+	** Let's remove the header files.
+	** We should try to remove the chunks if any...
+	*/
+	storage_rm_best_effort(st, fid, spare);
+    return 0;
   }
   
   if (read_hdr_res == STORAGE_READ_HDR_NOT_FOUND) {

@@ -618,6 +618,35 @@ static inline char * storage_build_chunk_path(char * path,
 ** @param spare      Whether this is a path to a spare file
 ** @param slice      the storage slice number
 */
+static inline char * storage_build_slice_path(char * path, 
+                               char * root_path, 
+			       uint32_t device, 
+			       uint8_t spare, 
+			       int     slice) {
+   path += rozofs_string_append(path,root_path);
+   *path++ = '/';
+   path += rozofs_u32_append(path,device);
+   if (spare) {
+     path += rozofs_string_append(path,"/bins_1/");
+   } 
+   else { 
+     path += rozofs_string_append(path,"/bins_0/");
+   }  
+   path += rozofs_u32_append(path,slice);
+   *path++ = '/';
+   *path = 0; 
+   return path;
+}	   
+   
+/*
+** Build a chunk path on storage disk
+**
+** @param path       where to write the path
+** @param root_path  The cid/sid root path
+** @param device     The device to access
+** @param spare      Whether this is a path to a spare file
+** @param slice      the storage slice number
+*/
 static inline char * storage_build_chunk_full_path(char * path, 
                                char * root_path, 
 			       uint32_t device, 
