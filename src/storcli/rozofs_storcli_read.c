@@ -1435,7 +1435,7 @@ void rozofs_storcli_read_req_processing_cbk(void *this,void *param)
          /*
          ** there are no enough valid storages to be able to rebuild the initial message
          */
-         fatal("FDL error on send: EIO returned");
+         severe("FDL error on send: EIO returned");
          STORCLI_ERR_PROF(read_prj_err);       
          error = EIO;
          goto io_error;
