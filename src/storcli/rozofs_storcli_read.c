@@ -530,7 +530,7 @@ void rozofs_storcli_read_req_processing(rozofs_storcli_ctx_t *working_ctx_p)
 	  int         site=0;
 	  mstorage_t *mstor = storage_direct_get(storcli_read_rq_p->cid,storcli_read_rq_p->dist_set[i]);
 	  if (mstor == NULL) {
-	    severe("storage_direct_get(%s,%s)",storcli_read_rq_p->cid,storcli_read_rq_p->dist_set[i]);
+	    severe("storage_direct_get(%d,%d)",(int)storcli_read_rq_p->cid,(int)storcli_read_rq_p->dist_set[i]);
 	  }
 	  else {
 	    site =  mstor->site;   

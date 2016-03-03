@@ -197,7 +197,7 @@ fatal:
  */
 #define CONF_CONNECTION_THREAD_TIMESPEC  120
 
-void *storcli_exportd_config_supervision_thread(void *exportd_context_p) {
+void storcli_exportd_config_supervision_thread(void *exportd_context_p) {
 
  exportclt_t * clt = (exportclt_t*) exportd_context_p;
  ep_gateway_t  arg_poll;
@@ -517,7 +517,7 @@ int exportclt_reload_check_mstorage_msite(epgw_mount_msite_ret_t *ret,exportclt_
 fatal:
     return -1;
 }        
-void *storcli_exportd_config_supervision_thread_msite(void *exportd_context_p) {
+void storcli_exportd_config_supervision_thread_msite(void *exportd_context_p) {
 
  exportclt_t * clt = (exportclt_t*) exportd_context_p;
  ep_gateway_t  arg_poll;
@@ -695,7 +695,8 @@ void *storcli_exportd_config_supervision_thread_common(void *exportd_context_p) 
   if (rozofs_get_msite())
     storcli_exportd_config_supervision_thread_msite(exportd_context_p);
   else
-    storcli_exportd_config_supervision_thread(exportd_context_p);  
+    storcli_exportd_config_supervision_thread(exportd_context_p); 
+  return NULL; 
 }
 /*__________________________________________________________________________
 */

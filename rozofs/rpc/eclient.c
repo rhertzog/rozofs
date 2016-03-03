@@ -81,7 +81,7 @@ void storage_direct_add(mstorage_t *storage) {
 	}
 
 	if (storage_direct[cid] == NULL) {
-      severe("allocation %d",sizeof (storage_table_t));
+      severe("allocation %d",(int)sizeof (storage_table_t));
 	  return;
 	}
 

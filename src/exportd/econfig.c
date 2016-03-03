@@ -410,7 +410,7 @@ static int load_volumes_conf(econfig_t *ec, struct config_t *config, int elayout
 		   // Every sid must be configured without site information
 		   if (multi_site == 1) {
                      severe("cid %d sid %d has not site number, while other have.",
-			     cid, sid);
+			                 (int) cid, (int) sid);
                       goto out;
 		   }   
                 }
@@ -426,7 +426,7 @@ static int load_volumes_conf(econfig_t *ec, struct config_t *config, int elayout
 		     if (vgeorep) {
                 	errno = EINVAL;
                 	severe("cid %d sid %d has a site number, while geo replication is configured",
-			        cid, sid);
+			                (int) cid, (int) sid);
 			goto out;		     
 		     }
 		   }
@@ -434,7 +434,7 @@ static int load_volumes_conf(econfig_t *ec, struct config_t *config, int elayout
 		   // Every sid must be configured with site information
 		   if (multi_site == 0) {
                      severe("cid %d sid %d has a site number, while other have not.",
-			     cid, sid);
+			                 (int) cid, (int) sid);
                       goto out;
 		   }   		     
 		}		
