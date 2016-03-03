@@ -24,6 +24,7 @@
 #include  <sys/mman.h>
 
 #include <rozofs/common/types.h>
+#include <rozofs/common/log.h>
 
 #include "ruc_common.h"
 #include "ruc_buffer.h"
@@ -53,14 +54,14 @@ static inline uint32_t ruc_buf_isPoolEmpty(void * poolRef);
 // 64BITS uint32_t ruc_buf_getBuffer(uint32_t poolRef);
 static inline void * ruc_buf_getBuffer(void * poolRef);
 // 64BITS uint32_t ruc_buf_freeBuffer(uint32_t bufRef);
-static inline uint32_t ruc_buf_freeBuffer(void * bufRef);
+static inline uint32_t ruc_buf_freeBuffer_internal(char * file, int line, void * bufRef);
 
 // 64BITS char * ruc_buf_getPayload(uint32_t bufRef);
-static inline char * ruc_buf_getPayload(void * bufRef);
+static inline char * ruc_buf_getPayload_internal(char * file, int line, void * bufRef);
 // 64BITS uint32_t ruc_buf_getPayloadLen(uint32_t bufRef);
 static inline uint32_t ruc_buf_getPayloadLen(void * bufRef);
 // 64BITS uint32_t ruc_buf_setPayloadLen(uint32_t bufRef,uint32_t len);
-static inline uint32_t ruc_buf_setPayloadLen(void * bufRef,uint32_t len);
+static inline uint32_t ruc_buf_setPayloadLen_internal(char * file, int line, void * bufRef,uint32_t len);
 // 64BITS uint32_t ruc_buf_poolRecover(uint32_t poolRef);
 static inline uint32_t ruc_buf_poolRecover(void * poolRef);
 // 64BITS uint32_t ruc_buf_getFreeBufferCount(uint32_t poolRef);
@@ -366,7 +367,8 @@ static inline void * ruc_buf_getBuffer(void * poolRef)
 
 
 // 64BITS uint32_t ruc_buf_freeBuffer(uint32_t bufRef)
-static inline uint32_t ruc_buf_freeBuffer(void * bufRef)
+#define ruc_buf_freeBuffer(bufRef) ruc_buf_freeBuffer_internal(__FILE__,__LINE__,bufRef)
+static inline uint32_t ruc_buf_freeBuffer_internal(char * file, int line, void * bufRef)
 {
 
   ruc_buf_t *phead;
@@ -379,7 +381,7 @@ static inline uint32_t ruc_buf_freeBuffer(void * bufRef)
   */
   if (pelem->type != BUF_ELEM)
   {
-    RUC_WARNING(pelem->type);
+    warning("%s:%d %p is not a buffer %d", file, line, pelem, pelem->type);
     return RUC_NOK;
   }
   /*
@@ -392,7 +394,7 @@ static inline uint32_t ruc_buf_freeBuffer(void * bufRef)
     /*
     **  not a buffer pool reference
     */
-    RUC_WARNING(-1);
+    warning("%s:%d %p has no head of list %p", file, line, pelem, pelem->obj.sysRef);
     return RUC_NOK;
   }
   /*
@@ -405,7 +407,7 @@ static inline uint32_t ruc_buf_freeBuffer(void * bufRef)
     ** still use it
     */
 //#warning set a syslog on ruc_buf_freeBuffer for inuse > 1
-    RUC_WARNING(pelem->inuse);
+    warning("%s:%d %p is in use %d", file, line, pelem, pelem->inuse);
     return  RUC_OK;
   
   }
@@ -418,7 +420,7 @@ static inline uint32_t ruc_buf_freeBuffer(void * bufRef)
     /*
     ** reject the service
     */
-    RUC_WARNING(pelem);
+    warning("%s:%d %p is already free", file, line, pelem);
     return RUC_NOK;
   }
   /*
@@ -448,7 +450,8 @@ static inline uint32_t ruc_buf_freeBuffer(void * bufRef)
 }
 
 // 64BITS char * ruc_buf_getPayload(uint32_t bufRef)
-static inline char * ruc_buf_getPayload(void * bufRef)
+#define ruc_buf_getPayload(bufRef) ruc_buf_getPayload_internal(__FILE__,__LINE__,bufRef)
+static inline char * ruc_buf_getPayload_internal(char * file, int line, void * bufRef)
 {
   ruc_buf_t *pelem;
 
@@ -459,7 +462,7 @@ static inline char * ruc_buf_getPayload(void * bufRef)
     /*
     ** unlucky guy!!
     */
-    //RUC_WARNING(bufRef);
+    warning("%s:%d %p is not a buffer %d", file, line, pelem, pelem->type);
     return (char*)NULL;
   }
   if (pelem->state != BUF_ALLOC)
@@ -467,7 +470,7 @@ static inline char * ruc_buf_getPayload(void * bufRef)
     /*
     ** unlucky guy!!
     */
-    RUC_WARNING(bufRef);
+    warning("%s:%d %p is not allocated %d", file, line, pelem, pelem->state);
     return (char*)NULL;
   }
 #endif
@@ -535,7 +538,8 @@ static inline uint32_t ruc_buf_getMaxPayloadLen(void * bufRef)
 **__________________________________________________________________________
 */
 // 64BITS uint32_t ruc_buf_setPayloadLen(uint32_t bufRef,uint32_t len)
-static inline uint32_t ruc_buf_setPayloadLen(void * bufRef,uint32_t len)
+#define ruc_buf_setPayloadLen(bufRef, len) ruc_buf_setPayloadLen_internal(__FILE__,__LINE__,bufRef,len)
+static inline uint32_t ruc_buf_setPayloadLen_internal(char * file, int line, void * bufRef,uint32_t len)
 {
   ruc_buf_t *pelem;
 
@@ -547,7 +551,7 @@ static inline uint32_t ruc_buf_setPayloadLen(void * bufRef,uint32_t len)
     /*
     ** unlucky guy!!
     */
-    RUC_WARNING(bufRef);
+    warning("%s:%d %p is not a buffer %d", file, line, pelem, pelem->type);
     return RUC_NOK;
   }
   if (pelem->state != BUF_ALLOC)
@@ -555,7 +559,7 @@ static inline uint32_t ruc_buf_setPayloadLen(void * bufRef,uint32_t len)
     /*
     ** unlucky guy!!
     */
-    RUC_WARNING(bufRef);
+    warning("%s:%d %p is not allocated %d", file, line, pelem, pelem->state);
     return RUC_NOK;
   }
 #endif
@@ -851,7 +855,8 @@ static inline int ruc_buf_inuse_increment(void * bufRef)
   retval >= 0: current inuse value
   retval -1 error
 */
-static inline int ruc_buf_inuse_decrement(void * bufRef)
+#define ruc_buf_inuse_decrement(bufRef) ruc_buf_inuse_decrement_internal(__FILE__,__LINE__,bufRef)
+static inline uint32_t ruc_buf_inuse_decrement_internal(char * file, int line, void * bufRef)
 {
 
   ruc_buf_t *pelem;
@@ -864,7 +869,7 @@ static inline int ruc_buf_inuse_decrement(void * bufRef)
   */
   if (pelem->type != BUF_ELEM)
   {
-    RUC_WARNING(pelem->type);
+    warning("%s:%d %p is not a buffer %d", file, line, pelem, pelem->type);
     return -1;
   }
   /*
@@ -875,13 +880,13 @@ static inline int ruc_buf_inuse_decrement(void * bufRef)
     /*
     ** reject the service
     */
-    RUC_WARNING(pelem);
+    warning("%s:%d %p is not allocated %d", file, line, pelem, pelem->state);
     return -1;
   }  
 #endif
   if (pelem->inuse <= 1)
   {
-    RUC_WARNING(pelem);
+    warning("%s:%d %p in use %d", file, line, pelem, pelem->inuse);
     for(;;);
     return -1;  
   
