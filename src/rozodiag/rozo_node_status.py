@@ -239,6 +239,7 @@ class adaptative_tbl:
                 	
   def display(self):
     # Must we add and end separator ?
+    sys.stdout.write("\r")
     if self.current_row != None: self.end_separator()  
     for row in range(int(self.row_nb)):              
       self.row[row].display(self.column_desc)
@@ -750,7 +751,7 @@ class storcli(rozofs_module):
 class client(rozofs_module):
 
   def __init__(self,port,age):
-    rozofs_module.__init__(self,port,'rozofsmount')          
+    rozofs_module.__init__(self,port,'mount')          
     self.nbstorcli = "?" 
     self.status    = "OK"
     self.eid       = "?"
@@ -914,13 +915,13 @@ def do_execute():
     
   # Check local storage configured in storage.conf
   s = storage(0,0,0)  
-  s.activeAddr = "localhost1" 
+  s.activeAddr = "127.0.0.1" 
   if s.check_storaged() == 0: s.check_storios()
 
   # check local clients from /etc/fstab  
-  test_client(0)
+  #test_client(0)
   #test_client(1)
-  test_client(2)  
+  #test_client(2)  
   with open("/etc/fstab") as f:
     for line in f:
       if len(line.split()) < 3: continue

@@ -238,6 +238,7 @@ class adaptative_tbl:
                 	
   def display(self):
     # Must we add and end separator ?
+    sys.stdout.write("\r")
     if self.current_row != None: self.end_separator()  
     for row in range(int(self.row_nb)):              
       self.row[row].display(self.column_desc)
@@ -849,7 +850,7 @@ class storcli(rozofs_module):
 class client(rozofs_module):
 
   def __init__(self,host,port,age):
-    rozofs_module.__init__(self,host,port,'rozofsmount')          
+    rozofs_module.__init__(self,host,port,'mount')          
     self.nbstorcli = "0" 
     self.status    = "OK"
     self.eid       = "0"
