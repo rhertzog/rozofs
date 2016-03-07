@@ -562,7 +562,10 @@ static int do_cluster_distribute(uint8_t layout,int site_idx, cluster_t *cluster
 
       /* Enough sid found */
       if (rozofs_safe==nb_selected) {
-		if (ms_ok<rozofs_forward) return -1;
+	    if ((common_config.file_distribution_rule != rozofs_file_distribution_strict_round_robin_forward) 
+        &&  (common_config.file_distribution_rule != rozofs_file_distribution_strict_round_robin_inverse)) {
+		  if (ms_ok<rozofs_forward) return -1;
+		}  
 		//info("selection done");
 		goto success;
       }	  
