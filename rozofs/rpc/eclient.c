@@ -37,7 +37,6 @@
  uint32_t exportd_configuration_file_hash = 0; /**< hash value of the configuration file */
 
 static int rozofs_msite = 0;
-static int rozofs_mount_msite_support = 1; // A priori msite mount is supported
 /**______________________________________________________________________________
 *  Re intialize the storage direct access table 
 */
@@ -144,12 +143,11 @@ int exportclt_msite_initialize(exportclt_t * clt, const char *host, char *root,i
     /* Send mount request */
     ret = ep_mount_msite_1(&args, clt->rpcclt.client);
     if (ret == 0) {
-        errno = EPROTO;
+        xerrno = EPROTO;
         goto error;
     }
     if (ret->status_gw.status == EP_FAILURE) {
         xerrno = ret->status_gw.ep_mount_msite_ret_t_u.error;
-		rozofs_mount_msite_support = 0;
 		rozofs_msite = 0;
         goto error;
     }
@@ -209,7 +207,8 @@ error:
     if (clt->root) free(clt->root);
     clt->root = NULL;
     if (clt->passwd) free(clt->passwd);
-    clt->passwd = NULL;    
+    clt->passwd = NULL;  
+
 out:
     if (md5pass)
         free(md5pass);
@@ -233,15 +232,19 @@ int exportclt_initialize(exportclt_t * clt, const char *host, char *root,int sit
 	int xerrno = 0;
     DEBUG_FUNCTION;
 	
-	/*
-	** When Multi site mode, call the right function 
+
+    /*
+	** Try a multi site mount 1rst
 	*/
-	if (rozofs_mount_msite_support) {
-	  status = exportclt_msite_initialize(clt, host, root,site_number,passwd, 
-	                                    bufsize, min_read_size,retries, timeout);
-	  if (rozofs_mount_msite_support) return status;									
-    }
-	
+	status = exportclt_msite_initialize(clt, host, root,site_number,passwd, 
+	                                  bufsize, min_read_size,retries, timeout);		
+	if (status == 0) goto out;									
+
+    /*
+	** Multi site mount failed. Let's try the old mount.
+	*/
+
+    	
     /* Prepare mount request */
     strncpy(clt->host, host, ROZOFS_HOSTNAME_MAX);
     clt->root = strdup(root);
@@ -330,14 +333,6 @@ out:
         xdr_free((xdrproc_t) xdr_epgw_mount_ret_t, (char *) ret);
     rpcclt_release(&clt->rpcclt);
 	
-	/*
-	** Try multi site mount
-	*/
-	if ((status==-1)&&(xerrno == ENOTSUP)) {
-	  rozofs_mount_msite_support = 1;
-	  return exportclt_msite_initialize(clt, host, root,site_number,passwd, 
-	                                bufsize, min_read_size,retries, timeout);		  
-	}
 	errno = xerrno;   
     return status;
 }
