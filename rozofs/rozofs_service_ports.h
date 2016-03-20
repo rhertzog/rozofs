@@ -161,6 +161,14 @@ static inline uint16_t rozofs_get_service_port_geocli_storcli_diag(int idx,int s
 
 */
 
+static inline void show_ip_local_reserved_ports_man(char * pt) {
+  pt += sprintf(pt,"Display the list of TCP listening ports that should be reserved for RozoFS.\n");
+  pt += sprintf(pt,"1rst column : the base port number in use.\n");
+  pt += sprintf(pt,"2nd  column : the number of ports used from the base port number.\n");
+  pt += sprintf(pt,"3rd  column : the default base port number.\n");
+  pt += sprintf(pt,"4th  column : the service name to use in /etc/services to change the base port number.\n");
+  pt += sprintf(pt,"5th  column : the listening port role.\n");  
+}
 static inline int show_ip_local_reserved_ports(char * buf){
   char * pt = buf;
   uint16_t  port[ROZOFS_SERVICE_PORT_MAX];

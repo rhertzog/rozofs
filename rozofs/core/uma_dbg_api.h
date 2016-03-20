@@ -285,8 +285,18 @@ static inline void uma_dbg_send(uint32_t tcpCnxRef, void  *bufRef, uint8_t end, 
  */
  //64BITS typedef void (*uma_dbg_topic_function_t)(char * argv[], uint32_t tcpRef, uint32 bufRef);
 typedef void (*uma_dbg_topic_function_t)(char * argv[], uint32_t tcpRef, void *bufRef);
-void uma_dbg_addTopic_option(char * topic, uma_dbg_topic_function_t funct, uint16_t option);
-#define uma_dbg_addTopic(topic, funct) uma_dbg_addTopic_option(topic, funct, 0);
+typedef void (*uma_dbg_manual_function_t)(char * pt);
+
+
+/*
+** Adding a topic
+*/
+void uma_dbg_addTopicAndMan(char * topic, uma_dbg_topic_function_t funct, uma_dbg_manual_function_t man, uint16_t option);
+// For compatibility with older interface
+#define uma_dbg_addTopic_option(topic, funct, opt) uma_dbg_addTopicAndMan(topic, funct, NULL, opt);
+#define uma_dbg_addTopic(topic, funct) uma_dbg_addTopicAndMan(topic, funct, NULL, 0);
+
+
 void uma_dbg_hide_topic(char * topic);
 void uma_dbg_init(uint32_t nbElements, uint32_t ipAddr, uint16_t serverPort) ;
 //64BITS void uma_dbg_send(uint32_t tcpCnxRef, uint32 bufRef, uint8_t end, char *fmt, ... );

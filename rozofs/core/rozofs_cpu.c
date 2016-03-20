@@ -35,6 +35,9 @@ static uint64_t cpu_frequency=0;
 /*
 **_______________________________________________________________
 */
+void show_cpu_frequency_man(char * pt) {
+  pt += sprintf(pt,"Display the CPU frequency\n");
+}
 void show_cpu_frequency(char * argv[], uint32_t tcpRef, void *bufRef) {
   char *pChar = uma_dbg_get_buffer();
 
@@ -109,7 +112,7 @@ uint64_t rozofs_get_cpu_frequency(void) {
   
   if (cpu_frequency) return cpu_frequency;
   
-  uma_dbg_addTopic("frequency",show_cpu_frequency);
+  uma_dbg_addTopicAndMan("frequency",show_cpu_frequency, show_cpu_frequency_man, 0);
 
   fp = fopen(_PATH_PROC_CPUINFO,"r");
   if (fp == NULL) {

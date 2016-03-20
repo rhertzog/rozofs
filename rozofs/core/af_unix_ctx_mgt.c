@@ -139,6 +139,9 @@ MY_TCP_INFO_T * af_inet_tcp_get_tcp_info(int socket) {
     return &tcp_info_buffer;
 }
 
+void af_inet_tcp_debug_show_man(char * pt) {
+  pt += sprintf(pt,"Display system information about TCP connections.\nVery few of them appear to be relevant !!!\n"); 
+}
 void af_inet_tcp_debug_show(uint32_t tcpRef, void *bufRef) {
     char *buffer = uma_dbg_get_buffer();
     MY_TCP_INFO_T * myp;
@@ -381,6 +384,13 @@ void af_unix_debug_show_no_param(char *pChar) {
   -
   RETURN: none
   ==========================================================================*/
+void af_unix_debug_man(char * pt) {
+  pt += sprintf(pt,"To display information about the TCP connections either on AF_UNIX or AF_INET.\n");
+  pt += sprintf(pt,"af_unix        : display global counters.\n");
+  pt += sprintf(pt,"af_unix first  : display the 1rst context.\n");
+  pt += sprintf(pt,"af_unix next   : display the next context.\n");
+  pt += sprintf(pt,"af_unix <name> : display a context from its name.\n");  
+}
 void af_unix_debug(char * argv[], uint32_t tcpRef, void *bufRef) {
   char *pChar = uma_dbg_get_buffer();
    
@@ -412,9 +422,9 @@ void af_inet_tcp_debug(char * argv[], uint32_t tcpRef, void *bufRef) {
   RETURN: none
   ==========================================================================*/
 void af_unix_debug_init() {
-    uma_dbg_addTopic(af_unix_DEBUG_TOPIC, af_unix_debug);
+    uma_dbg_addTopicAndMan(af_unix_DEBUG_TOPIC, af_unix_debug, af_unix_debug_man, 0);
 
-    uma_dbg_addTopic("tcp_info", af_inet_tcp_debug);
+    uma_dbg_addTopicAndMan("tcp_info", af_inet_tcp_debug, af_inet_tcp_debug_show_man, 0);
 
 }
 

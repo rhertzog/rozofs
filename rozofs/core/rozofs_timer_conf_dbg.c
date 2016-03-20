@@ -30,6 +30,17 @@
 
 /*__________________________________________________________________________
 */
+void dbg_show_tmr_man(char * pt) {
+  pt += sprintf(pt,"Displays the configurable timers.\n");
+  pt += sprintf(pt,"1rst column : the timer name.\n");
+  pt += sprintf(pt,"2nd  column : the timer index.\n");
+  pt += sprintf(pt,"3rd  column : the timer default value.\n");
+  pt += sprintf(pt,"4th  column : the timer minimum value.\n");
+  pt += sprintf(pt,"5th  column : the timer maximum value.\n");
+  pt += sprintf(pt,"6th  column : the timer curent value.\n");
+  pt += sprintf(pt,"7th  column : the timer unit.\n");
+}
+
 void dbg_show_tmr(char * argv[], uint32_t tcpRef, void *bufRef) 
 {
 
@@ -44,7 +55,11 @@ static char * dbg_set_tmr_help(char * pChar) {
   pChar += sprintf(pChar,"tmr_set <num#> <value>   : set timer number <num#> to <value>\n");
   pChar += sprintf(pChar,"tmr_set <name> <value>   : set timer name <name> to <value>\n");  
   return pChar; 
-}  
+} 
+void dbg_set_tmr_man(char * pt) {
+  pt += sprintf(pt,"To modify a configurable timer value.\n");
+  dbg_set_tmr_help(pt);
+} 
 void dbg_set_tmr(char * argv[], uint32_t tcpRef, void *bufRef) 
 {
   char           *pChar=uma_dbg_get_buffer();
@@ -103,7 +118,11 @@ static char * dbg_set_tmr_default_help(char * pChar) {
   pChar += sprintf(pChar,"tmr_default <num#> : set timer number <num#> to its default value\n");
   pChar += sprintf(pChar,"tmr_default <name> : set timer name <name> to itsdefault value\n");  
   return pChar; 
-}  
+} 
+void  dbg_set_tmr_default_man(char * pt) {
+  pt += sprintf(pt,"To reset the configurable timer.\n");
+  dbg_set_tmr_default_help(pt);  
+}
 void dbg_set_tmr_default(char * argv[], uint32_t tcpRef, void *bufRef) 
 {
   char           *pChar=uma_dbg_get_buffer();
@@ -153,7 +172,7 @@ void dbg_set_tmr_default(char * argv[], uint32_t tcpRef, void *bufRef)
 */
 void rozofs_timer_conf_dbg_init()
 {
-  uma_dbg_addTopic("tmr_show", dbg_show_tmr);
-  uma_dbg_addTopic("tmr_set", dbg_set_tmr);
-  uma_dbg_addTopic("tmr_default", dbg_set_tmr_default);
+  uma_dbg_addTopicAndMan("tmr_show", dbg_show_tmr, dbg_show_tmr_man, 0);
+  uma_dbg_addTopicAndMan("tmr_set", dbg_set_tmr, dbg_set_tmr_man, 0);
+  uma_dbg_addTopicAndMan("tmr_default", dbg_set_tmr_default, dbg_set_tmr_default_man, 0);
 }

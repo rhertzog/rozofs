@@ -131,6 +131,10 @@ static char * show_ruc_buffer_debug_help(char * pChar) {
   pChar += sprintf(pChar,"buffer <PoolName> <buffIdx> : display buffer content of a buffer pool\n");
   return pChar; 
 }
+void show_ruc_buffer_debug_man(char * pt) {
+  pt += sprintf(pt , "Display some buffer pool information\n");
+  show_ruc_buffer_debug_help(pt);
+}
 void show_ruc_buffer_debug(char * argv[], uint32_t tcpRef, void *bufRef) {
   ruc_buf_t   * poolRef; 
   char        * pChar = uma_dbg_get_buffer();
@@ -222,7 +226,7 @@ void ruc_buffer_debug_register_pool(char * name , void * poolRef) {
     }
     
     memset(ruc_registered_buffer_pool,0,size);    
-    uma_dbg_addTopic("buffer",  show_ruc_buffer_debug);      
+    uma_dbg_addTopicAndMan("buffer",  show_ruc_buffer_debug, show_ruc_buffer_debug_man, 0);      
   }
   
   idx1 = ruc_registered_buffer_pool_entries / RUC_BUFFER_DEBUG_2ND_ENTRIES_NB;

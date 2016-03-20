@@ -70,8 +70,10 @@ char uma_dbg_syslog_name[128] = {0};
 typedef struct uma_dbg_topic_s {
   char                     * name;
   uint16_t                   option;
-  uint16_t                   len:15;
-  uma_dbg_topic_function_t funct;
+  uint8_t                    len;  
+  uint8_t                    unic;
+  uma_dbg_topic_function_t   funct;
+  uma_dbg_manual_function_t  man;  
 } UMA_DBG_TOPIC_S;
 
 #define UMA_DBG_MAX_TOPIC 128
@@ -106,7 +108,7 @@ char uma_dbg_temporary_buffer[UMA_DBG_MAX_SEND_SIZE];
 
 void uma_dbg_listTopic(uint32_t tcpCnxRef, void *bufRef, char * topic);
 uint32_t uma_dbg_do_not_send = 0;
-
+int      old;
 /*__________________________________________________________________________
  */
 /**
@@ -242,6 +244,11 @@ char * uma_dbg_thread_get_name(pthread_t tid){
 /**
 *  Display whether some syslog exists
 */
+void show_uma_dbg_syslog_man(char * pt) {
+  pt += sprintf(pt,"Check for syslog of this module family of a given severity in\n");
+  pt += sprintf(pt,"/var/log/syslog or /var/log/messages.\n");
+  pt += sprintf(pt,"syslog fatal [nblines]\nsyslog severe [nblines]\nsyslog warning [nblines]\nsyslog info [nblines]\n"); 
+}
 void show_uma_dbg_syslog(char * argv[], uint32_t tcpRef, void *bufRef) {
   int       len;
   char      *p = uma_dbg_get_buffer();
@@ -316,13 +323,16 @@ syntax:
 void uma_dbg_record_syslog_name(char * name) {
   strcpy(uma_dbg_syslog_name,name);
   openlog(uma_dbg_syslog_name, LOG_PID, LOG_DAEMON);
-  uma_dbg_addTopic("syslog",show_uma_dbg_syslog);  
+  uma_dbg_addTopicAndMan("syslog",show_uma_dbg_syslog, show_uma_dbg_syslog_man, 0);  
 }
 /*__________________________________________________________________________
  */
 /**
 *  Display whether some core files exist
 */
+void show_uma_dbg_core_files_man(char * pt) {
+  pt += sprintf(pt,"Check for the presence of a core file under %s\n",uma_dbg_core_file_path);
+}
 void show_uma_dbg_core_files(char * argv[], uint32_t tcpRef, void *bufRef) {
   int    len;
   char  *p;
@@ -344,7 +354,7 @@ void show_uma_dbg_core_files(char * argv[], uint32_t tcpRef, void *bufRef) {
 */
 void uma_dbg_declare_core_dir(char * path) {
   strcpy(uma_dbg_core_file_path,path);
-  uma_dbg_addTopic("core", show_uma_dbg_core_files);  
+  uma_dbg_addTopicAndMan("core", show_uma_dbg_core_files, show_uma_dbg_core_files_man,0);  
 }
 /*__________________________________________________________________________
  */
@@ -415,6 +425,9 @@ void uma_dbg_system_cmd(char * argv[], uint32_t tcpRef, void *bufRef) {
 /**
 *  Display the system name if any has been set thanks to uma_dbg_set_name()
 */
+void uma_dbg_system_ps_man(char * pt) {
+  pt += sprintf(pt,"Display the list of threads of this process.\n");
+}
 void uma_dbg_system_ps(char * argv[], uint32_t tcpRef, void *bufRef) {
   int    len;
   pid_t  pid;
@@ -472,6 +485,9 @@ out:
 /**
 *  Display the system name if any has been set thanks to uma_dbg_set_name()
 */
+void uma_dbg_show_uptime_man(char * pt) {
+  pt += sprintf(pt, "Display the elapsed time since the module start up.\n");
+}
 void uma_dbg_show_uptime(char * argv[], uint32_t tcpRef, void *bufRef) {
     time_t elapse;
     int days, hours, mins, secs;
@@ -502,6 +518,9 @@ void uma_dbg_show_uptime(char * argv[], uint32_t tcpRef, void *bufRef) {
 /**
 *  Display the ports that should be reserved
 */
+void uma_dbg_reserved_ports_man(char * pt) {
+  show_ip_local_reserved_ports_man(pt);
+}
 void uma_dbg_reserved_ports(char * argv[], uint32_t tcpRef, void *bufRef) {
   char * pt = uma_dbg_get_buffer();
   char cmd[512];
@@ -526,8 +545,95 @@ void uma_dbg_reserved_ports(char * argv[], uint32_t tcpRef, void *bufRef) {
 /*__________________________________________________________________________
  */
 /**
+*  Retrieve a topic context from its name or a part of its name
+*/
+int uma_dbg_retrieve_topic(char * topic) {
+  int              length;
+  int              topicNum;
+  int              found=0;
+  int              idx=-1;
+  
+  /* Search exact match in the topic list the one requested */
+  if (topic==NULL) return -1;
+  length = strlen(topic);
+  if (length==0) return -1;  
+  
+  for (topicNum=0; topicNum <uma_dbg_nb_topic; topicNum++) {
+    if (uma_dbg_topic[topicNum].len == length) {        
+      int order = strcasecmp(topic,uma_dbg_topic[topicNum].name);
+      if (order == 0) return topicNum;
+      if (order < 0) break;  
+    }
+  }
+
+  /* Search match on first characters */
+  for (topicNum=0; topicNum <uma_dbg_nb_topic; topicNum++) {
+    if (uma_dbg_topic[topicNum].option & UMA_DBG_OPTION_HIDE) continue;
+    if (uma_dbg_topic[topicNum].len > length) {
+      int order = strncasecmp(topic,uma_dbg_topic[topicNum].name, length);
+      if (order < 0) break; 	
+	  if (order == 0) {
+		found++;
+		idx = topicNum;
+		 /* Several matches Display possibilities */
+		if (found > 1) return -2;
+	  }  
+    }
+  }
+  
+  if (found) return idx;
+    
+  return -1;    		
+}	 
+/*__________________________________________________________________________
+ */
+/**
 *  Display the system name if any has been set thanks to uma_dbg_set_name()
 */
+void uma_dbg_manual_man(char * pt) {  
+  pt += sprintf(pt,"Used to display rozodiag commands manual when one has been written.\n");
+}
+void uma_dbg_manual(char * argv[], uint32_t tcpRef, void *bufRef) {  
+  char * pt = uma_dbg_get_buffer();
+  int    idx;
+
+  if (argv[1] == NULL) {
+    pt += sprintf(pt, "Missing topic name\n");
+    uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
+    return;    
+  }
+
+  idx = uma_dbg_retrieve_topic(argv[1]);
+  if (idx == -1) {
+    pt += sprintf(pt, "Unknown topic\n");
+    uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
+    return;    
+
+  }  
+  if (idx == -2) {
+    uma_dbg_listTopic(tcpRef, bufRef, argv[1]); 
+    return;
+	
+  }  
+  
+  if (uma_dbg_topic[idx].man == NULL) {   
+    pt += sprintf(pt, "No manual for %s\n",uma_dbg_topic[idx].name);
+    uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
+	return;
+  }	
+  
+  pt += sprintf(pt,"manual : %s\n--------------------------------------\n", uma_dbg_topic[idx].name);
+  uma_dbg_topic[idx].man(pt);
+  uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
+}
+/*__________________________________________________________________________
+ */
+/**
+*  Display the system name if any has been set thanks to uma_dbg_set_name()
+*/
+void uma_dbg_show_name_man(char * pt) {  
+  pt += rozofs_string_append(pt,"Display the target system identifier.\n");    
+}
 void uma_dbg_show_name(char * argv[], uint32_t tcpRef, void *bufRef) {  
   char * pt = uma_dbg_get_buffer();
       
@@ -542,12 +648,14 @@ void uma_dbg_show_name(char * argv[], uint32_t tcpRef, void *bufRef) {
     uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
   }
 }
-
 /*__________________________________________________________________________
  */
 /**
 *  Display the version of the library 
 */
+void uma_dbg_show_version_man(char * pt) {  
+  pt += sprintf(pt,"Display the software release version.\n");
+}  
 void uma_dbg_show_version(char * argv[], uint32_t tcpRef, void *bufRef) {  
   char * pt = uma_dbg_get_buffer();
   pt += rozofs_string_append(pt,"version : ");
@@ -558,6 +666,9 @@ void uma_dbg_show_version(char * argv[], uint32_t tcpRef, void *bufRef) {
 /**
 *  Display the version of the library 
 */
+void uma_dbg_show_git_ref_man(char * pt) {  
+  pt += sprintf(pt,"Display the module complete build reference including the git tag.\n");
+} 
 void uma_dbg_show_git_ref(char * argv[], uint32_t tcpRef, void *bufRef) {  
   char * pt = uma_dbg_get_buffer();
   pt += rozofs_string_append(pt,"git : ");
@@ -570,6 +681,19 @@ void uma_dbg_show_git_ref(char * argv[], uint32_t tcpRef, void *bufRef) {
 /**
 *  Reset every resetable command
 */
+void uma_dbg_counters_reset_man(char * pt) {
+  int topicNum;
+  UMA_DBG_TOPIC_S *   p = uma_dbg_topic;
+  
+  pt += sprintf(pt,"CLI used to reset a bunch of counters in a run.\n");
+  pt += sprintf(pt,"Running \"counter reset\" is equivallent to:\n");
+  
+  for (topicNum=0; topicNum <uma_dbg_nb_topic; topicNum++,p++) {
+    if (p->option & UMA_DBG_OPTION_RESET) {
+      pt += sprintf(pt,"  - %s reset\n",p->name);
+    }  
+  }
+}
 void uma_dbg_counters_reset(char * argv[], uint32_t tcpRef, void *bufRef) {
   int topicNum;
   UMA_DBG_TOPIC_S * p;
@@ -804,11 +928,13 @@ UMA_DBG_SESSION_S *uma_dbg_findFromCnxRef(uint32_t ref) {
 **
 **--------------------------------------------------------------------------
 */
-void uma_dbg_insert_topic(int idx, char * topic, uint16_t option, uint16_t length, uma_dbg_topic_function_t funct) {
+void uma_dbg_insert_topic(int idx, char * topic, uint16_t option, uint16_t length, uma_dbg_topic_function_t funct, uma_dbg_manual_function_t man) {
   /* Register the topic */
   uma_dbg_topic[idx].name         = topic;
   uma_dbg_topic[idx].len          = length;
+  uma_dbg_topic[idx].unic         = length;
   uma_dbg_topic[idx].funct        = funct;
+  uma_dbg_topic[idx].man          = man;
   uma_dbg_topic[idx].option       = option;
 }  
 /*
@@ -826,10 +952,26 @@ void uma_dbg_insert_topic(int idx, char * topic, uint16_t option, uint16_t lengt
 **
 **--------------------------------------------------------------------------
 */
-void uma_dbg_addTopic_option(char * topic, uma_dbg_topic_function_t funct, uint16_t option) {
+int uma_dbg_differentiator(char * st1, char * st2) {
+  int res = 1;
+    
+  while(*st1) {		
+    if ((*st1==0) || (*st2==0)) return res;
+    if (*st1!=*st2) return res;
+	res++;
+	st1++;
+	st2++;
+  }
+  return res;
+} 
+void uma_dbg_addTopicAndMan(char                     * topic, 
+                            uma_dbg_topic_function_t   funct,
+							uma_dbg_manual_function_t  man,
+							uint16_t                   option) {
   int    idx,idx2;
   uint16_t length;
   char * my_topic = NULL;
+  int    unic;
 
   if (uma_dbg_topic_initialized == FALSE) {
     /* Reset the topic table */
@@ -837,6 +979,7 @@ void uma_dbg_addTopic_option(char * topic, uma_dbg_topic_function_t funct, uint1
       uma_dbg_topic[idx].len   = 0;
       uma_dbg_topic[idx].name  = NULL;
       uma_dbg_topic[idx].funct = NULL;
+      uma_dbg_topic[idx].man   = NULL;	  
     }
     uma_dbg_topic_initialized = TRUE;
     uma_dbg_nb_topic = 0;
@@ -882,10 +1025,29 @@ void uma_dbg_addTopic_option(char * topic, uma_dbg_topic_function_t funct, uint1
   }
   
   for (idx2 = uma_dbg_nb_topic-1; idx2 >= idx; idx2--) {
-     uma_dbg_insert_topic(idx2+1,uma_dbg_topic[idx2].name,uma_dbg_topic[idx2].option,uma_dbg_topic[idx2].len, uma_dbg_topic[idx2].funct);
+     uma_dbg_insert_topic(idx2+1,uma_dbg_topic[idx2].name,uma_dbg_topic[idx2].option,uma_dbg_topic[idx2].len, uma_dbg_topic[idx2].funct, uma_dbg_topic[idx2].man);
   }
-  uma_dbg_insert_topic(idx,my_topic,option,length, funct);
+  uma_dbg_insert_topic(idx,my_topic,option,length, funct, man);
   uma_dbg_nb_topic++;
+  
+  if (uma_dbg_nb_topic < 3) return; 
+      
+  idx  = 0; 
+  unic = 1;
+  while (idx <uma_dbg_nb_topic-1) {
+    int next;
+	uma_dbg_topic[idx].unic = unic;
+	
+    next = idx+1;	
+	while (uma_dbg_topic[next].option & UMA_DBG_OPTION_HIDE) next++;
+
+    unic = uma_dbg_differentiator(uma_dbg_topic[idx].name,uma_dbg_topic[next].name);
+	if (unic>uma_dbg_topic[idx].unic) uma_dbg_topic[idx].unic = unic;
+	if (uma_dbg_topic[idx].unic>uma_dbg_topic[idx].len) uma_dbg_topic[idx].unic = uma_dbg_topic[idx].len;
+	idx = next;
+  }
+  uma_dbg_topic[idx].unic = unic;	  
+
 }
 /*-----------------------------------------------------------------------------
 **
@@ -898,11 +1060,45 @@ void uma_dbg_addTopic_option(char * topic, uma_dbg_topic_function_t funct, uint1
 **----------------------------------------------------------------------------
 */
 //64BITS void uma_dbg_listTopic(uint32_t tcpCnxRef, uint32 bufRef, char * topic)
+int uma_dbg_display_new_topic(int topicNum, char * pt) {
+  char *p = pt;
+  int             nbc;             
+
+  if (uma_dbg_topic[topicNum].man == NULL) {
+    p += rozofs_string_append(p,"   ");
+  }	
+  else {	    
+    p += rozofs_string_append(p,"m  ");
+  }	
+
+  for (nbc=0; nbc<uma_dbg_topic[topicNum].unic; nbc++) {
+	*p++ = uma_dbg_topic[topicNum].name[nbc];
+  }
+
+  if (uma_dbg_topic[topicNum].len>uma_dbg_topic[topicNum].unic) {
+	*p++='(';
+
+	for ( ;nbc<uma_dbg_topic[topicNum].len; nbc++) {
+	  *p++ = uma_dbg_topic[topicNum].name[nbc];
+	}
+	*p++=')';
+  }	
+  p += rozofs_eol(p);
+  return p-pt;
+}
+int uma_dbg_display_old_topic(int topicNum, char * pt) {
+  char *p = pt;
+
+  p += rozofs_string_append(p,"   ");
+  p += rozofs_string_append(p,uma_dbg_topic[topicNum].name); 
+  p += rozofs_eol(p);
+  return p-pt;
+}
 void uma_dbg_listTopic(uint32_t tcpCnxRef, void *bufRef, char * topic) {
   UMA_MSGHEADER_S *pHead;
   char            *p;
   uint32_t           idx,topicNum;
-  int             len=0;               
+  int             len=0;  
 
   /* Retrieve the buffer payload */
   if ((pHead = (UMA_MSGHEADER_S *)ruc_buf_getPayload(bufRef)) == NULL) {
@@ -930,17 +1126,11 @@ void uma_dbg_listTopic(uint32_t tcpCnxRef, void *bufRef, char * topic) {
   for (topicNum=0; topicNum <uma_dbg_nb_topic; topicNum++) {
   
     if (uma_dbg_topic[topicNum].option & UMA_DBG_OPTION_HIDE) continue;
-  
-    if (len == 0) {
-      idx += rozofs_string_append(&p[idx],"  ");
-      idx += rozofs_string_append(&p[idx],uma_dbg_topic[topicNum].name);
-      idx += rozofs_eol(&p[idx]);
+
+    if ((len == 0)||(strncmp(topic,uma_dbg_topic[topicNum].name, len) == 0)) {
+	  if (old) idx += uma_dbg_display_old_topic(topicNum, &p[idx]);
+	  else     idx += uma_dbg_display_new_topic(topicNum, &p[idx]);
     }
-    else if (strncmp(topic,uma_dbg_topic[topicNum].name, len) == 0) {
-      idx += rozofs_string_append(&p[idx],"  ");
-      idx += rozofs_string_append(&p[idx],uma_dbg_topic[topicNum].name);
-      idx += rozofs_eol(&p[idx]);     
-    }  
   }
   if (len == 0) idx += rozofs_string_append(&p[idx],"  exit / quit / q\n");
 
@@ -976,11 +1166,8 @@ void uma_dbg_listTopic(uint32_t tcpCnxRef, void *bufRef, char * topic) {
 void uma_dbg_receive_CBK(void *opaque,uint32_t tcpCnxRef,void *bufRef) {
   int              topicNum;
   char           * pBuf, * pArg;
-  uint16_t           length;
   uint32_t           argc;
-  uint32_t           found=0;
   UMA_MSGHEADER_S *pHead;
-  uint32_t           idx;
   UMA_DBG_SESSION_S * p;
   int                 replay=0;
 
@@ -1012,6 +1199,7 @@ void uma_dbg_receive_CBK(void *opaque,uint32_t tcpCnxRef,void *bufRef) {
     return;
   }
 
+
   /* Scan the command line */
   argc = 0;
   pBuf = (char*)(pHead+1);
@@ -1022,6 +1210,13 @@ void uma_dbg_receive_CBK(void *opaque,uint32_t tcpCnxRef,void *bufRef) {
     pBuf = p->last_valid_command;
     replay = 1;
   }
+  
+  if (*pBuf == 0) {
+    old=1;
+    uma_dbg_listTopic(tcpCnxRef, bufRef, NULL);
+  }
+  old=0;
+  
   /*
   ** save the current received command
   */
@@ -1042,7 +1237,7 @@ void uma_dbg_receive_CBK(void *opaque,uint32_t tcpCnxRef,void *bufRef) {
   }
 
   /* Set to NULL parameter number not filled in the command line */
-  for (idx=argc; idx < MAX_ARG; idx++) p->argv[idx] = NULL;
+  for (topicNum=argc; topicNum < MAX_ARG; topicNum++) p->argv[topicNum] = NULL;
 
   /* No topic */
   if (argc == 0) {
@@ -1051,48 +1246,15 @@ void uma_dbg_receive_CBK(void *opaque,uint32_t tcpCnxRef,void *bufRef) {
   }
 
   /* Search exact match in the topic list the one requested */
-  length = strlen(p->argv[0]);
-  for (topicNum=0; topicNum <uma_dbg_nb_topic; topicNum++) {
-    if (uma_dbg_topic[topicNum].len == length) {
-        
-      int order = strcasecmp(p->argv[0],uma_dbg_topic[topicNum].name);
-      
-      if (order == 0) {
-	found = 1;
-	idx = topicNum;	
-	break;
-      }
-      if (order < 0) break;  
-    }
-  }
-
-  /* Search match on first characters */
-  if (found == 0) {
-    for (topicNum=0; topicNum <uma_dbg_nb_topic; topicNum++) {
-      if (uma_dbg_topic[topicNum].option & UMA_DBG_OPTION_HIDE) continue;
-      if (uma_dbg_topic[topicNum].len > length) {
-        int order = strncasecmp(p->argv[0],uma_dbg_topic[topicNum].name, length);
-        if (order < 0) break;  	
-	if (order == 0) {
-	  found++;
-	  idx = topicNum;
-	   /* Several matches Display possibilities */
-	  if (found > 1) {
-            uma_dbg_listTopic(tcpCnxRef, bufRef, p->argv[0]);  
-            return; 	  
-	  }
-	}  
-      }	 
-    } 
-  }
-
-  /* No such command. List everything */
-  if (found == 0) {
-    uma_dbg_listTopic(tcpCnxRef, bufRef, NULL);  
-    return;  
-  }
-  
-  
+  topicNum = uma_dbg_retrieve_topic(p->argv[0]);
+  if (topicNum == -1) {
+    uma_dbg_listTopic(tcpCnxRef, bufRef, NULL); 
+    return;
+  }  
+  if (topicNum == -2) {
+    uma_dbg_listTopic(tcpCnxRef, bufRef, p->argv[0]); 
+    return;
+  }    
   /* We have found one command */
 
   /* Save this existing command for later replay */
@@ -1100,7 +1262,7 @@ void uma_dbg_receive_CBK(void *opaque,uint32_t tcpCnxRef,void *bufRef) {
     strcpy(p->last_valid_command,(char*)(pHead+1));
   } 
   
-  uma_dbg_topic[idx].funct(p->argv,tcpCnxRef,bufRef);
+  uma_dbg_topic[topicNum].funct(p->argv,tcpCnxRef,bufRef);
 }
 /*
 **--------------------------------------------------------------------------
@@ -1117,11 +1279,9 @@ void uma_dbg_receive_CBK(void *opaque,uint32_t tcpCnxRef,void *bufRef) {
 **--------------------------------------------------------------------------
 */
 void uma_dbg_process_command_file(char * command_file_name) {
-  int                 topicNum;
   char              * pBuf, * pArg;
   size_t              length;
   uint32_t            argc;
-  uint32_t            found=0;
   UMA_MSGHEADER_S   * pHead;
   uint32_t            idx;
   UMA_DBG_SESSION_S * p;
@@ -1230,48 +1390,11 @@ void uma_dbg_process_command_file(char * command_file_name) {
 
 
     /* Search exact match in the topic list the one requested */
-    length = strlen(p->argv[0]);
-    for (topicNum=0; topicNum <uma_dbg_nb_topic; topicNum++) {
-      if (uma_dbg_topic[topicNum].len == length) {        
-        int order = strcasecmp(p->argv[0],uma_dbg_topic[topicNum].name);
-
-	if (order == 0) {
-	  found = 1;
-	  idx = topicNum;	
-	  break;
-	}
-	if (order < 0) break;  
-      }
-    }
-
-    /* Search match on first characters */
-    if (found == 0) {
-      for (topicNum=0; topicNum <uma_dbg_nb_topic; topicNum++) {
-	if (uma_dbg_topic[topicNum].option & UMA_DBG_OPTION_HIDE) continue;
-	if (uma_dbg_topic[topicNum].len > length) {
-          int order = strncasecmp(p->argv[0],uma_dbg_topic[topicNum].name, length);
-          if (order < 0) break;  	
-	  if (order == 0) {
-	    found++;
-	    idx = topicNum;
-	     /* Several matches Display possibilities */
-	    if (found > 1) {
-              severe("command \"%s\" matches several possibilities in %s", p->argv[0], command_file_name);
-	      break; 	  
-	    }
-	  }  
-	}	 
-      } 
-    }
-    
-    /*
-    ** Command not found or too much match
-    */
-    if (found == 0) {
+	idx = uma_dbg_retrieve_topic(p->argv[0]);
+    if (idx < 0) {
       severe("No such rozodiag command \"%s\" in %s",p->argv[0],command_file_name);
       continue;
     }
-    if (found != 1) continue;
   
     /*
     ** Run the command
@@ -1490,14 +1613,15 @@ void uma_dbg_init(uint32_t nbElements,uint32_t ipAddr, uint16_t serverPort) {
   }
   ruc_listHdrInit(&uma_dbg_activeList->link);
   
-  uma_dbg_addTopic("who", uma_dbg_show_name);
-  uma_dbg_addTopic("uptime", uma_dbg_show_uptime);
-  uma_dbg_addTopic("version", uma_dbg_show_version);
-  uma_dbg_addTopic("git",uma_dbg_show_git_ref);
+  uma_dbg_addTopicAndMan("who", uma_dbg_show_name, uma_dbg_show_name_man, 0);
+  uma_dbg_addTopicAndMan("uptime", uma_dbg_show_uptime,uma_dbg_show_uptime_man,0);
+  uma_dbg_addTopicAndMan("version", uma_dbg_show_version,uma_dbg_show_version_man,0);
+  uma_dbg_addTopicAndMan("git",uma_dbg_show_git_ref, uma_dbg_show_git_ref_man, 0);
   uma_dbg_addTopic_option("system", uma_dbg_system_cmd, UMA_DBG_OPTION_HIDE); 
-  uma_dbg_addTopic("ps", uma_dbg_system_ps);
-  uma_dbg_addTopic("reserved_ports", uma_dbg_reserved_ports);
-  uma_dbg_addTopic("counters", uma_dbg_counters_reset);
+  uma_dbg_addTopicAndMan("ps", uma_dbg_system_ps,uma_dbg_system_ps_man,0);
+  uma_dbg_addTopicAndMan("reserved_ports", uma_dbg_reserved_ports, uma_dbg_reserved_ports_man, 0);
+  uma_dbg_addTopicAndMan("counters", uma_dbg_counters_reset, uma_dbg_counters_reset_man, 0);
+  uma_dbg_addTopicAndMan("manual", uma_dbg_manual, uma_dbg_manual_man, 0);
 }
 /*
 **-------------------------------------------------------

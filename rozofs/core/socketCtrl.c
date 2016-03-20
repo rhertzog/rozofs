@@ -263,6 +263,20 @@ void ruc_sockCtrl_ctx_show(uint32_t tcpRef, void * bufRef) {
   - 
   RETURN: none
   ==========================================================================*/
+void ruc_sockCtrl_debug_man(char * pt) {
+  pt += sprintf(pt,"Display the socket controller statistics.\n");
+  pt += sprintf(pt,"This provides for each listening socket the following information:\n");
+  pt += sprintf(pt,"- socket name.\n");
+  pt += sprintf(pt,"- linux socket id.\n");
+  pt += sprintf(pt,"- cpu time consumed on last call.\n");
+  pt += sprintf(pt,"- total time consumed.\n");
+  pt += sprintf(pt,"- total number of call.\n");
+  pt += sprintf(pt,"- average cpu time consumed.\n");
+  pt += sprintf(pt,"- priority\n");
+  pt += sprintf(pt,"The time is given in micro seconds.\n");  
+  pt += sprintf(pt,"The counters are reset on each call to cpu command.\n");
+}
+
 void ruc_sockCtrl_debug_show(uint32_t tcpRef, void * bufRef) {
   ruc_sockObj_t     *p;
   int                i;
@@ -529,7 +543,7 @@ void ruc_sockCtrl_show_select_stats(char * argv[], uint32_t tcpRef, void * bufRe
   RETURN: none
   ==========================================================================*/
 void ruc_sockCtrl_debug_init() {
-  uma_dbg_addTopic_option(RUC_SOCKCTRL_DEBUG_TOPIC, ruc_sockCtrl_debug,UMA_DBG_OPTION_RESET); 
+  uma_dbg_addTopicAndMan(RUC_SOCKCTRL_DEBUG_TOPIC, ruc_sockCtrl_debug,ruc_sockCtrl_debug_man,UMA_DBG_OPTION_RESET); 
   uma_dbg_addTopic(RUC_SOCKCTRL_CTX_TOPIC, ruc_sockCtrl_ctx); 
   uma_dbg_addTopic("sockctrl", ruc_sockCtrl_conf); 
   uma_dbg_addTopic_option("select_stats", ruc_sockCtrl_show_select_stats,UMA_DBG_OPTION_RESET); 
