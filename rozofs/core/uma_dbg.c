@@ -1214,6 +1214,7 @@ void uma_dbg_receive_CBK(void *opaque,uint32_t tcpCnxRef,void *bufRef) {
   if (*pBuf == 0) {
     old=1;
     uma_dbg_listTopic(tcpCnxRef, bufRef, NULL);
+	return;
   }
   old=0;
   
