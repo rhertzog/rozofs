@@ -137,12 +137,13 @@ void daemon_start(char * path, int nbCoreFiles, const char *name, void (*on_star
     if (write_pid(name) != 0) {
         fatal("write_pid failed: %s", strerror(errno));
         return;
-    }    
-    rozofs_attach_crash_cbk(remove_pid_file);
-          
+    }
+
     if (on_stop) rozofs_attach_crash_cbk((rozofs_attach_crash_cbk_t)on_stop);
     if (on_hup)  rozofs_attach_hgup_cbk((rozofs_attach_crash_cbk_t)on_hup);
     
+    rozofs_attach_crash_cbk(remove_pid_file);
+
     on_start();
 }
 
