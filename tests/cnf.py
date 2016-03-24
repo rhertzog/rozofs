@@ -3,6 +3,8 @@
 cnf_clusters=[]
 global layout
 global nbclusters
+global clients_nb
+
 #_____________________________________
 def layout1_4servers():
   global layout
@@ -80,51 +82,56 @@ def layout2_8servers():
   # Create on export for 4K, and one moun point
   e1 = v1.add_export(rozofs.bsize4K())
   m1 = e1.add_mount()    
+
 #_____________________________________ 
-def clusters(clients_nb):
+def createNbSids(nbSid):
   global layout
   global nbclusters
+  global clients_nb
   
   # Create a volume
   v1 = volume_class(layout,rozofs.failures(layout))
 
-  # Create 2 clusters on this volume
-  for i in range(nbclusters):    
+  # Create clusters on this volume
+  for i in range(nbclusters):
     c = v1.add_cid(devices,mapper,redundancy)  
     cnf_clusters.append(c)
 
-  # Create the required number of sid on each cluster
-  # The 2 clusters use the same host for a given sid number
-  for s in range(rozofs.min_sid(layout)):
-    for c in cnf_clusters:    
-      c.add_sid_on_host(s+1,s % rozofs.site_number)
-    	  
+    # Create the required number of sid on each cluster
+    # The 2 clusters use the same host for a given sid number
+    for s in range(nbSid):
+	  c.add_sid_on_host(s+1,s % rozofs.site_number)
+
   # Create on export for 4K, and one mount point
   e1 = v1.add_export(rozofs.bsize4K())
+  
   for i in range(1,clients_nb+1): 
     m = e1.add_mount((i-1) % rozofs.site_number)
-  
-#_____________________________________   
-def layout2_16servers(clients_nb=1):
-  global layout
-  layout = rozofs.layout_8_12_16()
-  clusters(clients_nb)
-#_____________________________________   
-def layout1_8servers(clients_nb=1):
-  global layout
-  layout = rozofs.layout_4_6_8()
-  clusters(clients_nb)
-#_____________________________________ 
-def layout0_4servers(clients_nb=1):
-  global layout
-  layout = rozofs.layout_2_3_4()
-  clusters(clients_nb)
 
+#_____________________________________ 
+def layout0nbSids(nbSid):
+  global layout
+
+  layout = rozofs.layout_2_3_4()
+  createNbSids(nbSid)
+#_____________________________________ 
+def layout1nbSids(nbSid):
+  global layout
+
+  layout = rozofs.layout_4_6_8()
+  createNbSids(nbSid)
+
+#_____________________________________ 
+def layout2nbSids(nbSid):
+  global layout
+
+  layout = rozofs.layout_8_12_16()
+  createNbSids(nbSid)
 
 #_____________________________________ 
 
 # Number of sites
-rozofs.set_site_number(4)
+#rozofs.set_site_number(4)
 
 #rozofs.set_trace()
 
@@ -138,7 +145,7 @@ rozofs.set_alloc_mb(0);
 #--------------STORIO GENERAL
 
 # Set original RozoFS file distribution
-rozofs.set_file_distribution(3)
+rozofs.set_file_distribution(2)
 
 # Set single storio mode
 # rozofs.storio_mode_single()
@@ -187,20 +194,24 @@ rozofs.set_self_healing(1)
 devices    = 4
 mapper     = 2
 redundancy = 2
-nbclusters = 1
 
-#__LAYOUT 2__
+
+# Nb cluster per volume
+nbclusters = 2
+
+# default is to have one mount point per site
+clients_nb = rozofs.site_number
+
+
+#__Specific layout with small number of server
 #layout2_4servers()
 #layout2_8servers()
-#layout2_16servers()
-
-#__LAYOUT 1__
 #layout1_4servers()
-layout1_8servers(rozofs.site_number)
 
-#__LAYOUT 0__
-#layout0_4servers()
-
+#__Choose a layout as well as a number of server__
+#layout0nbSids(4)
+layout1nbSids(8)
+#layout2nbSids(16)
 
 # Set host 1 faulty
 #h1 = host_class.get_host(1)

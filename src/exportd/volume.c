@@ -68,6 +68,10 @@ void volume_storage_initialize(volume_storage_t * vs, sid_t sid,
     vs->stat.free = 0;
     vs->stat.size = 0;
     vs->status = 0;
+    vs->inverseCounter = 0; // Nb selection in the 1rst inverse SID
+    vs->forwardCounter = 0; // Nb selection in the 1rst forward SID
+    vs->spareCounter   = 0; // Nb selection as a spare SID
+
     list_init(&vs->list);
 }
 
@@ -322,7 +326,7 @@ error:
 
 }
 uint8_t export_rotate_sid[ROZOFS_CLUSTERS_MAX] = {0};
-
+  
 void volume_balance(volume_t *volume) {
     list_t *p, *q;
     list_t   * pList;
@@ -441,22 +445,27 @@ void volume_balance(volume_t *volume) {
     /* 
     ** Order the storages in the clusters, and then the cluster
     */
-    list_for_each_forward(p, pList) {
-        cluster_t *cluster = list_entry(p, cluster_t, list);
-	export_rotate_sid[cluster->cid] = 0;
-        list_sort((&cluster->storages[local_site]), volume_storage_compare);
-    }
-    list_sort(pList, cluster_compare_capacity);
-    
-    if (volume->georep)
-    {
-      /*
-      ** do it also for the remote site
-      */
+    if ((common_config.file_distribution_rule == rozofs_file_distribution_size_balancing)
+	||  (common_config.file_distribution_rule == rozofs_file_distribution_weigthed_round_robin)) {
+	
+	
       list_for_each_forward(p, pList) {
-          cluster_t *cluster = list_entry(p, cluster_t, list);
-          list_sort((&cluster->storages[local_site]), volume_storage_compare);
+	  
+        cluster_t *cluster = list_entry(p, cluster_t, list);
+        export_rotate_sid[cluster->cid] = 0;
+		
+        list_sort((&cluster->storages[local_site]), volume_storage_compare);
+
+	    if (volume->georep) {
+    	  /*
+    	  ** do it also for the remote site
+    	  */
+          list_sort((&cluster->storages[1-local_site]), volume_storage_compare);
+    	}
       }
+	  
+	  
+      list_sort(pList, cluster_compare_capacity);
     }
     
     
@@ -464,7 +473,7 @@ void volume_balance(volume_t *volume) {
     if (volume_safe_from_list_copy(volume,pList) != 0) {
         severe("can't volume_safe_from_list_copy: %u %s", volume->vid,strerror(errno));
         goto out;
-    }  
+    }
 
 
     /*
@@ -484,9 +493,428 @@ swap:
 out:
     STOP_PROFILING_0(volume_balance);
 }
-// what if a cluster is < rozofs safe
+/*
+** Some usefull function to sort a list of storage node context
+** depending on some criteria
+** Either inverseCounter or forwardCounter or spareCounter
+*/
+int compareInverse(list_t * a, list_t * b) {
+  volume_storage_t  * A = list_entry(a, volume_storage_t, list);
+  volume_storage_t  * B = list_entry(b, volume_storage_t, list);
 
-static int do_cluster_distribute(uint8_t layout,int site_idx, cluster_t *cluster, sid_t *sids, uint8_t multi_site) {
+//  if (A->inverseCounter == B->inverseCounter) return (A->forwardCounter - B->forwardCounter);
+  return (A->inverseCounter - B->inverseCounter);  
+}
+int compareForward(list_t * a, list_t * b) {
+  volume_storage_t  * A = list_entry(a, volume_storage_t, list);
+  volume_storage_t  * B = list_entry(b, volume_storage_t, list);
+
+  return (A->forwardCounter - B->forwardCounter); 
+}
+int compareSpare(list_t * a, list_t * b) {
+  volume_storage_t  * A = list_entry(a, volume_storage_t, list);
+  volume_storage_t  * B = list_entry(b, volume_storage_t, list);
+  
+  return A->spareCounter - B->spareCounter;  
+}
+void do_reorderInverse(list_t * l) {
+  list_sort(l, compareInverse);
+}
+void  do_reorderForward(list_t * l) {
+  list_sort(l, compareForward);
+}  
+void  do_reorderSpare(list_t * l) {
+  list_sort(l, compareSpare);
+}
+
+// what if a cluster is < rozofs safe
+#define DISTTRACE 
+static int do_cluster_distribute_strict_round_robin(uint8_t layout,int site_idx, cluster_t *cluster, sid_t *sids, uint8_t multi_site) {
+  int        nb_selected=0; 
+  int        location_collision = 0; 
+  int        location_bit;
+  int        loop;
+  volume_storage_t *vs;
+  list_t           *pList = &cluster->storages[site_idx];
+  list_t           *p;
+  int               sid;
+
+  uint8_t rozofs_inverse=0; 
+  uint8_t rozofs_forward=0;
+  uint8_t rozofs_safe=0;
+  uint64_t    selectedBitMap[4];
+  uint64_t    locationBitMap[4];
+  
+
+  rozofs_get_rozofs_invers_forward_safe(layout,&rozofs_inverse,&rozofs_forward,&rozofs_safe);
+  
+  ROZOFS_BITMAP64_ALL_RESET(selectedBitMap);
+  ROZOFS_BITMAP64_ALL_RESET(locationBitMap);
+  
+  /* 
+  ** Sort the storage list, to put the less used in the
+  ** inverse sid of a distribution
+  */
+  do_reorderInverse(pList);
+  
+  /*
+  ** Get the first inverse sid
+  */
+
+  location_collision = 0;
+
+  loop = 0;
+  while (loop < 4) {
+    loop++;
+
+    list_for_each_forward(p, pList) {
+
+      vs = list_entry(p, volume_storage_t, list);
+	  sid = vs->sid;
+
+      /* SID already selected */
+	  if (ROZOFS_BITMAP64_TEST1(sid,selectedBitMap)) {
+        DISTTRACE("sid%d already taken", vs->sid);
+	    continue;
+      }
+
+      /* 
+      ** In multi site location is the site number.
+      ** else location is the host number within the cluter
+      ** Is there one sid already allocated on this location ?
+      */
+      if (multi_site) location_bit = vs->siteNum;
+      else            location_bit = vs->host_rank;
+      if (ROZOFS_BITMAP64_TEST1(location_bit, locationBitMap)) {
+		DISTTRACE("sid%d location collision %x  weigth %d", vs->sid, location_bit, vs->inverseCounter);
+		location_collision++;	    
+		continue;
+      }
+
+      /*
+      ** Take this guy
+      */
+      ROZOFS_BITMAP64_SET(sid,selectedBitMap);
+      ROZOFS_BITMAP64_SET(location_bit,locationBitMap);	  
+      vs->inverseCounter++;
+      vs->forwardCounter++;	
+      sids[nb_selected++] = sid;
+
+      DISTTRACE("sid%d is #%d selected with location bit %x weigth %d", vs->sid, nb_selected, location_bit, vs->inverseCounter);
+
+      /* Enough sid found */
+      if (rozofs_inverse==nb_selected) {
+		DISTTRACE("inverse done");
+		goto forward;
+      }
+    }
+    DISTTRACE("end loop %d nb_selected %d location_collision %d", loop, nb_selected, location_collision);
+    
+    if ((nb_selected+location_collision) < rozofs_inverse) return  -1;
+    // Reset location condition before re looping
+    ROZOFS_BITMAP64_ALL_RESET(locationBitMap);
+    location_collision =0;
+  }
+  return -1;
+
+forward:
+  /* 
+  ** Sort the storage list, to put the less used in the
+  ** forward sid of a distribution
+  */
+  do_reorderForward(pList);
+  
+  /*
+  ** Get the next forward sid
+  */
+  loop = 0;
+  while (loop < 4) {
+    loop++;
+
+    list_for_each_forward(p, pList) {
+
+      vs = list_entry(p, volume_storage_t, list);
+	  sid = vs->sid;
+
+      /* SID already selected */
+	  if (ROZOFS_BITMAP64_TEST1(sid,selectedBitMap)) {
+        DISTTRACE("isid%d already taken", vs->sid);
+	    continue;
+      }
+
+      /* 
+      ** In multi site location is the site number.
+      ** else location is the host number within the cluter
+      ** Is there one sid already allocated on this location ?
+      */
+      if (multi_site) location_bit = vs->siteNum;
+      else            location_bit = vs->host_rank;
+      if (ROZOFS_BITMAP64_TEST1(location_bit, locationBitMap)) {
+		DISTTRACE("sid%d location collision %x weigth %d", vs->sid, location_bit, vs->forwardCounter);
+		location_collision++;	    
+		continue;
+      }
+
+      /*
+      ** Take this guy
+      */
+      ROZOFS_BITMAP64_SET(sid,selectedBitMap);
+      ROZOFS_BITMAP64_SET(location_bit,locationBitMap);
+      vs->forwardCounter++;	
+      sids[nb_selected++] = sid;
+
+      DISTTRACE("sid%d is #%d selected with location bit %x weigth %d", vs->sid, nb_selected, location_bit, vs->forwardCounter);
+
+      /* Enough sid found */
+      if (rozofs_forward==nb_selected) {
+		DISTTRACE("forward done");
+		goto spare;
+      }
+    }
+    DISTTRACE("end loop %d nb_selected %d location_collision %d", loop, nb_selected, location_collision);
+    
+    if ((nb_selected+location_collision) < rozofs_forward) return  -1;    
+    // Reset location condition before re looping
+    ROZOFS_BITMAP64_ALL_RESET(locationBitMap);
+    location_collision =0;
+  }
+  return -1;
+  
+spare:    
+  /* 
+  ** Sort the storage list, to put the less used in the
+  ** forward sid of a distribution
+  */
+  do_reorderSpare(pList);
+  
+  /*
+  ** Get the next forward sid
+  */
+  loop = 0;
+  while (loop < 4) {
+    loop++;
+
+    list_for_each_forward(p, pList) {
+
+      vs = list_entry(p, volume_storage_t, list);
+	  sid = vs->sid;
+
+      /* SID already selected */
+	  if (ROZOFS_BITMAP64_TEST1(sid,selectedBitMap)) {
+        DISTTRACE("sid%d already taken", vs->sid);
+	    continue;
+      }
+	  
+      /* 
+      ** In multi site location is the site number.
+      ** else location is the host number within the cluter
+      ** Is there one sid already allocated on this location ?
+      */
+      if (multi_site) location_bit = vs->siteNum;
+      else            location_bit = vs->host_rank;
+      if (ROZOFS_BITMAP64_TEST1(location_bit, locationBitMap)) {
+		DISTTRACE("sid%d location collision %x weigth %d", vs->sid, location_bit, vs->spareCounter);
+		location_collision++;	    
+		continue;
+      }
+
+      /*
+      ** Take this guy
+      */
+      ROZOFS_BITMAP64_SET(sid,selectedBitMap);
+      ROZOFS_BITMAP64_SET(location_bit,locationBitMap);
+      vs->spareCounter++;	
+      sids[nb_selected++] = sid;
+
+      DISTTRACE("sid%d is #%d selected with location bit %x with status %d", vs->sid, nb_selected, location_bit, vs->spareCounter);
+
+      /* Enough sid found */
+      if (rozofs_safe==nb_selected) {
+		DISTTRACE("spare done");
+		return 0;
+      }
+    }
+    
+    if ((nb_selected+location_collision) < rozofs_safe) return  -1;    
+    // Reset location condition before re looping
+    ROZOFS_BITMAP64_ALL_RESET(locationBitMap);
+    location_collision =0;
+  }
+  return -1;  
+}
+static int do_cluster_distribute_weighted_round_robin(uint8_t layout,int site_idx, cluster_t *cluster, sid_t *sids, uint8_t multi_site) {
+  int        idx;
+  uint64_t   sid_taken=0;
+  uint64_t   taken_bit;  
+  uint64_t   location_mask;
+  uint64_t   location_bit;  
+  uint8_t    ms_ok = 0;;
+  int        nb_selected=0; 
+  int        location_collision; 
+  int        loop;
+  volume_storage_t *selected[ROZOFS_SAFE_MAX];
+  volume_storage_t *vs;
+  list_t           *pList = &cluster->storages[site_idx];
+  list_t           *p;
+  uint64_t          decrease_size;
+
+  uint8_t rozofs_inverse=0; 
+  uint8_t rozofs_forward=0;
+  uint8_t rozofs_safe=0;
+
+  rozofs_get_rozofs_invers_forward_safe(layout,&rozofs_inverse,&rozofs_forward,&rozofs_safe);
+  
+//  int modulo = export_rotate_sid[cluster->cid] % rozofs_forward;
+//  export_rotate_sid[cluster->cid]++;
+
+  /*
+  ** Loop on the sid and take only one per node on each loop
+  */    
+  loop = 0;
+  while (loop < 8) {
+    loop++;
+
+    idx                = -1;
+    location_mask      = 0;
+    location_collision = 0;
+
+    list_for_each_forward(p, pList) {
+
+      vs = list_entry(p, volume_storage_t, list);
+      idx++;
+
+      /* SID already selected */
+      taken_bit = (1ULL<<idx);
+      if ((sid_taken & taken_bit)!=0) {
+        //DISTTRACE("idx%d/sid%d already taken", idx, vs->sid);
+	    continue;
+      }
+
+      /* 
+      ** In multi site location is the site number.
+      ** else location is the host number within the cluter
+      ** Is there one sid already allocated on this location ?
+      */
+      if (multi_site) location_bit = (1ULL<<vs->siteNum);
+      else            location_bit = (1ULL<<vs->host_rank);
+      if ((location_mask & location_bit)!=0) {
+		//info("idx%d/sid%d location collision %x", idx, vs->sid, location_bit);
+		location_collision++;	    
+		continue;
+      }
+
+      /* Is there some available space on this server */
+      if (vs->status != 0 && vs->stat.free != 0)
+            ms_ok++;
+
+      /*
+      ** Take this guy
+      */
+      sid_taken     |= taken_bit;
+      location_mask |= location_bit;
+      selected[nb_selected++] = vs;
+
+      //info("idx%d/sid%d is #%d selected with location bit %x with status %d", idx, vs->sid, nb_selected, location_bit, vs->status);
+
+      /* Enough sid found */
+      if (rozofs_safe==nb_selected) {
+		if (ms_ok<rozofs_forward) return -1;
+		//info("selection done");
+		goto success;
+      }	  
+    }
+    //info("end loop %d nb_selected %d location_collision %d", loop, nb_selected, location_collision);
+    
+    if ((nb_selected+location_collision) < rozofs_safe) return  -1;    
+  }
+  return -1;
+  
+success:
+
+
+  
+  
+  /* 
+  ** In weigthed round robin and in size equalizing decrease the estimated size 
+  ** of the storages and re-order them in the cluster
+  */
+  decrease_size = common_config.alloc_estimated_mb*(1024*1024);
+  idx = 0;
+
+  while(idx < rozofs_inverse) {
+  
+    vs = selected[idx];
+    sids[idx] = vs->sid;
+    if (decrease_size) {
+      if (vs->stat.free > (256*decrease_size)) {
+	vs->stat.free -= decrease_size;
+      }
+      else if (vs->stat.free > (64*decrease_size)) {
+	vs->stat.free -= (decrease_size/2);      
+      }
+      else if (vs->stat.free > decrease_size) {
+	vs->stat.free -= (decrease_size/8);
+      }
+      else {
+	vs->stat.free /= 2;
+      }
+    }
+    idx++;
+  }
+  
+  decrease_size = decrease_size /2;
+  while(idx < rozofs_forward) {
+  
+    vs = selected[idx];
+    sids[idx] = vs->sid;
+
+    if (decrease_size) {
+      if (vs->stat.free > (256*decrease_size)) {
+	vs->stat.free -= decrease_size;
+      }
+      else if (vs->stat.free > (64*decrease_size)) {
+	vs->stat.free -= (decrease_size/2);      
+      }
+      else if (vs->stat.free > decrease_size) {
+	vs->stat.free -= (decrease_size/8);
+      }
+      else {
+	vs->stat.free /= 2;
+      }
+    }  
+    idx++;
+  } 
+
+  decrease_size = decrease_size /16;   
+  while(idx < rozofs_safe) {
+  
+    vs = selected[idx];
+    sids[idx] = vs->sid;
+
+    if (decrease_size) {
+      if (vs->stat.free > (256*decrease_size)) {
+	vs->stat.free -= decrease_size;
+      }
+      else if (vs->stat.free > (64*decrease_size)) {
+	vs->stat.free -= (decrease_size/2);      
+      }
+      else if (vs->stat.free > decrease_size) {
+	vs->stat.free -= (decrease_size/8);
+      }
+      else {
+	vs->stat.free /= 2;
+      }
+    }  
+    idx++;
+  }    
+  /*
+  ** Re-order the SIDs
+  */
+  list_sort(pList, volume_storage_compare);
+  return 0;
+}
+
+static int do_cluster_distribute_size_balancing(uint8_t layout,int site_idx, cluster_t *cluster, sid_t *sids, uint8_t multi_site) {
   int        idx;
   uint64_t   sid_taken=0;
   uint64_t   taken_bit;  
@@ -562,10 +990,7 @@ static int do_cluster_distribute(uint8_t layout,int site_idx, cluster_t *cluster
 
       /* Enough sid found */
       if (rozofs_safe==nb_selected) {
-	    if ((common_config.file_distribution_rule != rozofs_file_distribution_strict_round_robin_forward) 
-        &&  (common_config.file_distribution_rule != rozofs_file_distribution_strict_round_robin_inverse)) {
-		  if (ms_ok<rozofs_forward) return -1;
-		}  
+		if (ms_ok<rozofs_forward) return -1;
 		//info("selection done");
 		goto success;
       }	  
@@ -578,40 +1003,6 @@ static int do_cluster_distribute(uint8_t layout,int site_idx, cluster_t *cluster
   
 success:
 
-
-  /* 
-  ** In strict round robin just put the selected storages 
-  ** at the end of the list 
-  */  
-  if ((common_config.file_distribution_rule == rozofs_file_distribution_strict_round_robin_forward) 
-  ||  (common_config.file_distribution_rule == rozofs_file_distribution_strict_round_robin_inverse)) {
-
-
-    idx = rozofs_inverse;    
-    while(idx < rozofs_forward) {
-      vs = selected[idx];
-      sids[idx] = vs->sid;
-      list_remove(&vs->list);
-      list_push_back(pList,&vs->list);
-      idx++;
-    }
-    while (idx < rozofs_safe) {
-      vs = selected[idx];
-      sids[idx] = vs->sid;
-      idx++;
-    }      
-    
-    idx = 0;
-    while(idx < rozofs_inverse) {
-      vs = selected[idx];
-      sids[idx] = vs->sid;
-      list_remove(&vs->list);
-      list_push_back(pList,&vs->list);
-      idx++;
-    }         
-    return 0;
-  }
-  
   
   /* 
   ** In weigthed round robin and in size equalizing decrease the estimated size 
@@ -693,9 +1084,7 @@ success:
     
   /*
   ** In case of size equalizing only, recompute the cluster estimated free size
-  */
-  if (common_config.file_distribution_rule != rozofs_file_distribution_size_balancing) return 0;
-  
+  */  
   uint64_t  free = 0;
 
   list_for_each_forward(p, (&cluster->storages[site_idx])) {
@@ -706,6 +1095,26 @@ success:
   }  
   cluster->free = free; 
   return 0;
+}
+static int do_cluster_distribute(uint8_t layout,int site_idx, cluster_t *cluster, sid_t *sids, uint8_t multi_site) {
+
+
+  switch(common_config.file_distribution_rule) {
+  
+    case rozofs_file_distribution_size_balancing:
+	  return do_cluster_distribute_size_balancing(layout, site_idx, cluster, sids, multi_site);
+	  break;
+	case rozofs_file_distribution_weigthed_round_robin:
+	  return do_cluster_distribute_weighted_round_robin(layout, site_idx, cluster, sids, multi_site);
+	  break;
+    case rozofs_file_distribution_strict_round_robin_forward:
+	case rozofs_file_distribution_strict_round_robin_inverse:
+	  return do_cluster_distribute_strict_round_robin(layout, site_idx, cluster, sids, multi_site);	
+      break;
+  }	
+  
+  severe("No such distribution rule %d\n",common_config.file_distribution_rule);
+  return -1;    
 }
 int volume_distribute(volume_t *volume,int site_number, cid_t *cid, sid_t *sids) {
     list_t *p,*q;

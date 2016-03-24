@@ -40,7 +40,15 @@ typedef struct volume_storage {
     uint8_t siteNum;     /// Site number where this storage is located
     uint8_t status; ///< status (0 = off line)
     sstat_t stat; ///< storage stat
+	
     list_t list; ///< used to chain storages
+	
+    // 3 counters to know how this storage has been used on different
+    // file distribution to try to equalize distribution in strict
+    // round robin mode
+    uint64_t inverseCounter; // Nb selection in the 1rst inverse SID
+    uint64_t forwardCounter; // Nb selection in the 1rst forward SID
+    uint64_t spareCounter;   // Nb selection as a spare SID
 } volume_storage_t;
 
 /** initialize a volume storage

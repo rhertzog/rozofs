@@ -393,10 +393,16 @@ int rozofs_expgateway_send_routing_common(uint32_t eid,fid_t fid,uint32_t prog,u
     
     rozofs_fuse_save_ctx_t *fuse_ctx_p=NULL;
     
-
+    /*
+    ** Retrieve fuse context when a buffer is given
+    */
+    fuse_ctx_p =  NULL;	
     if (fuse_buffer_ctx_p != NULL) {
-      GET_FUSE_CTX_P(fuse_ctx_p,fuse_buffer_ctx_p);
+      if (ruc_buf_checkBuffer(fuse_buffer_ctx_p)) {
+        GET_FUSE_CTX_P(fuse_ctx_p,fuse_buffer_ctx_p);
+      }	
     }  
+	
     if (fuse_ctx_p != NULL) {    
       routing_ctx_p = &fuse_ctx_p->expgw_routing_ctx ;
     }

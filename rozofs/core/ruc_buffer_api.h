@@ -476,7 +476,12 @@ static inline char * ruc_buf_getPayload_internal(char * file, int line, void * b
 #endif
   return (char*)pelem->ptr;
 }
-  
+static inline int ruc_buf_checkBuffer(void * bufRef)
+{
+  ruc_buf_t *pelem = (ruc_buf_t*)bufRef;
+  return (pelem->type == BUF_ELEM); 
+}
+    
 
 
 // 64BITS uint32_t ruc_buf_getPayloadLen(uint32_t bufRef)

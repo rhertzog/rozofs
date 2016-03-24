@@ -1259,9 +1259,6 @@ class rozofs_class:
     sys.stdout = save_stdout  
     cmd_system("./monitor.py 5 -c monitor.cfg")
 
-  def status(self,opt="-df"): 
-    cmd_system("../src/rozodiag/rozo_status.py %s -e %s; echo $?"%(opt,exportd.export_host))
-          
   def core(self,argv):
     if len(argv) == 2:
       for d in os.listdir(self.core_dir()):
@@ -1382,7 +1379,7 @@ def syntax_if() :
   print  "./setup.py \tifup|ifdown  \t<#if>"    
 #_____________________________________________  
 def syntax_monitor() :
-  print  "./setup.py \tmonitor|diag|fulldiag"  
+  print  "./setup.py \tmonitor"  
 #_____________________________________________  
 def syntax_debug() :
   print  "./setup.py \tddd     \t<module>"
@@ -1528,9 +1525,20 @@ def test_parse(command, argv):
       if os.path.isdir(dir):
         os.environ["PATH"] += (os.pathsep+dir)
   except: pass
+  # To retrieve python tools
+  try:
+    for dir in os.listdir("%s/../src"%(os.getcwd())):
+      dir="%s/../src/%s"%(os.getcwd(),dir)
+      if os.path.isdir(dir):
+        os.environ["PATH"] += (os.pathsep+dir)
+  except: pass
       
 
   if   command == "display"            : rozofs.display()  
+  elif command == "cmd"                : 
+    cmd=""
+    for arg in argv[2:]: cmd=cmd+" "+arg
+    os.system("%s"%(cmd))
   elif command == "start"              : rozofs.start()  
   elif command == "stop"               : rozofs.stop()  
   elif command == "pause"              : rozofs.pause()  
@@ -1539,8 +1547,6 @@ def test_parse(command, argv):
   elif command == "rebuild"            : cmd_system("./setup.sh rebuild")
   elif command == "clean"              : cmd_system("./setup.sh clean")
   elif command == "monitor"            : rozofs.monitor()
-  elif command == "diag"               : rozofs.status("-d")
-  elif command == "fulldiag"           : rozofs.status("-df")
   
   elif command == "ddd": 
     if len(argv) < 3:

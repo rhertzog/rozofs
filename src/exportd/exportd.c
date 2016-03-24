@@ -452,20 +452,10 @@ int expgw_build_configuration_message(char * pchar, uint32_t size)
 }
 
 static void *balance_volume_thread(void *v) {
-    struct timespec ts = {6, 0};
+    struct timespec ts = {3, 0};
 
     uma_dbg_thread_add_self("Volume balance");
 
-    /* In round robin mode less frequent polling is needed */    
-    if (common_config.file_distribution_rule == rozofs_file_distribution_size_balancing) {
-      ts.tv_sec = 6;
-    }
-    else if (common_config.file_distribution_rule == rozofs_file_distribution_weigthed_round_robin) {
-      ts.tv_sec = 12;
-    }
-    else  {  
-      ts.tv_sec = 18;
-    }
     
     pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 
@@ -487,9 +477,20 @@ static void *balance_volume_thread(void *v) {
         }
 
         nanosleep(&ts, NULL);
+		
+        /* In round robin mode less frequent polling is needed */    
+        if (common_config.file_distribution_rule != rozofs_file_distribution_size_balancing) {
+          if (ts.tv_sec < 6) ts.tv_sec++;
+		}  
+        else if (common_config.file_distribution_rule == rozofs_file_distribution_weigthed_round_robin) {
+    	  if (ts.tv_sec < 10) ts.tv_sec++;
+		}  
+        else {
+          if (ts.tv_sec < 15) ts.tv_sec++;
+        }
     }
     return 0;
-}
+}  
 /*
  *_______________________________________________________________________
  */
@@ -1113,6 +1114,7 @@ void volumes_release() {
 static int load_volumes_conf() {
     list_t *p, *q, *r;
     int i;
+	int flipflop=0;
     DEBUG_FUNCTION;
     
     // For each volume
@@ -1135,15 +1137,34 @@ static int load_volumes_conf() {
             // Memory allocation for this cluster
             cluster_t *cluster = (cluster_t *) xmalloc(sizeof (cluster_t));
             cluster_initialize(cluster, cconfig->cid, 0, 0);
+			flipflop = cconfig->cid & 0x3;
             for (i = 0; i <ROZOFS_GEOREP_MAX_SITE; i++) {
-	      cluster->nb_host[i] = cconfig->nb_host[i];
+	          cluster->nb_host[i] = cconfig->nb_host[i];
               list_for_each_forward(r, (&cconfig->storages[i])) {
                   storage_node_config_t *sconfig = list_entry(r, storage_node_config_t, list);
                   volume_storage_t *vs = (volume_storage_t *) xmalloc(sizeof (volume_storage_t));
                   volume_storage_initialize(vs, sconfig->sid, sconfig->host, sconfig->host_rank, sconfig->siteNum);
-                  list_push_back((&cluster->storages[i]), &vs->list);
+				  // Mix the order of the SID depending on the CID number 
+				  // This may be usefull in strict rund robin to better distribute files
+				  switch(flipflop) {
+				    case 1: 
+                         list_push_back((&cluster->storages[i]), &vs->list); 
+                         break;
+					case 2: 
+                         list_push_front((&cluster->storages[i]), &vs->list);  
+                         break;
+					case 3: 
+					    list_push_back((&cluster->storages[i]), &vs->list);
+						flipflop=0;
+						break;
+					default:
+					  	list_push_front((&cluster->storages[i]), &vs->list);
+						flipflop=3;
+					    break;
+                  }   
               }
-	    }
+	        }
+		
             // Add this cluster to the list of this volume
             list_push_back(&ventry->volume.clusters, &cluster->list);
         }

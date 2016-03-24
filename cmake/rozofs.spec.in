@@ -203,6 +203,8 @@ mkdir -p %{buildroot}%{_initrddir}
 %{_bindir}/storcli
 %{_bindir}/rozo_clusterstats.sh
 %{_bindir}/rozo_repquota.sh
+%{_bindir}/rozo_distributionCheck.py
+
 /sbin/mount.rozofs
 #%if 0%{?rhel} < 7
 #%{_initrddir}/rozofs-rozofsmount
