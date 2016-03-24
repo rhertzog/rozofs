@@ -213,7 +213,61 @@ int econfig_initialize(econfig_t *ec) {
     list_init(&ec->expgw);
     return 0;
 }
+static void econfig_number_storages_per_cluster(volume_config_t *config) {
+  list_t *l1, *l2, *l3;
+  int host_rank;
+  int site = 0;
+  cluster_config_t *c;
+  storage_node_config_t *s1, *s2;
+  
+  /*
+  ** For each site
+  */
+  for (site = 0; site <ROZOFS_GEOREP_MAX_SITE; site++) {
 
+    /*
+    ** Loop on cluster
+    */
+    list_for_each_forward(l1, &config->clusters) {
+    
+      c = list_entry(l1, cluster_config_t, list);
+      host_rank = 0;
+      
+      /*
+      ** Loop on storages of this cluster & site
+      */
+      list_for_each_forward(l2, (&c->storages[site])) {
+      
+        s1 = list_entry(l2, storage_node_config_t, list);
+
+        /*
+	** Check against the previous storages in the cluster
+	*/         
+        list_for_each_forward(l3, (&c->storages[site])) {
+	
+          s2 = list_entry(l3, storage_node_config_t, list);
+	  
+	  if (s2 == s1) {
+	    /*
+	    *** Previous storages have a different host name
+	    */
+	    s1->host_rank = host_rank++;
+	    break;
+	  }  
+	  
+	  /*
+	  ** Same host for s2 & s1
+	  */
+	  if (strcmp(s2->host,s1->host)==0) {
+	    s1->host_rank = s2->host_rank;
+	    break;
+	  }
+	}
+      }
+      c->nb_host[site] = host_rank;	  
+    }
+  }
+}
 void econfig_release(econfig_t *config) {
     list_t *p, *q;
     DEBUG_FUNCTION;
@@ -269,7 +323,7 @@ static int load_volumes_conf(econfig_t *ec, struct config_t *config, int elayout
         /* Settings of list of clusters for one volume */
         struct config_setting_t *clu_list_set = NULL;
         volume_config_t *vconfig = NULL;
-
+		
         // Get settings for the volume config
         if ((vol_set = config_setting_get_elem(volumes_set, v)) == NULL) {
             errno = ENOKEY;
@@ -318,7 +372,9 @@ static int load_volumes_conf(econfig_t *ec, struct config_t *config, int elayout
             severe("can't initialize volume.");
             goto out;
         }
-	vconfig->multi_site = 0;
+
+        vconfig->multi_site = 0;
+        multi_site = -1; // To determine whether multi site or not
 
         // Get settings for clusters for this volume
         if ((clu_list_set = config_setting_get_member(vol_set, ECIDS)) == NULL) {
@@ -397,50 +453,49 @@ static int load_volumes_conf(econfig_t *ec, struct config_t *config, int elayout
                     goto out;
                 }
 		
-		// Check the multi site case
-		siteNum = -1; // value when no site number defined
+                // Check the multi site case
+                siteNum = -1; // value when no site number defined
                 if (config_setting_lookup_int(mstor_set, ESITE, &siteNum) == CONFIG_FALSE) {
 		
-		   // 1rst sid has no site information 
-		   // This is so not a multi site configuration
-                   if (multi_site == -1) {
-		     multi_site = 0;
-		   }
+                  // 1rst sid has no site information 
+                  // This is so not a multi site configuration
+                  if (multi_site == -1) {
+                    multi_site = 0;
+                  }
 		   
-		   // Every sid must be configured without site information
-		   if (multi_site == 1) {
+                  // Every sid must be configured without site information
+                  if (multi_site == 1) {
                      severe("cid %d sid %d has not site number, while other have.",
 			                 (int) cid, (int) sid);
                       goto out;
-		   }   
+		          }   
                 }
-		else {
+                else {
 		
-		   // 1rst sid has site information 
-		   // This is so a multi site configuration
-                   if (multi_site == -1) {
-		     multi_site = 1;
-		     vconfig->multi_site = 1;
-		     
-		     // Geo replication must not be configured as well
-		     if (vgeorep) {
-                	errno = EINVAL;
-                	severe("cid %d sid %d has a site number, while geo replication is configured",
+                  // 1rst sid has site information 
+                  // This is so a multi site configuration
+                  if (multi_site == -1) {
+                    multi_site = 1;
+                    vconfig->multi_site = 1;
+							     
+                    // Geo replication must not be configured as well
+                    if (vgeorep) {
+                      errno = EINVAL;
+                      severe("cid %d sid %d has a site number, while geo replication is configured",
 			                (int) cid, (int) sid);
-			goto out;		     
-		     }
-		   }
+                      goto out;		     
+                    }
+                  }
 		   
-		   // Every sid must be configured with site information
-		   if (multi_site == 0) {
+                  // Every sid must be configured with site information
+                  if (multi_site == 0) {
                      severe("cid %d sid %d has a site number, while other have not.",
 			                 (int) cid, (int) sid);
                       goto out;
-		   }   		     
-		}		
+                  }   		     
+                }		
 		
-                if (vgeorep == 0)
-		{
+                if (vgeorep == 0) {
                   // Lookup hostname for this storage
                   if (config_setting_lookup_string(mstor_set, EHOST, &host) == CONFIG_FALSE) {
                       errno = ENOKEY;
@@ -529,6 +584,10 @@ static int load_volumes_conf(econfig_t *ec, struct config_t *config, int elayout
             list_push_back(&vconfig->clusters, &cconfig->list);
 
         } // End add cluster
+		
+		// Number the storages in each cluster of the volume
+		// For later distribution upon SID
+		econfig_number_storages_per_cluster(vconfig);
 
         // Add this volume to the list of volumes
         list_push_back(&ec->volumes, &vconfig->list);
@@ -991,61 +1050,7 @@ static int econfig_validate_clusters(volume_config_t *config) {
 out:
     return status;
 }
-static void econfig_number_storages_per_cluster(volume_config_t *config) {
-  list_t *l1, *l2, *l3;
-  int host_rank;
-  int site = 0;
-  cluster_config_t *c;
-  storage_node_config_t *s1, *s2;
-  
-  /*
-  ** For each site
-  */
-  for (site = 0; site <ROZOFS_GEOREP_MAX_SITE; site++) {
 
-    /*
-    ** Loop on cluster
-    */
-    list_for_each_forward(l1, &config->clusters) {
-    
-      c = list_entry(l1, cluster_config_t, list);
-      host_rank = 0;
-      
-      /*
-      ** Loop on storages of this cluster & site
-      */
-      list_for_each_forward(l2, (&c->storages[site])) {
-      
-        s1 = list_entry(l2, storage_node_config_t, list);
-
-        /*
-	** Check against the previous storages in the cluster
-	*/         
-        list_for_each_forward(l3, (&c->storages[site])) {
-	
-          s2 = list_entry(l3, storage_node_config_t, list);
-	  
-	  if (s2 == s1) {
-	    /*
-	    *** Previous storages have a different host name
-	    */
-	    s1->host_rank = host_rank++;
-	    break;
-	  }  
-	  
-	  /*
-	  ** Same host for s2 & s1
-	  */
-	  if (strcmp(s2->host,s1->host)==0) {
-	    s1->host_rank = s2->host_rank;
-	    break;
-	  }
-	}
-      }
-      c->nb_host[site] = host_rank;	  
-    }
-  }
-}
 /** Checks if the nb. of storages is valid
  *
  * @param config: volume configuration
@@ -1205,7 +1210,6 @@ static int econfig_validate_volumes(econfig_t *config) {
             goto out;
         }
 
-        econfig_number_storages_per_cluster(e1);
     }
 
     status = 0;
