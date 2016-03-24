@@ -5,7 +5,7 @@
 # Description: Manages RozoFS exportd daemon as an OCF resource in 
 #               an High Availability setup.
 #
-# Author: Fizians SAS <devel@rozofs.org>
+# Author: Rozo Systems <devel@rozofs.org>
 # License: GNU General Public License 2 (GPL 2)
 #
 #
@@ -41,7 +41,7 @@ meta_data() {
 <resource-agent name="exportd">
 <version>1.0</version>
 <longdesc lang="en">
-This script manages rozoFS export daemon
+This script manages RozoFS export daemon
 </longdesc>
 <shortdesc lang="en">Manages an export daemon</shortdesc>
 
@@ -69,7 +69,7 @@ For example, "/etc/rozofs/export.conf"
 
 <actions>
 <action name="start" timeout="20s"/>
-<action name="stop" timeout="20s"/>
+<action name="stop" timeout="10s"/>
 <action name="monitor" depth="0" timeout="20s" interval="60s" />
 <action name="validate-all" timeout="20s"/>
 <action name="meta-data"  timeout="5s"/>
@@ -94,11 +94,14 @@ get_pid_and_conf_file() {
 
 exportd_status() {
 
+    # Check if PIDFILE is not NULL
+    # Check if PIDFILE exists
     if [ -n "$PIDFILE" -a -f $PIDFILE ]; then
 
         # exportd is probably running
         PID=`cat $PIDFILE`
 
+        # Check if PID is not NULL
         if [ -n "$PID" ]; then
 
             if ps -p $PID | grep exportd >/dev/null ; then
@@ -151,7 +154,7 @@ exportd_start() {
         exit $OCF_ERR_GENERIC
     fi
 
-    ocf_log info "ozofs-exportd daemon started."
+    ocf_log info "rozofs-exportd daemon started."
 
     exit $OCF_SUCCESS
 }
@@ -159,30 +162,65 @@ exportd_start() {
 
 exportd_stop() {
 
-    if exportd_status ; then
+  if exportd_status ; then
 
-        PID=`cat $PIDFILE`
+    PID=`cat $PIDFILE`
 
-        if [ -n "$PID" ] ; then
+    if [ -n "$PID" ] ; then
 
-            kill $PID
+      # SIGTERM
+      kill $PID
 
-            if [ $? -ne 0 ]; then
+      if [ $? -ne 0 ]; then
 
-                kill -SIGKILL $PID
+        kill -SIGKILL $PID
 
-                if [ $? -ne 0 ]; then
-                    ocf_log err "Error. Could not stop rozofs-exportd daemon."
-                    return $OCF_ERR_GENERIC
-                fi
-            fi
-
-            rm $PIDFILE 2>/dev/null
+        if [ $? -ne 0 ]; then
+          ocf_log err "Error. Could not stop rozofs-exportd daemon."
+          return $OCF_ERR_GENERIC
         fi
+
+        rm $PIDFILE 2>/dev/null
+      fi
+
+      count=0
+
+      # Check if exportd is stopped
+      while ps -p ${PID} | grep exportd >/dev/null; do
+
+        sleep 0.1
+
+        count=$(($count + 1))
+  
+        [ $count -gt 80 ] && {
+          # KILL IT!!! after 8s
+          ocf_log info "rozofs-exportd daemon still running, killing rozofs-exportd!!!"
+          kill -9 $PID 2>/dev/null
+        
+          if [ $? -ne 0 ]; then
+            ocf_log err "Error. Could not stop rozofs-exportd daemon."
+            return $OCF_ERR_GENERIC
+          fi
+         
+          # Stop also exportd slave 
+          for i in `ls /var/run/launcher_exportd_slave_[1-8].pid`; do
+            rozolauncher stop ${i};
+          done;
+        
+          # Remove PIDFILE
+          rm $PIDFILE 2>/dev/null
+          
+          # Sleep 0.2 s for stopping slaves
+          sleep 0.2
+        }
+      done
+
     fi
 
-    ocf_log info "Stopped rozofs-exportd daemon."
-    exit $OCF_SUCCESS
+  fi
+
+  ocf_log info "rozofs-exportd daemon stopped."
+  exit $OCF_SUCCESS
 }
 
 exportd_monitor() {
