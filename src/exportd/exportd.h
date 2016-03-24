@@ -32,3 +32,4 @@ eid_t *exports_lookup_id(ep_path_t path);
 export_t *exports_lookup_export(eid_t eid);
 
 int exports_remove_bins();
+extern void dirent_wbcache_flush_on_stop();
