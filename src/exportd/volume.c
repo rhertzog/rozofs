@@ -528,7 +528,7 @@ void  do_reorderSpare(list_t * l) {
 }
 
 // what if a cluster is < rozofs safe
-#define DISTTRACE 
+#define DISTTRACE(fmt,...)
 static int do_cluster_distribute_strict_round_robin(uint8_t layout,int site_idx, cluster_t *cluster, sid_t *sids, uint8_t multi_site) {
   int        nb_selected=0; 
   int        location_collision = 0; 
