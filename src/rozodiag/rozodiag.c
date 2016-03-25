@@ -112,7 +112,7 @@ void stop_on_error(char *fmt, ... ) {
   if (fmt != NULL) {
     /* Format the string */
     va_start(vaList,fmt);
-    printf(fmt, vaList);
+    vprintf(fmt, vaList);
     va_end(vaList);
   }
 
