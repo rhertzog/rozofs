@@ -92,7 +92,8 @@ static uint32_t retries = 10;
 // Rebuild storage variables
 
 int sigusr_received=0;
-
+rpcclt_t   rpcclt_export;
+  
 /*__________________________________________________________________________
 */
 void rbs_cath_sigusr(int sig){
@@ -780,7 +781,24 @@ void storaged_rebuild_compact_list(char * fid_list, int fd, int entry_size) {
     severe("ftruncate(%s,%llu) %s",fid_list,(long long unsigned int)write_offset,strerror(errno));
   }    
 }
+/*
+** Check the existence of a FID from the export
+** Just in case it is being deleted
+*/
+int check_fid_deleted_from_export(fid_t fid) {
+  uint32_t   bsize;
+  uint8_t    layout; 
+  ep_mattr_t attr;
+  int        ret;
 
+  // Resolve this FID thanks to the exportd
+  ret = rbs_get_fid_attr(&rpcclt_export, storage_config.export_hostname, fid, &attr, &bsize, &layout);
+ 
+  if ((ret != 0)&&(errno == ENOENT)) return 1;
+  return 0;
+}
+/*
+*/
 int storaged_rebuild_list(char * fid_list, char * statFilename) {
   int        fdlist = -1;
   int        fdstat = -1;  
@@ -791,7 +809,6 @@ int storaged_rebuild_list(char * fid_list, char * statFilename) {
   ROZOFS_RBS_COUNTERS_T         statistics;
   rozofs_rebuild_entry_file_t   file_entry;
   rozofs_rebuild_entry_file_t   file_entry_saved;
-  rpcclt_t   rpcclt_export;
   int        ret;
   uint8_t    rozofs_safe,rozofs_forward,rozofs_inverse; 
   uint8_t    prj;
@@ -1001,7 +1018,14 @@ int storaged_rebuild_list(char * fid_list, char * statFilename) {
 				       &size_read,
 				       &file_entry.error);
       } 
-
+	  
+      /*
+      ** In case the rebuild failed, check with the export whether 
+      ** the FID still exists
+      */
+      if (ret == RBS_EXE_FAILED) {
+        if (check_fid_deleted_from_export(file_entry.fid)) ret = RBS_EXE_ENOENT;
+      }
       /* 
       ** Rebuild is successfull
       */
