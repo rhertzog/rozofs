@@ -520,3 +520,18 @@ ep_mount_msite_1(epgw_mount_arg_t *argp, CLIENT *clnt)
 	}
 	return (&clnt_res);
 }
+
+epgw_cluster2_ret_t *
+ep_list_cluster2_1(epgw_cluster_arg_t *argp, CLIENT *clnt)
+{
+	static epgw_cluster2_ret_t clnt_res;
+
+	memset((char *)&clnt_res, 0, sizeof(clnt_res));
+	if (clnt_call (clnt, EP_LIST_CLUSTER2,
+		(xdrproc_t) xdr_epgw_cluster_arg_t, (caddr_t) argp,
+		(xdrproc_t) xdr_epgw_cluster2_ret_t, (caddr_t) &clnt_res,
+		TIMEOUT) != RPC_SUCCESS) {
+		return (NULL);
+	}
+	return (&clnt_res);
+}

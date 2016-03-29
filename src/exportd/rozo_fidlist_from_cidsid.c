@@ -18,6 +18,8 @@
 #define RZ_FILE_128K  (1024*128)
 #define RZ_FILE_1M  (1024*1024)
 
+int rozofs_no_site_file;
+
 typedef enum _rs_file_sz_e
 {
    FILE_128K_E = 0,

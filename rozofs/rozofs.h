@@ -643,4 +643,30 @@ static inline char * fid2string(fid_t fid , char * string) {
   *p = 0;
   return p;
 }
+
+// Maximum number of parallel threads that will run a rebuild
+#define MAXIMUM_PARALLEL_REBUILD_PER_SID 64
+
+/*
+**__________________________________________________________________
+** Structure of an entry of a rebuild job file
+*/
+typedef struct _rozofs_rebuild_entry_file_t {
+    fid_t     fid;         //< unique file identifier associated with the file
+    uint32_t  block_start; //< Starting block to rebuild from 
+    uint32_t  block_end;   //< Last block to rebuild
+    uint8_t   unused:4;    //< Some unused bits
+    uint8_t   bsize:2;     //< Block size 0=4K / 1=8K / 2=16K / 3=32K    
+    uint8_t   todo:1;      //< 1 when rebuild not yet done
+    uint8_t   relocate:1;  //< 1 when relocation is required
+    uint8_t   error;       //< error code. See ROZOFS_RBS_ERROR_E
+    /*
+    ** Warning : this field has to be the last since only the 
+    ** significant bits of the distribution are written on disk
+    */
+    sid_t     dist_set_current[ROZOFS_SAFE_MAX]; ///< currents sids of storage nodes
+} rozofs_rebuild_entry_file_t; 
+
+
+
 #endif

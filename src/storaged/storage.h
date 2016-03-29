@@ -308,29 +308,6 @@ typedef struct bins_file_rebuild {
 } bins_file_rebuild_t;
 
 
-
-/*
-** Structures of the FID to rebuild file
-*/
-typedef struct  _rozofs_rbs_counters_t {
-  uint64_t      done_files;
-  uint64_t      deleted;
-  uint64_t      written;
-  uint64_t      written_spare; 
-  uint64_t      read;
-  uint64_t      read_spare; 
-} ROZOFS_RBS_COUNTERS_T;
-
-// File header
-typedef struct _rozofs_rebuild_header_file_t {
-  ROZOFS_RBS_COUNTERS_T counters;
-  char          config_file[PATH_MAX];
-  char          export_hostname[ROZOFS_HOSTNAME_MAX];
-  int           site;
-  storage_t     storage;
-  uint8_t       layout;
-  uint8_t       device;
-} rozofs_rebuild_header_file_t;
  
 //  
 typedef enum rozofs_rbs_error_e {
@@ -369,21 +346,7 @@ static inline char * rozofs_rbs_error_2_string(ROZOFS_RBS_ERROR_E e) {
   }
 }
  
-typedef struct _rozofs_rebuild_entry_file_t {
-    fid_t     fid;         //< unique file identifier associated with the file
-    uint32_t  block_start; //< Starting block to rebuild from 
-    uint32_t  block_end;   //< Last block to rebuild
-    uint8_t   unused:4;    //< Some unused bits
-    uint8_t   bsize:2;     //< Block size 0=4K / 1=8K / 2=16K / 3=32K    
-    uint8_t   todo:1;      //< 1 when rebuild not yet done
-    uint8_t   relocate:1;  //< 1 when relocation is required
-    uint8_t   error;       //< error code. See ROZOFS_RBS_ERROR_E
-    /*
-    ** Warning : this field has to be the last since only the 
-    ** significant bits of the distribution are written on disk
-    */
-    sid_t     dist_set_current[ROZOFS_SAFE_MAX]; ///< currents sids of storage nodes
-} rozofs_rebuild_entry_file_t; 
+
 
 /** Get the file enty size from the layout
  */

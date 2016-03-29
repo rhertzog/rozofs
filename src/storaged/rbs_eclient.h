@@ -53,5 +53,19 @@ int rbs_get_storage(rpcclt_t * clt, const char *export_host_list, int site, cid_
  */
 char * rbs_get_cluster_list(rpcclt_t * clt, const char *export_host_list, int site, cid_t cid,
         list_t * cluster_entries) ;
+/** Send a request to export server for get the list of member storages
+ *  of cluster with a given cid and add this storage list to the list
+ *  of clusters
+ *
+ * @param clt: RPC connection to export server
+ * @param export_host: IP or hostname of export server
+ * @param site: the site identifier
+ * @param cid: the unique ID of cluster
+ * @param cluster_entries: list of cluster(s)
+ *
+ * @return: NULL on error, valid export host name on success
+ */
+char * rbs_get_cluster2_list(rpcclt_t * clt, const char *export_host_list, int site, cid_t cid,
+        list_t * cluster_entries, uint8_t * layout, uint16_t * vid) ;
 
 #endif

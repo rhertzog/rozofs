@@ -80,9 +80,22 @@ struct ep_cluster_t {
     ep_storage_t        storages[SID_MAX];
 };
 
+struct ep_cluster2_t {
+    uint16_t            cid;
+    uint16_t            vid;	
+    uint8_t             layout;
+    uint8_t             storages_nb;
+    ep_storage_t        storages[SID_MAX];
+};
 
 union  ep_cluster_ret_t switch(ep_status_t status) {
   case EP_SUCCESS:     ep_cluster_t    cluster;
+  case EP_FAILURE:    int             error;
+  default:            void;
+};
+
+union  ep_cluster2_ret_t switch(ep_status_t status) {
+  case EP_SUCCESS:     ep_cluster2_t    cluster;
   case EP_FAILURE:    int             error;
   default:            void;
 };
@@ -91,6 +104,12 @@ struct epgw_cluster_ret_t
 {
   struct ep_gateway_t hdr;
   ep_cluster_ret_t    status_gw;
+};
+
+struct epgw_cluster2_ret_t
+{
+  struct ep_gateway_t hdr;
+  ep_cluster2_ret_t    status_gw;
 };
 
 struct epgw_cluster_arg_t {
@@ -850,6 +869,10 @@ program EXPORT_PROGRAM {
 
         epgw_mount_msite_ret_t
         EP_MOUNT_MSITE(epgw_mount_arg_t)               = 34;
+
+        epgw_cluster2_ret_t
+        EP_LIST_CLUSTER2(epgw_cluster_arg_t)       = 35;
+
 	
     } = 1;
 } = 0x20000001;

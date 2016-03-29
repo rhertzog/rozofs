@@ -162,6 +162,7 @@ mkdir -p %{buildroot}%{_initrddir}
 %{_bindir}/rozo_fid2pathname
 %{_bindir}/rozo_clusterstats
 %{_bindir}/rozo_buildfid_list
+%{_bindir}/rozo_rbsList
 %config(noreplace) %{_sysconfdir}/rozofs/export.conf
 %{_sysconfdir}/rozofs/export.conf.sample
 %if 0%{?rhel} >= 7
@@ -185,6 +186,7 @@ mkdir -p %{buildroot}%{_initrddir}
 %{_bindir}/storage_rebuild
 %{_bindir}/storage_list_rebuilder
 %{_bindir}/rozodump
+%{_bindir}/rozo_make_rebuild_lists.py
 %config(noreplace) %{_sysconfdir}/rozofs/storage.conf
 %{_sysconfdir}/rozofs/storage.conf.sample
 %if 0%{?rhel} >= 7

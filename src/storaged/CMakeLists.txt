@@ -163,3 +163,4 @@ install(TARGETS rozodump
 )
 install(FILES storage.conf.sample DESTINATION ${ROZOFS_CONFIG_DIR} COMPONENT storage)
 install(FILES storage.conf DESTINATION ${ROZOFS_CONFIG_DIR} COMPONENT storage)
+install(FILES rozo_make_rebuild_lists.py DESTINATION bin COMPONENT storage)

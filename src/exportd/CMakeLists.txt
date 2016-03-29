@@ -212,21 +212,42 @@ set_target_properties(rozofs_inode PROPERTIES COMPILE_FLAGS "-fPIC")
 #)
 #target_link_libraries(rzsave rozofs_inode rozofs ${PTHREAD_LIBRARY} ${UUID_LIBRARY} ${CONFIG_LIBRARY})
 
+
+#________________________________________________________
+# Translate a FID or a list of FIDs from a file into a 
+# full file name
+#
 add_executable(rozo_fid2pathname
     rozo_fid2pathname.c  
 )
 target_link_libraries(rozo_fid2pathname rozofs_inode rozofs ${PTHREAD_LIBRARY} ${UUID_LIBRARY} ${CONFIG_LIBRARY})
 
 
+#________________________________________________________
 add_executable(rozo_clusterstats
     rozo_clusterstats.c  
 )
 target_link_libraries(rozo_clusterstats rozofs_inode rozofs ${PTHREAD_LIBRARY} ${UUID_LIBRARY} ${CONFIG_LIBRARY})
 
+
+#________________________________________________________
 add_executable(rozo_buildfid_list
     rozo_fidlist_from_cidsid.c  
+    econfig.c  
 )
 target_link_libraries(rozo_buildfid_list rozofs_inode rozofs ${PTHREAD_LIBRARY} ${UUID_LIBRARY} ${CONFIG_LIBRARY})
+
+
+#________________________________________________________
+# Build lists of FID information for the rebuild process
+# of a whole storage or a whole cid/sid
+#
+add_executable(rozo_rbsList
+    rozo_rbsList.c  
+    econfig.c  
+)
+target_link_libraries(rozo_rbsList rozofs_inode rozofs ${PTHREAD_LIBRARY} ${UUID_LIBRARY} ${CONFIG_LIBRARY})
+
 
 # Install
 install(CODE "EXECUTE_PROCESS (COMMAND mkdir -p ${ROZOFS_CONFIG_DIR})" COMPONENT export)
@@ -281,6 +302,13 @@ install(TARGETS rozo_buildfid_list
     LIBRARY DESTINATION lib
     ARCHIVE DESTINATION lib
     COMPONENT rozo_buildfid_list
+)
+
+install(TARGETS rozo_rbsList
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    COMPONENT rozo_rbsList
 )
 
 install(FILES export.conf.sample DESTINATION ${ROZOFS_CONFIG_DIR} COMPONENT export)

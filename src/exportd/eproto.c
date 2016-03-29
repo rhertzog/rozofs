@@ -871,6 +871,83 @@ out:
 **______________________________________________________________________________
 */
 /**
+*   exportd list of clusters of exportd
+*/
+epgw_cluster2_ret_t * ep_list_cluster2_1_svc(epgw_cluster_arg_t * arg, struct svc_req * req) {
+    static epgw_cluster2_ret_t ret;
+    list_t *p, *q, *r;
+    uint8_t stor_idx = 0;
+    
+    int requested_site = arg->hdr.gateway_rank;
+    
+
+    DEBUG_FUNCTION;
+
+    ret.status_gw.status = EP_FAILURE;
+
+    // Get lock on config
+    if ((errno = pthread_rwlock_rdlock(&config_lock)) != 0) {
+        ret.status_gw.ep_cluster2_ret_t_u.error = errno;
+        goto out;
+    }
+
+    // For each volume
+
+    list_for_each_forward(p, &exportd_config.volumes) {
+
+        volume_config_t *vc = list_entry(p, volume_config_t, list);
+
+        ret.status_gw.ep_cluster2_ret_t_u.cluster.vid    = vc->vid;
+        ret.status_gw.ep_cluster2_ret_t_u.cluster.layout = vc->layout;
+
+        ret.status_gw.ep_cluster2_ret_t_u.cluster.storages_nb = 0;
+        memset(ret.status_gw.ep_cluster2_ret_t_u.cluster.storages, 0, sizeof (ep_storage_t) * SID_MAX);
+
+        // For each cluster
+
+        list_for_each_forward(q, &vc->clusters) {
+
+            cluster_config_t *cc = list_entry(q, cluster_config_t, list);
+
+            // Check if it's a the good cluster
+            if (cc->cid == arg->cid) {
+
+                // Copy cid
+                ret.status_gw.ep_cluster2_ret_t_u.cluster.cid = cc->cid;
+
+                // For each storage 
+
+                list_for_each_forward(r, (&cc->storages[requested_site])) {
+
+                    storage_node_config_t *s = list_entry(r, storage_node_config_t, list);
+
+                    // Add the storage to response
+                    strncpy(ret.status_gw.ep_cluster2_ret_t_u.cluster.storages[stor_idx].host, s->host, ROZOFS_HOSTNAME_MAX);
+                    ret.status_gw.ep_cluster2_ret_t_u.cluster.storages[stor_idx].sid = s->sid;
+                    stor_idx++;
+                }
+                // OK -> answered
+                ret.status_gw.ep_cluster2_ret_t_u.cluster.storages_nb = stor_idx;
+                ret.status_gw.status = EP_SUCCESS;
+                goto unlock;
+            }
+        }
+    }
+    // cid not found
+    ret.status_gw.ep_cluster2_ret_t_u.error = EINVAL;
+
+unlock:
+    if ((errno = pthread_rwlock_unlock(&config_lock)) != 0) {
+        ret.status_gw.ep_cluster2_ret_t_u.error = errno;
+        goto out;
+    }
+out:
+    return &ret;
+}
+/*
+**______________________________________________________________________________
+*/
+/**
 *   exportd unmount
 */
 /* Will do something one day !! */

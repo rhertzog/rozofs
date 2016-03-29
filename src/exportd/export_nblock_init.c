@@ -1119,6 +1119,7 @@ int expgwc_start_nb_blocking_th(void *args) {
 	    epgw_removexattr_arg_t ep_removexattr_1_arg;
 	    epgw_listxattr_arg_t ep_listxattr_1_arg;
 	    uint16_t ep_list_cluster_1_arg;
+	    uint16_t ep_list_cluster2_1_arg;
 	    ep_path_t ep_conf_storage_1_arg;
 	    ep_gateway_t ep_poll_conf_1_arg;
 	    ep_path_t ep_conf_expgw_1_arg;

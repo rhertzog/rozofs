@@ -85,6 +85,15 @@ struct ep_cluster_t {
 };
 typedef struct ep_cluster_t ep_cluster_t;
 
+struct ep_cluster2_t {
+	uint16_t cid;
+	uint16_t vid;
+	uint8_t layout;
+	uint8_t storages_nb;
+	ep_storage_t storages[SID_MAX];
+};
+typedef struct ep_cluster2_t ep_cluster2_t;
+
 struct ep_cluster_ret_t {
 	ep_status_t status;
 	union {
@@ -94,11 +103,26 @@ struct ep_cluster_ret_t {
 };
 typedef struct ep_cluster_ret_t ep_cluster_ret_t;
 
+struct ep_cluster2_ret_t {
+	ep_status_t status;
+	union {
+		ep_cluster2_t cluster;
+		int error;
+	} ep_cluster2_ret_t_u;
+};
+typedef struct ep_cluster2_ret_t ep_cluster2_ret_t;
+
 struct epgw_cluster_ret_t {
 	struct ep_gateway_t hdr;
 	ep_cluster_ret_t status_gw;
 };
 typedef struct epgw_cluster_ret_t epgw_cluster_ret_t;
+
+struct epgw_cluster2_ret_t {
+	struct ep_gateway_t hdr;
+	ep_cluster2_ret_t status_gw;
+};
+typedef struct epgw_cluster2_ret_t epgw_cluster2_ret_t;
 
 struct epgw_cluster_arg_t {
 	struct ep_gateway_t hdr;
@@ -961,6 +985,9 @@ extern  epgw_mattr_ret_t * ep_symlink2_1_svc(epgw_symlink2_arg_t *, struct svc_r
 #define EP_MOUNT_MSITE 34
 extern  epgw_mount_msite_ret_t * ep_mount_msite_1(epgw_mount_arg_t *, CLIENT *);
 extern  epgw_mount_msite_ret_t * ep_mount_msite_1_svc(epgw_mount_arg_t *, struct svc_req *);
+#define EP_LIST_CLUSTER2 35
+extern  epgw_cluster2_ret_t * ep_list_cluster2_1(epgw_cluster_arg_t *, CLIENT *);
+extern  epgw_cluster2_ret_t * ep_list_cluster2_1_svc(epgw_cluster_arg_t *, struct svc_req *);
 extern int export_program_1_freeresult (SVCXPRT *, xdrproc_t, caddr_t);
 
 #else /* K&R C */
@@ -1066,6 +1093,9 @@ extern  epgw_mattr_ret_t * ep_symlink2_1_svc();
 #define EP_MOUNT_MSITE 34
 extern  epgw_mount_msite_ret_t * ep_mount_msite_1();
 extern  epgw_mount_msite_ret_t * ep_mount_msite_1_svc();
+#define EP_LIST_CLUSTER2 35
+extern  epgw_cluster2_ret_t * ep_list_cluster2_1();
+extern  epgw_cluster2_ret_t * ep_list_cluster2_1_svc();
 extern int export_program_1_freeresult ();
 #endif /* K&R C */
 
@@ -1090,8 +1120,11 @@ extern  bool_t xdr_ep_status_ret_t (XDR *, ep_status_ret_t*);
 extern  bool_t xdr_epgw_status_ret_t (XDR *, epgw_status_ret_t*);
 extern  bool_t xdr_ep_storage_t (XDR *, ep_storage_t*);
 extern  bool_t xdr_ep_cluster_t (XDR *, ep_cluster_t*);
+extern  bool_t xdr_ep_cluster2_t (XDR *, ep_cluster2_t*);
 extern  bool_t xdr_ep_cluster_ret_t (XDR *, ep_cluster_ret_t*);
+extern  bool_t xdr_ep_cluster2_ret_t (XDR *, ep_cluster2_ret_t*);
 extern  bool_t xdr_epgw_cluster_ret_t (XDR *, epgw_cluster_ret_t*);
+extern  bool_t xdr_epgw_cluster2_ret_t (XDR *, epgw_cluster2_ret_t*);
 extern  bool_t xdr_epgw_cluster_arg_t (XDR *, epgw_cluster_arg_t*);
 extern  bool_t xdr_ep_storage_node_msite_t (XDR *, ep_storage_node_msite_t*);
 extern  bool_t xdr_ep_storage_node_t (XDR *, ep_storage_node_t*);
@@ -1208,8 +1241,11 @@ extern bool_t xdr_ep_status_ret_t ();
 extern bool_t xdr_epgw_status_ret_t ();
 extern bool_t xdr_ep_storage_t ();
 extern bool_t xdr_ep_cluster_t ();
+extern bool_t xdr_ep_cluster2_t ();
 extern bool_t xdr_ep_cluster_ret_t ();
+extern bool_t xdr_ep_cluster2_ret_t ();
 extern bool_t xdr_epgw_cluster_ret_t ();
+extern bool_t xdr_epgw_cluster2_ret_t ();
 extern bool_t xdr_epgw_cluster_arg_t ();
 extern bool_t xdr_ep_storage_node_msite_t ();
 extern bool_t xdr_ep_storage_node_t ();

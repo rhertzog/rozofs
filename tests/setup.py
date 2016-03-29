@@ -170,9 +170,9 @@ class host_class:
       if argv[i] == "-id": rebef = True
       param += " %s"%(argv[i])
     if rebef == True:
-      cmd_system("storage_rebuild %s"%(param))      
+      cmd_system("storage_rebuild --simu %s %s"%(exportd.get_config_name(),param))      
     else:  
-      cmd_system("storage_rebuild -c %s -H localhost%s -r %s %s"%(self.get_config_name(),self.number,exportd.export_host,param))  
+      cmd_system("storage_rebuild --simu %s -c %s -H localhost%s -r %s %s"%(exportd.get_config_name(),self.get_config_name(),self.number,exportd.export_host,param))  
 
 #____________________________________
 # Class sid
@@ -375,10 +375,10 @@ class sid_class:
       if argv[i] == "-id": rebef = True
       param += " %s"%(argv[i])
     if rebef == True:
-      cmd_system("storage_rebuild %s"%(param))      
+      cmd_system("storage_rebuild --simu %s %s"%(exportd.get_config_name(),param))      
     else: 
       h = self.host[0]   
-      cmd_system("storage_rebuild -c %s -H localhost%s -r %s -s %d/%d %s"%(h.get_config_name(),h.number,exportd.export_host,self.cid.cid,self.sid,param))  
+      cmd_system("storage_rebuild --simu %s -c %s -H localhost%s -r %s -s %d/%d %s"%(exportd.get_config_name(),h.get_config_name(),h.number,exportd.export_host,self.cid.cid,self.sid,param))  
                       
   def info(self):
     print "cid = %s"%(self.cid.cid)
@@ -977,7 +977,7 @@ class rozofs_class:
     self.nb_core_file = 2
     self.crc32 = True
     self.self_healing = -2
-    self.nb_listen=2;
+    self.nb_listen=1;
     self.storio_mode="multiple";
     self.interface = "eth0"
     self.read_mojette_threads = False
@@ -1743,6 +1743,20 @@ def test_init():
   geomgr  = geomgr_class()
   
 
+# Add path for rozofs executables
+try:
+  for dir in os.listdir("%s/build/src"%(os.getcwd())):
+    dir="%s/build/src/%s"%(os.getcwd(),dir)
+    if os.path.isdir(dir):
+      os.environ["PATH"] += (os.pathsep+dir)
+except: pass
+# To retrieve python tools
+try:
+  for dir in os.listdir("%s/../src"%(os.getcwd())):
+    dir="%s/../src/%s"%(os.getcwd(),dir)
+    if os.path.isdir(dir):
+      os.environ["PATH"] += (os.pathsep+dir)
+except: pass
 
 if len(sys.argv) < int(2): syntax()
 command = sys.argv[1]

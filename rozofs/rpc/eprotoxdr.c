@@ -217,6 +217,26 @@ xdr_ep_cluster_t (XDR *xdrs, ep_cluster_t *objp)
 }
 
 bool_t
+xdr_ep_cluster2_t (XDR *xdrs, ep_cluster2_t *objp)
+{
+	//register int32_t *buf;
+
+	//int i;
+	 if (!xdr_uint16_t (xdrs, &objp->cid))
+		 return FALSE;
+	 if (!xdr_uint16_t (xdrs, &objp->vid))
+		 return FALSE;
+	 if (!xdr_uint8_t (xdrs, &objp->layout))
+		 return FALSE;
+	 if (!xdr_uint8_t (xdrs, &objp->storages_nb))
+		 return FALSE;
+	 if (!xdr_vector (xdrs, (char *)objp->storages, SID_MAX,
+		sizeof (ep_storage_t), (xdrproc_t) xdr_ep_storage_t))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
 xdr_ep_cluster_ret_t (XDR *xdrs, ep_cluster_ret_t *objp)
 {
 	//register int32_t *buf;
@@ -239,6 +259,28 @@ xdr_ep_cluster_ret_t (XDR *xdrs, ep_cluster_ret_t *objp)
 }
 
 bool_t
+xdr_ep_cluster2_ret_t (XDR *xdrs, ep_cluster2_ret_t *objp)
+{
+	//register int32_t *buf;
+
+	 if (!xdr_ep_status_t (xdrs, &objp->status))
+		 return FALSE;
+	switch (objp->status) {
+	case EP_SUCCESS:
+		 if (!xdr_ep_cluster2_t (xdrs, &objp->ep_cluster2_ret_t_u.cluster))
+			 return FALSE;
+		break;
+	case EP_FAILURE:
+		 if (!xdr_int (xdrs, &objp->ep_cluster2_ret_t_u.error))
+			 return FALSE;
+		break;
+	default:
+		break;
+	}
+	return TRUE;
+}
+
+bool_t
 xdr_epgw_cluster_ret_t (XDR *xdrs, epgw_cluster_ret_t *objp)
 {
 	//register int32_t *buf;
@@ -246,6 +288,18 @@ xdr_epgw_cluster_ret_t (XDR *xdrs, epgw_cluster_ret_t *objp)
 	 if (!xdr_ep_gateway_t (xdrs, &objp->hdr))
 		 return FALSE;
 	 if (!xdr_ep_cluster_ret_t (xdrs, &objp->status_gw))
+		 return FALSE;
+	return TRUE;
+}
+
+bool_t
+xdr_epgw_cluster2_ret_t (XDR *xdrs, epgw_cluster2_ret_t *objp)
+{
+	//register int32_t *buf;
+
+	 if (!xdr_ep_gateway_t (xdrs, &objp->hdr))
+		 return FALSE;
+	 if (!xdr_ep_cluster2_ret_t (xdrs, &objp->status_gw))
 		 return FALSE;
 	return TRUE;
 }
