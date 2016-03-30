@@ -131,7 +131,10 @@ int monitor_volume(volume_t *volume) {
 	    strcpy(gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].host,storage->host);
             gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].size = storage->stat.size;
             gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].free = storage->stat.free;
-	    gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].site = storage->siteNum;
+	    if (clone.georep) 
+	      gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].site = local_site;
+	    else  
+	      gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].site = storage->siteNum;
             nb_storages++;
 
             dprintf(fd, "          storage: %u\n", storage->sid);
@@ -161,7 +164,7 @@ int monitor_volume(volume_t *volume) {
 	      strcpy(gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].host,storage->host);
               gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].size = storage->stat.size;
               gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].free = storage->stat.free;
-	      gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].site = storage->siteNum;
+	      gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].site = 1-local_site;
               nb_storages++;
 
               dprintf(fd, "          storage: %u\n", storage->sid);
@@ -228,47 +231,39 @@ int monitor_volume_slave(volume_t *volume) {
 
     list_for_each_forward(p, &clone.clusters) {
         cluster_t *cluster = list_entry(p, cluster_t, list);
-
-        list_for_each_forward(q, (&cluster->storages[local_site])) {
+     list_for_each_forward(q, (&cluster->storages[local_site])) {
             volume_storage_t *storage = list_entry(q, volume_storage_t, list);
 
             gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].cid = cluster->cid;
             gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].sid = storage->sid;
             gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].status = storage->status;
+	    strcpy(gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].host,storage->host);
             gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].size = storage->stat.size;
             gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].free = storage->stat.free;
-	    strcpy(gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].host,storage->host);
-	    gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].site = storage->siteNum;	    	    
+	    if (clone.georep) 
+	      gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].site = local_site;
+	    else  
+	      gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].site = storage->siteNum;
             nb_storages++;
-
-       }
-
-    }
-    gprofiler.vstats[gprofiler.nb_volumes].nb_storages = nb_storages;
-    /*
-    ** case of the geo-replication
-    */
-    if (clone.georep)
-    {
-      list_for_each_forward(p, &clone.clusters) {
-          cluster_t *cluster = list_entry(p, cluster_t, list);
-
+        }
+	
+	if (clone.georep) {
           list_for_each_forward(q, (&cluster->storages[1-local_site])) {
               volume_storage_t *storage = list_entry(q, volume_storage_t, list);
 
               gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].cid = cluster->cid;
               gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].sid = storage->sid;
               gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].status = storage->status;
+	      strcpy(gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].host,storage->host);
               gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].size = storage->stat.size;
               gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].free = storage->stat.free;
- 	      strcpy(gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].host,storage->host);
-	      gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].site = storage->siteNum;	      	      
+	      gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].site = 1-local_site;
               nb_storages++;
-
           }
-      }        
+	}  
     }
- 
+    
+    gprofiler.vstats[gprofiler.nb_volumes].nb_storages = nb_storages;
     
 
     // Free the clone volume

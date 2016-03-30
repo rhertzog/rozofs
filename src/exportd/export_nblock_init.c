@@ -689,19 +689,6 @@ void show_vstor(char * argv[], uint32_t tcpRef, void *bufRef) {
                    gprofiler.vstats[i].sstats[j].sid,
                    gprofiler.vstats[i].sstats[j].host);
         }
-	if (gprofiler.vstats[i].georep) {
-        pbuf+=sprintf(pbuf, "----+-----+-----+-----+----------------------\n");
-	  int k = gprofiler.vstats[i].nb_storages;
-          for (j = 0; j < gprofiler.vstats[i].nb_storages; j++) {
-            pbuf+=sprintf(pbuf, " %2d | %3d | %3d | %3d | %s\n",
-	           gprofiler.vstats[i].sstats[j+k].site,
-                   gprofiler.vstats[i].vid,
-		   gprofiler.vstats[i].sstats[j+k].cid,
-                   gprofiler.vstats[i].sstats[j+k].sid,
-		   gprofiler.vstats[i].sstats[j+k].host);
-          }
-	}
-        pbuf+=sprintf(pbuf, "\n");
     }
     uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
 }
