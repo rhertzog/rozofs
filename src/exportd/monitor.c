@@ -98,6 +98,12 @@ int monitor_volume(volume_t *volume) {
     dprintf(fd, "  bsize: %u\n", vstat.bsize);
     dprintf(fd, "  bfree: %"PRIu64"\n", vstat.bfree);
     dprintf(fd, "  blocks: %"PRIu64"\n", vstat.blocks);
+    if (vstat.blocks == 0) {
+      dprintf(fd, "  %cfree: 0\n",'%');
+    }
+    else {
+      dprintf(fd, "  %cfree: %"PRIu64"\n", '%', vstat.bfree*100/vstat.blocks);
+    }
     dprintf(fd, "  nb_clusters: %d\n", list_size(&clone.clusters));
 
     list_for_each_forward(p, &clone.clusters) {
@@ -106,7 +112,16 @@ int monitor_volume(volume_t *volume) {
         dprintf(fd, "      nb_storages: %d\n", list_size((&cluster->storages[local_site])));
         dprintf(fd, "      size: %"PRIu64"\n", cluster->size);
         dprintf(fd, "      free: %"PRIu64"\n", cluster->free);
-
+	if (cluster->size==0) {
+          dprintf(fd, "      %cfree: 0\n",'%');	   
+	}
+	else {
+          dprintf(fd, "      %cfree: %"PRIu64"\n",'%', cluster->free*100/cluster->size);     
+	}   
+	
+	if (clone.georep) {
+	  dprintf(fd, "        site: %d\n", local_site); 
+	}
         list_for_each_forward(q, (&cluster->storages[local_site])) {
             volume_storage_t *storage = list_entry(q, volume_storage_t, list);
 
@@ -119,47 +134,55 @@ int monitor_volume(volume_t *volume) {
 	    gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].site = storage->siteNum;
             nb_storages++;
 
-            dprintf(fd, "        storage: %u\n", storage->sid);
-	    dprintf(fd, "          host: %s\n", storage->host);
-	    if ((clone.georep)||(clone.multi_site)) {
-              dprintf(fd, "          site: %d\n", storage->siteNum);
+            dprintf(fd, "          storage: %u\n", storage->sid);
+	    dprintf(fd, "            host: %s\n", storage->host);
+	    if (clone.multi_site) {
+            dprintf(fd, "            site: %d\n", storage->siteNum);
 	    }  
-            dprintf(fd, "          status: %u\n", storage->status);
-            dprintf(fd, "          size: %"PRIu64"\n", storage->stat.size);
-            dprintf(fd, "          free: %"PRIu64"\n", storage->stat.free);
+            dprintf(fd, "            status: %s\n", (storage->status==1)?"UP":"DOWN");
+            dprintf(fd, "            size: %"PRIu64"\n", storage->stat.size);
+            dprintf(fd, "            free: %"PRIu64"\n", storage->stat.free);
+	    if (storage->stat.size==0) {
+              dprintf(fd, "            %cfree: 0\n",'%');	   
+	    }
+	    else {
+              dprintf(fd, "            %cfree: %"PRIu64"\n",'%', storage->stat.free*100/storage->stat.size);	   
+	    }   
         }
-
-    }
-    gprofiler.vstats[gprofiler.nb_volumes].nb_storages = nb_storages;
-    /*
-    ** case of the geo-replication
-    */
-    if (clone.georep)
-    {
-      list_for_each_forward(p, &clone.clusters) {
-          cluster_t *cluster = list_entry(p, cluster_t, list);
-
+	
+	if (clone.georep) {
+	  dprintf(fd, "        site: %d\n", 1-local_site); 
           list_for_each_forward(q, (&cluster->storages[1-local_site])) {
               volume_storage_t *storage = list_entry(q, volume_storage_t, list);
 
               gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].cid = cluster->cid;
               gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].sid = storage->sid;
               gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].status = storage->status;
-	      strcpy(gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].host,storage->host);	      
+	      strcpy(gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].host,storage->host);
               gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].size = storage->stat.size;
               gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].free = storage->stat.free;
 	      gprofiler.vstats[gprofiler.nb_volumes].sstats[nb_storages].site = storage->siteNum;
               nb_storages++;
 
-              dprintf(fd, "        storage: %u\n", storage->sid);
-	      dprintf(fd, "          host: %s\n", storage->host);
-              dprintf(fd, "          site: %d\n", storage->siteNum);
-              dprintf(fd, "          status: %u\n", storage->status);
-              dprintf(fd, "          size: %"PRIu64"\n", storage->stat.size);
-              dprintf(fd, "          free: %"PRIu64"\n", storage->stat.free);	      
+              dprintf(fd, "          storage: %u\n", storage->sid);
+	      dprintf(fd, "            host: %s\n", storage->host);
+	      if (clone.multi_site) {
+              dprintf(fd, "            site: %d\n", storage->siteNum);
+	      }  
+              dprintf(fd, "            status: %s\n", (storage->status==1)?"UP":"DOWN");
+              dprintf(fd, "            size: %"PRIu64"\n", storage->stat.size);
+              dprintf(fd, "            free: %"PRIu64"\n", storage->stat.free);
+	      if (storage->stat.size==0) {
+        	dprintf(fd, "            %cfree: 0\n",'%');	   
+	      }
+	      else {
+        	dprintf(fd, "            %cfree: %"PRIu64"\n",'%', storage->stat.free*100/storage->stat.size);	   
+	      }   
           }
-      }        
+	}  
     }
+    
+    gprofiler.vstats[gprofiler.nb_volumes].nb_storages = nb_storages;
  
     
 
