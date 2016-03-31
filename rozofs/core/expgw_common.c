@@ -290,6 +290,12 @@ int expgw_export_lbg_initialize(expgw_exportd_ctx_t *exportclt ,unsigned long pr
       }
       north_lbg_set_active_standby_mode(exportclt->export_lbg_id);
     }
+    
+    /*
+    ** Request to rechain request on LBG on disconnection
+    */
+    north_lbg_rechain_when_lbg_gets_down(exportclt->export_lbg_id);
+    
     /*
     ** set the dscp code
     */
