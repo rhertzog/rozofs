@@ -1060,8 +1060,15 @@ def relocate_one_dev() :
 
 
   ret=1 
+  modulo=1
   for s in sids:
     
+    if modulo == 3:
+      modulo=1
+    else:
+      modulo = modulo + 1
+      continue
+        
     hid=s.split('-')[0]
     cid=s.split('-')[1]
     sid=s.split('-')[2]
@@ -1200,8 +1207,10 @@ def rebuild_one_node() :
   global sids
     
   ret=1 
+  # Loop on every host
   for hid in hosts:
  
+    # Delete every device of every CID/SID on this host
     for s in sids:
 
       zehid=s.split('-')[0]

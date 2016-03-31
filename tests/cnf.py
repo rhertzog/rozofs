@@ -2,96 +2,42 @@
 # -*- coding: utf-8 -*-
 cnf_clusters=[]
 global layout
+global layout_int
 global nbclusters
 global clients_nb
-
-#_____________________________________
-def layout1_4servers():
-  global layout
-  global nbclusters
-
-  layout = rozofs.layout_4_6_8()
-  
-  # Create a volume
-  v1 = volume_class(layout,1)
-
-  # Create 2 clusters on this volume
-  for i in range(nbclusters):    
-    c = v1.add_cid(devices,mapper,redundancy)  
-    cnf_clusters.append(c)
-
-  # Create the required number of sid on each cluster
-  # The 2 clusters use the same host for a given sid number
-  for s in range(rozofs.min_sid(layout)/2):
-    for c in cnf_clusters:    
-      c.add_sid_on_host(s+1)
-      c.add_sid_on_host(s+1)
-    	  
-  # Create on export for 4K, and one moun point
-  e1 = v1.add_export(rozofs.bsize4K())
-  m1 = e1.add_mount()
-#_____________________________________
-def layout2_4servers():
-  global layout
-  global nbclusters
-
-  layout = rozofs.layout_8_12_16()
-  
-  # Create a volume
-  v1 = volume_class(layout,1)
-
-  # Create 2 clusters on this volume
-  for i in range(nbclusters):    
-    c = v1.add_cid(devices,mapper,redundancy)  
-    cnf_clusters.append(c)
-
-  # Create the required number of sid on each cluster
-  # The 2 clusters use the same host for a given sid number
-  for s in range(rozofs.min_sid(layout)/4):
-    for c in cnf_clusters:    
-      c.add_sid_on_host(s+1)
-      c.add_sid_on_host(s+1)
-      c.add_sid_on_host(s+1)
-      c.add_sid_on_host(s+1)
-    	  
-  # Create on export for 4K, and one moun point
-  e1 = v1.add_export(rozofs.bsize4K())
-  m1 = e1.add_mount()  
-#_____________________________________
-def layout2_8servers():
-  global layout
-  global nbclusters
-
-  layout = rozofs.layout_8_12_16()
-  
-  # Create a volume
-  v1 = volume_class(layout,1)
-
-  # Create 2 clusters on this volume
-  for i in range(nbclusters):    
-    c = v1.add_cid(devices,mapper,redundancy)  
-    cnf_clusters.append(c)
-
-  # Create the required number of sid on each cluster
-  # The 2 clusters use the same host for a given sid number
-  for s in range(rozofs.min_sid(layout)/2):
-    for c in cnf_clusters:    
-      c.add_sid_on_host(s+1)
-      c.add_sid_on_host(s+1)
-    	  
-  # Create on export for 4K, and one moun point
-  e1 = v1.add_export(rozofs.bsize4K())
-  m1 = e1.add_mount()    
+global georep
 
 #_____________________________________ 
-def createNbSids(nbSid):
+def setLayout(l=0):
   global layout
+  global layout_int
+  
+  layout_int=int(l)
+  if   l == 0: layout = rozofs.layout_2_3_4()
+  elif l == 1: layout = rozofs.layout_4_6_8()
+  elif l == 2: layout = rozofs.layout_8_12_16()
+  else: 
+    print "No such layout %s"%(l)
+    sys.exit(-1)  
+  
+#_____________________________________ 
+def setNbHosts(nbHosts):
+  global layout_int
   global nbclusters
   global clients_nb
-  
+  global georep
+    
+  # Is there more server than sid per cluster
+  factor=int(1)
+  safe=rozofs.min_sid(layout_int)
+  nb=int(nbHosts)
+  while int(safe) > int(nb):
+    factor=int(factor) * int(2)
+    nb=int(nb) * int(2)  
+    
   # Create a volume
   v1 = volume_class(layout,rozofs.failures(layout))
-
+  
   # Create clusters on this volume
   for i in range(nbclusters):
     c = v1.add_cid(devices,mapper,redundancy)  
@@ -99,36 +45,29 @@ def createNbSids(nbSid):
 
     # Create the required number of sid on each cluster
     # The 2 clusters use the same host for a given sid number
-    for s in range(nbSid):
-	  c.add_sid_on_host(s+1,s % rozofs.site_number)
-
+    for s in range(nbHosts):
+      if georep == False:
+        for f in range(factor):
+          c.add_sid_on_host(s+1,s % rozofs.site_number)
+      else:
+        # In geo replication 
+	# host2 on site 1 replicates host1 on site 0
+	# host4 on site 1 replicates host3 on site 0...	
+        for f in range(factor):
+          c.add_sid_on_host((2*s)+1,0,(2*s)+2,1)
+        
   # Create on export for 4K, and one mount point
   e1 = v1.add_export(rozofs.bsize4K())
   
   for i in range(1,clients_nb+1): 
     m = e1.add_mount((i-1) % rozofs.site_number)
+    if georep==True: m2 = e1.add_mount(1)
+    
 
+    
 #_____________________________________ 
-def layout0nbSids(nbSid):
-  global layout
-
-  layout = rozofs.layout_2_3_4()
-  createNbSids(nbSid)
-#_____________________________________ 
-def layout1nbSids(nbSid):
-  global layout
-
-  layout = rozofs.layout_4_6_8()
-  createNbSids(nbSid)
-
-#_____________________________________ 
-def layout2nbSids(nbSid):
-  global layout
-
-  layout = rozofs.layout_8_12_16()
-  createNbSids(nbSid)
-
-#_____________________________________ 
+georep = False
+#georep = True
 
 # Number of sites
 #rozofs.set_site_number(4)
@@ -195,23 +134,18 @@ devices    = 4
 mapper     = 2
 redundancy = 2
 
-
 # Nb cluster per volume
-nbclusters = 2
+nbclusters = 1
 
 # default is to have one mount point per site
 clients_nb = rozofs.site_number
 
+# Define Layout
+setLayout(1)
 
-#__Specific layout with small number of server
-#layout2_4servers()
-#layout2_8servers()
-#layout1_4servers()
+# Define number of Host 
+setNbHosts(8)
 
-#__Choose a layout as well as a number of server__
-#layout0nbSids(4)
-layout1nbSids(8)
-#layout2nbSids(16)
 
 # Set host 1 faulty
 #h1 = host_class.get_host(1)

@@ -217,52 +217,51 @@ class sid_class:
       root_path=self.get_root_path(h.number)   
       try:os.mkdir(root_path)
       except: pass
-      self.create_device("all")    
+      self.create_device("all",h)    
 
   def delete_path(self):
-
-    if rozofs.device_automount == True: 
-      try:self.delete_device("all")
-      except: pass  
                 
     for h in self.host:    
-      try:self.delete_device("all")
+
+      try:self.delete_device("all",h)
       except: pass     
+
+      if rozofs.device_automount == True:
+        continue
+
       root_path=self.get_root_path(h.number)   
       try: shutil.rmtree(root_path)
       except: pass 
       
 
-  def delete_device(self,device):
-    h = self.host[0]   
+  def delete_device(self,device,h):
     if device == "all":
-      for dev in range(self.cid.dev_total): self.delete_device(dev)
+      for dev in range(self.cid.dev_total): self.delete_device(dev,h)
     else:	
-      self.delete_device_file(device)
+      self.delete_device_file(device,h)
       path=self.get_root_path(h.number)+"/%s"%(device) 
       try: 
         shutil.rmtree(path)
-	syslog.syslog("%s deleted"%(path))      
+        syslog.syslog("%s deleted"%(path))      
       except: 
-	syslog.syslog("%s delete failed"%(path))      
+        syslog.syslog("%s delete failed"%(path))      
         pass 
     
   def get_device_file_path(self,site): 
     if len(self.host) < (int(site)+1): return None  
-    return "%s/devices/cid%s/sid%s/"%(rozofs.get_config_path(),self.cid.cid,self.sid)
+    return "%s/devices/site%d/cid%s/sid%s/"%(rozofs.get_config_path(),site,self.cid.cid,self.sid)
  
 
-  def mount_device_file(self,dev):
+  def mount_device_file(self,dev,h):
     
     if rozofs.disk_size_mb == None: return 
     if rozofs.device_automount == True: return
     
     if dev == "all":
-      for dev in range(self.cid.dev_total): self.mount_device_file(dev)
+      for dev in range(self.cid.dev_total): self.mount_device_file(dev,h)
       return
       
-    path=self.get_device_file_path(int(0))
-    h = self.host[0]   
+    path=self.get_device_file_path(h.site)   
     cmd_system("touch %s/%s/X"%(self.get_root_path(h.number),dev))
        
     string="losetup -j %s%s "%(path,dev)
@@ -283,24 +282,22 @@ class sid_class:
       print "No /dev/loop for %s%s"%(path,dev)  
     return
      	  
-  def umount_device_file(self,dev):
-    h = self.host[0]    
+  def umount_device_file(self,dev, h):
     silent_system("umount %s/%s"%(self.get_root_path(h.number),dev))
       
-  def create_device_file(self,device):
+  def create_device_file(self,device,h):
   
     if rozofs.disk_size_mb == None: return
-    h = self.host[0] 
         
     if device == "all":
-      for dev in range(self.cid.dev_total): self.create_device_file(dev)
+      for dev in range(self.cid.dev_total): self.create_device_file(dev,h)
       return
     
     tmpdir="/tmp/setup"
     cmd_system("mkdir -p %s"%(tmpdir))
           
 	  
-    path=self.get_device_file_path(int(0)) 
+    path=self.get_device_file_path(h.site) 
     try: os.makedirs(path)
     except: pass 
     
@@ -329,16 +326,16 @@ class sid_class:
 #        continue      
     print "Can not find /dev/loop for %s/%s"%(path,device)
 
-  def delete_device_file(self,device):
+  def delete_device_file(self,device,h):
 
     if rozofs.disk_size_mb == None: return
 
     if device == "all":
-      for dev in range(self.cid.dev_total): self.delete_device_file(dev)
+      for dev in range(self.cid.dev_total): self.delete_device_file(dev,h)
       return
       
-    self.umount_device_file(device)      
-    path="%s%s"%(self.get_device_file_path(int(0)),device)
+    self.umount_device_file(device,h)      
+    path="%s%s"%(self.get_device_file_path(h.site),device)
 
     if not os.path.exists(path): return
     
@@ -354,19 +351,18 @@ class sid_class:
     try:os.remove(path)
     except: pass    
           
-  def create_device(self,device):
-    h = self.host[0]   
+  def create_device(self,device,h):
     if device == "all":
-      for dev in range(self.cid.dev_total): self.create_device(dev)
+      for dev in range(self.cid.dev_total): self.create_device(dev,h)
     else:
           
-      self.create_device_file(device)
+      self.create_device_file(device,h)
       if rozofs.device_automount == True: return
       
       path=self.get_root_path(h.number)+"/%s"%(device)   
       try: os.makedirs(path)
       except: pass 
-      self.mount_device_file(device)
+      self.mount_device_file(device,h)
       
   def rebuild(self,argv):
     param=""
@@ -436,7 +432,7 @@ class cid_class:
     s = sid_class(self, sid, site0, host0)
     # For geo repliction
     if host1 != None:
-      s.add_host(host1, site1) 
+      s.add_host(site1,host1) 
     self.sid.append(s)
     if host1 == None: self.set_georep(False)
     else            : self.set_georep(True)    	
@@ -711,7 +707,7 @@ class volume_class:
     self.cid.append(c)
     return c
 
-  def georep(self):
+  def georep(self,):
     georep = None
     for c in self.cid:
       if georep == None: georep = c.georep
@@ -937,7 +933,8 @@ class geomgr_class:
 	print "		   (" 
 	print "		     { start=\"8:00\"; stop=\"12:15\";  },"
 	print "		     { start=\"14:15\"; stop=\"17:30\"; }"
-	print "		   );" 
+	print "		   );"
+	print "          }" 
     print "	);"   
     print "   }" 
     print ');' 
@@ -1087,7 +1084,10 @@ class rozofs_class:
     if self.storaged_start_script != None: print "storaged_start_script = \"%s\";"%(self.storaged_start_script)
     if self.device_automount == True: print "device_automount = True;"
     print "device_self_healing_process = 2;"
-
+    print "export_temporary_dir = \"/root/tmp/export\";"
+    print "storage_temporary_dir = \"/root/tmp/storage\";"
+    os.system("mkdir -p /root/tmp/export; mkdir -p /root/tmp/storage;")
+    
   def create_common_config(self):
     save_stdout = sys.stdout
     sys.stdout = open("/usr/local/etc/rozofs/rozofs.conf","w")
@@ -1290,13 +1290,6 @@ class rozofs_class:
       syntax("No such executable","debug")
       return
     cmd_system("ddd %s -core %s"%(exe,os.path.join(self.core_dir(), argv[2]))) 
-     
-  def ddd(self,who):
-    exe=self.exe_from_core_dir(who)
-    if not os.path.exists(exe):
-      syntax("No such executable \"%s\""%(who),"debug")
-      return
-    cmd_system("ddd %s &"%(exe))
 	      
 #___________________________________________  
 def cmd_system (string):
@@ -1370,8 +1363,8 @@ def syntax_config() :
   print  "./setup.py \tconfig  \t<confFileName>"  
 #_____________________________________________  
 def syntax_sid() :
-  print  "./setup.py \tsid     \t<cid> <sid>\tdevice-delete all|<#device>"
-  print  "./setup.py \tsid     \t<cid> <sid>\tdevice-create all|<#device>"
+  print  "./setup.py \tsid     \t<cid> <sid>\tdevice-delete all|{<#device> [<site>]}"
+  print  "./setup.py \tsid     \t<cid> <sid>\tdevice-create all|{<#device> [<site>]}"
   print  "./setup.py \tsid     \t<cid> <sid>\trebuild..."
   print  "./setup.py \tsid     \t<cid> <sid>\tinfo"
 #_____________________________________________  
@@ -1382,7 +1375,6 @@ def syntax_monitor() :
   print  "./setup.py \tmonitor"  
 #_____________________________________________  
 def syntax_debug() :
-  print  "./setup.py \tddd     \t<module>"
   print  "./setup.py \tcore    \tremove all|<coredir>/<corefile>"
   print  "./setup.py \tcore    \t[<coredir>/<corefile>]"
   
@@ -1393,6 +1385,7 @@ def syntax_all() :
   print  "./setup.py \tdisplay\t\t[conf. file]"
   print  "./setup.py \tstart|stop"
   print  "./setup.py \tpause|resume"
+  print  "./setup.py \tcmd <command to be executed in the setup context>"
 
   syntax_monitor()
     
@@ -1424,94 +1417,7 @@ def syntax(string=None,topic=None) :
     pass
   sys.exit(-1)
   
-         
-
-def config_standard(layout,vols,cluster_per_vol,eid_per_vol,bsize):
-  
-  for idx1 in range(vols):
-
-    v = volume_class(layout,rozofs.failures(layout))
-    
-    for idx2 in range(cluster_per_vol):
-      c = v.add_cid(6,4,4)
-      for s in range(rozofs.min_sid(layout)):
-	c.add_sid_on_host(s+1)
-	  
-    for idx2 in range(eid_per_vol):
-      e = v.add_export(bsize)
-      m = e.add_mount()
-      
-def config_half_layout1(vols,bsize):
-  
-  for idx1 in range(vols):
-
-    v = volume_class(rozofs.layout_4_6_8(),1)
-
-    c = v.add_cid(4,2,2)
-    for s in range(1,5):
-      c.add_sid_on_host(s)
-      c.add_sid_on_host(s)
-      
-    e = v.add_export(bsize)
-    m = e.add_mount()
-
-def config_4_6_9():
-  
-  v = volume_class(rozofs.layout_4_6_9())
-  c = v.add_cid(1,1,1)
-  
-  h= 1
-  s1 = c.add_sid_on_host(h)
-  s2 = c.add_sid_on_host(h)
-  s3 = c.add_sid_on_host(h)
-  h= 2
-  s1 = c.add_sid_on_host(h)
-  s2 = c.add_sid_on_host(h)
-  s3 = c.add_sid_on_host(h)
-  h= 3
-  s1 = c.add_sid_on_host(h)
-  s2 = c.add_sid_on_host(h)
-  s3 = c.add_sid_on_host(h)
-
-  e = v.add_export(rozofs.bsize4K());
-  m = e.add_mount()
-   
-             
-def mix_config():
-  
-  v1 = volume_class(rozofs.layout_2_3_4())
-  c1 = v1.add_cid(6,4,4);
-  s11 = c1.add_sid_on_host(1)
-  s12 = c1.add_sid_on_host(2)
-  s13 = c1.add_sid_on_host(3)
-  s14 = c1.add_sid_on_host(4)
-
-  c2 = v1.add_cid(6,4,4);
-  s21 = c2.add_sid_on_host(1)
-  s22 = c2.add_sid_on_host(2)
-  s23 = c2.add_sid_on_host(3)
-  s24 = c2.add_sid_on_host(4)
-
-  e1 = v1.add_export(0);
-  m1=e1.add_mount()
-
-  e2 = v1.add_export(0);
-  m2=e2.add_mount()
-  m3=e2.add_mount()
-
-  v2 = volume_class(rozofs.layout_4_6_8())
-  c3 = v2.add_cid(6,4,4);
-  s31 = c3.add_sid_on_host(1,11)
-  s32 = c3.add_sid_on_host(2,12)
-  s33 = c3.add_sid_on_host(3,13)
-  s34 = c3.add_sid_on_host(4,14)
-  e3 = v2.add_export(1);
-  m4=e3.add_mount()
-  m4=e3.add_mount(1)	 
-	 
-	 
-	 
-	 
+#_____________________________________________  	 
 def test_parse(command, argv):	
   global rozofs
   global exportd
@@ -1547,11 +1453,6 @@ def test_parse(command, argv):
   elif command == "rebuild"            : cmd_system("./setup.sh rebuild")
   elif command == "clean"              : cmd_system("./setup.sh clean")
   elif command == "monitor"            : rozofs.monitor()
-  
-  elif command == "ddd": 
-    if len(argv) < 3:
-      syntax("Missing module to debug","debug")
-    rozofs.ddd(argv[2])
 
   elif command == "ifup":
     itf=None 
@@ -1685,16 +1586,33 @@ def test_parse(command, argv):
        if sid > c.nb_sid(): syntax("No such storage id in this cluster","sid")
        sid-= 1         
        s = c.sid[sid]
-
               
        if argv[4] == "device-delete" : 
 	 if len(argv) <= 5: syntax("sid device-delete requires a device number","sid")
 	 syslog.syslog("sid %s/%s %s %s"%(cid+1,sid+1,argv[4],argv[5]))
-	 s.delete_device(argv[5])     
+	 if len(argv) <= 6: s.delete_device(argv[5],s.host[0])
+	 else:
+	   try:
+	     hnum=int(argv[6])
+	     h = s.host[hnum]
+	     s.delete_device(argv[5],h)
+	   except:
+	     print "unexpected site number %s"%(argv[6])
+	     sys.exit(-1) 	
+
        if argv[4] == "device-create" : 
 	 if len(argv) <= 5: syntax("sid device-create requires a device number","sid")
 	 syslog.syslog("sid %s/%s %s %s"%(cid+1,sid+1,argv[4],argv[5]))	 
-	 s.create_device(argv[5]) 
+	 if len(argv) <= 6: s.create_device(argv[5],s.host[0])
+	 else:
+	   try:
+	     hnum=int(argv[6])
+	     h = s.host[hnum]
+	     s.create_device(argv[5],h)
+	   except:
+	     print "unexpected site number %s"%(argv[6])
+	     sys.exit(-1) 
+	     	 
        if argv[4] == "rebuild":
 	 syslog.syslog("sid %s/%s %s"%(cid+1,sid+1,argv[4]))       
          s.rebuild(argv)         
@@ -1757,6 +1675,8 @@ try:
     if os.path.isdir(dir):
       os.environ["PATH"] += (os.pathsep+dir)
 except: pass
+
+os.system("cp -f %s/build/src/exportd/rozo_rbsList /usr/bin"%(os.getcwd()))
 
 if len(sys.argv) < int(2): syntax()
 command = sys.argv[1]
