@@ -99,6 +99,9 @@ char *pChar = uma_dbg_get_buffer();
   COMMON_CONFIG_SHOW_INT_OPT(client_flock_timeout,30,"15:600");
   pChar += rozofs_string_append(pChar,"// Time out between export and storage for remove and stat\n");
   COMMON_CONFIG_SHOW_INT_OPT(mproto_timeout,10,"1:60");
+  pChar += rozofs_string_append(pChar,"// Directory to use on the export to build temporary files.\n");
+  pChar += rozofs_string_append(pChar,"// Used for instance to build list of files to rebuild.\n");
+  COMMON_CONFIG_SHOW_STRING(export_temporary_dir,"/tmp");
 
   /*
   ** client scope configuration elements
@@ -153,6 +156,9 @@ char *pChar = uma_dbg_get_buffer();
   COMMON_CONFIG_SHOW_STRING(device_automount_option,"");
   pChar += rozofs_string_append(pChar,"// Paralellism factor for device self healing feature\n");
   COMMON_CONFIG_SHOW_INT_OPT(device_self_healing_process,8,"1:64");
+  pChar += rozofs_string_append(pChar,"// Directory to use on the storage node to build temporary files.\n");
+  pChar += rozofs_string_append(pChar,"// Used for instance by the rebuild process.\n");
+  COMMON_CONFIG_SHOW_STRING(storage_temporary_dir,"/tmp");
 
   uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
   return;
@@ -232,6 +238,9 @@ static inline void common_config_generated_read(char * fname) {
   COMMON_CONFIG_READ_INT_MINMAX(client_flock_timeout,30,15,600);
   // Time out between export and storage for remove and stat 
   COMMON_CONFIG_READ_INT_MINMAX(mproto_timeout,10,1,60);
+  // Directory to use on the export to build temporary files. 
+  // Used for instance to build list of files to rebuild. 
+  COMMON_CONFIG_READ_STRING(export_temporary_dir,"/tmp");
   /*
   ** client scope configuration elements
   */
@@ -278,6 +287,9 @@ static inline void common_config_generated_read(char * fname) {
   COMMON_CONFIG_READ_STRING(device_automount_option,"");
   // Paralellism factor for device self healing feature 
   COMMON_CONFIG_READ_INT_MINMAX(device_self_healing_process,8,1,64);
+  // Directory to use on the storage node to build temporary files. 
+  // Used for instance by the rebuild process. 
+  COMMON_CONFIG_READ_STRING(storage_temporary_dir,"/tmp");
  
   config_destroy(&cfg);
 }

@@ -22,6 +22,7 @@
 
 int rozofs_no_site_file;
 
+char * pDir = NULL;
 char working_dir[ROZOFS_FILENAME_MAX];
   
 econfig_t exportd_config;
@@ -127,8 +128,7 @@ void clean_dir(char * name) {
    @retval 1 match
 */
 
-int rozofs_visit(void *exportd,void *inode_attr_p,void *p)
-{
+int rozofs_visit(void *exportd,void *inode_attr_p,void *p) {
   int i;
   ext_mattr_t *inode_p = inode_attr_p;
   int cid;
@@ -140,10 +140,10 @@ int rozofs_visit(void *exportd,void *inode_attr_p,void *p)
 
   if (debug) {
      i = 0;
-	 if (inode_p->s.fname.name_type == ROZOFS_FNAME_TYPE_DIRECT) {
-	   for (i=0;i<inode_p->s.fname.len;i++) name[i] = inode_p->s.fname.name[i];
-	 }
-  	 name[i] = 0;	
+     if (inode_p->s.fname.name_type == ROZOFS_FNAME_TYPE_DIRECT) {
+       for (i=0;i<inode_p->s.fname.len;i++) name[i] = inode_p->s.fname.name[i];
+     }
+     name[i] = 0;	
   } 
 
   /*
@@ -154,60 +154,60 @@ int rozofs_visit(void *exportd,void *inode_attr_p,void *p)
   if (pCid == NULL) return 0;
 
   if (rozofs_fwd < 0) {
-	/*
-	** compute the layout on the first file
-	*/
-	rozofs_safe = 0;
-	for (i=0; i < ROZOFS_SAFE_MAX; i++,rozofs_safe++) {
-       if (inode_p->s.attrs.sids[i]==0) break;
-	}
-	switch (rozofs_safe) {
+    /*
+    ** compute the layout on the first file
+    */
+    rozofs_safe = 0;
+    for (i=0; i < ROZOFS_SAFE_MAX; i++,rozofs_safe++) {
+      if (inode_p->s.attrs.sids[i]==0) break;
+    }
+    switch (rozofs_safe) {
       case 4:
-		rozofs_fwd = 3;
-		break;
-	  case 8:
-		rozofs_fwd = 6;
-		break;
-	  case 16:
-		rozofs_fwd = 12;
-		break;
-	  default:
-		exit(-1);
-	}
-	entry_size =  sizeof(rozofs_rebuild_entry_file_t) - ROZOFS_SAFE_MAX + rozofs_safe;
+	rozofs_fwd = 3;
+	break;
+      case 8:
+	rozofs_fwd = 6;
+	break;
+      case 16:
+	rozofs_fwd = 12;
+	break;
+      default:
+	exit(-1);
+    }
+    entry_size =  sizeof(rozofs_rebuild_entry_file_t) - ROZOFS_SAFE_MAX + rozofs_safe;
   }	
 
   /*
   ** check for sid
   */
   for (i = 0; i < rozofs_safe; i++) {
-	rozofs_rebuild_entry_file_t entry;
-	int                         j;
+    rozofs_rebuild_entry_file_t entry;
+    int                         j;
 
     sid = inode_p->s.attrs.sids[i]-1;
-	pSid = (*pCid)[sid];
+    pSid = (*pCid)[sid];
     if (pSid == NULL) continue;
 
-	memset(&entry,0,sizeof(entry));
-	memcpy(entry.fid,inode_p->s.attrs.fid,sizeof(fid_t));
-	entry.todo      = 1;
-	entry.block_end = -1;
-	for (j=0; j<rozofs_safe;j++) {
-	  entry.dist_set_current[j] = inode_p->s.attrs.sids[j];
-	}
-	
-	idx = pSid->fd_idx;	
+    memset(&entry,0,sizeof(entry));
+    memcpy(entry.fid,inode_p->s.attrs.fid,sizeof(fid_t));
+    entry.todo      = 1;
+    entry.block_end = -1;
+    for (j=0; j<rozofs_safe;j++) {
+      entry.dist_set_current[j] = inode_p->s.attrs.sids[j];
+    }
+
+    idx = pSid->fd_idx;	
     if (write(pSid->fd[idx],&entry,entry_size) < entry_size) {
       severe("write(cid %d sid %d job %d) %s\n", cid+1, sid+1, idx, strerror(errno));
-	}
-	else {
+    }
+    else {
       TRACE("-> added size %d to cid %d sid %d job %d : %s\n",entry_size, cid+1,sid+1,idx,name);
-	}  
-	idx++;
-	if (idx>=parallel) idx = 0;
-	pSid->fd_idx = idx;
-	pSid->count++;
-	total++;
+    }  
+    idx++;
+    if (idx>=parallel) idx = 0;
+    pSid->fd_idx = idx;
+    pSid->count++;
+    total++;
   }  
   return 0;
 }
@@ -270,72 +270,71 @@ int parse_cidsid_list(char *line,int rebuildRef, int parallel)
 
   pch = line;
   while (*pch != 0) {
-	/*
-	** convert to integer
-	*/
-	ret = sscanf(pch, "%d:%d", &cid, &sid); 
-	if (ret!=2)
-	{
+    /*
+    ** convert to integer
+    */
+    ret = sscanf(pch, "%d:%d", &cid, &sid); 
+    if (ret!=2) {
       severe("Bad conversion for cid:sid %s\n",pch);
       return -1;
-	}    
-	while ((cid > 0) && (cid <= ROZOFS_CLUSTERS_MAX) && 
-		(sid > 0) && (sid <= SID_MAX)) 
-	{
-	
-	  /*
-	  ** Find out the volume tha hold this cid/sid
-	  */
-	  vid = get_cid_sid_volume(cid,sid);
-	  if (vid < 0) {
-		severe("cid/sid %d/%d not found in configuration file\n", cid, sid);
-		break;
-	  }
-	  // Is this volume already recorded	
-	  for (i=0; i < nb_requested_vid; i++) {
-	    if (requested_vid[i] == vid) break;
-	  }
-	  if (i==nb_requested_vid) {
-	    // record it
-	    requested_vid[nb_requested_vid++] = vid;
-	  }
-	  
-	  cid--;
-	  sid--;
-	  
-	  pCid = cid_tbl[cid];
+    }    
+    while ((cid > 0) && (cid <= ROZOFS_CLUSTERS_MAX) && 
+	    (sid > 0) && (sid <= SID_MAX)) 
+    {
+
+      /*
+      ** Find out the volume tha hold this cid/sid
+      */
+      vid = get_cid_sid_volume(cid,sid);
+      if (vid < 0) {
+	    severe("cid/sid %d/%d not found in configuration file\n", cid, sid);
+	    break;
+      }
+      // Is this volume already recorded	
+      for (i=0; i < nb_requested_vid; i++) {
+	if (requested_vid[i] == vid) break;
+      }
+      if (i==nb_requested_vid) {
+	// record it
+	requested_vid[nb_requested_vid++] = vid;
+      }
+
+      cid--;
+      sid--;
+
+      pCid = cid_tbl[cid];
       if (pCid == NULL) {
     	pCid = xmalloc(sizeof(sid_tbl_t));
-		memset(pCid,0,sizeof(sid_tbl_t));
-		cid_tbl[cid] = pCid;
-	  }
+	memset(pCid,0,sizeof(sid_tbl_t));
+	cid_tbl[cid] = pCid;
+      }
 	  
-	  pSid = (*pCid)[sid];
-	  if (pSid == NULL) {
-		pSid = xmalloc(sizeof(sid_info_t));
-		memset(pSid,0,sizeof(sid_info_t));
-		(*pCid)[sid] = pSid;
-	  }
-	  
-	  // Create directory
-	  sprintf(fName,"%scid%d_sid%d",working_dir,cid+1,sid+1);
-	  if (mkdir(fName,766)<0) {
+      pSid = (*pCid)[sid];
+      if (pSid == NULL) {
+	pSid = xmalloc(sizeof(sid_info_t));
+	memset(pSid,0,sizeof(sid_info_t));
+	(*pCid)[sid] = pSid;
+      }
+
+      // Create directory
+      sprintf(fName,"%scid%d_sid%d",pDir,cid+1,sid+1);
+      if (mkdir(fName,766)<0) {
         severe("mkdir(%s) %s\n",fName,strerror(errno));
       }  
-	  
-	  for (i=0; i< parallel; i++) {
-	    sprintf(fName,"%scid%d_sid%d/job%d",working_dir,cid+1,sid+1,i);
-	    pSid->fd[i] = open(fName, O_CREAT | O_TRUNC | O_APPEND | O_WRONLY,0755);
-		if (pSid->fd[i] == -1) {
-		  severe("open(%s) %s\n",fName,strerror(errno));
-		}
-		TRACE("%s opened\n",fName);
-      }
-	  break;		
-	}
 
-	while((*pch!=',')&&(*pch!=0)) pch++;
-	if(*pch==',') pch++;
+      for (i=0; i< parallel; i++) {
+	sprintf(fName,"%scid%d_sid%d/job%d",pDir,cid+1,sid+1,i);
+	pSid->fd[i] = open(fName, O_CREAT | O_TRUNC | O_APPEND | O_WRONLY,0755);
+	if (pSid->fd[i] == -1) {
+	  severe("open(%s) %s\n",fName,strerror(errno));
+	}
+	TRACE("%s opened\n",fName);
+      }
+      break;		
+    }
+
+    while((*pch!=',')&&(*pch!=0)) pch++;
+    if(*pch==',') pch++;
   }
   return 0;   
 }
@@ -359,28 +358,34 @@ void close_all() {
 
     for (sid=0; sid<SID_MAX; sid++) {
 	
-	  pSid = (*pCid)[sid];
-	  if (pSid == NULL) continue;
-	  
-	  for (job=0; job<parallel; job++) {
-	    if (pSid->fd[job]>0) {
-		  close(pSid->fd[job]);
-		  pSid->fd[job] = 0;
-		}
-	  }
-	  
-	  sprintf(fname,"/tmp/rebuild.%d/cid%d_sid%d/count",rebuildRef,cid+1,sid+1);
-	  fd = open(fname, O_WRONLY | O_APPEND | O_CREAT | O_TRUNC,0755);
-	  if (fd<0) {
-        severe("open(%s) %s\n",fname,strerror(errno));
-		continue;
-	  }	
-	  if (write(fd,&(pSid->count), sizeof(uint64_t)) != sizeof(uint64_t)) {
-        severe("write(%d,%s) %s\n",fd,fname,strerror(errno));	  
-	  }
-	  close(fd);
-	  info("cid/sid %d/%d : %llu files",cid+1,sid+1,(unsigned long long)pSid->count);
+      pSid = (*pCid)[sid];
+      if (pSid == NULL) continue;
+
+      for (job=0; job<parallel; job++) {
+	if (pSid->fd[job]>0) {
+	  close(pSid->fd[job]);
+	  pSid->fd[job] = 0;
 	}
+      }
+
+      sprintf(fname,"%s/cid%d_sid%d/count",pDir,cid+1,sid+1);
+      fd = open(fname, O_WRONLY | O_APPEND | O_CREAT | O_TRUNC,0755);
+      if (fd<0) {
+        severe("open(%s) %s\n",fname,strerror(errno));
+	continue;
+      }	
+      if (write(fd,&(pSid->count), sizeof(uint64_t)) != sizeof(uint64_t)) {
+        severe("write(%d,%s) %s\n",fd,fname,strerror(errno));	  
+      }
+      close(fd);
+      
+      sprintf(fname,"%s/cid%d_sid%d",pDir,cid+1,sid+1);
+      info("cid/sid %d/%d : %llu files in %s",
+            cid+1,
+	    sid+1,
+	    (unsigned long long)pSid->count,
+	    fname);
+    }
   }
 }
 /*
@@ -388,10 +393,11 @@ void close_all() {
  */
 static void usage() {
     printf("Usage: ./rzsave [OPTIONS]\n\n");
-    printf("\t-h, --help                   print this message.\n");
-    printf("\t-i,--input      <cid/sid>    list <cid>:<sid>,<sid>,<sid>.... \n");
-    printf("\t-p,--parallel   <parallel> q  rebuild parallelism number\n");
-    printf("\t-r,--rebuildRef <rebuildRef> rebuild reference\n");
+    printf("\t-h,--help                    print this message.\n\n");
+    printf("\t-i,--input      <cid/sid>    mandatory list <cid>:<sid>,<sid>,<sid>.... \n");
+    printf("\t-p,--parallel   <parallel>   mandatory rebuild parallelism number.\n");
+    printf("\t-r,--rebuildRef <rebuildRef> mandatory rebuild reference\n");
+    printf("\t-E,--expDir     <cfgFile>    optionnal result directory.\n");
     printf("\t-c,--config     <cfgFile>    optionnal configuration file name.\n");
     printf("\t-d,--debug                   display debugging information.\n");
 
@@ -415,6 +421,7 @@ int main(int argc, char *argv[]) {
       {"input", required_argument, 0, 'i'},
       {"parallel", required_argument, 0, 'p'},
       {"rebuildRef", required_argument, 0, 'r'},
+      {"expDir", required_argument, 0, 'E'},      
       {"config", required_argument, 0, 'c'},
       {"debug", no_argument, 0, 'd'},
       {0, 0, 0, 0}
@@ -425,7 +432,7 @@ int main(int argc, char *argv[]) {
   while (1) {
 
       int option_index = 0;
-      c = getopt_long(argc, argv, "hdv:i:p:r:c:", long_options, &option_index);
+      c = getopt_long(argc, argv, "hdv:i:p:r:c:E:", long_options, &option_index);
 
       if (c == -1)
           break;
@@ -439,6 +446,10 @@ int main(int argc, char *argv[]) {
 		  
         case 'c':
           configFileName = optarg;
+          break;	
+		  
+        case 'E':
+          pDir = optarg;
           break;	
 		  		  
         case 'p':
@@ -522,10 +533,17 @@ int main(int argc, char *argv[]) {
   /*
   ** Create a clean directory
   */
-  sprintf(working_dir,"/tmp/rebuild.%d/",rebuildRef);
-  clean_dir(working_dir);
-  if (mkdir(working_dir,766)<0) {
-	severe("mkdir(%s) %s\n",working_dir,strerror(errno));
+  if (pDir == NULL) {
+    sprintf(working_dir,"/tmp/rebuild.%d/",rebuildRef);
+    pDir = working_dir;
+  }
+  else {
+    sprintf(working_dir,"%s/rebuild.%d/",pDir,rebuildRef);
+    pDir = working_dir;
+  }
+  clean_dir(pDir);
+  if (mkdir(pDir,766)<0) {
+    severe("mkdir(%s) %s\n",pDir,strerror(errno));
     exit(EXIT_FAILURE); 	
   }  
   
@@ -533,8 +551,7 @@ int main(int argc, char *argv[]) {
   ** Parse cdi:sid list
   */
   ret = parse_cidsid_list(cidsid_p, rebuildRef, parallel);
-  if (ret < 0)
-  {
+  if (ret < 0) {
      severe("erreur while parsing cid/sid list\n");
      usage();
      exit(EXIT_FAILURE);       
@@ -552,28 +569,25 @@ int main(int argc, char *argv[]) {
     TRACE("export %d in volume %d path %s\n", econfig->eid, econfig->vid, econfig->root);
 	
     // Check whether the volume of this export is interresting
-	for (i=0; i < nb_requested_vid; i++) {
-	  if (requested_vid[i] == econfig->vid) break;
-	}
-	// No interest
-	if (i==nb_requested_vid) continue;
-	
-	// Interresting
-	rozofs_export_p = rz_inode_lib_init(econfig->root);
-	if (rozofs_export_p == NULL)
-	{
+    for (i=0; i < nb_requested_vid; i++) {
+      if (requested_vid[i] == econfig->vid) break;
+    }
+    // No interest
+    if (i==nb_requested_vid) continue;
+
+    // Interresting
+    rozofs_export_p = rz_inode_lib_init(econfig->root);
+    if (rozofs_export_p == NULL) {
       severe("RozoFS: error while reading %s\n",econfig->root);
       continue;  
-	}
+    }
 
-	/*
-	** init of the lv2 cache
-	*/
-	lv2_cache_initialize(&cache);   
+    /*
+    ** init of the lv2 cache
+    */
+    lv2_cache_initialize(&cache);   
     rozofs_fwd = -1;
-    rz_scan_all_inodes(rozofs_export_p,ROZOFS_REG,1,rozofs_visit,NULL,NULL,NULL);
-	
-	
+    rz_scan_all_inodes(rozofs_export_p,ROZOFS_REG,1,rozofs_visit,NULL,NULL,NULL);	
   }
   
   close_all();

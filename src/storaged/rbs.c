@@ -39,6 +39,7 @@
 #include <rozofs/rpc/spproto.h>
 #include <rozofs/rpc/eproto.h>
 #include <rozofs/core/rozofs_host2ip.h>
+#include <rozofs/common/common_config.h>
 
 #include "sconfig.h"
 #include "storage.h"
@@ -58,14 +59,16 @@ DECLARE_PROFILING(spp_profiler_t);
 char rebuild_directory_name[FILENAME_MAX];
 char * get_rebuild_directory_name(int rebuildRef) {
   char * pChar = rebuild_directory_name;
-  pChar += rozofs_string_append(pChar,"/tmp/rbs.");
+  pChar += rozofs_string_append(pChar,common_config.storage_temporary_dir);
+  pChar += rozofs_string_append(pChar,"/rbs.");
   pChar += rozofs_u32_append(pChar,rebuildRef);  
   return rebuild_directory_name;
 }
 char rebuild_sid_directory_name[FILENAME_MAX];
 char * get_rebuild_sid_directory_name(int rebuildRef, int cid, int sid) {
   char * pChar = rebuild_sid_directory_name;
-  pChar += rozofs_string_append(pChar,"/tmp/rbs.");
+  pChar += rozofs_string_append(pChar,common_config.storage_temporary_dir);
+  pChar += rozofs_string_append(pChar,"/rbs.");
   pChar += rozofs_u32_append(pChar,rebuildRef);  
   pChar += rozofs_string_append(pChar,"/cid");
   pChar += rozofs_u32_append(pChar,cid);  

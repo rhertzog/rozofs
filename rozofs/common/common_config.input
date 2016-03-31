@@ -98,3 +98,9 @@ STRING  storage device_automount_option 	""
 INT     storage device_self_healing_process 	8 1:64
 // Time out between export and storage for remove and stat
 INT     export mproto_timeout 	10           1:60
+// Directory to use on the export to build temporary files.
+// Used for instance to build list of files to rebuild.
+STRING 	export 	export_temporary_dir		"/tmp"
+// Directory to use on the storage node to build temporary files.
+// Used for instance by the rebuild process.
+STRING 	storage storage_temporary_dir		"/tmp"

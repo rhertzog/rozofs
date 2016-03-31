@@ -83,6 +83,9 @@ typedef struct _common_config_global_t {
   uint32_t    client_flock_timeout;
   // Time out between export and storage for remove and stat
   uint32_t    mproto_timeout;
+  // Directory to use on the export to build temporary files.
+  // Used for instance to build list of files to rebuild.
+  char *      export_temporary_dir;
 
   /*
   ** client scope configuration elements
@@ -133,6 +136,9 @@ typedef struct _common_config_global_t {
   char *      device_automount_option;
   // Paralellism factor for device self healing feature
   uint32_t    device_self_healing_process;
+  // Directory to use on the storage node to build temporary files.
+  // Used for instance by the rebuild process.
+  char *      storage_temporary_dir;
 } common_config_t;
 
 extern common_config_t common_config;

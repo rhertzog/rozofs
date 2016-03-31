@@ -1562,12 +1562,14 @@ int rbs_build_job_list_from_export() {
            
 		  
     if (first) {	
-	  pChar += sprintf(pChar,"rozo_make_rebuild_lists.py -d -e %s -p %d -r %d -c %d:%d", 
+	  pChar += sprintf(pChar,"rozo_make_rebuild_lists.py -d -e %s -p %d -r %d -E %s -S %s -c %d:%d", 
                 	   pExport_host, 
-					   (int) parameter.parallel, 
-					   (int) parameter.rebuildRef,
-                       (int) rbs_stor_configs[idx].cid, 
-					   (int) rbs_stor_configs[idx].sid);
+			   (int) parameter.parallel, 
+			   (int) parameter.rebuildRef,
+			   common_config.export_temporary_dir,
+			   common_config.storage_temporary_dir,
+                           (int) rbs_stor_configs[idx].cid, 
+			   (int) rbs_stor_configs[idx].sid);
 	  first = 0;
 	}			
 	else {

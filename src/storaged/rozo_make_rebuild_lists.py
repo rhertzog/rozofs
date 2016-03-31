@@ -105,6 +105,8 @@ parser.add_option("-e","--export", action="store",type="string", dest="exports",
 parser.add_option("-c","--cidsid", action="store",type="string", dest="cidsid", help="A \',\' separated list of cid:sid to rebuild.")
 parser.add_option("-p","--parallel", action="store",type="string", dest="parallel", help="rebuild parallelism.")
 parser.add_option("-r","--rebuildRef", action="store",type="string", dest="rebuildRef", help="rebuild reference.")
+parser.add_option("-E","--expDirectory", action="store",type="string", dest="expDirectory", help="Export directory to use.")
+parser.add_option("-S","--storDirectory", action="store",type="string", dest="storDirectory", help="Storage directory to use.")
 parser.add_option("-d","--debug", action="store_true",default=False, dest="debug", help="Debug trace.")
 parser.add_option("-s","--simu", action="store",type="string", dest="simu", help="exportd configuration file")
 
@@ -141,15 +143,17 @@ for cs in options.cidsid.split(','):
     sid=int(cs.split(':')[1])
   except: fatal("Bad --cidsid option %s"%(cs))
 
+# By default use /tmp on export
+if options.expDirectory == None: options.expDirectory = "/tmp"
 
-cmd="rozo_rbsList -p %d -r %d -i %s"%( parallel, rebuildRef, options.cidsid)	
+cmd="rozo_rbsList -p %d -r %d -E %s -i %s"%( parallel, rebuildRef, options.expDirectory, options.cidsid)	
 if options.simu != None: cmd=cmd+" -c %s"%(options.simu)
 ssh_export(export,cmd)
 
 
-ldir="/tmp/rbs.%d"%(rebuildRef)
-#system_cmd("mkdir -p %s"%(ldir))
-rdir="/tmp/rebuild.%d"%(rebuildRef)
+ldir="%s/rbs.%d"%(options.storDirectory,rebuildRef)
+rdir="%s/rebuild.%d"%(options.expDirectory,rebuildRef)
+
 system_cmd("cd %s;scp -r root@%s:%s/* . > /dev/null"%(ldir,export,rdir))
 ssh_export(export,"rm -rf %s"%(rdir))
 log("%.2f sec"%(time.time()-debut))
