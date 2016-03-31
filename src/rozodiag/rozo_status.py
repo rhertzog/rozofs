@@ -417,7 +417,12 @@ class rozofs_module:
     try:    output, error = command.communicate()
     except: return None
 
-    if "error on connect Connection refused!!!" in output: return None
+    if options.debug == True: 
+      print output    
+      if error != '': print error
+
+
+    if "error on connect" in output: return None
     if "List of available topics"  in output: return None   
     if error != '': return None
 

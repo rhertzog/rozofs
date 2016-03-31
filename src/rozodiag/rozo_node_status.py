@@ -350,6 +350,7 @@ class rozofs_module:
   def __init__(self,port,module):
     global modules
     host = "127.0.0.1"
+    if options.address != None: host = options.address
     self.host   = host
     self.addr   = self.host.split('/')
     self.port   = port
@@ -373,9 +374,9 @@ class rozofs_module:
     # who is either a port number or a target name 
     try:
       port = int(self.port)
-      parsed = [ROZODIAG, "-i",addr,"-p","%s"%(self.port),"-c",cmd] 
+      parsed = [ROZODIAG, "-t", "1", "-i",addr,"-p","%s"%(self.port),"-c",cmd] 
     except:
-      parsed = [ROZODIAG, "-i",addr,"-T",self.port,"-c",cmd]  
+      parsed = [ROZODIAG, "-t", "1", "-i",addr,"-T",self.port,"-c",cmd]  
 
     increment_counter(parsed)
 
@@ -385,11 +386,16 @@ class rozofs_module:
     try:    output, error = command.communicate()
     except: return None
 
-    if "error on connect Connection refused!!!" in output: 
+    if options.debug == True: 
+      print output    
+      if error != '': print error
+
+    if "error on connect" in output: 
       self.CRITICAL("Not responding")
       return None
-    if error != '': return None
 
+    if error != '': return None
+    
     self.activeAddr = addr
     lines=output.split('\n')
     return lines
@@ -636,8 +642,7 @@ class storage(rozofs_module):
     self.site    = site
     self.cid     = cid
     self.sid     = sid
-    if self.activeAddr == None: self.failed  = True
-    else                      : self.failed  = False
+    self.failed  = False
 
   def display(self):
     if self.failed == True: print "        sid %s \t%s\tFailed !!!"%(self.sid,self.host)
@@ -914,8 +919,8 @@ def test_client(instance):
 def do_execute():
     
   # Check local storage configured in storage.conf
-  s = storage(0,0,0)  
-  s.activeAddr = "127.0.0.1" 
+  s = storage(0,0,0) 
+  
   if s.check_storaged() == 0: s.check_storios()
 
   # check local clients from /etc/fstab  
@@ -976,6 +981,7 @@ parser = OptionParser()
 parser.add_option("-d","--diagnostic", action="store_true",default=False, dest="diagnostic", help="Display the error list.")
 parser.add_option("-f","--full", action="store_true",default=False, dest="full", help="Process to a full diagnostic of the system.")
 parser.add_option("-g","--debug", action="store_true",default=False, dest="debug", help="Debug trace.")
+parser.add_option("-a","--address", action="store",type="string", dest="address", help="optional address of the storaged.")
 
 (options, args) = parser.parse_args()
 
