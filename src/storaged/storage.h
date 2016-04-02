@@ -1415,6 +1415,14 @@ void storio_device_error_log_reset();
 
 
 uint32_t storio_device_mapping_allocate_device(storage_t * st);
-
+/*
+** 
+** Create RozoFS storage subdirectories on a device
+**
+** @param root   storage root path
+** @param dev    device number
+**  
+*/
+void rozofs_storage_device_subdir_create(char * root, int dev);
 #endif
 
