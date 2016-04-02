@@ -878,34 +878,26 @@ class geomgr_class:
   def create_config (self):
     save_stdout = sys.stdout
     sys.stdout = open(self.get_config_name(),"w")
-    self.display_config()
+    self.initial_config()
     sys.stdout.close()
     sys.stdout = save_stdout
-   
+
+  def delete_config (self):
+    try: os.remove(self.get_config_name())
+    except: pass    
+
   def modify(self):
-    # If loval conf file does not exists create it
-    if os.path.exists(self.get_saved_config_name()):
-      save_stdout = sys.stdout
-      sys.stdout = open(self.get_saved_config_name(),"w")
-      self.display_config()
-      sys.stdout.close()
-      sys.stdout = save_stdout
-    cmd_system("nedit %s"%(self.get_saved_config_name()))
-    if os.path.exists(self.get_config_name()):
-      shutil.copy(self.get_saved_config_name(),self.get_config_name())
+    cmd_system("nedit %s"%(self.get_config_name()))
       
-  def delete(self): 
-    try: os.remove(self.get_saved_config_name())
-    except: pass
+  def reinit(self): 
+    self.delete_config()
+    self.create_config()
     
   def  display_config(self):
-    
-    # When there is a saved geomgr configuration
-    # use it
-    if os.path.exists(self.get_saved_config_name()):
-      os.sytem("cat %s"%(self.get_saved_config_name()))
-      return
-
+    os.system("cat %s"%(self.get_config_name()))
+    return
+  
+  def  initial_config(self):
     print "active = True ;"
     print "export-daemons = (" 
     print "   {" 
@@ -939,9 +931,6 @@ class geomgr_class:
     print "   }" 
     print ');' 
 
-  def delete_config (self):
-    try: os.remove(self.get_config_name())
-    except: pass 
           
   def start(self):
     cmd_system("rozolauncher start /var/run/launcher_geomgr.pid geomgr -c %s -t 5 &"%(self.get_config_name()))
@@ -1340,20 +1329,20 @@ def check_build ():
   if sucess==False: sys.exit(-1)
 #_____________________________________________  
 def syntax_export() :
-  print  "./setup.py \tgeomgr  \tstart|stop|reset|pid|modify|delete"    
+  print  "./setup.py \tgeomgr  \t{start|stop|reset|pid|modify|delete}"    
 
 #_____________________________________________  
 def syntax_geomgr() :
-  print  "./setup.py \texportd \tstart|stop|reset|pid"
+  print  "./setup.py \tgeomgr \t{start|stop|reset|pid|modify|reinit}"
          
 #_____________________________________________  
 def syntax_mount() :
-  print  "./setup.py \tmount   \tall|<instance> start|stop|reset|pid|info"
-  print  "./setup.py \tmount   \tall|<instance> nfs [on|off]"
+  print  "./setup.py \tmount   \t{all|<instance>} {start|stop|reset|pid|info}"
+  print  "./setup.py \tmount   \t{all|<instance>} nfs {on|off}"
 #_____________________________________________  
 def syntax_storage() :
-  print  "./setup.py \tstorage \tall|<host idx> start|stop|reset|rebuild|pid"
-  print  "./setup.py \tstorage \tall|<host idx> ifup|ifdown <#if>"
+  print  "./setup.py \tstorage \t{all|<host idx>} {start|stop|reset|rebuild|pid}"
+  print  "./setup.py \tstorage \t{all|<host idx>} {ifup|ifdown <#if>}"
   
 #_____________________________________________  
 def syntax_cou() :
@@ -1363,8 +1352,9 @@ def syntax_config() :
   print  "./setup.py \tconfig  \t<confFileName>"  
 #_____________________________________________  
 def syntax_sid() :
-  print  "./setup.py \tsid     \t<cid> <sid>\tdevice-delete all|{<#device> [<site>]}"
-  print  "./setup.py \tsid     \t<cid> <sid>\tdevice-create all|{<#device> [<site>]}"
+  print  "./setup.py \tsid     \t<cid> <sid>\tdevice-delete {all|<#device>} [<site>]"
+  print  "./setup.py \tsid     \t<cid> <sid>\tdevice-create {all|<#device>} [<site>]"
+  print  "./setup.py \tsid     \t<cid> <sid>\tdevice-clear  {all|<#device>} [<site>]"
   print  "./setup.py \tsid     \t<cid> <sid>\trebuild..."
   print  "./setup.py \tsid     \t<cid> <sid>\tinfo"
 #_____________________________________________  
@@ -1375,7 +1365,7 @@ def syntax_monitor() :
   print  "./setup.py \tmonitor"  
 #_____________________________________________  
 def syntax_debug() :
-  print  "./setup.py \tcore    \tremove all|<coredir>/<corefile>"
+  print  "./setup.py \tcore    \tremove {all|<coredir>/<corefile>}"
   print  "./setup.py \tcore    \t[<coredir>/<corefile>]"
   
 #_____________________________________________  
@@ -1383,8 +1373,7 @@ def syntax_all() :
   print  "Usage:"
   #print  "./setup.py \tsite    \t<0|1>"
   print  "./setup.py \tdisplay\t\t[conf. file]"
-  print  "./setup.py \tstart|stop"
-  print  "./setup.py \tpause|resume"
+  print  "./setup.py \t{start|stop|pause|resume}"
   print  "./setup.py \tcmd <command to be executed in the setup context>"
 
   syntax_monitor()
@@ -1400,7 +1389,7 @@ def syntax_all() :
   syntax_debug()
   print  "./setup.py \tprocess \t[pid]"
   print  "./setup.py \tvnr ..."
-  print  "./setup.py \tbuild|rebuild|clean"
+  print  "./setup.py \t{build|rebuild|clean}"
   sys.exit(-1)   
           
 #_____________________________________________  
@@ -1493,7 +1482,6 @@ def test_parse(command, argv):
 
   elif command == "exportd"             :
        if len(argv) <= 2: syntax("export requires an action","export")  
-       syslog.syslog("exportd %s"%(argv[2]))   
        if argv[2] == "stop"        : exportd.stop()
        if argv[2] == "start"       : exportd.start()     
        if argv[2] == "reset"       : exportd.reset() 
@@ -1508,7 +1496,7 @@ def test_parse(command, argv):
        if argv[2] == "pid"         : geomgr.process('-ap') 
 
        if argv[2] == "modify"      : geomgr.modify()
-       if argv[2] == "delete"      : geomgr.delete()     
+       if argv[2] == "reinit"      : geomgr.reinit()     
 
   elif command == "mount"             :
        if len(argv) <= 3: syntax("mount requires instance + action","mount")
@@ -1522,7 +1510,6 @@ def test_parse(command, argv):
 	 first=instance
 	 last=instance+1
        for idx in range(first,last):
-         syslog.syslog("mount %s %s"%(idx,argv[3]))
 	 obj = mount_points[idx]       
 	 if argv[3] == "stop"        : obj.stop()
 	 elif argv[3] == "start"       : obj.start()     
@@ -1549,7 +1536,6 @@ def test_parse(command, argv):
 	 last=instance
        for idx in range(first,last):
 	 obj = hosts[idx]     
-         syslog.syslog("storage %s %s"%(idx+1,argv[3]))
 	 if argv[3] == "stop"        : obj.stop()
 	 if argv[3] == "start"       : obj.start()     
 	 if argv[3] == "reset"       : obj.reset() 
@@ -1589,7 +1575,6 @@ def test_parse(command, argv):
               
        if argv[4] == "device-delete" : 
 	 if len(argv) <= 5: syntax("sid device-delete requires a device number","sid")
-	 syslog.syslog("sid %s/%s %s %s"%(cid+1,sid+1,argv[4],argv[5]))
 	 if len(argv) <= 6: s.delete_device(argv[5],s.host[0])
 	 else:
 	   try:
@@ -1602,7 +1587,6 @@ def test_parse(command, argv):
 
        if argv[4] == "device-create" : 
 	 if len(argv) <= 5: syntax("sid device-create requires a device number","sid")
-	 syslog.syslog("sid %s/%s %s %s"%(cid+1,sid+1,argv[4],argv[5]))	 
 	 if len(argv) <= 6: s.create_device(argv[5],s.host[0])
 	 else:
 	   try:
@@ -1612,9 +1596,24 @@ def test_parse(command, argv):
 	   except:
 	     print "unexpected site number %s"%(argv[6])
 	     sys.exit(-1) 
+
+       if argv[4] == "device-clear" : 
+	 if len(argv) <= 5: syntax("sid device-clear requires a device number","sid")
+	 if len(argv) <= 6: 
+	   s.delete_device(argv[5],s.host[0])
+	   s.create_device(argv[5],s.host[0])
+	 else:
+	   try:
+	     hnum=int(argv[6])
+	     h = s.host[hnum]
+	     s.delete_device(argv[5],h)
+	     s.create_device(argv[5],h)
+	   except:
+	     print "unexpected site number %s"%(argv[6])
+	     sys.exit(-1) 
+
 	     	 
        if argv[4] == "rebuild":
-	 syslog.syslog("sid %s/%s %s"%(cid+1,sid+1,argv[4]))       
          s.rebuild(argv)         
        if argv[4] == "info"          : s.info()
 
@@ -1694,5 +1693,9 @@ else:
   if os.path.exists("cnf.py"): execfile("cnf.py")
 
 
-# Parse the command and execute it  
+# Parse the command and execute it 
+cmd=""
+for arg in sys.argv: cmd=cmd+" "+arg
+syslog.syslog(cmd)
+ 
 test_parse(command,sys.argv)

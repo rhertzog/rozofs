@@ -106,7 +106,7 @@ typedef struct _geo_rep_srv_ctx_t
    int  synchro_rate;
    uint64_t last_time_watch;         /**< timestamp associated with last_time_sync_count                   */
    uint64_t last_time_sync_count;    /**< last count of file synced                                        */
-   
+   pthread_rwlock_t  flush_lock;     /**< lock used for handling multiple thread flushing on disk          */
 } geo_rep_srv_ctx_t;
 
 
@@ -369,4 +369,11 @@ void geo_rep_udpate_pending_sync_stats(geo_rep_srv_ctx_t *ctx_p,uint64_t nb_file
  @retval < 0 error (see errno fo details)
 */
 int geo_rep_read_sync_stats(geo_rep_srv_ctx_t *ctx_p,uint64_t *nb_files_pending,uint64_t *nb_files_synced);
+/*
+**____________________________________________________________________________
+*/
+/**
+*  Rozodiag CLI to restart georeplication from scratch
+*/
+void geo_rep_restart_from_scratch_dbg(char * argv[], uint32_t tcpRef, void *bufRef);
 #endif

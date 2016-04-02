@@ -248,6 +248,16 @@ add_executable(rozo_rbsList
 )
 target_link_libraries(rozo_rbsList rozofs_inode rozofs ${PTHREAD_LIBRARY} ${UUID_LIBRARY} ${CONFIG_LIBRARY})
 
+#________________________________________________________
+# Build lists of FID of an export for geo replication from 
+# scratch
+#
+add_executable(rozo_geoRepList
+    rozo_geoRepList.c  
+    econfig.c  
+)
+target_link_libraries(rozo_geoRepList rozofs_inode rozofs ${PTHREAD_LIBRARY} ${UUID_LIBRARY} ${CONFIG_LIBRARY})
+
 
 # Install
 install(CODE "EXECUTE_PROCESS (COMMAND mkdir -p ${ROZOFS_CONFIG_DIR})" COMPONENT export)
@@ -311,5 +321,12 @@ install(TARGETS rozo_rbsList
     COMPONENT rozo_rbsList
 )
 
+install(TARGETS rozo_geoRepList
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    COMPONENT rozo_geoRepList
+)
 install(FILES export.conf.sample DESTINATION ${ROZOFS_CONFIG_DIR} COMPONENT export)
 install(FILES export.conf DESTINATION ${ROZOFS_CONFIG_DIR} COMPONENT export)
+install(PROGRAMS rozo_geoReplicationReinitialize.sh DESTINATION bin)

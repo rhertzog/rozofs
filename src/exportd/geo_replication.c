@@ -38,6 +38,8 @@
 */
 int geo_rep_srv_ctx_table_init_done = 0;
 geo_rep_srv_ctx_t  *geo_rep_srv_ctx_table[EXPORT_GEO_MAX_CTX][EXPGW_EID_MAX_IDX+1];
+
+
 /*
 **_________________________________________________________________________
 *      PUBLIC FUNCTIONS
@@ -752,6 +754,48 @@ int geo_rep_read_sync_stats(geo_rep_srv_ctx_t *ctx_p,uint64_t *nb_files_pending,
 **____________________________________________________________________________
 */
 /**
+*   Step to next index file
+
+   @param ctx_p : pointer to replication context
+  
+  @retval 0: on success
+  @retval -1 on error (see errno for details)
+*/
+int geo_rep_disk_next_index(geo_rep_srv_ctx_t *ctx_p) {
+  int  nb_records = 0;
+  char path[ROZOFS_PATH_MAX];
+  struct stat buf;
+   
+  /*
+  ** Get number of record in the last file
+  */
+  GEO_REP_BUILD_PATH_FILE(GEO_FILE,ctx_p->geo_rep_main_file.last_index);
+  if (stat((const char *)path, &buf) < 0) {
+    severe("stat failure for %s error %s",path,strerror(errno));   
+    ctx_p->stats.stat_err++; 
+  }
+  else {
+    if (buf.st_size > sizeof(uint64_t)) {
+     nb_records = (buf.st_size - sizeof(uint64_t))/sizeof(geo_fid_entry_t);
+    } 
+  }
+
+  /*
+  ** update the statistics related to the number of file to synchronize
+  */
+  geo_rep_udpate_pending_sync_stats(ctx_p,(uint64_t)nb_records); 
+  /*
+  ** make the file available for remote side replication
+  */
+  ctx_p->geo_rep_main_file.last_index++; 
+  ctx_p->file_idx_wr_pending = 0;
+  geo_rep_disk_update_last_index(ctx_p); 
+  return 0;  
+}     
+/*
+**____________________________________________________________________________
+*/
+/**
 *   Flush the geo replication memory chunk on disk
 
    @param ctx_p : pointer to replication context
@@ -766,6 +810,7 @@ int geo_rep_disk_flush(geo_rep_srv_ctx_t *ctx_p,int forced)
    int fd = -1;
    size_t size=0;
    struct stat buf;
+   int    status = -1;
       
    if (ctx_p->geo_replication_enable == 0)
    {
@@ -774,6 +819,14 @@ int geo_rep_disk_flush(geo_rep_srv_ctx_t *ctx_p,int forced)
      */
      return 0;
    }   
+   
+   /*
+   ** Get the lock
+   */   
+   if (pthread_rwlock_wrlock(&ctx_p->flush_lock) != 0) {
+     severe("pthread_rwlock_wrlock %s", strerror(errno));
+   }
+     
    if (ctx_p->geo_first_idx != 0)
    {
      ctx_p->file_idx_wr_pending = 1;
@@ -796,7 +849,7 @@ int geo_rep_disk_flush(geo_rep_srv_ctx_t *ctx_p,int forced)
 	 }
 	 ctx_p->stats.access_err++;
 	 severe("geo_rep_disk_flush failure for %s error %s",path,strerror(errno));
-	 return -1;
+	 goto out;
        }
        /*
        ** the file already exists,check the length of the file
@@ -831,7 +884,7 @@ int geo_rep_disk_flush(geo_rep_srv_ctx_t *ctx_p,int forced)
      {
        ctx_p->stats.open_err++;
        severe(" cannot open fid file %s for geo-replication error %s",path,strerror(errno));
-       return -1;
+       goto out;
      }
      while(1)
      {
@@ -867,39 +920,24 @@ int geo_rep_disk_flush(geo_rep_srv_ctx_t *ctx_p,int forced)
        ((ctx_p->last_time_file_cr8+ctx_p->delay_next_file) < cur_time) ||
        (forced != 0)))
    {
-     while(1)
-     {
-       int nb_records = 0;
-       GEO_REP_BUILD_PATH_FILE(GEO_FILE,ctx_p->geo_rep_main_file.last_index);
-       if (stat((const char *)path, &buf) < 0)
-       {
-	 severe("stat failure for %s error %s",path,strerror(errno));   
-	 ctx_p->stats.stat_err++;
-	 break;  
-       }
-       if (buf.st_size > sizeof(uint64_t))
-       {
-          nb_records = (buf.st_size - sizeof(uint64_t))/sizeof(geo_fid_entry_t);
-       }
-       /*
-       ** update the statistics related to the number of file to synchronize
-       */
-//       severe("<---------------------------------FDL idx file %llu nb record %d",ctx_p->geo_rep_main_file.last_index,nb_records);
-
-       geo_rep_udpate_pending_sync_stats(ctx_p,(uint64_t)nb_records); 
-       break;      
-     }
-     /*
-     ** make the file available for remote side replication
-     */
-     ctx_p->geo_rep_main_file.last_index++; 
-     ctx_p->file_idx_wr_pending = 0;
-     geo_rep_disk_update_last_index(ctx_p);   
+     geo_rep_disk_next_index(ctx_p);
    }
   /*
   ** reinit of the hash table
   */
-  return geo_rep_reinit(ctx_p);
+  geo_rep_reinit(ctx_p);
+  status = 0;
+    
+out:
+
+  /*
+  ** Release the lock
+  */
+  if (pthread_rwlock_unlock(&ctx_p->flush_lock) != 0) {
+    severe("pthread_rwlock_unlock %s", strerror(errno));
+  } 
+  
+  return status;  
 }
 /*
 **____________________________________________________________________________
@@ -1020,6 +1058,229 @@ int geo_rep_insert_fid(geo_rep_srv_ctx_t *ctx_p,
       geo_rep_disk_flush(ctx_p,0);
     }
     return 0; 
+}
+/*
+**____________________________________________________________________________
+*/
+/**
+*  Restart from scratch the FID synchronization
+   Every FID must be synchronized toward the other site
+
+   @param ctx_p : pointer to replication context
+   
+   @retval 0 on success
+   @retval -1 on error (see errno for details)
+*/
+int geo_rep_restart_from_scratch(geo_rep_srv_ctx_t *ctx_p) {
+  char     cmd[256];
+  char     path[256];
+  int      idx;
+  int      status=-1;
+  
+  /*
+  ** Call geoRepList tool to build lists of FIDs to synchronize
+  */
+  GEO_REP_BUILD_PATH_NONAME;
+  sprintf (cmd, "rozo_geoRepList -e %d -p %s -c %s",
+           ctx_p->eid, path, export_get_config_file_path());   
+  system(cmd);
+
+  /*
+  ** Get the lock
+  */   
+  if (pthread_rwlock_wrlock(&ctx_p->flush_lock) != 0) {
+    severe("pthread_rwlock_wrlock %s", strerror(errno));
+    return -1;
+  }
+
+  /*
+  ** Check whether a file is pending
+  */
+  if (ctx_p->file_idx_wr_pending) {
+    /*
+    ** Finish this file and go to next index
+    */
+    geo_rep_disk_next_index(ctx_p);
+  }  
+  	   
+  /*
+  ** Loop on the result files and add them to geo replication list
+  */
+  idx = 1;
+  while (1) {
+  
+    GEO_REP_BUILD_PATH_NONAME;
+    sprintf(cmd,"%s/geoList.%d",path,idx);
+    
+    /*
+    ** Check whether this result file exists
+    */
+    if (access(cmd,R_OK) != 0) {
+      /*
+      ** No more file
+      */
+      status = 0;
+      break;
+    }
+
+    /*
+    ** Build destination name
+    */
+    GEO_REP_BUILD_PATH_FILE(GEO_FILE,ctx_p->geo_rep_main_file.last_index);    
+
+    /*
+    ** Rename the file
+    */
+    if (rename(cmd,path)<0) {
+      severe("rename(%s,%s) %s", cmd, path, strerror(errno));
+      unlink(cmd);
+      break;
+    }
+
+    /*
+    ** Finish this file and go to next file
+    */
+    geo_rep_disk_next_index(ctx_p);
+    
+    /*
+    ** Next result file
+    */
+    idx++;
+  }
+  
+  /*
+  ** Release the lock
+  */
+  if (pthread_rwlock_unlock(&ctx_p->flush_lock) != 0) {
+    severe("pthread_rwlock_unlock %s", strerror(errno));
+  }  
+  
+  return status;
+}
+/*
+**____________________________________________________________________________
+*/
+/**
+*  Thread that will build the list of FID to re synchronize
+
+   @param ctx_p : pointer to replication context
+   
+   @retval 0 on success
+   @retval -1 on error (see errno for details)
+*/
+static void *geo_rep_restart_from_scratch_thread(void *param) {
+  char                name[32];
+  geo_rep_srv_ctx_t * ctx_p = (geo_rep_srv_ctx_t *) param;
+  int                 status=-1;
+
+  sprintf(name,"geoScratch.eid%d.site%d", ctx_p->eid, ctx_p->site_id);
+  uma_dbg_thread_add_self(name);
+  
+  info("%s started",name);
+  
+  pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+  status = geo_rep_restart_from_scratch(ctx_p);
+  pthread_exit(&status);
+}  
+/*
+**____________________________________________________________________________
+*/
+/**
+*  Launch a thread that will build th whole list of FID to resynchronize
+*  a whole export
+
+   @param from_site : the source site of the synchronization
+   @param eid       : the export identifier
+   
+   @retval 0 on success
+   @retval -1 on error 
+*/
+int geo_rep_restart_from_scratch_launch_thread(int from_site, int eid) {
+  pthread_t          thid;  
+  geo_rep_srv_ctx_t *ctx_p=NULL;
+  
+  /*
+  ** Retrieve and check the geo replication context
+  */
+  if ((from_site!= 0)&&(from_site!= 1)) {
+    severe("Unexpected site number %d", from_site);
+    return -1;
+  }  
+
+  if (eid>EXPGW_EID_MAX_IDX) {
+    severe("Unexpected eid number %d", eid);
+    return -1;
+  }  
+
+  ctx_p = geo_rep_srv_ctx_table[from_site][eid];
+
+  if (ctx_p == NULL){
+    severe("No georeplication context for eid number %d and site %d", eid, from_site);
+    return -1;
+  }  
+  
+  if (ctx_p->geo_replication_enable == 0) {
+    severe("georeplication disabled for eid number %d and site %d", eid, from_site);
+    return -1;
+  }
+          
+  /*
+  ** Start a thread for this task
+  */    
+  if (pthread_create(&thid, NULL, geo_rep_restart_from_scratch_thread, ctx_p) != 0) {
+     severe("geo_rep_restart_from_scratch_launch_thread %s", strerror(errno));
+     return -1;
+  }
+  return 0;
+}     
+/*
+**____________________________________________________________________________
+*/
+/**
+*  Rozodiag CLI to restart georeplication from scratch
+   
+   @retval 0 on success
+   @retval -1 on error 
+*/
+void geo_rep_restart_from_scratch_dbg(char * argv[], uint32_t tcpRef, void *bufRef) {
+  char *pChar = uma_dbg_get_buffer();
+  int   site=-1;
+  int   eid;
+  
+
+  /* 
+  ** Parse command
+  */
+  if (argv[1] == NULL) {
+    sprintf(pChar,"Missing site number\n");
+    uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   	  
+    return;
+  }
+  if (sscanf(argv[1],"%d", &site) != 1) {
+    sprintf(pChar,"Unexpected site number %s\n",argv[1]);  
+    uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   	  
+    return;
+  }  
+  if ((site!=0)&&(site!=1)){
+    sprintf(pChar,"Bad number %d\n",site);    
+    uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());  
+    return;
+  }
+  
+  /*
+  ** Try each eid
+  */
+  for (eid=0; eid<EXPGW_EID_MAX_IDX; eid++) {
+    if (geo_rep_srv_ctx_table[site][eid] != NULL) {
+      if (geo_rep_restart_from_scratch_launch_thread(site,eid)==0) {
+        pChar += sprintf(pChar,"eid %d started\n",eid);
+      }
+      else {
+        pChar += sprintf(pChar,"Failed to start eid %d\n",eid);       	
+      }
+    }
+  }
+  uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());    
 }
 /*
 **____________________________________________________________________________

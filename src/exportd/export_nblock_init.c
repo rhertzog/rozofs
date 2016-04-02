@@ -1138,6 +1138,7 @@ int expgwc_start_nb_blocking_th(void *args) {
       return -1;
     }
     uma_dbg_addTopic("fid_parse",uma_dbg_split_fid);
+    uma_dbg_addTopic_option("geoReplicationRestartFromScratch",geo_rep_restart_from_scratch_dbg,UMA_DBG_OPTION_HIDE);
     /*
     ** add profiler subject (exportd statistics)
     */
