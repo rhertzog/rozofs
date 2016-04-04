@@ -183,6 +183,8 @@ exportd_stop() {
         rm $PIDFILE 2>/dev/null
       fi
 
+      rm $PIDFILE 2>/dev/null
+
       count=0
 
       # Check if exportd is stopped
