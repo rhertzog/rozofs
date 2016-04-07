@@ -31,6 +31,9 @@ SCRIPTNAME=/etc/init.d/$NAME
 [ -x /usr/bin/rozofsmount ] || exit 0
 [ -x /usr/bin/storcli ] || exit 0
 
+# Default values
+WAITROZOFSMOUNT="no" # Enable or not waiting mount (yes or no)
+
 # Read configuration variable file if it is present
 [ -r /etc/default/$NAME ] && . /etc/default/$NAME
 
@@ -43,8 +46,6 @@ SCRIPTNAME=/etc/init.d/$NAME
 
 # Enable core files
 ulimit -c unlimited
-# Enable or not waiting mount (yes or no)
-WAITROZOFSMOUNT="no"
 
 #
 # Function that wait connectivity with exportd before mount
@@ -95,19 +96,35 @@ do_waiting_start()
             fi
             
             if [ -x /usr/sbin/rpcinfo ]; then
-                # Check connectivity with export
-                res=`/usr/sbin/rpcinfo -l ${EXPORT_HOST} 536870913 1 | grep 536870913`
-                case "$res" in
+            # Check connectivity with export
+
+                connect=0
+
+                # Check each export IP address
+                for exp in $(echo $EXPORT_HOST | tr "/" "\n")
+                do
+                    res=`/usr/sbin/rpcinfo -l ${exp} 536870913 1 | grep 536870913`
+                    case "$res" in
                     "") {
-                        # No connectivity
-                        NEW_ROZOFS_LIST="$NEW_ROZOFS_LIST $MOUNTPOINT,$EXPORT_HOST"
                         continue;
-                        };;
-                esac
+                    };;
+                    *) {
+                        connect=1
+                        break;
+                    };;
+                    esac
+                done
+
+                if [ ${connect} -eq 0 ] ; then
+                    # No connectivity at all
+                    NEW_ROZOFS_LIST="$NEW_ROZOFS_LIST $MOUNTPOINT,$EXPORT_HOST"
+                    continue;
+                fi
+
             else
                 log_warning_msg "/usr/sbin/rcpinfo not found"
             fi
-            
+
             # Mount Rozo FS
             log_action_begin_msg "Mounting: " "${MOUNTPOINT}"
             mount "${MOUNTPOINT}"
