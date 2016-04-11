@@ -112,7 +112,7 @@ static void daemon_handle_signal(int sig) {
     }
 }
 #endif
-static void remove_pid_file(int sig) {
+void remove_pid_file(int sig) {
   unlink(pid_file);
 }
 void daemon_start(char * path, int nbCoreFiles, const char *name, void (*on_start) (void),

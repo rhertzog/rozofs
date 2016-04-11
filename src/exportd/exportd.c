@@ -1514,6 +1514,7 @@ static void on_start() {
 /*
  *_______________________________________________________________________
  */
+void remove_pid_file(int sig);
 static void on_stop() {
     DEBUG_FUNCTION;
     if ( expgwc_non_blocking_conf.slave == 0)
@@ -1526,12 +1527,8 @@ static void on_stop() {
 	  svc_destroy(exportd_svc);
 	  exportd_svc = NULL;
       }
-
-      /*
-      ** now kill every sub process
-      */
-      rozofs_session_leader_killer(100000);
     }
+    
     /*
     ** flush the dirent write back cache on disk
     */
@@ -1540,6 +1537,17 @@ static void on_stop() {
     
     exportd_release();
     closelog();
+    
+    if ( expgwc_non_blocking_conf.slave == 0)
+    {
+      
+      remove_pid_file(0);
+      
+      /*
+      ** now kill every sub process
+      */
+      rozofs_session_leader_killer(100000);
+    }    
 }
 /*
  *_______________________________________________________________________
