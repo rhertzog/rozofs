@@ -92,7 +92,7 @@ int rozofs_create_new_result_file() {
   */
   cr8time = time(NULL);
   if (write(FDescr,&cr8time,sizeof(cr8time)) != sizeof(cr8time)) {
-    severe("write(%s,time) %s",resultFileNum,strerror(errno));
+    severe("write(%d,time) %s",resultFileNum,strerror(errno));
     return -1;
   }  	  
   
@@ -347,7 +347,7 @@ out:
   if (status == 0) {
     info("SUCCESS : %llu FID in %d files",
          (long long unsigned int) total,
-         (long long unsigned int)resultFileNum);
+         resultFileNum);
   }
   else {
     warning("Failed");

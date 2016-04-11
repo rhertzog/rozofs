@@ -1083,7 +1083,7 @@ int geo_rep_restart_from_scratch(geo_rep_srv_ctx_t *ctx_p) {
   GEO_REP_BUILD_PATH_NONAME;
   sprintf (cmd, "rozo_geoRepList -e %d -p %s -c %s",
            ctx_p->eid, path, export_get_config_file_path());   
-  system(cmd);
+  if (system(cmd)!=0) {};
 
   /*
   ** Get the lock

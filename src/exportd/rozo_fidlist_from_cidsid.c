@@ -610,5 +610,5 @@ int main(int argc, char *argv[]) {
   rz_scan_all_inodes(rozofs_export_p,ROZOFS_REG,1,rozofs_visit,NULL,NULL,NULL);
 
   rozo_display_all_cluster();
-
+  exit(EXIT_SUCCESS);
 }
