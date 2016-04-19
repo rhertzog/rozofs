@@ -2229,12 +2229,32 @@ int main(int argc, char *argv[]) {
     }
     
     /*
-    ** Check whether such instance of rozofsmount is already running
+    ** Check whether such instance of rozofsmount is already running.
+    ** Wait some seconds for the previous rozofsmount process to eventually stop
     */
-    if (rozofs_check_instance(conf.instance)) {
+    int delay=0;
+#define ROZOFS_MOUNT_CHECK_RETRY_MICROSEC     (500000)  
+#define ROZOFS_MOUNT_CHECK_TIMEOUT_MICROSEC  (7000000)  
+    while (1) {
+      /*
+      ** Check whether the same instance of rozofsmount is running
+      */
+      if (rozofs_check_instance(conf.instance)==0) break; // No such running instance
+            
+      /*
+      ** A rozofsmount is running with the same instance number
+      ** Give it a ROZOFS_MOUNT_CHECK_TIMEOUT_MICROSEC delay to stop
+      */
+      if (delay>=ROZOFS_MOUNT_CHECK_TIMEOUT_MICROSEC) {
         fprintf(stderr, "Can not mount %s\n", mountpoint);
         fprintf(stderr, "A RozoFS mount point is already mounted with the same instance number (%d)\n", conf.instance);
-        return 1;    
+        return 1;  	
+      }
+      /* 
+      ** Sleep for some microseconds
+      */
+      usleep(ROZOFS_MOUNT_CHECK_RETRY_MICROSEC);
+      delay += ROZOFS_MOUNT_CHECK_RETRY_MICROSEC; 	
     }
 
     /*
