@@ -25,6 +25,7 @@
 #include <sys/time.h>
 #include <sys/socket.h>
 #include <sys/resource.h>
+#include <rozofs/common/log.h>
 
 #include "ruc_list.h"
 #include "socketCtrl.h"
@@ -663,14 +664,16 @@ uint32_t ruc_sockctl_init(uint32_t maxConnection)
    ret = getrlimit(RLIMIT_NOFILE,&rlim);
    if (ret < 0)
    {
-      printf("error %s\n",strerror(errno));
+      severe("getrlimit(RLIMIT_NOFILE) %s",strerror(errno));
+      fprintf(stderr,"getrlimit(RLIMIT_NOFILE) %s\n",strerror(errno));
       exit(0);
    }
    rlim.rlim_cur = 4096;
    ret = setrlimit(RLIMIT_NOFILE,&rlim);
    if (ret < 0)
    {
-      printf("error %s\n",strerror(errno));
+      severe("setrlimit(RLIMIT_NOFILE,%d) %s",rlim.rlim_cur, strerror(errno));
+      fprintf(stderr,"setrlimit(RLIMIT_NOFILE) %s\n",strerror(errno));
       exit(0);
    }
 }
