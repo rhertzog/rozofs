@@ -44,7 +44,7 @@ rozofs_configure_param_t rozofs_timer_conf[TMR_MAX_ENTRY];
 */
 void rozofs_tmr_init_configuration()
 {
-  DEF_TMR(EXPORT_PROGRAM,4,120,25,TMR_SEC); /**< exportd transaction timeout :default 25 s */
+  DEF_TMR(EXPORT_PROGRAM,1,120,25,TMR_SEC); /**< exportd transaction timeout :default 25 s */
   DEF_TMR(STORAGE_PROGRAM,2,120,4,TMR_SEC);  /**< storaged transaction timeout : default 4 s  */
   DEF_TMR(STORCLI_PROGRAM,2,120,15,TMR_SEC);            /**< storagd client transaction timeout :      default 15 s */
   DEF_TMR(EXPORTD_PROFILE_PROGRAM,5,120,25,TMR_SEC);     /**< exportd profiler program                  default 25 s */
