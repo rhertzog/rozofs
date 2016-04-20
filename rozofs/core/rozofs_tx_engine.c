@@ -576,7 +576,8 @@ void rozofs_tx_start_timer(rozofs_tx_ctx_t *tx_p, uint32_t time_ms) {
     /*
      **  remove the timer from its current list
      */
-    slot = COM_TX_TMR_SLOT0;
+    slot = time_ms / 5;
+    if (slot >= COM_TX_TMR_SLOT5) slot = COM_TX_TMR_SLOT5;
 
     tx_p->rpc_guard_timer_flg = FALSE;
     com_tx_tmr_stop(&tx_p->rpc_guard_timer);

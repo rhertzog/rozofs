@@ -27,7 +27,11 @@
 #define  COM_TX_TMR_SLOT0         0
 #define  COM_TX_TMR_SLOT1         1
 #define  COM_TX_TMR_SLOT2         2
-#define COM_TX_TMR_SLOT_MAX       3
+#define  COM_TX_TMR_SLOT3         3
+#define  COM_TX_TMR_SLOT4         4
+#define  COM_TX_TMR_SLOT5         5
+
+#define COM_TX_TMR_SLOT_MAX       (COM_TX_TMR_SLOT5+1)
 
          /*----------------------*/
          /* charging timer types  */
