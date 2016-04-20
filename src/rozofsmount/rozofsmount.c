@@ -1184,7 +1184,7 @@ void show_trc_fuse_buffer(char * pChar)
 	rozofs_uuid_unparse(fake_fid, str); 
       if (p->hdr.s.req)
       {
-        pChar+=sprintf(pChar,"[%8llu ]--> %-8s %4d %12.12llx ",
+        pChar+=sprintf(pChar,"[%12llu ]--> %-8s %4d %12.12llx ",
 	         (unsigned long long int)(p->ts - cur_ts),trc_fuse_display_srv(p->hdr.s.service_id),p->hdr.s.index,
 		 (unsigned long long int)p->ino);
         switch (p->hdr.s.trc_type)
@@ -1248,7 +1248,7 @@ void show_trc_fuse_buffer(char * pChar)
 	  case rozofs_trc_type_io:
 	  case rozofs_trc_type_def:
 	  case rozofs_trc_type_setattr:
-            pChar+=sprintf(pChar,"[%8llu ]<-- %-8s %4d %12.12llx %s %d:%s\n",
+            pChar+=sprintf(pChar,"[%12llu ]<-- %-8s %4d %12.12llx %s %d:%s\n",
 	               (unsigned long long int)(p->ts - cur_ts),
 		       trc_fuse_display_srv(p->hdr.s.service_id),
 		       p->hdr.s.index,
@@ -1257,7 +1257,7 @@ void show_trc_fuse_buffer(char * pChar)
 		       p->errno_val,strerror(p->errno_val));  	  
 	    break;
 	  case rozofs_trc_type_name:
-            pChar+=sprintf(pChar,"[%8llu ]<-- %-8s %4d %12.12llx %s\n",
+            pChar+=sprintf(pChar,"[%12llu ]<-- %-8s %4d %12.12llx %s\n",
 	               (unsigned long long int)(p->ts - cur_ts),
 		       trc_fuse_display_srv(p->hdr.s.service_id),
 		       p->hdr.s.index,
@@ -1265,7 +1265,7 @@ void show_trc_fuse_buffer(char * pChar)
 		       (p->par.name.name[0] == 0)?strerror(p->errno_val):p->par.name.name); 
             break;		       
 	  case rozofs_trc_type_attr:
-            pChar+=sprintf(pChar,"[%8llu ]<-- %-8s %4d %12.12llx %s %d:%s %8llu\n",
+            pChar+=sprintf(pChar,"[%12llu ]<-- %-8s %4d %12.12llx %s %d:%s %8llu\n",
 	               (unsigned long long int)(p->ts - cur_ts),
 		       trc_fuse_display_srv(p->hdr.s.service_id),
 		       p->hdr.s.index,
@@ -1295,7 +1295,29 @@ static char * show_trc_fuse_help(char * pChar) {
   return pChar; 
 }  
 
-
+void man_trc_fuse(char * pt) {
+  pt = show_trc_fuse_help(pt);
+  pt += sprintf(pt,"\nThe columns diplayed by trace trc_fuse must be read as follow:\n");
+  pt += sprintf(pt,"1) delay between current row and previous row in CPU tick units.\n");
+  pt += sprintf(pt,"   Check CPU frequency with \"frequency\" rozodiag CLI.\n");
+  pt += sprintf(pt,"2) --> for incoming request.\n");
+  pt += sprintf(pt,"   <-- for outgoing response.\n");
+  pt += sprintf(pt,"3) Service name.\n");
+  pt += sprintf(pt,"4) Request/response number. Enable to make the response match the request.\n");
+  pt += sprintf(pt,"5) inode when available.\n");
+  pt += sprintf(pt,"6) FID when available.\n");
+  pt += sprintf(pt,"Optionnal and variable values:\n");
+  pt += sprintf(pt,"- on responses:\n");
+  pt += sprintf(pt,"  7) errno\n");
+  pt += sprintf(pt,"  8) depending on the request\n");
+  pt += sprintf(pt,"     - lookup,\n");
+  pt += sprintf(pt,"       getattr,\n");  
+  pt += sprintf(pt,"       setattr,\n");  
+  pt += sprintf(pt,"       open    : the size of the object.\n");
+  pt += sprintf(pt,"     - forget  : the remaining lookup count.\n");
+  pt += sprintf(pt,"     - stafs   : number of available 1024K blocs.\n");
+  pt += sprintf(pt,"     - readlink: the target name.\n");
+}
 void show_trc_fuse(char * argv[], uint32_t tcpRef, void *bufRef) {
     char *pChar = uma_dbg_get_buffer();
     int   new_val;   
@@ -1747,10 +1769,13 @@ int fuseloop(struct fuse_args *args, int fg) {
     uma_dbg_addTopic("ientry", show_ientry);
     rozofs_layout_initialize();    
     uma_dbg_addTopic("layout", show_layout);
-    uma_dbg_addTopic_option("trc_fuse", show_trc_fuse,UMA_DBG_OPTION_RESET);
+    uma_dbg_addTopicAndMan("trc_fuse", show_trc_fuse,man_trc_fuse,UMA_DBG_OPTION_RESET);
     uma_dbg_addTopic("xattr_flt", show_xattr_flt);
     uma_dbg_addTopic("xattr", rozofs_disable_xattr);
 
+    // Register rozodiag comman to get CPU frequency
+    rozofs_get_cpu_frequency();
+    
     /*
     ** Register malloc tracking diagnostic service
     */
