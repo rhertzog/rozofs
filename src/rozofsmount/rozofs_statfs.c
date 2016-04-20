@@ -40,6 +40,8 @@ void rozofs_ll_statfs_nb(fuse_req_t req, fuse_ino_t ino) {
     (void) ino;
     int    ret;        
     void *buffer_p = NULL;
+    int trc_idx = rozofs_trc_req(srv_rozofs_ll_statfs,ino,NULL);
+
     /*
     ** allocate a context for saving the fuse parameters
     */
@@ -52,6 +54,7 @@ void rozofs_ll_statfs_nb(fuse_req_t req, fuse_ino_t ino) {
     }
     SAVE_FUSE_PARAM(buffer_p,req);
     SAVE_FUSE_PARAM(buffer_p,ino);
+    SAVE_FUSE_PARAM(buffer_p,trc_idx);
 
     START_PROFILING_NB(buffer_p,rozofs_ll_statfs);
     /*
@@ -79,6 +82,8 @@ error:
     */
     STOP_PROFILING_NB(buffer_p,rozofs_ll_statfs);
     if (buffer_p != NULL) rozofs_fuse_release_saved_context(buffer_p);
+    rozofs_trc_rsp_attr(srv_rozofs_ll_statfs,ino,NULL,1,-1,trc_idx);
+
     return;
 }
 
@@ -94,9 +99,9 @@ error:
  void rozofs_ll_statfs_cbk(void *this,void *param) 
 {
    fuse_req_t req; 
-   struct statvfs st;
+   struct statvfs st={0};
    ep_statfs_t estat;
-   int status;
+   int status=-1;
    uint8_t  *payload;
    void     *recv_buf = NULL;   
    XDR       xdrs;    
@@ -104,10 +109,14 @@ error:
    epgw_statfs_ret_t ret;
    struct rpc_msg  rpc_reply;
    xdrproc_t decode_proc = (xdrproc_t)xdr_epgw_statfs_ret_t;
-
+   int trc_idx;
+   fuse_ino_t ino;
    
    rpc_reply.acpted_rply.ar_results.proc = NULL;
    RESTORE_FUSE_PARAM(param,req);
+   RESTORE_FUSE_PARAM(param,trc_idx);
+   RESTORE_FUSE_PARAM(param,ino);
+
     /*
     ** get the pointer to the transaction context:
     ** it is required to get the information related to the receive buffer
@@ -135,6 +144,7 @@ error:
        ** something wrong happened
        */
        errno = EFAULT;  
+       status = -1;
        goto error;         
     }
     payload  = (uint8_t*) ruc_buf_getPayload(recv_buf);
@@ -151,6 +161,7 @@ error:
     {
      TX_STATS(ROZOFS_TX_DECODING_ERROR);
      errno = EPROTO;
+     status = -1;
      goto error;
     }
     /*
@@ -160,13 +171,15 @@ error:
     if (decode_proc(&xdrs,&ret) == FALSE)
     {
        TX_STATS(ROZOFS_TX_DECODING_ERROR);
-       errno = EPROTO;
        xdr_free((xdrproc_t) decode_proc, (char *) &ret);
+       status = -1;
+       errno = EPROTO;       
        goto error;
     }   
     if (ret.status_gw.status == EP_FAILURE) {
         errno = ret.status_gw.ep_statfs_ret_t_u.error;
-        xdr_free((xdrproc_t) decode_proc, (char *) &ret);    
+        xdr_free((xdrproc_t) decode_proc, (char *) &ret); 
+        status = -1;
         goto error;
     }
     memcpy(&estat, &ret.status_gw.ep_statfs_ret_t_u.stat, sizeof (ep_statfs_t));
@@ -183,6 +196,8 @@ error:
 	st.f_namemax = estat.namemax;
 
     fuse_reply_statfs(req, &st);
+    errno = 0;
+    status = 0;
     goto out;
 error:
     fuse_reply_err(req, errno);
@@ -191,6 +206,7 @@ out:
     ** release the transaction context and the fuse context
     */
     STOP_PROFILING_NB(param,rozofs_ll_statfs);
+    rozofs_trc_rsp_attr(srv_rozofs_ll_statfs,ino,NULL,status,st.f_bavail*st.f_frsize/1024,trc_idx);
     rozofs_fuse_release_saved_context(param);
     if (rozofs_tx_ctx_p != NULL) rozofs_tx_free_from_ptr(rozofs_tx_ctx_p);    
     if (recv_buf != NULL) ruc_buf_freeBuffer(recv_buf);   
