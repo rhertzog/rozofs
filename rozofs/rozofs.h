@@ -666,6 +666,53 @@ typedef struct _rozofs_rebuild_entry_file_t {
     */
     sid_t     dist_set_current[ROZOFS_SAFE_MAX]; ///< currents sids of storage nodes
 } rozofs_rebuild_entry_file_t; 
+/*
+**___________________________________________________________________
+**
+** JSON formating macros
+**
+**___________________________________________________________________
+*/
+
+#define JSON_write_offset {\
+  int json_idx;\
+  for (json_idx=0; json_idx<json_offset; json_idx++) {\
+    *pJSON++ = ' ';\
+    *pJSON++ = ' ';\
+    *pJSON++ = ' ';\
+    *pJSON++ = ' ';\
+  } \
+}
+
+#define JSON_begin {*pJSON++ = '{';JSON_eol;json_offset++;}
+#define JSON_end {JSON_remove_coma;json_offset--; JSON_write_offset; *pJSON++ = '}';JSON_eol;}
+
+#define JSON_separator { *pJSON++ = '\t'; *pJSON++ = ':'; *pJSON++ = ' ';}
+#define JSON_make_name(name) { *pJSON++ = '"'; pJSON += rozofs_string_append(pJSON, name); *pJSON++ = '"';}
+#define JSON_name(name) { JSON_write_offset; JSON_make_name(name); JSON_separator;}
+
+#define JSON_eol {pJSON += rozofs_eol(pJSON); }
+#define JSON_coma_eol { *pJSON++ = ',';  JSON_eol; }
+#define JSON_remove_coma { pJSON = pJSON-2; JSON_eol; }
+
+#define JSON_open_obj(name) { JSON_name(name); JSON_begin; }
+#define JSON_close_obj { JSON_remove_coma; json_offset--; JSON_write_offset; *pJSON++ = '}'; JSON_coma_eol;}
+
+#define JSON_open_array(name) { JSON_name(name);  *pJSON++ = '['; JSON_eol; json_offset++; }
+#define JSON_close_array { JSON_remove_coma; json_offset--; JSON_write_offset; *pJSON++ = ']'; JSON_coma_eol; }
+
+#define JSON_string(name,value) { JSON_name(name);JSON_make_name(value);JSON_coma_eol;}
+
+#define JSON_string_element(value) {JSON_write_offset; JSON_make_name(value); JSON_coma_eol; }
+
+#define JSON_new_element { JSON_write_offset; *pJSON++ = '{'; JSON_eol; json_offset++; }
+#define JSON_end_element { JSON_remove_coma; json_offset--; JSON_write_offset; *pJSON++ = '}'; JSON_coma_eol; }
+#define JSON_i32(name, value) { JSON_name(name); pJSON += rozofs_i32_append(pJSON, value);JSON_coma_eol; }
+#define JSON_u32( name, value) {JSON_name(name); pJSON += rozofs_u32_append(pJSON, value);JSON_coma_eol; }
+#define JSON_2u32(name1, value1, name2, value2) { JSON_name(name1); pJSON += rozofs_u32_append(pJSON, value1);\
+  *pJSON++ = ','; *pJSON++ = ' ';\
+  JSON_make_name(name2); JSON_separator; pJSON += rozofs_u32_append(pJSON, value2); JSON_coma_eol;}
+#define JSON_u64(name, value) { JSON_name(name); pJSON += rozofs_u64_append(pJSON, value);JSON_coma_eol;}
 
 
 
