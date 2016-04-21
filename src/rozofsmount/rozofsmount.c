@@ -33,6 +33,7 @@
 //#include <rozofs/core/malloc_tracking.h>
 #include <rozofs/common/rozofs_site.h>
 #include <rozofs/common/common_config.h>
+#include <rozofs/core/rozofs_cpu.h>
 
 #include "rozofs_fuse.h"
 #include "rozofs_fuse_api.h"

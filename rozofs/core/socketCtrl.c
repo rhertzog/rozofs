@@ -672,7 +672,7 @@ uint32_t ruc_sockctl_init(uint32_t maxConnection)
    ret = setrlimit(RLIMIT_NOFILE,&rlim);
    if (ret < 0)
    {
-      severe("setrlimit(RLIMIT_NOFILE,%d) %s",rlim.rlim_cur, strerror(errno));
+      severe("setrlimit(RLIMIT_NOFILE,%d) %s",(int)rlim.rlim_cur, strerror(errno));
       fprintf(stderr,"setrlimit(RLIMIT_NOFILE) %s\n",strerror(errno));
       exit(0);
    }

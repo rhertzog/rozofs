@@ -841,7 +841,9 @@ void rbs_monitor_file_update(void) {
     }
     
     pEnd = format_status_file(myFormatedString);
-    pwrite(fd,myFormatedString,pEnd-myFormatedString,0);
+    if (pwrite(fd,myFormatedString,pEnd-myFormatedString,0)<=0) {
+      severe("pwrite(%s) %s",rbs_monitor_file_path, strerror(errno));
+    }
     close(fd);
 }
 void rbs_monitor_string_append( char *str) {
