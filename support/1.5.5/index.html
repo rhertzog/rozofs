@@ -1,0 +1,285 @@
+
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Welcome to RozoFS’s documentation! &mdash; RozoFS User&#39;s Guide 1.4.0 documentation</title>
+  
+
+  
+  
+
+  
+  <link href='https://fonts.googleapis.com/css?family=Lato:400,700,400italic,700italic|Roboto+Slab:400,700|Inconsolata:400,700' rel='stylesheet' type='text/css'>
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  
+
+  
+    <link rel="top" title="RozoFS User&#39;s Guide 1.4.0 documentation" href="#"/>
+        <link rel="next" title="About RozoFS" href="AboutRozoFS.html"/> 
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/modernizr/2.6.2/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-nav-search">
+        <a href="#" class="fa fa-home"> RozoFS User's Guide</a>
+        <div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+        
+        
+            <ul>
+<li class="toctree-l1"><a class="reference internal" href="AboutRozoFS.html">About RozoFS</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="AboutRozoFS.html#rozofs-fundamentals">RozoFS Fundamentals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="AboutRozoFS.html#rozofs-data-flow">RozoFS Data Flow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="AboutRozoFS.html#rozofs-data-protection">RozoFS Data Protection</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="InstallingRozoFS.html">Installing RozoFS</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="InstallingRozoFS.html#installing-rozofs-from-binary-packages">Installing RozoFS from Binary Packages</a></li>
+<li class="toctree-l2"><a class="reference internal" href="InstallingRozoFS.html#building-and-installing-from-sources">Building and Installing from Sources</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="SettingUpRozoFS.html">Setting up RozoFS</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="SettingUpRozoFS.html#networking-considerations">Networking Considerations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="SettingUpRozoFS.html#preparing-nodes">Preparing Nodes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="SettingUpRozoFS.html#configuration-files">Configuration Files</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="WorkingWithRozoFS.html">Working with RozoFS</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="WorkingWithRozoFS.html#manual-managing-of-rozofs-services">Manual Managing of RozoFS Services</a></li>
+<li class="toctree-l2"><a class="reference internal" href="WorkingWithRozoFS.html#using-the-rozo-console-manager">Using the Rozo Console Manager</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="Monitoring.html">Monitoring</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="Monitoring.html#rozodiag-tools">Rozodiag tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Monitoring.html#rozofs-nagios-plugins">RozoFS Nagios Plugins</a></li>
+</ul>
+</li>
+</ul>
+
+        
+      </div>
+      &nbsp;
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="#">RozoFS User's Guide</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="#">Docs</a> &raquo;</li>
+      
+    <li>Welcome to RozoFS&#8217;s documentation!</li>
+      <li class="wy-breadcrumbs-aside">
+        
+          <a href="_sources/index.txt" rel="nofollow"> View page source</a>
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main">
+            
+  <div class="section" id="welcome-to-rozofs-s-documentation">
+<h1>Welcome to RozoFS&#8217;s documentation!<a class="headerlink" href="#welcome-to-rozofs-s-documentation" title="Permalink to this headline">¶</a></h1>
+<p>Contents:</p>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="AboutRozoFS.html">About RozoFS</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="AboutRozoFS.html#rozofs-fundamentals">RozoFS Fundamentals</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="AboutRozoFS.html#storage-nodes-and-storaged-daemon">Storage nodes and storaged daemon</a></li>
+<li class="toctree-l3"><a class="reference internal" href="AboutRozoFS.html#export-nodes-and-exportd-daemon">Export nodes and exportd daemon</a></li>
+<li class="toctree-l3"><a class="reference internal" href="AboutRozoFS.html#the-rozofsmount-clients">The rozofsmount clients</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="AboutRozoFS.html#rozofs-data-flow">RozoFS Data Flow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="AboutRozoFS.html#rozofs-data-protection">RozoFS Data Protection</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="AboutRozoFS.html#meta-data-protection">Meta Data Protection</a></li>
+<li class="toctree-l3"><a class="reference internal" href="AboutRozoFS.html#data-protection">Data Protection</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="InstallingRozoFS.html">Installing RozoFS</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="InstallingRozoFS.html#installing-rozofs-from-binary-packages">Installing RozoFS from Binary Packages</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="InstallingRozoFS.html#advance-package-tool-apt">Advance Package Tool (APT)</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="InstallingRozoFS.html#building-and-installing-from-sources">Building and Installing from Sources</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="InstallingRozoFS.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l3"><a class="reference internal" href="InstallingRozoFS.html#build-the-source">Build the Source</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="SettingUpRozoFS.html">Setting up RozoFS</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="SettingUpRozoFS.html#networking-considerations">Networking Considerations</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="SettingUpRozoFS.html#vlan-port-segregation">Vlan/port Segregation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="SettingUpRozoFS.html#flow-control-802-3x">Flow Control (802.3x)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="SettingUpRozoFS.html#spanning-tree-protocol">Spanning-tree Protocol</a></li>
+<li class="toctree-l3"><a class="reference internal" href="SettingUpRozoFS.html#storage-and-rozofs-network-configuration">Storage and RozoFS Network Configuration</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="SettingUpRozoFS.html#preparing-nodes">Preparing Nodes</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="SettingUpRozoFS.html#exportd-nodes">Exportd Nodes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="SettingUpRozoFS.html#storaged-nodes">Storaged Nodes</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="SettingUpRozoFS.html#configuration-files">Configuration Files</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="SettingUpRozoFS.html#exportd-configuration-file">Exportd Configuration File</a></li>
+<li class="toctree-l3"><a class="reference internal" href="SettingUpRozoFS.html#storaged-configuration-file">Storaged Configuration File</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="WorkingWithRozoFS.html">Working with RozoFS</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="WorkingWithRozoFS.html#manual-managing-of-rozofs-services">Manual Managing of RozoFS Services</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="WorkingWithRozoFS.html#starting-and-stopping-storaged-daemon">Starting and Stopping storaged Daemon</a></li>
+<li class="toctree-l3"><a class="reference internal" href="WorkingWithRozoFS.html#starting-and-stopping-exportd-daemon">Starting and Stopping exportd Daemon</a></li>
+<li class="toctree-l3"><a class="reference internal" href="WorkingWithRozoFS.html#accessing-data-setting-up-rozofsmount-client">Accessing Data - Setting up rozofsmount Client</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="WorkingWithRozoFS.html#using-the-rozo-console-manager">Using the Rozo Console Manager</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="WorkingWithRozoFS.html#get-the-list-of-nodes-belonging-to-a-platform">Get the List of Nodes Belonging to a Platform</a></li>
+<li class="toctree-l3"><a class="reference internal" href="WorkingWithRozoFS.html#get-the-status-of-a-platform">Get the Status of a Platform</a></li>
+<li class="toctree-l3"><a class="reference internal" href="WorkingWithRozoFS.html#view-the-platform-configuration">View the Platform Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="WorkingWithRozoFS.html#extend-the-platform">Extend the Platform</a></li>
+<li class="toctree-l3"><a class="reference internal" href="WorkingWithRozoFS.html#add-an-export-to-the-platform">Add an Export to the Platform</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="Monitoring.html">Monitoring</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="Monitoring.html#rozodiag-tools">Rozodiag tools</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="Monitoring.html#introduction">Introduction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="Monitoring.html#list-of-the-rozodiag-agent-ports">List of the rozodiag agent ports</a></li>
+<li class="toctree-l3"><a class="reference internal" href="Monitoring.html#rozodiag-usage">rozodiag usage</a></li>
+<li class="toctree-l3"><a class="reference internal" href="Monitoring.html#common-rozodiag-commands">Common rozodiag commands</a></li>
+<li class="toctree-l3"><a class="reference internal" href="Monitoring.html#rozodiag-commands-for-exportd">rozodiag commands for exportd</a></li>
+<li class="toctree-l3"><a class="reference internal" href="Monitoring.html#rozodiag-commands-for-rozofsmount">rozodiag commands for rozofsmount</a></li>
+<li class="toctree-l3"><a class="reference internal" href="Monitoring.html#rozodiag-commands-for-storcli">rozodiag commands for storcli</a></li>
+<li class="toctree-l3"><a class="reference internal" href="Monitoring.html#rozodiag-commands-for-storaged-storio">rozodiag commands for storaged/storio</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="Monitoring.html#rozofs-nagios-plugins">RozoFS Nagios Plugins</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="Monitoring.html#installation">Installation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="Monitoring.html#plugins-description">Plugins Description</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</div>
+</div>
+<div class="section" id="indices-and-tables">
+<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this headline">¶</a></h1>
+<ul class="simple">
+<li><a class="reference internal" href="genindex.html"><em>Index</em></a></li>
+<li><a class="reference internal" href="py-modindex.html"><em>Module Index</em></a></li>
+<li><a class="reference internal" href="search.html"><em>Search Page</em></a></li>
+</ul>
+</div>
+
+
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="AboutRozoFS.html" class="btn btn-neutral float-right" title="About RozoFS">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2014, Fizians SAS.
+    </p>
+  </div>
+
+  <a href="https://github.com/snide/sphinx_rtd_theme">Sphinx theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>
+</footer>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'',
+            VERSION:'1.4.0',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true
+        };
+    </script>
+      <script type="text/javascript" src="_static/jquery.js"></script>
+      <script type="text/javascript" src="_static/underscore.js"></script>
+      <script type="text/javascript" src="_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

@@ -1,0 +1,738 @@
+
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Setting up RozoFS &mdash; RozoFS User&#39;s Guide 1.4.0 documentation</title>
+  
+
+  
+  
+
+  
+  <link href='https://fonts.googleapis.com/css?family=Lato:400,700,400italic,700italic|Roboto+Slab:400,700|Inconsolata:400,700' rel='stylesheet' type='text/css'>
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  
+
+  
+    <link rel="top" title="RozoFS User&#39;s Guide 1.4.0 documentation" href="index.html"/>
+        <link rel="next" title="Working with RozoFS" href="WorkingWithRozoFS.html"/>
+        <link rel="prev" title="Installing RozoFS" href="InstallingRozoFS.html"/> 
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/modernizr/2.6.2/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-nav-search">
+        <a href="index.html" class="fa fa-home"> RozoFS User's Guide</a>
+        <div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+        
+        
+            <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="AboutRozoFS.html">About RozoFS</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="AboutRozoFS.html#rozofs-fundamentals">RozoFS Fundamentals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="AboutRozoFS.html#rozofs-data-flow">RozoFS Data Flow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="AboutRozoFS.html#rozofs-data-protection">RozoFS Data Protection</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="InstallingRozoFS.html">Installing RozoFS</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="InstallingRozoFS.html#installing-rozofs-from-binary-packages">Installing RozoFS from Binary Packages</a></li>
+<li class="toctree-l2"><a class="reference internal" href="InstallingRozoFS.html#building-and-installing-from-sources">Building and Installing from Sources</a></li>
+</ul>
+</li>
+<li class="toctree-l1 current"><a class="current reference internal" href="">Setting up RozoFS</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#networking-considerations">Networking Considerations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#preparing-nodes">Preparing Nodes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#configuration-files">Configuration Files</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="WorkingWithRozoFS.html">Working with RozoFS</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="WorkingWithRozoFS.html#manual-managing-of-rozofs-services">Manual Managing of RozoFS Services</a></li>
+<li class="toctree-l2"><a class="reference internal" href="WorkingWithRozoFS.html#using-the-rozo-console-manager">Using the Rozo Console Manager</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="Monitoring.html">Monitoring</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="Monitoring.html#rozodiag-tools">Rozodiag tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Monitoring.html#rozofs-nagios-plugins">RozoFS Nagios Plugins</a></li>
+</ul>
+</li>
+</ul>
+
+        
+      </div>
+      &nbsp;
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="index.html">RozoFS User's Guide</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="index.html">Docs</a> &raquo;</li>
+      
+    <li>Setting up RozoFS</li>
+      <li class="wy-breadcrumbs-aside">
+        
+          <a href="_sources/SettingUpRozoFS.txt" rel="nofollow"> View page source</a>
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main">
+            
+  <div class="section" id="setting-up-rozofs">
+<h1>Setting up RozoFS<a class="headerlink" href="#setting-up-rozofs" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="networking-considerations">
+<h2>Networking Considerations<a class="headerlink" href="#networking-considerations" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="vlan-port-segregation">
+<h3>Vlan/port Segregation<a class="headerlink" href="#vlan-port-segregation" title="Permalink to this headline">¶</a></h3>
+<p>It is recommended to separate core traffic (application) from the SAN
+traffic (RozoFS/Storage) with VLANs. It is recommended to use separate
+ports for application and RozoFS/Client. When RozoFS and Storage are
+co-located, they can share the same ports. However, if there are enough
+available ports, it is better that each entity (RozoFS, Storage) has its
+own set of ports.</p>
+</div>
+<div class="section" id="flow-control-802-3x">
+<h3>Flow Control (802.3x)<a class="headerlink" href="#flow-control-802-3x" title="Permalink to this headline">¶</a></h3>
+<p>It is <strong>mandatory</strong> to enable Flow Control on the switch ports that
+handle RozoFS/Storage traffic. In addition, one must also enable Flow
+Control on the NICs used by RozoFS/Storage to obtain the performance
+benefit. On many networks, there can be an imbalance in the network
+traffic between the devices that send network traffic and the devices
+that receive the traffic. This is often the case in SAN configurations
+in which many hosts (initiators such as RozoFS) are communicating with
+storage devices. If senders transmit data simultaneously, they may
+exceed the throughput capacity of the receiver. When this occurs, the
+receiver may drop packets, forcing senders to retransmit the data after
+a delay. Although this will not result in any loss of data, latency will
+increase because of the retransmissions, and I/O performance will
+degrade.</p>
+</div>
+<div class="section" id="spanning-tree-protocol">
+<h3>Spanning-tree Protocol<a class="headerlink" href="#spanning-tree-protocol" title="Permalink to this headline">¶</a></h3>
+<p>It is recommended to disable spanning-tree protocol (STP) on the switch
+ports that connect end nodes (RozoFS clients and storage array network
+interfaces). If it is still decide to enable STP on those switch ports,
+one need to check for a STP vendor feature, such as PortFast, which
+allows immediate transition of the ports into forwarding state.</p>
+</div>
+<div class="section" id="storage-and-rozofs-network-configuration">
+<h3>Storage and RozoFS Network Configuration<a class="headerlink" href="#storage-and-rozofs-network-configuration" title="Permalink to this headline">¶</a></h3>
+<p>RozoFS Clients/Storages node connections to the SAN network switches are
+always in active-active mode. In order to leverage to Ethernet ports
+utilization, the balancing among the ports is under the control of the
+application and not under the control of a bonding driver (there is no
+need for bonding driver with RozoFS storage node). When operating in the
+default mode of RozoFs (no LACP), it is recommended that each SAN port
+belongs to different VLANs. Configuration with 802.3ad (LACP) trunks is
+supported, however the Ethernet ports usage will not be optimal since
+the selection of a port depends on a hash applied either an MAC or IP
+level.</p>
+<div class="section" id="mutli-link-configuration">
+<h4>Mutli-link Configuration<a class="headerlink" href="#mutli-link-configuration" title="Permalink to this headline">¶</a></h4>
+<p>That configuration is the recommended one for RozoFS where there is one
+separate Vlan per physical port. The following diagram describes how
+storage nodes are connected toward the ToR switches. It is assumed that
+the RozoFS clients reside on nodes that are connected towards the
+northbound of the ToR SAN switches</p>
+<div class="figure align-center">
+<img alt="" src="_images/multi_link_1.png" />
+</div>
+<div class="figure align-center">
+<img alt="" src="_images/multi_link_2.png" />
+</div>
+</div>
+<div class="section" id="lacp-configuration">
+<h4>LACP Configuration<a class="headerlink" href="#lacp-configuration" title="Permalink to this headline">¶</a></h4>
+<p>In that case, the ports dedicated to the SAN (RozoFS and Storage) are
+grouped in one or two LACP groups, depending if we want to separate the
+RozoFS and Storage traffic or not. They can be either reside on the same
+or different VLANs.</p>
+<div class="figure align-center">
+<img alt="" src="_images/lacp.png" />
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="preparing-nodes">
+<h2>Preparing Nodes<a class="headerlink" href="#preparing-nodes" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="exportd-nodes">
+<h3>Exportd Nodes<a class="headerlink" href="#exportd-nodes" title="Permalink to this headline">¶</a></h3>
+<p>RozoFS must be combined with high-availability (HA) software to enable a
+complete storage failover solution. This chapter explain how setting up a
+complete metadata failover solution with DRBD and Pacemaker.</p>
+<div class="section" id="metadata-replication-with-drbd">
+<h4>Metadata Replication with DRBD<a class="headerlink" href="#metadata-replication-with-drbd" title="Permalink to this headline">¶</a></h4>
+<p><strong>About DRBD</strong></p>
+<p><a class="reference external" href="http://www.drbd.org/">DRBD</a> replicates data from the primary device to the
+secondary device in a way which ensures that both copies of the data remain
+identical. Think of it as a networked RAID 1. It mirrors data in real-time, so
+its replication occurs continuously. Applications do not need to know that in
+fact their data is stored on different disks.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">For more information, see the <a class="reference external" href="http://www.drbd.org">DRBD website</a>.</p>
+</div>
+<p>The following example uses two servers named <em>node1</em> and <em>node2</em>, and the
+DRBD resource named <em>r0</em>. It sets up <em>node1</em> as the primary node. Be sure to
+modify the instructions relative to your own configuration.</p>
+<p><strong>Installing DRBD</strong></p>
+<p>For install DRBD with <em>apt</em>:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>apt-get install drbd8-utils
+</pre></div>
+</div>
+<p>For install DRBD with <em>yum</em>:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>yum install drbd kmod-drbd
+</pre></div>
+</div>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p class="last">For more information about DRBD installation, see the
+<a class="reference external" href="http://www.drbd.org/docs/about/">DRBD documentation</a>.</p>
+</div>
+<p><strong>Configuring a DRBD resource</strong></p>
+<p>The DRBD configuration files are stored in the directory <tt class="docutils literal"><span class="pre">/etc/drbd.d/</span></tt>. There
+are two configuration files which are created:</p>
+<ul class="simple">
+<li><tt class="docutils literal"><span class="pre">/etc/drbd.d/r0.res</span></tt> corresponds to the configuration for resource <em>r0</em>;</li>
+<li><tt class="docutils literal"><span class="pre">/etc/drbd.d/global_common.conf</span></tt> corresponds to the global configuration of
+DRBD.</li>
+</ul>
+<p>Create the file <tt class="docutils literal"><span class="pre">/etc/drbd.d/r0.res</span></tt> on <em>node1</em>, changes the lines according
+to your parameters, and save it:</p>
+<div class="highlight-python"><pre>resource r0 {
+  protocol C;
+
+  on node1 {
+    device     /dev/drbd0;
+    disk       /dev/mapper/vg01-exports;
+    address    192.168.1.1:7788;
+    meta-disk internal;
+  }
+
+  on node2 {
+    device    /dev/drbd0;
+    disk      /dev/mapper/vg01-exports;
+    address   192.168.1.2:7788;
+    meta-disk internal;
+  }
+}</pre>
+</div>
+<p>This file configure a DRBD resource named <em>r0</em> which uses an underlying local
+disk named <tt class="docutils literal"><span class="pre">/dev/mapper/vg01-exports</span></tt> on both nodes <em>node1</em> and <em>node2</em>. In
+this example, we configure the resource to use internal metadata (means that
+DRBD stores its meta data on the same physical lower-level device as the actual
+production data) and it uses TCP port 7788 for its network connections, and
+binds to the IP addresses 192.168.1.1 and 192.168.1.2, respectively. This
+resource is configured to use fully synchronous replication (protocol C).</p>
+<p>Copy DRBD configuration files manually to the other node (<em>node2</em>):</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>scp /etc/drbd.d/* node2:/etc/drbd.d/
+</pre></div>
+</div>
+<p><strong>Enabling the DRBD resource</strong></p>
+<p>Each of the following steps must be completed on both nodes.</p>
+<p>Initializes the DRBD metadata :</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>drbdadm -- --ignore-sanity-checks create-md r0
+</pre></div>
+</div>
+<p>Attach resource <em>r0</em> to the backing device, set the replication parameters and
+connect the resource to its peer :</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>drbdadm up r0
+</pre></div>
+</div>
+<p>Start the resync process and put the device into the primary role (<em>node1</em> in
+this case) by entering the following command only on <em>node1</em>:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>drbdadm --force primary r0
+</pre></div>
+</div>
+<p><strong>Creating a file system</strong></p>
+<p>Create desired file system on top of your DRBD device (for example <em>ext4</em>):</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>mkfs.ext4 /dev/drbd0
+</pre></div>
+</div>
+<p>If the install and configuration procedures worked as expected, you are
+ready to run a basic test of the DRBD functionality. Create a mount
+point on <em>node1</em>, such as <tt class="docutils literal"><span class="pre">/srv/rozofs/exports</span></tt>:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>mkdir -p /srv/rozofs/exports
+</pre></div>
+</div>
+<p>Mount the DRBD device:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>mount /dev/drbd0 /srv/rozofs/exports
+</pre></div>
+</div>
+<p>Write a file:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span><span class="nb">echo</span> “helloworld” &gt; /srv/rozofs/exports/test
+</pre></div>
+</div>
+<p>Unmount the DRBD device:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>umount /srv/rozofs/exports
+</pre></div>
+</div>
+<p>To verify that synchronization is performed:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>cat /proc/drbd
+version: 8.3.11 <span class="o">(</span>api:88/proto:86-96<span class="o">)</span>
+srcversion: 41C52C8CD882E47FB5AF767
+ 0: cs:Connected ro:Primary/Secondary ds:UpToDate/UpToDate C r-----
+    ns:3186507 nr:0 dw:3183477 dr:516201 al:4702 bm:163 lo:0 pe:0 ua:0
+    ap:0 ep:1 wo:f oos:0
+</pre></div>
+</div>
+<p>The two resources are now synchronized (<em>UpToDate</em>). The initial
+synchronization is performed, it is necessary to stop the DRBD service
+and remove the link for the initialization script not to start the
+service automatically DRBD. The service is now controlled by the
+Pacemaker service.</p>
+<p>Disable DRBD init script (depending on your distribution, here Debian
+example):</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>/etc/init.d/drbd stop
+<span class="nv">$ </span>insserv -vrf drbd
+</pre></div>
+</div>
+</div>
+<div class="section" id="high-availability-with-pacemaker">
+<h4>High Availability with Pacemaker<a class="headerlink" href="#high-availability-with-pacemaker" title="Permalink to this headline">¶</a></h4>
+<p>Pacemaker is an open-source high availability resource management tool
+suitable for clusters of Linux machines. This tool can detect machine
+failures with a communication system based on an exchange of UDP packets
+and migrate services (resource) from one server to another.</p>
+<p>The configuration of Pacemaker can be done with the <tt class="docutils literal"><span class="pre">crm</span></tt> command. It
+allows you to manage different resources and propagates changes on each
+server automatically. The creation of a resource is done with an entry
+named primitive in the configuration file. This primitive uses a script
+corresponding to the application to be protected.</p>
+<p>In the case of the platform, Pacemaker manages the following resources:</p>
+<ul class="simple">
+<li>exportd daemon;</li>
+<li>The virtual IP address for the exportd service;</li>
+<li>Mounting the file system used to store meta-data;</li>
+<li>DRBD resources (r0), roles (master or slave);</li>
+<li>Server connectivity.</li>
+</ul>
+<p>The following diagram describes the different resources configured and
+controlled via Pacemaker. In this case, two servers are configured and
+node1 is the master server.</p>
+<div class="figure align-center">
+<img alt="" src="_images/DRBD.png" />
+</div>
+<p>The first component to configure is Corosync. It manages the
+infrastructure of the cluster, i.e. the status of nodes and their
+operation. For this, we must generate an authentication key that is
+shared by all the machines in the cluster. The <tt class="docutils literal"><span class="pre">corosync-keygen</span></tt>
+utility can be use to generate this key and then copy it to the other
+nodes.</p>
+<p>Create key on <em>node1</em>:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>corosync-keygen
+</pre></div>
+</div>
+<p>Copy the key manually to the other node:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>scp /etc/corosync/authkey root@node2:/etc/corosync/authkey
+</pre></div>
+</div>
+<p>Besides copying the key, you also have to modify the corosync
+configuration file which stored in <tt class="docutils literal"><span class="pre">/etc/corosync/corosync.conf</span></tt>.</p>
+<p>Edit your <tt class="docutils literal"><span class="pre">corosync.conf</span></tt> with the following:</p>
+<div class="highlight-python"><pre>interface {
+   # The following values need to be set based on your environment
+   ringnumber: 1
+   bindnetaddr:192.168.1.0
+   mcastaddr: 226.94.1.2
+   mcastport: 5407
+   ttl: 255
+}</pre>
+</div>
+<p>Copy the <tt class="docutils literal"><span class="pre">corosync.conf</span></tt> manually to the other node:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>scp /etc/corosync/corosync.conf root@node2:/etc/corosync/corosync.conf
+</pre></div>
+</div>
+<p>Corosync is started as a regular system service. Depending on your
+distribution, it may ship with a LSB init script, an upstart job, or a
+systemd unit file. Either way, the service is usually named corosync:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>/etc/init.d/corosync start
+</pre></div>
+</div>
+<p>or:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>service corosync start
+</pre></div>
+</div>
+<p>or:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>start corosync
+</pre></div>
+</div>
+<p>or:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>systemctl start corosync
+</pre></div>
+</div>
+<p>You can now check the Corosync connectivity by typing the following command:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ crm_mon</span>
+<span class="o">============</span>
+Last updated: Tue May 2 03:54:44 2013
+Last change: Tue May 2 02:27:14 2013 via crmd on node1
+Stack: openais
+Current DC: node1 - partition with quorum
+Version: 1.1.7-ee0730e13d124c3d58f00016c3376a1de5323cff
+4 Nodes configured, 4 expected votes
+0 Resources configured.
+<span class="o">============</span>
+
+Online: <span class="o">[</span> node1 node2 <span class="o">]</span>
+</pre></div>
+</div>
+<p>Once the Pacemaker cluster is set up and before configuring the
+different resources and constraints of the Pacemaker cluster, it is
+necessary to copy the OCF scripts for exportd on each server. The
+exportd script is enable to start, stop and monitor the exportd daemon.</p>
+<p>Copy the OCF script manually to each node:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>scp exportd root@node1:/usr/lib/ocf/resource.d/heartbeat/exportd
+<span class="nv">$ </span>scp exportd root@node1:/usr/lib/ocf/resource.d/heartbeat/exportd
+</pre></div>
+</div>
+<p>To set the cluster properties, start the crm shell and enter the
+following commands:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>configure property stonith-enabled<span class="o">=</span><span class="nb">false</span>
+
+<span class="nv">$ </span>configure property no-quorum-policy<span class="o">=</span>ignore
+
+<span class="nv">$ </span>configure primitive p_ping ocf:pacemaker:ping <span class="se">\</span>
+params <span class="nv">host_list</span><span class="o">=</span><span class="s2">&quot;192.168.1.254&quot;</span> <span class="nv">multiplier</span><span class="o">=</span><span class="s2">&quot;100&quot;</span> <span class="nv">dampen</span><span class="o">=</span><span class="s2">&quot;5s&quot;</span> <span class="se">\</span>
+op monitor <span class="nv">interval</span><span class="o">=</span><span class="s2">&quot;5s&quot;</span>
+
+<span class="nv">$ </span>configure clone c_ping p_ping meta <span class="nv">interleave</span><span class="o">=</span><span class="s2">&quot;true&quot;</span>
+
+<span class="nv">$ </span>configure primitive p_drbd_r0 ocf:linbit:drbd params <span class="nv">drbd_resource</span><span class="o">=</span><span class="s2">&quot;r0&quot;</span> <span class="se">\</span>
+op start <span class="nv">timeout</span><span class="o">=</span><span class="s2">&quot;240&quot;</span> <span class="se">\</span>
+op stop <span class="nv">timeout</span><span class="o">=</span><span class="s2">&quot;100&quot;</span> <span class="se">\</span>
+op notify <span class="nv">interval</span><span class="o">=</span><span class="s2">&quot;0&quot;</span> <span class="nv">timeout</span><span class="o">=</span><span class="s2">&quot;90&quot;</span> <span class="se">\</span>
+op monitor <span class="nv">interval</span><span class="o">=</span><span class="s2">&quot;10&quot;</span> <span class="nv">timeout</span><span class="o">=</span><span class="s2">&quot;20&quot;</span> <span class="nv">role</span><span class="o">=</span><span class="s2">&quot;Master&quot;</span> <span class="se">\</span>
+op monitor <span class="nv">interval</span><span class="o">=</span><span class="s2">&quot;20&quot;</span> <span class="nv">timeout</span><span class="o">=</span><span class="s2">&quot;20&quot;</span> <span class="nv">role</span><span class="o">=</span><span class="s2">&quot;Slave&quot;</span>
+
+<span class="nv">$ </span>configure ms ms_drbd_r0 p_drbd_r0 <span class="se">\</span>
+meta master-max<span class="o">=</span><span class="s2">&quot;1&quot;</span> master-node-max<span class="o">=</span><span class="s2">&quot;1&quot;</span> <span class="se">\</span>
+clone-max<span class="o">=</span><span class="s2">&quot;2&quot;</span> clone-node-max<span class="o">=</span><span class="s2">&quot;1&quot;</span> <span class="nv">notify</span><span class="o">=</span><span class="s2">&quot;true&quot;</span> <span class="se">\</span>
+globally-unique<span class="o">=</span><span class="s2">&quot;false&quot;</span>
+
+<span class="nv">$ </span>configure location loc_ms_drbd_r0_needs_ping <span class="se">\</span>
+ms_drbd_r0 rule -inf: not_defined pingd or pingd lte 0
+
+<span class="nv">$ </span>configure primitive p_vip_exportd ocf:heartbeat:IPaddr2 <span class="se">\</span>
+params <span class="nv">ip</span><span class="o">=</span><span class="s2">&quot;192.168.1.10&quot;</span> <span class="nv">nic</span><span class="o">=</span><span class="s2">&quot;eth0&quot;</span> <span class="nv">cidr_netmask</span><span class="o">=</span>24 <span class="se">\</span>
+op monitor <span class="nv">interval</span><span class="o">=</span><span class="s2">&quot;30s&quot;</span>
+
+<span class="nv">$ </span>configure primitive p_fs_exportd ocf:heartbeat:Filesystem <span class="se">\</span>
+params <span class="nv">device</span><span class="o">=</span><span class="s2">&quot;/dev/drbd0&quot;</span> <span class="nv">directory</span><span class="o">=</span><span class="s2">&quot;/srv/rozofs/exports&quot;</span> <span class="nv">fstype</span><span class="o">=</span><span class="s2">&quot;ext4&quot;</span> <span class="se">\</span>
+<span class="nv">options</span><span class="o">=</span><span class="s2">&quot;user_xattr,acl,noatime&quot;</span> <span class="se">\</span>
+op start <span class="nv">timeout</span><span class="o">=</span><span class="s2">&quot;60&quot;</span> <span class="se">\</span>
+op stop <span class="nv">timeout</span><span class="o">=</span><span class="s2">&quot;60&quot;</span> <span class="se">\</span>
+op monitor <span class="nv">interval</span><span class="o">=</span><span class="s2">&quot;10s&quot;</span> <span class="nv">timeout</span><span class="o">=</span><span class="s2">&quot;40s&quot;</span>
+
+<span class="nv">$ </span>configure primitive exportd_rozofs ocf:heartbeat:exportd <span class="se">\</span>
+params <span class="nv">conffile</span><span class="o">=</span><span class="s2">&quot;/etc/rozofs/export.conf&quot;</span> <span class="se">\</span>
+op monitor <span class="nv">interval</span><span class="o">=</span><span class="s2">&quot;20s&quot;</span>
+
+<span class="nv">$ </span>configure group grp_exportd p_fs_exportd p_vip_exportd exportd_rozofs
+
+<span class="nv">$ </span>configure colocation c_grp_exportd_on_drbd_rU <span class="se">\</span>
+inf: grp_exportd ms_drbd_r0:Master
+
+<span class="nv">$ </span>configure order o_drbd_rU_before_grp_exportd <span class="se">\</span>
+inf: ms_drbd_r0:promote grp_exportd:start
+
+<span class="nv">$ </span>configure location loc_prefer_grp_exportd_on_node1 <span class="se">\</span>
+grp_exportd 100: node1
+</pre></div>
+</div>
+<p>Once all the primitives and constraints are loaded, it is possible to
+check the correct operations of the cluster with the following command:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>crm_mon -1
+
+<span class="o">============</span>
+Last updated: Wed May 2 02:44:21 2013
+Last change: Wed May 2 02:43:27 2013 via cibadmin on node1
+Stack: openais
+Current DC: node1 - partition with quorum
+Version: 1.1.7-ee0730e13d124c3d58f00016c3376a1de5323cff
+2 Nodes configured, 2 expected votes
+5 Resources configured.
+<span class="o">============</span>
+
+Online: <span class="o">[</span> node1 node2 <span class="o">]</span>
+
+ Master/Slave Set: ms_drbd_r0 <span class="o">[</span>p_drbd_r0<span class="o">]</span>
+     Masters: <span class="o">[</span> node1 <span class="o">]</span>
+     Slaves: <span class="o">[</span> node2 <span class="o">]</span>
+ Resource Group: grp_exportd
+     p_fs_exportd       <span class="o">(</span>ocf::heartbeat:Filesystem<span class="o">)</span>:    Started node1
+     p_vip_exportd      <span class="o">(</span>ocf::heartbeat:IPaddr2<span class="o">)</span>:       Started node1
+     exportd_rozofs     <span class="o">(</span>ocf::heartbeat:exportd<span class="o">)</span>:       Started node1
+ Clone Set: c_ping <span class="o">[</span>p_ping<span class="o">]</span>
+     Started: <span class="o">[</span> node1 node2 <span class="o">]</span>
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="storaged-nodes">
+<h3>Storaged Nodes<a class="headerlink" href="#storaged-nodes" title="Permalink to this headline">¶</a></h3>
+<p>Storaged Storaged nodes should have appropriate free space on disks. The
+storaged service stores transformed data as files on a common file
+system (ext4). It is important to dedicate file systems used by storaged
+service exclusively to it (use a Logical Volume or dedicated partition).
+It is necessary to manage the free space properly.</p>
+</div>
+</div>
+<div class="section" id="configuration-files">
+<h2>Configuration Files<a class="headerlink" href="#configuration-files" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="exportd-configuration-file">
+<h3>Exportd Configuration File<a class="headerlink" href="#exportd-configuration-file" title="Permalink to this headline">¶</a></h3>
+<p>The configuration file of exportd (<tt class="docutils literal"><span class="pre">export.conf</span></tt>) consists of 3 types
+of information :</p>
+<ul class="simple">
+<li>the redundancy configuration chosen (layout)</li>
+<li>the list of storage volumes used to store data (volumes)</li>
+<li>list of file systems exported (exports)</li>
+</ul>
+<p>Redundancy Configuration (layout): the <strong>layout</strong> allows you to specify
+the configuration of redundancy RozoFS. There are 3 redundancy
+configurations that are possible :</p>
+<ul class="simple">
+<li>layout=0; cluster(s) of 4 storage locations, 3 are used for each
+write and 2 for each read</li>
+<li>layout=1; cluster(s) of 8 storage locations, 6 are used for each
+write and 4 for each read</li>
+<li>layout=2; cluster(s) 16 storage locations, 12 are used for each write
+and 8 for each read</li>
+</ul>
+<p>List of storage volumes (volumes): The list of all the storage
+<strong>volumes</strong> used by exportd is grouped under the volumes list. A volume
+in the list is identified by a unique identification number (VID) and
+contains one or more <strong>clusters</strong> identified by a unique identification
+number (CID) consisting of 4, 8 or 16 storage locations according to the
+layout you have chosen. Each storage location in a cluster is defined
+with the SID (the storage unique identifier within the cluster) and its
+network name (or IP address).</p>
+<p>List of exported file systems (exports): The exportd daemon can export
+one or more file systems. Each exported file system is defined by the
+absolute path to the local directory that contains specific metadata for
+this file system.</p>
+<p>Here is the an example of configuration file (<tt class="docutils literal"><span class="pre">export.conf</span></tt>) for
+exportd daemon:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="c"># rozofs export daemon configuration file</span>
+
+<span class="nv">layout</span> <span class="o">=</span> 0 ; <span class="c"># (inverse = 2, forward = 3, safe = 4)</span>
+
+<span class="nv">volumes</span> <span class="o">=</span> <span class="c"># List of volumes</span>
+<span class="o">(</span>
+    <span class="o">{</span>
+        <span class="c"># First volume</span>
+        <span class="nv">vid</span> <span class="o">=</span> 1 ; <span class="c"># Volume identifier = 1</span>
+        <span class="nv">cids</span><span class="o">=</span>     <span class="c"># List of clusters for the volume 1</span>
+        <span class="o">(</span>
+            <span class="o">{</span>
+                <span class="c"># First cluster of volume 1</span>
+                <span class="nv">cid</span> <span class="o">=</span> 1;  <span class="c"># Cluster identifier = 1</span>
+                <span class="nv">sids</span> <span class="o">=</span>    <span class="c"># List of storages for the cluster 1</span>
+                <span class="o">(</span>
+                    <span class="o">{</span><span class="nv">sid</span> <span class="o">=</span> 01; <span class="nv">host</span> <span class="o">=</span> <span class="s2">&quot;storage-node-1-1&quot;</span>;<span class="o">}</span>,
+                    <span class="o">{</span><span class="nv">sid</span> <span class="o">=</span> 02; <span class="nv">host</span> <span class="o">=</span> <span class="s2">&quot;storage-node-1-2&quot;</span>;<span class="o">}</span>,
+                    <span class="o">{</span><span class="nv">sid</span> <span class="o">=</span> 03; <span class="nv">host</span> <span class="o">=</span> <span class="s2">&quot;storage-node-1-3&quot;</span>;<span class="o">}</span>,
+                    <span class="o">{</span><span class="nv">sid</span> <span class="o">=</span> 04; <span class="nv">host</span> <span class="o">=</span> <span class="s2">&quot;storage-node-1-4&quot;</span>;<span class="o">}</span>
+                <span class="o">)</span>;
+            <span class="o">}</span>,
+            <span class="o">{</span>
+                <span class="c"># Second cluster of volume 1</span>
+                <span class="nv">cid</span> <span class="o">=</span> 2; <span class="c"># Cluster identifier = 2</span>
+                <span class="nv">sids</span> <span class="o">=</span>   <span class="c"># List of storages for the cluster 2</span>
+                <span class="o">(</span>
+                    <span class="o">{</span><span class="nv">sid</span> <span class="o">=</span> 01; <span class="nv">host</span> <span class="o">=</span> <span class="s2">&quot;storage-node-2-1&quot;</span>;<span class="o">}</span>,
+                    <span class="o">{</span><span class="nv">sid</span> <span class="o">=</span> 02; <span class="nv">host</span> <span class="o">=</span> <span class="s2">&quot;storage-node-2-2&quot;</span>;<span class="o">}</span>,
+                    <span class="o">{</span><span class="nv">sid</span> <span class="o">=</span> 03; <span class="nv">host</span> <span class="o">=</span> <span class="s2">&quot;storage-node-2-3&quot;</span>;<span class="o">}</span>,
+                    <span class="o">{</span><span class="nv">sid</span> <span class="o">=</span> 04; <span class="nv">host</span> <span class="o">=</span> <span class="s2">&quot;storage-node-2-4&quot;</span>;<span class="o">}</span>
+                <span class="o">)</span>;
+            <span class="o">}</span>
+        <span class="o">)</span>;
+    <span class="o">}</span>,
+    <span class="o">{</span>
+        <span class="c"># Second volume</span>
+        <span class="nv">vid</span> <span class="o">=</span> 2; <span class="c"># Volume identifier = 2</span>
+        <span class="nv">cids</span> <span class="o">=</span>   <span class="c"># List of clusters for the volume 2</span>
+        <span class="o">(</span>
+            <span class="o">{</span>
+                <span class="c"># First cluster of volume 2</span>
+                <span class="nv">cid</span> <span class="o">=</span> 3; <span class="c"># Cluster identifier = 3</span>
+                <span class="nv">sids</span> <span class="o">=</span>   <span class="c"># List of storages for the cluster 3</span>
+                <span class="o">(</span>
+                    <span class="o">{</span><span class="nv">sid</span> <span class="o">=</span> 01; <span class="nv">host</span> <span class="o">=</span> <span class="s2">&quot;storage-node-3-1&quot;</span>;<span class="o">}</span>,
+                    <span class="o">{</span><span class="nv">sid</span> <span class="o">=</span> 02; <span class="nv">host</span> <span class="o">=</span> <span class="s2">&quot;storage-node-3-2&quot;</span>;<span class="o">}</span>,
+                    <span class="o">{</span><span class="nv">sid</span> <span class="o">=</span> 03; <span class="nv">host</span> <span class="o">=</span> <span class="s2">&quot;storage-node-3-3&quot;</span>;<span class="o">}</span>,
+                    <span class="o">{</span><span class="nv">sid</span> <span class="o">=</span> 04; <span class="nv">host</span> <span class="o">=</span> <span class="s2">&quot;storage-node-3-4&quot;</span>;<span class="o">}</span>
+                <span class="o">)</span>;
+            <span class="o">}</span>
+        <span class="o">)</span>;
+    <span class="o">}</span>
+<span class="o">)</span>;
+
+<span class="c"># List of exported filesystem</span>
+<span class="nv">exports</span> <span class="o">=</span> <span class="o">(</span>
+
+  <span class="c"># First filesystem exported</span>
+  <span class="o">{</span><span class="nv">eid</span> <span class="o">=</span> 1; <span class="nv">root</span> <span class="o">=</span> <span class="s2">&quot;/srv/rozofs/exports/export_1&quot;</span>; <span class="nv">md5</span><span class="o">=</span><span class="s2">&quot;AyBvjVmNoKAkLQwNa2c&quot;</span>;
+   <span class="nv">squota</span><span class="o">=</span><span class="s2">&quot;128G&quot;</span>; <span class="nv">hquota</span><span class="o">=</span><span class="s2">&quot;256G&quot;</span>; <span class="nv">vid</span><span class="o">=</span>1;<span class="o">}</span>,
+  <span class="c"># Second filesystem exported</span>
+  <span class="o">{</span><span class="nv">eid</span> <span class="o">=</span> 2; <span class="nv">root</span> <span class="o">=</span> <span class="s2">&quot;/srv/rozofs/exports/export_2&quot;</span>; <span class="nv">md5</span><span class="o">=</span><span class="s2">&quot;&quot;</span>;
+  <span class="nv">squota</span><span class="o">=</span><span class="s2">&quot;&quot;</span>; <span class="nv">hquota</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>; <span class="nv">vid</span><span class="o">=</span>2;<span class="o">}</span>
+<span class="o">)</span>;
+</pre></div>
+</div>
+</div>
+<div class="section" id="storaged-configuration-file">
+<h3>Storaged Configuration File<a class="headerlink" href="#storaged-configuration-file" title="Permalink to this headline">¶</a></h3>
+<p>The configuration file of the <strong>storaged</strong> daemon (<tt class="docutils literal"><span class="pre">storage.conf</span></tt>)
+must be completed on each physical server storage where storaged daemon
+is used. It contains two informations:</p>
+<ul class="simple">
+<li>ports; list of TCP ports used to receive requests to write and read
+from clients using rozofsmount</li>
+<li>storages; list of local storage locations used to store the
+transformed data (projections)</li>
+</ul>
+<p>List of local storage locations (storages): All of storage locations
+used by the storaged daemon on a physical server are grouped under the
+storages list. The storages list consists of one or more storage
+locations. Each storage location is defined by the CID (unique
+identification number of the cluster to which it belongs) and SID (the
+storage unique identifier within the cluster) and the absolute path to
+the local directory that will contain the specific encoded data for this
+storage.</p>
+<p>Configuration file example (<tt class="docutils literal"><span class="pre">storage.conf</span></tt>) for one storaged daemon:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="c"># rozofs storage daemon configuration file.</span>
+
+<span class="c"># listen: (mandatory)</span>
+<span class="c">#   Specifies list of IP(s) (or hostname(s)) and port(s) the storio</span>
+<span class="c">#   process should listen on for receive write and read requests from</span>
+<span class="c">#   clients.</span>
+
+<span class="nv">listen</span> <span class="o">=</span> <span class="o">(</span>
+   <span class="o">{</span>
+      <span class="nv">addr</span> <span class="o">=</span> <span class="s2">&quot;*&quot;</span>;
+      <span class="nv">port</span> <span class="o">=</span> 41001;
+   <span class="o">}</span>
+<span class="o">)</span>;
+
+<span class="c"># storages:</span>
+<span class="c">#   It&#39;s the list of local storage managed by this storaged.</span>
+
+<span class="nv">storages</span> <span class="o">=</span> <span class="o">(</span>
+  <span class="o">{</span><span class="nv">cid</span> <span class="o">=</span> 1; <span class="nv">sid</span> <span class="o">=</span> 1; <span class="nv">root</span> <span class="o">=</span> <span class="s2">&quot;/srv/rozofs/storages/storage_1-1&quot;</span>;<span class="o">}</span>,
+  <span class="o">{</span><span class="nv">cid</span> <span class="o">=</span> 2; <span class="nv">sid</span> <span class="o">=</span> 1; <span class="nv">root</span> <span class="o">=</span> <span class="s2">&quot;/srv/rozofs/storages/storage_2-1&quot;</span>;<span class="o">}</span>
+<span class="o">)</span>;
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+
+
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="WorkingWithRozoFS.html" class="btn btn-neutral float-right" title="Working with RozoFS">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="InstallingRozoFS.html" class="btn btn-neutral" title="Installing RozoFS"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2014, Fizians SAS.
+    </p>
+  </div>
+
+  <a href="https://github.com/snide/sphinx_rtd_theme">Sphinx theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>
+</footer>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'',
+            VERSION:'1.4.0',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true
+        };
+    </script>
+      <script type="text/javascript" src="_static/jquery.js"></script>
+      <script type="text/javascript" src="_static/underscore.js"></script>
+      <script type="text/javascript" src="_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

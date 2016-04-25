@@ -1,6 +1,5 @@
 
 
-
 <!DOCTYPE html>
 <!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
 <!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
@@ -8,7 +7,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>Setting up RozoFS &mdash; RozoFS User&#39;s Guide 1.4.0 documentation</title>
+  <title>Setting up RozoFS &mdash; RozoFS User&#39;s Guide 2.0.0 documentation</title>
   
 
   
@@ -29,7 +28,7 @@
   
 
   
-    <link rel="top" title="RozoFS User&#39;s Guide 1.4.0 documentation" href="index.html"/>
+    <link rel="top" title="RozoFS User&#39;s Guide 2.0.0 documentation" href="index.html"/>
         <link rel="next" title="Working with RozoFS" href="WorkingWithRozoFS.html"/>
         <link rel="prev" title="Installing RozoFS" href="InstallingRozoFS.html"/> 
 
@@ -78,7 +77,12 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="WorkingWithRozoFS.html">Working with RozoFS</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="WorkingWithRozoFS.html#manual-managing-of-rozofs-services">Manual Managing of RozoFS Services</a></li>
-<li class="toctree-l2"><a class="reference internal" href="WorkingWithRozoFS.html#using-the-rozo-console-manager">Using the Rozo Console Manager</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="ConfiguringRozoFSWithRozoCLI.html">Configuring RozoFS using the Rozo CLI</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="ConfiguringRozoFSWithRozoCLI.html#about-rozo-cli">About rozo CLI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ConfiguringRozoFSWithRozoCLI.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ConfiguringRozoFSWithRozoCLI.html#basic-commands">Basic Commands</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="Monitoring.html">Monitoring</a><ul>
@@ -232,16 +236,16 @@ modify the instructions relative to your own configuration.</p>
 <a class="reference external" href="http://www.drbd.org/docs/about/">DRBD documentation</a>.</p>
 </div>
 <p><strong>Configuring a DRBD resource</strong></p>
-<p>The DRBD configuration files are stored in the directory <tt class="docutils literal"><span class="pre">/etc/drbd.d/</span></tt>. There
+<p>The DRBD configuration files are stored in the directory <code class="docutils literal"><span class="pre">/etc/drbd.d/</span></code>. There
 are two configuration files which are created:</p>
 <ul class="simple">
-<li><tt class="docutils literal"><span class="pre">/etc/drbd.d/r0.res</span></tt> corresponds to the configuration for resource <em>r0</em>;</li>
-<li><tt class="docutils literal"><span class="pre">/etc/drbd.d/global_common.conf</span></tt> corresponds to the global configuration of
+<li><code class="docutils literal"><span class="pre">/etc/drbd.d/r0.res</span></code> corresponds to the configuration for resource <em>r0</em>;</li>
+<li><code class="docutils literal"><span class="pre">/etc/drbd.d/global_common.conf</span></code> corresponds to the global configuration of
 DRBD.</li>
 </ul>
-<p>Create the file <tt class="docutils literal"><span class="pre">/etc/drbd.d/r0.res</span></tt> on <em>node1</em>, changes the lines according
+<p>Create the file <code class="docutils literal"><span class="pre">/etc/drbd.d/r0.res</span></code> on <em>node1</em>, changes the lines according
 to your parameters, and save it:</p>
-<div class="highlight-python"><pre>resource r0 {
+<div class="highlight-python"><div class="highlight"><pre>resource r0 {
   protocol C;
 
   on node1 {
@@ -257,10 +261,11 @@ to your parameters, and save it:</p>
     address   192.168.1.2:7788;
     meta-disk internal;
   }
-}</pre>
+}
+</pre></div>
 </div>
 <p>This file configure a DRBD resource named <em>r0</em> which uses an underlying local
-disk named <tt class="docutils literal"><span class="pre">/dev/mapper/vg01-exports</span></tt> on both nodes <em>node1</em> and <em>node2</em>. In
+disk named <code class="docutils literal"><span class="pre">/dev/mapper/vg01-exports</span></code> on both nodes <em>node1</em> and <em>node2</em>. In
 this example, we configure the resource to use internal metadata (means that
 DRBD stores its meta data on the same physical lower-level device as the actual
 production data) and it uses TCP port 7788 for its network connections, and
@@ -293,7 +298,7 @@ this case) by entering the following command only on <em>node1</em>:</p>
 </div>
 <p>If the install and configuration procedures worked as expected, you are
 ready to run a basic test of the DRBD functionality. Create a mount
-point on <em>node1</em>, such as <tt class="docutils literal"><span class="pre">/srv/rozofs/exports</span></tt>:</p>
+point on <em>node1</em>, such as <code class="docutils literal"><span class="pre">/srv/rozofs/exports</span></code>:</p>
 <div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>mkdir -p /srv/rozofs/exports
 </pre></div>
 </div>
@@ -336,7 +341,7 @@ example):</p>
 suitable for clusters of Linux machines. This tool can detect machine
 failures with a communication system based on an exchange of UDP packets
 and migrate services (resource) from one server to another.</p>
-<p>The configuration of Pacemaker can be done with the <tt class="docutils literal"><span class="pre">crm</span></tt> command. It
+<p>The configuration of Pacemaker can be done with the <code class="docutils literal"><span class="pre">crm</span></code> command. It
 allows you to manage different resources and propagates changes on each
 server automatically. The creation of a resource is done with an entry
 named primitive in the configuration file. This primitive uses a script
@@ -358,7 +363,7 @@ node1 is the master server.</p>
 <p>The first component to configure is Corosync. It manages the
 infrastructure of the cluster, i.e. the status of nodes and their
 operation. For this, we must generate an authentication key that is
-shared by all the machines in the cluster. The <tt class="docutils literal"><span class="pre">corosync-keygen</span></tt>
+shared by all the machines in the cluster. The <code class="docutils literal"><span class="pre">corosync-keygen</span></code>
 utility can be use to generate this key and then copy it to the other
 nodes.</p>
 <p>Create key on <em>node1</em>:</p>
@@ -370,18 +375,19 @@ nodes.</p>
 </pre></div>
 </div>
 <p>Besides copying the key, you also have to modify the corosync
-configuration file which stored in <tt class="docutils literal"><span class="pre">/etc/corosync/corosync.conf</span></tt>.</p>
-<p>Edit your <tt class="docutils literal"><span class="pre">corosync.conf</span></tt> with the following:</p>
-<div class="highlight-python"><pre>interface {
+configuration file which stored in <code class="docutils literal"><span class="pre">/etc/corosync/corosync.conf</span></code>.</p>
+<p>Edit your <code class="docutils literal"><span class="pre">corosync.conf</span></code> with the following:</p>
+<div class="highlight-python"><div class="highlight"><pre>interface {
    # The following values need to be set based on your environment
    ringnumber: 1
    bindnetaddr:192.168.1.0
    mcastaddr: 226.94.1.2
    mcastport: 5407
    ttl: 255
-}</pre>
+}
+</pre></div>
 </div>
-<p>Copy the <tt class="docutils literal"><span class="pre">corosync.conf</span></tt> manually to the other node:</p>
+<p>Copy the <code class="docutils literal"><span class="pre">corosync.conf</span></code> manually to the other node:</p>
 <div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>scp /etc/corosync/corosync.conf root@node2:/etc/corosync/corosync.conf
 </pre></div>
 </div>
@@ -406,13 +412,13 @@ systemd unit file. Either way, the service is usually named corosync:</p>
 <p>You can now check the Corosync connectivity by typing the following command:</p>
 <div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ crm_mon</span>
 <span class="o">============</span>
-Last updated: Tue May 2 03:54:44 2013
-Last change: Tue May 2 02:27:14 2013 via crmd on node1
+Last updated: Tue May <span class="m">2</span> 03:54:44 2013
+Last change: Tue May <span class="m">2</span> 02:27:14 <span class="m">2013</span> via crmd on node1
 Stack: openais
 Current DC: node1 - partition with quorum
 Version: 1.1.7-ee0730e13d124c3d58f00016c3376a1de5323cff
-4 Nodes configured, 4 expected votes
-0 Resources configured.
+<span class="m">4</span> Nodes configured, <span class="m">4</span> expected votes
+<span class="m">0</span> Resources configured.
 <span class="o">============</span>
 
 Online: <span class="o">[</span> node1 node2 <span class="o">]</span>
@@ -455,7 +461,7 @@ globally-unique<span class="o">=</span><span class="s2">&quot;false&quot;</span>
 ms_drbd_r0 rule -inf: not_defined pingd or pingd lte 0
 
 <span class="nv">$ </span>configure primitive p_vip_exportd ocf:heartbeat:IPaddr2 <span class="se">\</span>
-params <span class="nv">ip</span><span class="o">=</span><span class="s2">&quot;192.168.1.10&quot;</span> <span class="nv">nic</span><span class="o">=</span><span class="s2">&quot;eth0&quot;</span> <span class="nv">cidr_netmask</span><span class="o">=</span>24 <span class="se">\</span>
+params <span class="nv">ip</span><span class="o">=</span><span class="s2">&quot;192.168.1.10&quot;</span> <span class="nv">nic</span><span class="o">=</span><span class="s2">&quot;eth0&quot;</span> <span class="nv">cidr_netmask</span><span class="o">=</span><span class="m">24</span> <span class="se">\</span>
 op monitor <span class="nv">interval</span><span class="o">=</span><span class="s2">&quot;30s&quot;</span>
 
 <span class="nv">$ </span>configure primitive p_fs_exportd ocf:heartbeat:Filesystem <span class="se">\</span>
@@ -486,13 +492,13 @@ check the correct operations of the cluster with the following command:</p>
 <div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>crm_mon -1
 
 <span class="o">============</span>
-Last updated: Wed May 2 02:44:21 2013
-Last change: Wed May 2 02:43:27 2013 via cibadmin on node1
+Last updated: Wed May <span class="m">2</span> 02:44:21 2013
+Last change: Wed May <span class="m">2</span> 02:43:27 <span class="m">2013</span> via cibadmin on node1
 Stack: openais
 Current DC: node1 - partition with quorum
 Version: 1.1.7-ee0730e13d124c3d58f00016c3376a1de5323cff
-2 Nodes configured, 2 expected votes
-5 Resources configured.
+<span class="m">2</span> Nodes configured, <span class="m">2</span> expected votes
+<span class="m">5</span> Resources configured.
 <span class="o">============</span>
 
 Online: <span class="o">[</span> node1 node2 <span class="o">]</span>
@@ -523,7 +529,7 @@ It is necessary to manage the free space properly.</p>
 <h2>Configuration Files<a class="headerlink" href="#configuration-files" title="Permalink to this headline">¶</a></h2>
 <div class="section" id="exportd-configuration-file">
 <h3>Exportd Configuration File<a class="headerlink" href="#exportd-configuration-file" title="Permalink to this headline">¶</a></h3>
-<p>The configuration file of exportd (<tt class="docutils literal"><span class="pre">export.conf</span></tt>) consists of 3 types
+<p>The configuration file of exportd (<code class="docutils literal"><span class="pre">export.conf</span></code>) consists of 3 types
 of information :</p>
 <ul class="simple">
 <li>the redundancy configuration chosen (layout)</li>
@@ -553,79 +559,79 @@ network name (or IP address).</p>
 one or more file systems. Each exported file system is defined by the
 absolute path to the local directory that contains specific metadata for
 this file system.</p>
-<p>Here is the an example of configuration file (<tt class="docutils literal"><span class="pre">export.conf</span></tt>) for
+<p>Here is the an example of configuration file (<code class="docutils literal"><span class="pre">export.conf</span></code>) for
 exportd daemon:</p>
 <div class="highlight-bash"><div class="highlight"><pre><span class="c"># rozofs export daemon configuration file</span>
 
-<span class="nv">layout</span> <span class="o">=</span> 0 ; <span class="c"># (inverse = 2, forward = 3, safe = 4)</span>
+<span class="nv">layout</span> <span class="o">=</span> <span class="m">0</span> <span class="p">;</span> <span class="c"># (inverse = 2, forward = 3, safe = 4)</span>
 
 <span class="nv">volumes</span> <span class="o">=</span> <span class="c"># List of volumes</span>
 <span class="o">(</span>
     <span class="o">{</span>
         <span class="c"># First volume</span>
-        <span class="nv">vid</span> <span class="o">=</span> 1 ; <span class="c"># Volume identifier = 1</span>
+        <span class="nv">vid</span> <span class="o">=</span> <span class="m">1</span> <span class="p">;</span> <span class="c"># Volume identifier = 1</span>
         <span class="nv">cids</span><span class="o">=</span>     <span class="c"># List of clusters for the volume 1</span>
         <span class="o">(</span>
             <span class="o">{</span>
                 <span class="c"># First cluster of volume 1</span>
-                <span class="nv">cid</span> <span class="o">=</span> 1;  <span class="c"># Cluster identifier = 1</span>
+                <span class="nv">cid</span> <span class="o">=</span> 1<span class="p">;</span>  <span class="c"># Cluster identifier = 1</span>
                 <span class="nv">sids</span> <span class="o">=</span>    <span class="c"># List of storages for the cluster 1</span>
                 <span class="o">(</span>
-                    <span class="o">{</span><span class="nv">sid</span> <span class="o">=</span> 01; <span class="nv">host</span> <span class="o">=</span> <span class="s2">&quot;storage-node-1-1&quot;</span>;<span class="o">}</span>,
-                    <span class="o">{</span><span class="nv">sid</span> <span class="o">=</span> 02; <span class="nv">host</span> <span class="o">=</span> <span class="s2">&quot;storage-node-1-2&quot;</span>;<span class="o">}</span>,
-                    <span class="o">{</span><span class="nv">sid</span> <span class="o">=</span> 03; <span class="nv">host</span> <span class="o">=</span> <span class="s2">&quot;storage-node-1-3&quot;</span>;<span class="o">}</span>,
-                    <span class="o">{</span><span class="nv">sid</span> <span class="o">=</span> 04; <span class="nv">host</span> <span class="o">=</span> <span class="s2">&quot;storage-node-1-4&quot;</span>;<span class="o">}</span>
-                <span class="o">)</span>;
+                    <span class="o">{</span><span class="nv">sid</span> <span class="o">=</span> 01<span class="p">;</span> <span class="nv">host</span> <span class="o">=</span> <span class="s2">&quot;storage-node-1-1&quot;</span><span class="p">;</span><span class="o">}</span>,
+                    <span class="o">{</span><span class="nv">sid</span> <span class="o">=</span> 02<span class="p">;</span> <span class="nv">host</span> <span class="o">=</span> <span class="s2">&quot;storage-node-1-2&quot;</span><span class="p">;</span><span class="o">}</span>,
+                    <span class="o">{</span><span class="nv">sid</span> <span class="o">=</span> 03<span class="p">;</span> <span class="nv">host</span> <span class="o">=</span> <span class="s2">&quot;storage-node-1-3&quot;</span><span class="p">;</span><span class="o">}</span>,
+                    <span class="o">{</span><span class="nv">sid</span> <span class="o">=</span> 04<span class="p">;</span> <span class="nv">host</span> <span class="o">=</span> <span class="s2">&quot;storage-node-1-4&quot;</span><span class="p">;</span><span class="o">}</span>
+                <span class="o">)</span><span class="p">;</span>
             <span class="o">}</span>,
             <span class="o">{</span>
                 <span class="c"># Second cluster of volume 1</span>
-                <span class="nv">cid</span> <span class="o">=</span> 2; <span class="c"># Cluster identifier = 2</span>
+                <span class="nv">cid</span> <span class="o">=</span> 2<span class="p">;</span> <span class="c"># Cluster identifier = 2</span>
                 <span class="nv">sids</span> <span class="o">=</span>   <span class="c"># List of storages for the cluster 2</span>
                 <span class="o">(</span>
-                    <span class="o">{</span><span class="nv">sid</span> <span class="o">=</span> 01; <span class="nv">host</span> <span class="o">=</span> <span class="s2">&quot;storage-node-2-1&quot;</span>;<span class="o">}</span>,
-                    <span class="o">{</span><span class="nv">sid</span> <span class="o">=</span> 02; <span class="nv">host</span> <span class="o">=</span> <span class="s2">&quot;storage-node-2-2&quot;</span>;<span class="o">}</span>,
-                    <span class="o">{</span><span class="nv">sid</span> <span class="o">=</span> 03; <span class="nv">host</span> <span class="o">=</span> <span class="s2">&quot;storage-node-2-3&quot;</span>;<span class="o">}</span>,
-                    <span class="o">{</span><span class="nv">sid</span> <span class="o">=</span> 04; <span class="nv">host</span> <span class="o">=</span> <span class="s2">&quot;storage-node-2-4&quot;</span>;<span class="o">}</span>
-                <span class="o">)</span>;
+                    <span class="o">{</span><span class="nv">sid</span> <span class="o">=</span> 01<span class="p">;</span> <span class="nv">host</span> <span class="o">=</span> <span class="s2">&quot;storage-node-2-1&quot;</span><span class="p">;</span><span class="o">}</span>,
+                    <span class="o">{</span><span class="nv">sid</span> <span class="o">=</span> 02<span class="p">;</span> <span class="nv">host</span> <span class="o">=</span> <span class="s2">&quot;storage-node-2-2&quot;</span><span class="p">;</span><span class="o">}</span>,
+                    <span class="o">{</span><span class="nv">sid</span> <span class="o">=</span> 03<span class="p">;</span> <span class="nv">host</span> <span class="o">=</span> <span class="s2">&quot;storage-node-2-3&quot;</span><span class="p">;</span><span class="o">}</span>,
+                    <span class="o">{</span><span class="nv">sid</span> <span class="o">=</span> 04<span class="p">;</span> <span class="nv">host</span> <span class="o">=</span> <span class="s2">&quot;storage-node-2-4&quot;</span><span class="p">;</span><span class="o">}</span>
+                <span class="o">)</span><span class="p">;</span>
             <span class="o">}</span>
-        <span class="o">)</span>;
+        <span class="o">)</span><span class="p">;</span>
     <span class="o">}</span>,
     <span class="o">{</span>
         <span class="c"># Second volume</span>
-        <span class="nv">vid</span> <span class="o">=</span> 2; <span class="c"># Volume identifier = 2</span>
+        <span class="nv">vid</span> <span class="o">=</span> 2<span class="p">;</span> <span class="c"># Volume identifier = 2</span>
         <span class="nv">cids</span> <span class="o">=</span>   <span class="c"># List of clusters for the volume 2</span>
         <span class="o">(</span>
             <span class="o">{</span>
                 <span class="c"># First cluster of volume 2</span>
-                <span class="nv">cid</span> <span class="o">=</span> 3; <span class="c"># Cluster identifier = 3</span>
+                <span class="nv">cid</span> <span class="o">=</span> 3<span class="p">;</span> <span class="c"># Cluster identifier = 3</span>
                 <span class="nv">sids</span> <span class="o">=</span>   <span class="c"># List of storages for the cluster 3</span>
                 <span class="o">(</span>
-                    <span class="o">{</span><span class="nv">sid</span> <span class="o">=</span> 01; <span class="nv">host</span> <span class="o">=</span> <span class="s2">&quot;storage-node-3-1&quot;</span>;<span class="o">}</span>,
-                    <span class="o">{</span><span class="nv">sid</span> <span class="o">=</span> 02; <span class="nv">host</span> <span class="o">=</span> <span class="s2">&quot;storage-node-3-2&quot;</span>;<span class="o">}</span>,
-                    <span class="o">{</span><span class="nv">sid</span> <span class="o">=</span> 03; <span class="nv">host</span> <span class="o">=</span> <span class="s2">&quot;storage-node-3-3&quot;</span>;<span class="o">}</span>,
-                    <span class="o">{</span><span class="nv">sid</span> <span class="o">=</span> 04; <span class="nv">host</span> <span class="o">=</span> <span class="s2">&quot;storage-node-3-4&quot;</span>;<span class="o">}</span>
-                <span class="o">)</span>;
+                    <span class="o">{</span><span class="nv">sid</span> <span class="o">=</span> 01<span class="p">;</span> <span class="nv">host</span> <span class="o">=</span> <span class="s2">&quot;storage-node-3-1&quot;</span><span class="p">;</span><span class="o">}</span>,
+                    <span class="o">{</span><span class="nv">sid</span> <span class="o">=</span> 02<span class="p">;</span> <span class="nv">host</span> <span class="o">=</span> <span class="s2">&quot;storage-node-3-2&quot;</span><span class="p">;</span><span class="o">}</span>,
+                    <span class="o">{</span><span class="nv">sid</span> <span class="o">=</span> 03<span class="p">;</span> <span class="nv">host</span> <span class="o">=</span> <span class="s2">&quot;storage-node-3-3&quot;</span><span class="p">;</span><span class="o">}</span>,
+                    <span class="o">{</span><span class="nv">sid</span> <span class="o">=</span> 04<span class="p">;</span> <span class="nv">host</span> <span class="o">=</span> <span class="s2">&quot;storage-node-3-4&quot;</span><span class="p">;</span><span class="o">}</span>
+                <span class="o">)</span><span class="p">;</span>
             <span class="o">}</span>
-        <span class="o">)</span>;
+        <span class="o">)</span><span class="p">;</span>
     <span class="o">}</span>
-<span class="o">)</span>;
+<span class="o">)</span><span class="p">;</span>
 
 <span class="c"># List of exported filesystem</span>
 <span class="nv">exports</span> <span class="o">=</span> <span class="o">(</span>
 
   <span class="c"># First filesystem exported</span>
-  <span class="o">{</span><span class="nv">eid</span> <span class="o">=</span> 1; <span class="nv">root</span> <span class="o">=</span> <span class="s2">&quot;/srv/rozofs/exports/export_1&quot;</span>; <span class="nv">md5</span><span class="o">=</span><span class="s2">&quot;AyBvjVmNoKAkLQwNa2c&quot;</span>;
-   <span class="nv">squota</span><span class="o">=</span><span class="s2">&quot;128G&quot;</span>; <span class="nv">hquota</span><span class="o">=</span><span class="s2">&quot;256G&quot;</span>; <span class="nv">vid</span><span class="o">=</span>1;<span class="o">}</span>,
+  <span class="o">{</span><span class="nv">eid</span> <span class="o">=</span> 1<span class="p">;</span> <span class="nv">root</span> <span class="o">=</span> <span class="s2">&quot;/srv/rozofs/exports/export_1&quot;</span><span class="p">;</span> <span class="nv">md5</span><span class="o">=</span><span class="s2">&quot;AyBvjVmNoKAkLQwNa2c&quot;</span><span class="p">;</span>
+   <span class="nv">squota</span><span class="o">=</span><span class="s2">&quot;128G&quot;</span><span class="p">;</span> <span class="nv">hquota</span><span class="o">=</span><span class="s2">&quot;256G&quot;</span><span class="p">;</span> <span class="nv">vid</span><span class="o">=</span>1<span class="p">;</span><span class="o">}</span>,
   <span class="c"># Second filesystem exported</span>
-  <span class="o">{</span><span class="nv">eid</span> <span class="o">=</span> 2; <span class="nv">root</span> <span class="o">=</span> <span class="s2">&quot;/srv/rozofs/exports/export_2&quot;</span>; <span class="nv">md5</span><span class="o">=</span><span class="s2">&quot;&quot;</span>;
-  <span class="nv">squota</span><span class="o">=</span><span class="s2">&quot;&quot;</span>; <span class="nv">hquota</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>; <span class="nv">vid</span><span class="o">=</span>2;<span class="o">}</span>
-<span class="o">)</span>;
+  <span class="o">{</span><span class="nv">eid</span> <span class="o">=</span> 2<span class="p">;</span> <span class="nv">root</span> <span class="o">=</span> <span class="s2">&quot;/srv/rozofs/exports/export_2&quot;</span><span class="p">;</span> <span class="nv">md5</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">;</span>
+  <span class="nv">squota</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">;</span> <span class="nv">hquota</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">;</span> <span class="nv">vid</span><span class="o">=</span>2<span class="p">;</span><span class="o">}</span>
+<span class="o">)</span><span class="p">;</span>
 </pre></div>
 </div>
 </div>
 <div class="section" id="storaged-configuration-file">
 <h3>Storaged Configuration File<a class="headerlink" href="#storaged-configuration-file" title="Permalink to this headline">¶</a></h3>
-<p>The configuration file of the <strong>storaged</strong> daemon (<tt class="docutils literal"><span class="pre">storage.conf</span></tt>)
+<p>The configuration file of the <strong>storaged</strong> daemon (<code class="docutils literal"><span class="pre">storage.conf</span></code>)
 must be completed on each physical server storage where storaged daemon
 is used. It contains two informations:</p>
 <ul class="simple">
@@ -642,7 +648,7 @@ identification number of the cluster to which it belongs) and SID (the
 storage unique identifier within the cluster) and the absolute path to
 the local directory that will contain the specific encoded data for this
 storage.</p>
-<p>Configuration file example (<tt class="docutils literal"><span class="pre">storage.conf</span></tt>) for one storaged daemon:</p>
+<p>Configuration file example (<code class="docutils literal"><span class="pre">storage.conf</span></code>) for one storaged daemon:</p>
 <div class="highlight-bash"><div class="highlight"><pre><span class="c"># rozofs storage daemon configuration file.</span>
 
 <span class="c"># listen: (mandatory)</span>
@@ -652,18 +658,18 @@ storage.</p>
 
 <span class="nv">listen</span> <span class="o">=</span> <span class="o">(</span>
    <span class="o">{</span>
-      <span class="nv">addr</span> <span class="o">=</span> <span class="s2">&quot;*&quot;</span>;
-      <span class="nv">port</span> <span class="o">=</span> 41001;
+      <span class="nv">addr</span> <span class="o">=</span> <span class="s2">&quot;*&quot;</span><span class="p">;</span>
+      <span class="nv">port</span> <span class="o">=</span> 41001<span class="p">;</span>
    <span class="o">}</span>
-<span class="o">)</span>;
+<span class="o">)</span><span class="p">;</span>
 
 <span class="c"># storages:</span>
 <span class="c">#   It&#39;s the list of local storage managed by this storaged.</span>
 
 <span class="nv">storages</span> <span class="o">=</span> <span class="o">(</span>
-  <span class="o">{</span><span class="nv">cid</span> <span class="o">=</span> 1; <span class="nv">sid</span> <span class="o">=</span> 1; <span class="nv">root</span> <span class="o">=</span> <span class="s2">&quot;/srv/rozofs/storages/storage_1-1&quot;</span>;<span class="o">}</span>,
-  <span class="o">{</span><span class="nv">cid</span> <span class="o">=</span> 2; <span class="nv">sid</span> <span class="o">=</span> 1; <span class="nv">root</span> <span class="o">=</span> <span class="s2">&quot;/srv/rozofs/storages/storage_2-1&quot;</span>;<span class="o">}</span>
-<span class="o">)</span>;
+  <span class="o">{</span><span class="nv">cid</span> <span class="o">=</span> 1<span class="p">;</span> <span class="nv">sid</span> <span class="o">=</span> 1<span class="p">;</span> <span class="nv">root</span> <span class="o">=</span> <span class="s2">&quot;/srv/rozofs/storages/storage_1-1&quot;</span><span class="p">;</span><span class="o">}</span>,
+  <span class="o">{</span><span class="nv">cid</span> <span class="o">=</span> 2<span class="p">;</span> <span class="nv">sid</span> <span class="o">=</span> 1<span class="p">;</span> <span class="nv">root</span> <span class="o">=</span> <span class="s2">&quot;/srv/rozofs/storages/storage_2-1&quot;</span><span class="p">;</span><span class="o">}</span>
+<span class="o">)</span><span class="p">;</span>
 </pre></div>
 </div>
 </div>
@@ -688,7 +694,7 @@ storage.</p>
 
   <div role="contentinfo">
     <p>
-        &copy; Copyright 2014, Fizians SAS.
+        &copy; Copyright 2015, Rozo Systems S.A.S.
     </p>
   </div>
 
@@ -707,8 +713,8 @@ storage.</p>
 
     <script type="text/javascript">
         var DOCUMENTATION_OPTIONS = {
-            URL_ROOT:'',
-            VERSION:'1.4.0',
+            URL_ROOT:'./',
+            VERSION:'2.0.0',
             COLLAPSE_INDEX:false,
             FILE_SUFFIX:'.html',
             HAS_SOURCE:  true

@@ -7,7 +7,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>Working with RozoFS &mdash; RozoFS User&#39;s Guide 1.4.0 documentation</title>
+  <title>Working with RozoFS &mdash; RozoFS User&#39;s Guide 2.0.0 documentation</title>
   
 
   
@@ -28,8 +28,8 @@
   
 
   
-    <link rel="top" title="RozoFS User&#39;s Guide 1.4.0 documentation" href="index.html"/>
-        <link rel="next" title="Monitoring" href="Monitoring.html"/>
+    <link rel="top" title="RozoFS User&#39;s Guide 2.0.0 documentation" href="index.html"/>
+        <link rel="next" title="Configuring RozoFS using the Rozo CLI" href="ConfiguringRozoFSWithRozoCLI.html"/>
         <link rel="prev" title="Setting up RozoFS" href="SettingUpRozoFS.html"/> 
 
   
@@ -77,7 +77,12 @@
 </li>
 <li class="toctree-l1 current"><a class="current reference internal" href="">Working with RozoFS</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="#manual-managing-of-rozofs-services">Manual Managing of RozoFS Services</a></li>
-<li class="toctree-l2"><a class="reference internal" href="#using-the-rozo-console-manager">Using the Rozo Console Manager</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="ConfiguringRozoFSWithRozoCLI.html">Configuring RozoFS using the Rozo CLI</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="ConfiguringRozoFSWithRozoCLI.html#about-rozo-cli">About rozo CLI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ConfiguringRozoFSWithRozoCLI.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ConfiguringRozoFSWithRozoCLI.html#basic-commands">Basic Commands</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="Monitoring.html">Monitoring</a><ul>
@@ -223,197 +228,6 @@ and add the following line:</p>
 </div>
 </div>
 </div>
-<div class="section" id="using-the-rozo-console-manager">
-<h2>Using the Rozo Console Manager<a class="headerlink" href="#using-the-rozo-console-manager" title="Permalink to this headline">¶</a></h2>
-<p>RozoFS comes with a command line utility called <code class="docutils literal"><span class="pre">rozo</span></code> that aims to
-automate the <strong>management</strong> process of a RozoFS platform. Its main
-purpose is to chain up the operations required on remote nodes involved
-on a high level management task such as stopping and starting the whole
-platform, add new nodes to the platform in order to extend the capacity,
-add new exports on volume etc…</p>
-<p><code class="docutils literal"><span class="pre">Rozo</span></code> is fully independant of RozoFS daemons and processes and is not
-required for a fully functional system but when installed aside RozoFS
-on each involved nodes it greatly facilitates configuration as it takes
-care of all the unique id generation of storage locations, clusters and
-so on. Despite not being a monitoring tool, <code class="docutils literal"><span class="pre">rozo</span></code> can be however used to
-get easily a description of the platform, its status and its
-configuration.</p>
-<p>Rozo uses the running exportd configuration file as a basic platform
-knowledge, you can use <code class="docutils literal"><span class="pre">rozo</span></code> on any nodes (even not involve in the
-platform).</p>
-<p>You can have an overview of <code class="docutils literal"><span class="pre">rozo</span></code> capabilities and get the help you
-need by using the rozo manual:</p>
-<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>man rozo
-</pre></div>
-</div>
-<p>See below, examples of <code class="docutils literal"><span class="pre">rozo</span></code> usage for common management tasks on a 8
-nodes platform. Each command is launched on the running exportd node.</p>
-<div class="section" id="get-the-list-of-nodes-belonging-to-a-platform">
-<h3>Get the List of Nodes Belonging to a Platform<a class="headerlink" href="#get-the-list-of-nodes-belonging-to-a-platform" title="Permalink to this headline">¶</a></h3>
-<p>To get informations about all nodes in the platform and their roles.</p>
-<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>rozo node list -E 192.168.1.10
-192.168.1.10:
-- <span class="o">[</span>EXPORTD<span class="o">]</span>
-192.168.1.101:
-- <span class="o">[</span>STORAGED, ROZOFSMOUNT<span class="o">]</span>
-192.168.1.102:
-- <span class="o">[</span>STORAGED, ROZOFSMOUNT<span class="o">]</span>
-192.168.1.103:
-- <span class="o">[</span>STORAGED, ROZOFSMOUNT<span class="o">]</span>
-192.168.1.104:
-- <span class="o">[</span>STORAGED, ROZOFSMOUNT<span class="o">]</span>
-</pre></div>
-</div>
-<p>You can easily list nodes according to their roles (exportd, storaged or
-rozofsmount) using the <code class="docutils literal"><span class="pre">-r</span></code> option.</p>
-<div class="admonition note">
-<p class="first admonition-title">Note</p>
-<p class="last">If you don&#8217;t want specify the IP address of exportd node for each <code class="docutils literal"><span class="pre">rozo</span></code>
-command, you can specify the default exportd IP with
-<strong>ROZO_EXPORT_HOSTNAME</strong> environment variable.</p>
-</div>
-</div>
-<div class="section" id="get-the-status-of-a-platform">
-<h3>Get the Status of a Platform<a class="headerlink" href="#get-the-status-of-a-platform" title="Permalink to this headline">¶</a></h3>
-<p>To get an overview of the nodes: a RozoFS processes status.</p>
-<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>rozo node status -E 192.168.1.10
-192.168.1.10:
-- <span class="o">{</span>EXPORTD: running<span class="o">}</span>
-192.168.1.101:
-- <span class="o">{</span>STORAGED: running<span class="o">}</span>
-- <span class="o">{</span>ROZOFSMOUNT: running<span class="o">}</span>
-192.168.1.102:
-- <span class="o">{</span>STORAGED: running<span class="o">}</span>
-- <span class="o">{</span>ROZOFSMOUNT: running<span class="o">}</span>
-192.168.1.103:
-- <span class="o">{</span>STORAGED: running<span class="o">}</span>
-- <span class="o">{</span>ROZOFSMOUNT: running<span class="o">}</span>
-192.168.1.104:
-- <span class="o">{</span>STORAGED: running<span class="o">}</span>
-- <span class="o">{</span>ROZOFSMOUNT: running<span class="o">}</span>
-</pre></div>
-</div>
-<p>You can easily get nodes status according to their roles using the
-<code class="docutils literal"><span class="pre">-r</span></code> option or get statuses for a specific node using the <code class="docutils literal"><span class="pre">-n</span></code>
-option.</p>
-</div>
-<div class="section" id="view-the-platform-configuration">
-<h3>View the Platform Configuration<a class="headerlink" href="#view-the-platform-configuration" title="Permalink to this headline">¶</a></h3>
-<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>rozo node config -E 192.168.1.10
-<span class="s1">&#39;NODE: 192.168.1.101&#39;</span>:
-- STORAGED:
-  - INTERFACE:
-    - <span class="o">{</span>192.168.1.101: 41001<span class="o">}</span>
-  - STORAGE:
-    - <span class="o">{</span><span class="s1">&#39;cid 1, sid 1&#39;</span>: /srv/rozofs/storages/storage_1_1<span class="o">}</span>
-- ROZOFSMOUNT:
-  - <span class="o">{</span>node 192.168.1.10: /srv/rozofs/exports/export_1<span class="o">}</span>
-<span class="s1">&#39;NODE: 192.168.1.102&#39;</span>:
-- STORAGED:
-  - INTERFACE:
-    - <span class="o">{</span>192.168.1.102: 41001<span class="o">}</span>
-  - STORAGE:
-    - <span class="o">{</span><span class="s1">&#39;cid 1, sid 2&#39;</span>: /srv/rozofs/storages/storage_1_2<span class="o">}</span>
-- ROZOFSMOUNT:
-  - <span class="o">{</span>node 192.168.1.10: /srv/rozofs/exports/export_1<span class="o">}</span>
-<span class="s1">&#39;NODE: 192.168.1.103&#39;</span>:
-- STORAGED:
-  - INTERFACE:
-    - <span class="o">{</span>192.168.1.103: 41001<span class="o">}</span>
-  - STORAGE:
-    - <span class="o">{</span><span class="s1">&#39;cid 1, sid 3&#39;</span>: /srv/rozofs/storages/storage_1_3<span class="o">}</span>
-- ROZOFSMOUNT:
-  - <span class="o">{</span>node 192.168.1.10: /srv/rozofs/exports/export_1<span class="o">}</span>
-<span class="s1">&#39;NODE: 192.168.1.104&#39;</span>:
-- STORAGED:
-  - INTERFACE:
-    - <span class="o">{</span>192.168.1.104: 41001<span class="o">}</span>
-  - STORAGE:
-    - <span class="o">{</span><span class="s1">&#39;cid 1, sid 4&#39;</span>: /srv/rozofs/storages/storage_1_4<span class="o">}</span>
-- ROZOFSMOUNT:
-  - <span class="o">{</span>node 192.168.1.10: /srv/rozofs/exports/export_1<span class="o">}</span>
-<span class="s1">&#39;NODE: 192.168.1.10&#39;</span>:
-- EXPORTD:
-  - VOLUME:
-    - volume 1:
-      - cluster 1:
-        - <span class="o">{</span>sid 1: 192.168.1.101<span class="o">}</span>
-        - <span class="o">{</span>sid 2: 192.168.1.102<span class="o">}</span>
-        - <span class="o">{</span>sid 3: 192.168.1.103<span class="o">}</span>
-        - <span class="o">{</span>sid 4: 192.168.1.104<span class="o">}</span>
-  - EXPORT:
-      vid: 1
-      root: /srv/rozofs/exports/export_1
-      md5: <span class="s1">&#39;&#39;</span>
-      squota: <span class="s1">&#39;&#39;</span>
-      hquota: <span class="s1">&#39;&#39;</span>
-</pre></div>
-</div>
-<p>The output of <code class="docutils literal"><span class="pre">rozo</span> <span class="pre">node</span> <span class="pre">config</span></code> let us know each node configuration
-according to its role. We especially notice that this platform has one
-volume with one export relying on it.</p>
-</div>
-<div class="section" id="extend-the-platform">
-<h3>Extend the Platform<a class="headerlink" href="#extend-the-platform" title="Permalink to this headline">¶</a></h3>
-<p>Extend the platform is easy (add nodes) with the <code class="docutils literal"><span class="pre">rozo</span> <span class="pre">volume</span> <span class="pre">expand</span></code>
-command, for example purpose we will add four new storages nodes.</p>
-<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>rozo volume expand 192.168.1.201 <span class="se">\</span>
-                                 192.168.1.202 <span class="se">\</span>
-                                 192.168.1.203 <span class="se">\</span>
-                                 192.168.1.204 <span class="se">\</span>
-                                 -E 192.168.1.10
-</pre></div>
-</div>
-<p>As we added nodes without indicating the volume we want to expand,
-<code class="docutils literal"><span class="pre">rozo</span></code> has created a new volume (with id 2) as illustrated in the
-<code class="docutils literal"><span class="pre">rozo</span> <span class="pre">volume</span> <span class="pre">list</span></code> output extract below:</p>
-<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>rozo volume list -E 192.168.1.10
-EXPORTD on 192.168.1.10:
-- VOLUME 1:
-  - CLUSTER 1:
-    - <span class="o">{</span>STORAGE 1: 192.168.1.101<span class="o">}</span>
-    - <span class="o">{</span>STORAGE 2: 192.168.1.102<span class="o">}</span>
-    - <span class="o">{</span>STORAGE 3: 192.168.1.103<span class="o">}</span>
-    - <span class="o">{</span>STORAGE 4: 192.168.1.104<span class="o">}</span>
-- VOLUME 2:
-  - CLUSTER 2:
-    - <span class="o">{</span>STORAGE 1: 192.168.1.201<span class="o">}</span>
-    - <span class="o">{</span>STORAGE 2: 192.168.1.202<span class="o">}</span>
-    - <span class="o">{</span>STORAGE 3: 192.168.1.203<span class="o">}</span>
-    - <span class="o">{</span>STORAGE 4: 192.168.1.204<span class="o">}</span>
-</pre></div>
-</div>
-</div>
-<div class="section" id="add-an-export-to-the-platform">
-<h3>Add an Export to the Platform<a class="headerlink" href="#add-an-export-to-the-platform" title="Permalink to this headline">¶</a></h3>
-<p><code class="docutils literal"><span class="pre">rozo</span> <span class="pre">export</span> <span class="pre">create</span></code> and (<code class="docutils literal"><span class="pre">rozo</span> <span class="pre">export</span> <span class="pre">remove</span></code>) commands manage the
-creation (and deletion) of new exports.</p>
-<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>rozo <span class="nb">export </span>create <span class="m">2</span> -E 192.168.1.10
-</pre></div>
-</div>
-<p>This will create a new export on volume 2.</p>
-<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>rozo <span class="nb">export </span>mount -e <span class="m">2</span> -E 192.168.1.10
-</pre></div>
-</div>
-<p><code class="docutils literal"><span class="pre">rozo</span> <span class="pre">export</span> <span class="pre">mount</span></code> command will configure all nodes with a
-rozofsmount role to mount this new export (id=2) as illustrated in the
-<code class="docutils literal"><span class="pre">df</span></code> output on one of the node.</p>
-<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>df <span class="p">|</span> grep /mnt/rozofs
-rozofs      <span class="m">4867164832</span>      <span class="m">0</span> <span class="m">4867164832</span>   0% /mnt/rozofs@192.168.1.10/export_1
-rozofs      <span class="m">4867164832</span>      <span class="m">0</span> <span class="m">4867164832</span>   0% /mnt/rozofs@192.168.1.10/export_2
-</pre></div>
-</div>
-</div>
-<div class="section" id="rebuild-a-storage-node">
-<h3>Rebuild a Storage Node<a class="headerlink" href="#rebuild-a-storage-node" title="Permalink to this headline">¶</a></h3>
-<p><code class="docutils literal"><span class="pre">rozo</span> <span class="pre">node</span> <span class="pre">rebuild</span></code> command will restart the storaged daemon for one storage
-node with processes for rebuild data of each storage declared in the storaged
-configuration file.</p>
-<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>rozo node rebuild -n 192.168.1.204 -E 192.168.1.10
-</pre></div>
-</div>
-</div>
-</div>
 </div>
 
 
@@ -422,7 +236,7 @@ configuration file.</p>
   
     <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
       
-        <a href="Monitoring.html" class="btn btn-neutral float-right" title="Monitoring">Next <span class="fa fa-arrow-circle-right"></span></a>
+        <a href="ConfiguringRozoFSWithRozoCLI.html" class="btn btn-neutral float-right" title="Configuring RozoFS using the Rozo CLI">Next <span class="fa fa-arrow-circle-right"></span></a>
       
       
         <a href="SettingUpRozoFS.html" class="btn btn-neutral" title="Setting up RozoFS"><span class="fa fa-arrow-circle-left"></span> Previous</a>
@@ -434,7 +248,7 @@ configuration file.</p>
 
   <div role="contentinfo">
     <p>
-        &copy; Copyright 2014, Fizians SAS.
+        &copy; Copyright 2015, Rozo Systems S.A.S.
     </p>
   </div>
 
@@ -454,7 +268,7 @@ configuration file.</p>
     <script type="text/javascript">
         var DOCUMENTATION_OPTIONS = {
             URL_ROOT:'./',
-            VERSION:'1.4.0',
+            VERSION:'2.0.0',
             COLLAPSE_INDEX:false,
             FILE_SUFFIX:'.html',
             HAS_SOURCE:  true

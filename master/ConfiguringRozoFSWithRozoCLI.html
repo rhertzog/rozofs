@@ -1,0 +1,477 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Configuring RozoFS using the Rozo CLI &mdash; RozoFS User&#39;s Guide 2.0.0 documentation</title>
+  
+
+  
+  
+
+  
+  <link href='https://fonts.googleapis.com/css?family=Lato:400,700,400italic,700italic|Roboto+Slab:400,700|Inconsolata:400,700' rel='stylesheet' type='text/css'>
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  
+
+  
+    <link rel="top" title="RozoFS User&#39;s Guide 2.0.0 documentation" href="index.html"/>
+        <link rel="next" title="Monitoring" href="Monitoring.html"/>
+        <link rel="prev" title="Working with RozoFS" href="WorkingWithRozoFS.html"/> 
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/modernizr/2.6.2/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-nav-search">
+        <a href="index.html" class="fa fa-home"> RozoFS User's Guide</a>
+        <div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+        
+        
+            <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="AboutRozoFS.html">About RozoFS</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="AboutRozoFS.html#rozofs-fundamentals">RozoFS Fundamentals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="AboutRozoFS.html#rozofs-data-flow">RozoFS Data Flow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="AboutRozoFS.html#rozofs-data-protection">RozoFS Data Protection</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="InstallingRozoFS.html">Installing RozoFS</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="InstallingRozoFS.html#installing-rozofs-from-binary-packages">Installing RozoFS from Binary Packages</a></li>
+<li class="toctree-l2"><a class="reference internal" href="InstallingRozoFS.html#building-and-installing-from-sources">Building and Installing from Sources</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="SettingUpRozoFS.html">Setting up RozoFS</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="SettingUpRozoFS.html#networking-considerations">Networking Considerations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="SettingUpRozoFS.html#preparing-nodes">Preparing Nodes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="SettingUpRozoFS.html#configuration-files">Configuration Files</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="WorkingWithRozoFS.html">Working with RozoFS</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="WorkingWithRozoFS.html#manual-managing-of-rozofs-services">Manual Managing of RozoFS Services</a></li>
+</ul>
+</li>
+<li class="toctree-l1 current"><a class="current reference internal" href="">Configuring RozoFS using the Rozo CLI</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#about-rozo-cli">About rozo CLI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#prerequisites">Prerequisites</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#basic-commands">Basic Commands</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="Monitoring.html">Monitoring</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="Monitoring.html#rozodiag-tools">Rozodiag tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Monitoring.html#rozofs-nagios-plugins">RozoFS Nagios Plugins</a></li>
+</ul>
+</li>
+</ul>
+
+        
+      </div>
+      &nbsp;
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="index.html">RozoFS User's Guide</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="index.html">Docs</a> &raquo;</li>
+      
+    <li>Configuring RozoFS using the Rozo CLI</li>
+      <li class="wy-breadcrumbs-aside">
+        
+          <a href="_sources/ConfiguringRozoFSWithRozoCLI.txt" rel="nofollow"> View page source</a>
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main">
+            
+  <div class="section" id="configuring-rozofs-using-the-rozo-cli">
+<h1>Configuring RozoFS using the Rozo CLI<a class="headerlink" href="#configuring-rozofs-using-the-rozo-cli" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="about-rozo-cli">
+<h2>About rozo CLI<a class="headerlink" href="#about-rozo-cli" title="Permalink to this headline">¶</a></h2>
+<p>RozoFS comes with a command line utility called <code class="docutils literal"><span class="pre">rozo</span></code> that aims to
+automate the <strong>management</strong> process of a RozoFS platform. Its main
+purpose is <strong>to chain up the operations required on remote nodes</strong> involved
+on a high level management task such as stopping and starting the whole
+platform, add new nodes to the platform in order to extend the capacity,
+add new exports on volume etc…</p>
+<p><code class="docutils literal"><span class="pre">rozo</span></code> is fully independant of RozoFS daemons and processes and is not
+required for a fully functional system but when installed aside RozoFS
+on each involved nodes it <strong>greatly facilitates configuration</strong> as it takes
+care of all the unique id generation of storage locations, clusters and
+so on. Despite not being a monitoring tool, <code class="docutils literal"><span class="pre">rozo</span></code> can be however used to
+<strong>get easily a description of the platform, its status and its configuration</strong>.</p>
+<p><code class="docutils literal"><span class="pre">rozo</span></code> uses the running exportd configuration <code class="docutils literal"><span class="pre">export.conf</span></code> file as a
+basic platform knowledge, you can use <code class="docutils literal"><span class="pre">rozo</span></code> on any nodes
+(even not involve in the platform).</p>
+<p>The following diagrams describe the interaction between rozo CLI and the RozoFS
+core components.</p>
+<div class="figure align-center">
+<img alt="" src="_images/rozo-CLI-platform.png" />
+</div>
+<div class="figure align-center">
+<img alt="" src="_images/rozo-CLI-in-node.png" />
+</div>
+<p>You can have an overview of <code class="docutils literal"><span class="pre">rozo</span></code> capabilities and get the help you
+need by using the rozo manual:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>man rozo
+</pre></div>
+</div>
+</div>
+<div class="section" id="prerequisites">
+<h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="install-rozo-manager-packages">
+<h3>Install rozo manager Packages<a class="headerlink" href="#install-rozo-manager-packages" title="Permalink to this headline">¶</a></h3>
+<p>The rozo manager utility consists of 3 packages:</p>
+<ul class="simple">
+<li><code class="docutils literal"><span class="pre">rozofs-manager-lib</span></code></li>
+<li><code class="docutils literal"><span class="pre">rozofs-manager-cli</span></code></li>
+<li><code class="docutils literal"><span class="pre">rozofs-manager-agent</span></code></li>
+</ul>
+<p>You must install the packages on each node of your platform to use the rozo
+utility. If you want to use rozo in a node that is not part of the platform
+it is also necessary to install these 3 packages. See
+<a class="reference internal" href="InstallingRozoFS.html"><em>Installing RozoFS</em></a> for get the last packages for your distribution.</p>
+</div>
+<div class="section" id="start-rozo-agent-on-each-node">
+<h3>Start rozo agent on each node<a class="headerlink" href="#start-rozo-agent-on-each-node" title="Permalink to this headline">¶</a></h3>
+<p>The <cite>rozofs-manager-agent</cite> service must be started on each node belonging to the
+platform.</p>
+<p>The <cite>rozofs-manager-agent</cite> daemon starts with the following command:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>/etc/init.d/rozofs-manager-agent start
+<span class="c"># OR</span>
+<span class="nv">$ </span>service rozofs-manager-agent start
+</pre></div>
+</div>
+<p>To get the current status of the daemon, the following command is used:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>/etc/init.d/rozofs-manager-agent status
+<span class="c"># OR</span>
+<span class="nv">$ </span>service rozofs-manager-agent status
+</pre></div>
+</div>
+</div>
+<div class="section" id="ensure-connectivity">
+<h3>Ensure Connectivity<a class="headerlink" href="#ensure-connectivity" title="Permalink to this headline">¶</a></h3>
+<p>It&#8217;s necessary that each <em>rozofs-manager-agent</em> to be accessible.
+It uses the TCP port <code class="docutils literal"><span class="pre">9999</span></code>. Ensure that firewall settings do not prevent
+access to this port.</p>
+</div>
+</div>
+<div class="section" id="basic-commands">
+<h2>Basic Commands<a class="headerlink" href="#basic-commands" title="Permalink to this headline">¶</a></h2>
+<p>See below, examples of <code class="docutils literal"><span class="pre">rozo</span></code> usage for common management tasks on a 8
+nodes platform. Each command is launched on the running <em>exportd</em> node
+(<code class="docutils literal"><span class="pre">192.168.1.10</span></code>).</p>
+<div class="section" id="get-the-list-of-nodes-belonging-to-a-platform">
+<h3>Get the List of Nodes Belonging to a Platform<a class="headerlink" href="#get-the-list-of-nodes-belonging-to-a-platform" title="Permalink to this headline">¶</a></h3>
+<p>To get informations about all nodes in the platform and their roles.</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>rozo node list -E 192.168.1.10
+192.168.1.10:
+- - EXPORTD
+192.168.1.101:
+- - STORAGED
+  - ROZOFSMOUNT
+192.168.1.102:
+- - STORAGED
+  - ROZOFSMOUNT
+192.168.1.103:
+- - STORAGED
+  - ROZOFSMOUNT
+192.168.1.104:
+- - STORAGED
+  - ROZOFSMOUNT
+</pre></div>
+</div>
+<p>You can easily list nodes according to their roles (<em>exportd</em>, <em>storaged</em> or
+<em>rozofsmount</em>) using the <code class="docutils literal"><span class="pre">-r</span></code> option.</p>
+</div>
+<div class="section" id="get-the-status-of-a-platform">
+<h3>Get the Status of a Platform<a class="headerlink" href="#get-the-status-of-a-platform" title="Permalink to this headline">¶</a></h3>
+<p>To get an overview of all nodes.</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>rozo node status -E 192.168.1.10
+192.168.1.10:
+- EXPORTD: running
+192.168.1.101:
+- STORAGED: running
+- ROZOFSMOUNT: no mountpoint configured
+192.168.1.102:
+- STORAGED: running
+- ROZOFSMOUNT: no mountpoint configured
+192.168.1.103:
+- STORAGED: running
+- ROZOFSMOUNT: no mountpoint configured
+192.168.1.104:
+- STORAGED: running
+- ROZOFSMOUNT: no mountpoint configured
+</pre></div>
+</div>
+<p>You can easily get nodes status according to their roles using the
+<code class="docutils literal"><span class="pre">-r</span></code> option or get statuses for a specific node using the <code class="docutils literal"><span class="pre">-n</span></code>
+option.</p>
+<div class="admonition note">
+<p class="first admonition-title">Note</p>
+<p>If you don&#8217;t want specify the export IP address each time, it&#8217;s possible to
+populate the <code class="docutils literal"><span class="pre">ROZO_EXPORT_HOSTNAME</span></code> environment variable.</p>
+<p class="last"><em>Example</em>: <code class="docutils literal"><span class="pre">$</span> <span class="pre">export</span> <span class="pre">ROZO_EXPORT_HOSTNAME=192.168.1.10</span></code></p>
+</div>
+</div>
+<div class="section" id="view-the-platform-configuration">
+<h3>View the Platform Configuration<a class="headerlink" href="#view-the-platform-configuration" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>rozo node config -E 192.168.1.10
+<span class="s1">&#39;NODE: 192.168.1.101&#39;</span>:
+- STORAGED:
+  - INTERFACE:
+    - 192.168.1.101: 41001
+  - STORAGE:
+    - cid 1, sid 1:
+        root: /srv/rozofs/storages/storage_1_1
+        device-total: 1
+        device-mapper: 1
+        device-redundancy: 1
+- ROZOFSMOUNT:
+  - <span class="nb">export </span>host: 192.168.1.10
+    <span class="nb">export </span>path: /srv/rozofs/exports/export_1
+    mountpoint: /mnt/rozofs@192.168.1.10/export_1
+<span class="s1">&#39;NODE: 192.168.1.102&#39;</span>:
+- STORAGED:
+  - INTERFACE:
+    - 192.168.1.102: 41001
+  - STORAGE:
+    - cid 1, sid 2:
+        root: /srv/rozofs/storages/storage_1_2
+        device-total: 1
+        device-mapper: 1
+        device-redundancy: 1
+- ROZOFSMOUNT:
+  - <span class="nb">export </span>host: 192.168.1.10
+    <span class="nb">export </span>path: /srv/rozofs/exports/export_1
+    mountpoint: /mnt/rozofs@192.168.1.10/export_1
+<span class="s1">&#39;NODE: 192.168.1.103&#39;</span>:
+- STORAGED:
+  - INTERFACE:
+    - 192.168.1.103: 41001
+  - STORAGE:
+    - cid 1, sid 3:
+        root: /srv/rozofs/storages/storage_1_3
+        device-total: 1
+        device-mapper: 1
+        device-redundancy: 1
+- ROZOFSMOUNT:
+  - <span class="nb">export </span>host: 192.168.1.10
+    <span class="nb">export </span>path: /srv/rozofs/exports/export_1
+    mountpoint: /mnt/rozofs@192.168.1.10/export_1
+<span class="s1">&#39;NODE: 192.168.1.104&#39;</span>:
+- STORAGED:
+  - INTERFACE:
+    - 192.168.1.104: 41001
+  - STORAGE:
+    - cid 1, sid 4:
+        root: /srv/rozofs/storages/storage_1_4
+        device-total: 1
+        device-mapper: 1
+        device-redundancy: 1
+- ROZOFSMOUNT:
+  - <span class="nb">export </span>host: 192.168.1.10
+    <span class="nb">export </span>path: /srv/rozofs/exports/export_1
+    mountpoint: /mnt/rozofs@192.168.1.10/export_1
+<span class="s1">&#39;NODE: 192.168.1.10&#39;</span>:
+- EXPORTD:
+  - VOLUME:
+    - volume 1:
+      - cluster 1:
+        - sid 1: 192.168.1.101
+        - sid 2: 192.168.1.102
+        - sid 3: 192.168.1.103
+        - sid 4: 192.168.1.104
+  - EXPORT:
+      vid: 1
+      root: /srv/rozofs/exports/export_1
+      md5: <span class="s1">&#39;&#39;</span>
+      squota: <span class="s1">&#39;&#39;</span>
+      hquota: <span class="s1">&#39;&#39;</span>
+</pre></div>
+</div>
+<p>The output of <code class="docutils literal"><span class="pre">rozo</span> <span class="pre">node</span> <span class="pre">config</span></code> let us know each node configuration
+according to its role. We especially notice that this platform has one
+volume with one export relying on it.</p>
+</div>
+<div class="section" id="extend-the-platform-add-a-volume">
+<h3>Extend the Platform (Add a Volume)<a class="headerlink" href="#extend-the-platform-add-a-volume" title="Permalink to this headline">¶</a></h3>
+<p>Extend the platform is easy (add nodes) with the <code class="docutils literal"><span class="pre">rozo</span> <span class="pre">volume</span> <span class="pre">expand</span></code>
+command, for example purpose we will add four new storages nodes.</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>rozo volume expand 192.168.1.201 <span class="se">\</span>
+                                 192.168.1.202 <span class="se">\</span>
+                                 192.168.1.203 <span class="se">\</span>
+                                 192.168.1.204 <span class="se">\</span>
+                                 -E 192.168.1.10
+</pre></div>
+</div>
+<p>As we added nodes without indicating the volume we want to expand,
+<code class="docutils literal"><span class="pre">rozo</span></code> has created a new volume (with id 2) as illustrated in the
+<code class="docutils literal"><span class="pre">rozo</span> <span class="pre">volume</span> <span class="pre">list</span></code> output extract below:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>rozo volume list -E 192.168.1.10
+EXPORTD on 192.168.1.10:
+- VOLUME 1:
+  - LAYOUT: 0
+  - CLUSTER 1:
+    - STORAGE 1: 192.168.1.101
+    - STORAGE 2: 192.168.1.102
+    - STORAGE 3: 192.168.1.103
+    - STORAGE 4: 192.168.1.104
+- VOLUME 2:
+  - LAYOUT: 0
+  - CLUSTER 2:
+    - STORAGE 1: 192.168.1.201
+    - STORAGE 2: 192.168.1.202
+    - STORAGE 3: 192.168.1.203
+    - STORAGE 4: 192.168.1.204
+</pre></div>
+</div>
+</div>
+<div class="section" id="add-an-export-to-the-platform">
+<h3>Add an Export to the Platform<a class="headerlink" href="#add-an-export-to-the-platform" title="Permalink to this headline">¶</a></h3>
+<p><code class="docutils literal"><span class="pre">rozo</span> <span class="pre">export</span> <span class="pre">create</span></code> and (<code class="docutils literal"><span class="pre">rozo</span> <span class="pre">export</span> <span class="pre">remove</span></code>) commands manage the
+creation (and deletion) of new exports.</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>rozo <span class="nb">export </span>create <span class="m">2</span> -E 192.168.1.10
+</pre></div>
+</div>
+<p>This will create a new export on volume 2.</p>
+</div>
+<div class="section" id="mount-an-export">
+<h3>Mount an Export<a class="headerlink" href="#mount-an-export" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>rozo mount create -e <span class="m">2</span> -E 192.168.1.10
+192.168.1.101:
+- <span class="nb">export </span>export_2 <span class="o">(</span><span class="nv">eid</span><span class="o">=</span>2<span class="o">)</span> on /mnt/rozofs@192.168.1.10/export_2:
+    configuration: added
+    status: mounted
+192.168.1.102:
+- <span class="nb">export </span>export_2 <span class="o">(</span><span class="nv">eid</span><span class="o">=</span>2<span class="o">)</span> on /mnt/rozofs@192.168.1.10/export_2:
+    configuration: added
+    status: mounted
+192.168.1.103:
+- <span class="nb">export </span>export_2 <span class="o">(</span><span class="nv">eid</span><span class="o">=</span>2<span class="o">)</span> on /mnt/rozofs@192.168.1.10/export_2:
+    configuration: added
+    status: mounted
+192.168.1.104:
+- <span class="nb">export </span>export_2 <span class="o">(</span><span class="nv">eid</span><span class="o">=</span>2<span class="o">)</span> on /mnt/rozofs@192.168.1.10/export_2:
+    configuration: added
+    status: mounted
+</pre></div>
+</div>
+<p><code class="docutils literal"><span class="pre">rozo</span> <span class="pre">mount</span> <span class="pre">create</span></code> command will configure all nodes with a
+<em>rozofsmount</em> role to mount this new export (id=2) as illustrated in the
+<code class="docutils literal"><span class="pre">df</span></code> output on one of the node.</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>df <span class="p">|</span> grep /mnt/rozofs
+rozofs      <span class="m">4867164832</span>      <span class="m">0</span> <span class="m">4867164832</span>   0% /mnt/rozofs@192.168.1.10/export_1
+rozofs      <span class="m">4867164832</span>      <span class="m">0</span> <span class="m">4867164832</span>   0% /mnt/rozofs@192.168.1.10/export_2
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+
+
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="Monitoring.html" class="btn btn-neutral float-right" title="Monitoring">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="WorkingWithRozoFS.html" class="btn btn-neutral" title="Working with RozoFS"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2015, Rozo Systems S.A.S.
+    </p>
+  </div>
+
+  <a href="https://github.com/snide/sphinx_rtd_theme">Sphinx theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>
+</footer>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'./',
+            VERSION:'2.0.0',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true
+        };
+    </script>
+      <script type="text/javascript" src="_static/jquery.js"></script>
+      <script type="text/javascript" src="_static/underscore.js"></script>
+      <script type="text/javascript" src="_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

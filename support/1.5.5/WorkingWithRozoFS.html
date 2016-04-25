@@ -1,0 +1,468 @@
+
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Working with RozoFS &mdash; RozoFS User&#39;s Guide 1.4.0 documentation</title>
+  
+
+  
+  
+
+  
+  <link href='https://fonts.googleapis.com/css?family=Lato:400,700,400italic,700italic|Roboto+Slab:400,700|Inconsolata:400,700' rel='stylesheet' type='text/css'>
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  
+
+  
+    <link rel="top" title="RozoFS User&#39;s Guide 1.4.0 documentation" href="index.html"/>
+        <link rel="next" title="Monitoring" href="Monitoring.html"/>
+        <link rel="prev" title="Setting up RozoFS" href="SettingUpRozoFS.html"/> 
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/modernizr/2.6.2/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-nav-search">
+        <a href="index.html" class="fa fa-home"> RozoFS User's Guide</a>
+        <div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+        
+        
+            <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="AboutRozoFS.html">About RozoFS</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="AboutRozoFS.html#rozofs-fundamentals">RozoFS Fundamentals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="AboutRozoFS.html#rozofs-data-flow">RozoFS Data Flow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="AboutRozoFS.html#rozofs-data-protection">RozoFS Data Protection</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="InstallingRozoFS.html">Installing RozoFS</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="InstallingRozoFS.html#installing-rozofs-from-binary-packages">Installing RozoFS from Binary Packages</a></li>
+<li class="toctree-l2"><a class="reference internal" href="InstallingRozoFS.html#building-and-installing-from-sources">Building and Installing from Sources</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="SettingUpRozoFS.html">Setting up RozoFS</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="SettingUpRozoFS.html#networking-considerations">Networking Considerations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="SettingUpRozoFS.html#preparing-nodes">Preparing Nodes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="SettingUpRozoFS.html#configuration-files">Configuration Files</a></li>
+</ul>
+</li>
+<li class="toctree-l1 current"><a class="current reference internal" href="">Working with RozoFS</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#manual-managing-of-rozofs-services">Manual Managing of RozoFS Services</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#using-the-rozo-console-manager">Using the Rozo Console Manager</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="Monitoring.html">Monitoring</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="Monitoring.html#rozodiag-tools">Rozodiag tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="Monitoring.html#rozofs-nagios-plugins">RozoFS Nagios Plugins</a></li>
+</ul>
+</li>
+</ul>
+
+        
+      </div>
+      &nbsp;
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="index.html">RozoFS User's Guide</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="index.html">Docs</a> &raquo;</li>
+      
+    <li>Working with RozoFS</li>
+      <li class="wy-breadcrumbs-aside">
+        
+          <a href="_sources/WorkingWithRozoFS.txt" rel="nofollow"> View page source</a>
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main">
+            
+  <div class="section" id="working-with-rozofs">
+<h1>Working with RozoFS<a class="headerlink" href="#working-with-rozofs" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="manual-managing-of-rozofs-services">
+<h2>Manual Managing of RozoFS Services<a class="headerlink" href="#manual-managing-of-rozofs-services" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="starting-and-stopping-storaged-daemon">
+<h3>Starting and Stopping storaged Daemon<a class="headerlink" href="#starting-and-stopping-storaged-daemon" title="Permalink to this headline">¶</a></h3>
+<p>The storaged daemon starts with the following command:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>/etc/init.d/rozofs-storaged start
+</pre></div>
+</div>
+<p>To stop the daemon, the following command is used:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>/etc/init.d/rozofs-storaged stop
+</pre></div>
+</div>
+<p>To get the current status of the daemon, the following command is used:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>/etc/init.d/rozofs-storaged status
+</pre></div>
+</div>
+<p>To reload the storaged configuration file (<tt class="docutils literal"><span class="pre">storage.conf</span></tt>) after a
+configuration changes, the following command is used:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>/etc/init.d/rozofs-storaged reload
+</pre></div>
+</div>
+<p>To automatically start the storaged daemon every time the system boots,
+enterone of the following command lines.</p>
+<p>For Red Hat based systems:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>chkconfig rozofs-storaged on
+</pre></div>
+</div>
+<p>For Debian based systems</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>update-rc.d rozofs-storaged defaults
+</pre></div>
+</div>
+<p>Systems Other than Red Hat and Debian:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span><span class="nb">echo</span> <span class="s2">&quot;storaged&quot;</span> &gt;&gt; /etc/rc.local
+</pre></div>
+</div>
+</div>
+<div class="section" id="starting-and-stopping-exportd-daemon">
+<h3>Starting and Stopping exportd Daemon<a class="headerlink" href="#starting-and-stopping-exportd-daemon" title="Permalink to this headline">¶</a></h3>
+<p>The exportd daemon is started with the following command:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>/etc/init.d/rozofs-exportd start
+</pre></div>
+</div>
+<p>To stop the daemon, the following command is used:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>/etc/init.d/rozofs-exportd stop
+</pre></div>
+</div>
+<p>To get the current status of the daemon, the following command is used:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>/etc/init.d/rozofs-exportd status
+</pre></div>
+</div>
+<p>To reload the exportd configuration file (<tt class="docutils literal"><span class="pre">export.conf</span></tt>) after a
+configuration changes, the following command is used:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>/etc/init.d/rozofs-exportd reload
+</pre></div>
+</div>
+<p>To automatically start the exportd daemon every time the system boots,
+enter one of the following command line.</p>
+<p>For Red Hat based systems:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>chkconfig rozofs-exportd on
+</pre></div>
+</div>
+<p>For Debian based systems</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>update-rc.d rozofs-exportd defaults
+</pre></div>
+</div>
+<p>Systems Other than Red Hat and Debian:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span><span class="nb">echo</span> <span class="s2">&quot;exportd&quot;</span> &gt;&gt; /etc/rc.local
+</pre></div>
+</div>
+</div>
+<div class="section" id="accessing-data-setting-up-rozofsmount-client">
+<h3>Accessing Data - Setting up rozofsmount Client<a class="headerlink" href="#accessing-data-setting-up-rozofsmount-client" title="Permalink to this headline">¶</a></h3>
+<p>After installing the rozofsmount (RozoFS Client), you have to mount the
+RozoFS exported file system to access the data. Two methods are
+possible: mount manually or automatically.</p>
+<p>To manually mount Rozo file system, use the following command:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>rozofsmount -H EXPORT_IP -E EXPORT_PATH MOUNTDIR
+</pre></div>
+</div>
+<p>For example, if the exported file system is:
+<tt class="docutils literal"><span class="pre">/srv/rozofs/exports/export_1</span></tt> and IP address for export server is
+192.168.1.10:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>rozofsmount -H 192.168.1.10 -E /srv/rozofs/exports/export_1 /mnt/rozofs/fs-1
+</pre></div>
+</div>
+<p>To unmount the file system:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>umount /mnt/rozofs/fs-1
+</pre></div>
+</div>
+<p>To automatically mount a Rozo file system, edit the <tt class="docutils literal"><span class="pre">/etc/fstab</span></tt> file
+and add the following line:</p>
+<div class="highlight-python"><pre>rozofsmount MOUNTDIR rozofs exporthost=EXPORT_IP,exportpath=EXPORT_PATH,_netdev 0  0</pre>
+</div>
+<p>For example, if the exported file system is
+<tt class="docutils literal"><span class="pre">/srv/rozofs/exports/export_1</span></tt> and IP address for export server is
+192.168.1.10 :</p>
+<div class="highlight-python"><pre>rozofsmount /mnt/rozofs/fs1 rozofs exporthost=192.168.1.10,exportpath=/srv/rozofs/exports/export_1,_netdev 0 0</pre>
+</div>
+</div>
+</div>
+<div class="section" id="using-the-rozo-console-manager">
+<h2>Using the Rozo Console Manager<a class="headerlink" href="#using-the-rozo-console-manager" title="Permalink to this headline">¶</a></h2>
+<p>RozoFS comes with a command line utility called rozo that aims to
+automate the <strong>management</strong> process of a RozoFS platform. Its main
+purpose is to chain up the operations required on remote nodes involved
+on a high level management task such as stopping and starting the whole
+platform, add new nodes to the platform in order to extend the capacity,
+add new exports on volume etc…</p>
+<p>Rozo is fully independant of RozoFS daemons and processes and is not
+required for a fully functional system but when installed aside RozoFS
+on each involved nodes it greatly facilitates configuration as it takes
+care of all the unique id generation of storage locations, clusters and
+so on. Despite not being a monitoring tool, rozo can be however used to
+get easily a description of the platform, its status and its
+configuration.</p>
+<p>Rozo uses the running exportd configuration file as a basic platform
+knowledge, you can use rozo on any nodes (even not involve in the
+platform).</p>
+<p>You can have an overview of <tt class="docutils literal"><span class="pre">rozo</span></tt> capabilities and get the help you
+need by using the rozo manual</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>man rozo
+</pre></div>
+</div>
+<p>See below, examples of <tt class="docutils literal"><span class="pre">rozo</span></tt> usage for common management tasks on a 8
+nodes platform. Each command is launched on the running exportd node.</p>
+<div class="section" id="get-the-list-of-nodes-belonging-to-a-platform">
+<h3>Get the List of Nodes Belonging to a Platform<a class="headerlink" href="#get-the-list-of-nodes-belonging-to-a-platform" title="Permalink to this headline">¶</a></h3>
+<p>To get informations about all nodes in the platform and their roles.</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>rozo node list -E 192.168.1.10
+192.168.1.10:
+- <span class="o">[</span>EXPORTD<span class="o">]</span>
+192.168.1.101:
+- <span class="o">[</span>STORAGED, ROZOFSMOUNT<span class="o">]</span>
+192.168.1.102:
+- <span class="o">[</span>STORAGED, ROZOFSMOUNT<span class="o">]</span>
+192.168.1.103:
+- <span class="o">[</span>STORAGED, ROZOFSMOUNT<span class="o">]</span>
+192.168.1.104:
+- <span class="o">[</span>STORAGED, ROZOFSMOUNT<span class="o">]</span>
+</pre></div>
+</div>
+<p>You can easily list nodes according to their roles (exportd, storaged or
+rozofsmount) using the <tt class="docutils literal"><span class="pre">-r</span></tt> option.</p>
+</div>
+<div class="section" id="get-the-status-of-a-platform">
+<h3>Get the Status of a Platform<a class="headerlink" href="#get-the-status-of-a-platform" title="Permalink to this headline">¶</a></h3>
+<p>To get an overview of the nodes: a RozoFS processes status.</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>rozo node status -E 192.168.1.10
+192.168.1.10:
+- <span class="o">{</span>EXPORTD: running<span class="o">}</span>
+192.168.1.101:
+- <span class="o">{</span>STORAGED: running<span class="o">}</span>
+- <span class="o">{</span>ROZOFSMOUNT: running<span class="o">}</span>
+192.168.1.102:
+- <span class="o">{</span>STORAGED: running<span class="o">}</span>
+- <span class="o">{</span>ROZOFSMOUNT: running<span class="o">}</span>
+192.168.1.103:
+- <span class="o">{</span>STORAGED: running<span class="o">}</span>
+- <span class="o">{</span>ROZOFSMOUNT: running<span class="o">}</span>
+192.168.1.104:
+- <span class="o">{</span>STORAGED: running<span class="o">}</span>
+- <span class="o">{</span>ROZOFSMOUNT: running<span class="o">}</span>
+</pre></div>
+</div>
+<p>You can easily get nodes status according to their roles using the
+<tt class="docutils literal"><span class="pre">-r</span></tt> option or get statuses for a specific node using the <tt class="docutils literal"><span class="pre">-n</span></tt>
+option.</p>
+</div>
+<div class="section" id="view-the-platform-configuration">
+<h3>View the Platform Configuration<a class="headerlink" href="#view-the-platform-configuration" title="Permalink to this headline">¶</a></h3>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>rozo node config -E 192.168.1.10
+<span class="s1">&#39;NODE: 192.168.1.101&#39;</span>:
+- STORAGED:
+  - INTERFACE:
+    - <span class="o">{</span>192.168.1.101: 41001<span class="o">}</span>
+  - STORAGE:
+    - <span class="o">{</span><span class="s1">&#39;cid 1, sid 1&#39;</span>: /srv/rozofs/storages/storage_1_1<span class="o">}</span>
+- ROZOFSMOUNT:
+  - <span class="o">{</span>node 192.168.1.10: /srv/rozofs/exports/export_1<span class="o">}</span>
+<span class="s1">&#39;NODE: 192.168.1.102&#39;</span>:
+- STORAGED:
+  - INTERFACE:
+    - <span class="o">{</span>192.168.1.102: 41001<span class="o">}</span>
+  - STORAGE:
+    - <span class="o">{</span><span class="s1">&#39;cid 1, sid 2&#39;</span>: /srv/rozofs/storages/storage_1_2<span class="o">}</span>
+- ROZOFSMOUNT:
+  - <span class="o">{</span>node 192.168.1.10: /srv/rozofs/exports/export_1<span class="o">}</span>
+<span class="s1">&#39;NODE: 192.168.1.103&#39;</span>:
+- STORAGED:
+  - INTERFACE:
+    - <span class="o">{</span>192.168.1.103: 41001<span class="o">}</span>
+  - STORAGE:
+    - <span class="o">{</span><span class="s1">&#39;cid 1, sid 3&#39;</span>: /srv/rozofs/storages/storage_1_3<span class="o">}</span>
+- ROZOFSMOUNT:
+  - <span class="o">{</span>node 192.168.1.10: /srv/rozofs/exports/export_1<span class="o">}</span>
+<span class="s1">&#39;NODE: 192.168.1.104&#39;</span>:
+- STORAGED:
+  - INTERFACE:
+    - <span class="o">{</span>192.168.1.104: 41001<span class="o">}</span>
+  - STORAGE:
+    - <span class="o">{</span><span class="s1">&#39;cid 1, sid 4&#39;</span>: /srv/rozofs/storages/storage_1_4<span class="o">}</span>
+- ROZOFSMOUNT:
+  - <span class="o">{</span>node 192.168.1.10: /srv/rozofs/exports/export_1<span class="o">}</span>
+<span class="s1">&#39;NODE: 192.168.1.10&#39;</span>:
+- EXPORTD:
+  - VOLUME:
+    - volume 1:
+      - cluster 1:
+        - <span class="o">{</span>sid 1: 192.168.1.101<span class="o">}</span>
+        - <span class="o">{</span>sid 2: 192.168.1.102<span class="o">}</span>
+        - <span class="o">{</span>sid 3: 192.168.1.103<span class="o">}</span>
+        - <span class="o">{</span>sid 4: 192.168.1.104<span class="o">}</span>
+  - EXPORT:
+      vid: 1
+      root: /srv/rozofs/exports/export_1
+      md5: <span class="s1">&#39;&#39;</span>
+      squota: <span class="s1">&#39;&#39;</span>
+      hquota: <span class="s1">&#39;&#39;</span>
+</pre></div>
+</div>
+<p>The output of <tt class="docutils literal"><span class="pre">rozo</span> <span class="pre">node</span> <span class="pre">config</span></tt> let us know each node configuration
+according to its role. We especially notice that this platform has one
+volume with one export relying on it.</p>
+</div>
+<div class="section" id="extend-the-platform">
+<h3>Extend the Platform<a class="headerlink" href="#extend-the-platform" title="Permalink to this headline">¶</a></h3>
+<p>Extend the platform is easy (add nodes) with the <tt class="docutils literal"><span class="pre">rozo</span> <span class="pre">volume</span> <span class="pre">expand</span></tt>
+command, for example purpose we will add four new storages nodes.</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>rozo volume expand 192.168.1.201 <span class="se">\</span>
+                                 192.168.1.202 <span class="se">\</span>
+                                 192.168.1.203 <span class="se">\</span>
+                                 192.168.1.204 <span class="se">\</span>
+                                 -E 192.168.1.10
+</pre></div>
+</div>
+<p>As we added nodes without indicating the volume we want to expand,
+<tt class="docutils literal"><span class="pre">rozo</span></tt> has created a new volume (with id 2) as illustrated in the
+<tt class="docutils literal"><span class="pre">rozo</span> <span class="pre">volume</span> <span class="pre">list</span></tt> output extract below:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>rozo volume list -E 192.168.1.10
+EXPORTD on 192.168.1.10:
+- VOLUME 1:
+  - CLUSTER 1:
+    - <span class="o">{</span>STORAGE 1: 192.168.1.101<span class="o">}</span>
+    - <span class="o">{</span>STORAGE 2: 192.168.1.102<span class="o">}</span>
+    - <span class="o">{</span>STORAGE 3: 192.168.1.103<span class="o">}</span>
+    - <span class="o">{</span>STORAGE 4: 192.168.1.104<span class="o">}</span>
+- VOLUME 2:
+  - CLUSTER 2:
+    - <span class="o">{</span>STORAGE 1: 192.168.1.201<span class="o">}</span>
+    - <span class="o">{</span>STORAGE 2: 192.168.1.202<span class="o">}</span>
+    - <span class="o">{</span>STORAGE 3: 192.168.1.203<span class="o">}</span>
+    - <span class="o">{</span>STORAGE 4: 192.168.1.204<span class="o">}</span>
+</pre></div>
+</div>
+</div>
+<div class="section" id="add-an-export-to-the-platform">
+<h3>Add an Export to the Platform<a class="headerlink" href="#add-an-export-to-the-platform" title="Permalink to this headline">¶</a></h3>
+<p><tt class="docutils literal"><span class="pre">rozo</span> <span class="pre">export</span> <span class="pre">create</span></tt> and (<tt class="docutils literal"><span class="pre">rozo</span> <span class="pre">export</span> <span class="pre">remove</span></tt>) commands manage the
+creation (and deletion) of new exports.</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>rozo <span class="nb">export </span>create 2 -E 192.168.1.10
+</pre></div>
+</div>
+<p>This will create a new export on volume 2.</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>rozo <span class="nb">export </span>mount -e 2 -E 192.168.1.10
+</pre></div>
+</div>
+<p><tt class="docutils literal"><span class="pre">rozo</span> <span class="pre">export</span> <span class="pre">mount</span></tt> command will configure all nodes with a
+rozofsmount role to mount this new export (id=2) as illustrated in the
+<tt class="docutils literal"><span class="pre">df</span></tt> output on one of the node.</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>df | grep /mnt/rozofs
+rozofs      4867164832      0 4867164832   0% /mnt/rozofs@192.168.1.10/export_1
+rozofs      4867164832      0 4867164832   0% /mnt/rozofs@192.168.1.10/export_2
+</pre></div>
+</div>
+</div>
+</div>
+</div>
+
+
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+        <a href="Monitoring.html" class="btn btn-neutral float-right" title="Monitoring">Next <span class="fa fa-arrow-circle-right"></span></a>
+      
+      
+        <a href="SettingUpRozoFS.html" class="btn btn-neutral" title="Setting up RozoFS"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2014, Fizians SAS.
+    </p>
+  </div>
+
+  <a href="https://github.com/snide/sphinx_rtd_theme">Sphinx theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>
+</footer>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'',
+            VERSION:'1.4.0',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true
+        };
+    </script>
+      <script type="text/javascript" src="_static/jquery.js"></script>
+      <script type="text/javascript" src="_static/underscore.js"></script>
+      <script type="text/javascript" src="_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

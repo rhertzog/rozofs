@@ -1,6 +1,5 @@
 
 
-
 <!DOCTYPE html>
 <!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
 <!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
@@ -8,7 +7,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>Installing RozoFS &mdash; RozoFS User&#39;s Guide 1.4.0 documentation</title>
+  <title>Installing RozoFS &mdash; RozoFS User&#39;s Guide 2.0.0 documentation</title>
   
 
   
@@ -29,7 +28,7 @@
   
 
   
-    <link rel="top" title="RozoFS User&#39;s Guide 1.4.0 documentation" href="index.html"/>
+    <link rel="top" title="RozoFS User&#39;s Guide 2.0.0 documentation" href="index.html"/>
         <link rel="next" title="Setting up RozoFS" href="SettingUpRozoFS.html"/>
         <link rel="prev" title="About RozoFS" href="AboutRozoFS.html"/> 
 
@@ -78,7 +77,12 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="WorkingWithRozoFS.html">Working with RozoFS</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="WorkingWithRozoFS.html#manual-managing-of-rozofs-services">Manual Managing of RozoFS Services</a></li>
-<li class="toctree-l2"><a class="reference internal" href="WorkingWithRozoFS.html#using-the-rozo-console-manager">Using the Rozo Console Manager</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="ConfiguringRozoFSWithRozoCLI.html">Configuring RozoFS using the Rozo CLI</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="ConfiguringRozoFSWithRozoCLI.html#about-rozo-cli">About rozo CLI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ConfiguringRozoFSWithRozoCLI.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ConfiguringRozoFSWithRozoCLI.html#basic-commands">Basic Commands</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="Monitoring.html">Monitoring</a><ul>
@@ -124,9 +128,9 @@
 <h1>Installing RozoFS<a class="headerlink" href="#installing-rozofs" title="Permalink to this headline">¶</a></h1>
 <div class="section" id="installing-rozofs-from-binary-packages">
 <h2>Installing RozoFS from Binary Packages<a class="headerlink" href="#installing-rozofs-from-binary-packages" title="Permalink to this headline">¶</a></h2>
-<p>Fizians SAS provides <strong>binary packages</strong> for every component of RozoFS
-and various GNU/Linux distributions based on Debian (<tt class="docutils literal"><span class="pre">.deb</span></tt>) and
-Redhat (<tt class="docutils literal"><span class="pre">.rpm</span></tt>) package format. Using binary packages brings you
+<p>Rozo Systems SAS provides <strong>binary packages</strong> for every component of RozoFS
+and various GNU/Linux distributions based on Debian (<code class="docutils literal"><span class="pre">.deb</span></code>) and
+Redhat (<code class="docutils literal"><span class="pre">.rpm</span></code>) package format. Using binary packages brings you
 benefits. First, you do not need a full development environment and
 other hand binary packages come with init script, easy dependency
 management etc... that can simplify deployment and management process.
@@ -134,35 +138,44 @@ See help of your favorite GNU/Linux distribution&#8217;s package manager for
 package installation. According to their roles, nodes should have at
 least one these packages installed :</p>
 <ul class="simple">
-<li><tt class="docutils literal"><span class="pre">rozofs-storaged_&lt;version&gt;_&lt;arch&gt;.&lt;deb|rpm&gt;</span></tt></li>
-<li><tt class="docutils literal"><span class="pre">rozofs-exportd_&lt;version&gt;_&lt;arch&gt;.&lt;deb|rpm&gt;</span></tt></li>
-<li><tt class="docutils literal"><span class="pre">rozofs-rozofsmount_&lt;version&gt;_&lt;arch&gt;.&lt;deb|rpm&gt;</span></tt></li>
+<li><code class="docutils literal"><span class="pre">rozofs-storaged</span></code></li>
+<li><code class="docutils literal"><span class="pre">rozofs-exportd</span></code></li>
+<li><code class="docutils literal"><span class="pre">rozofs-rozofsmount</span></code></li>
 </ul>
 <p>To help and automate management, the following optional packages should
 be installed on each node involved in a RozoFS platform:</p>
 <ul class="simple">
-<li><tt class="docutils literal"><span class="pre">rozofs-manager-lib_&lt;version&gt;_&lt;arch&gt;.&lt;deb|rpm&gt;</span></tt></li>
-<li><tt class="docutils literal"><span class="pre">rozofs-manager-cli_&lt;version&gt;_&lt;arch&gt;.&lt;deb|rpm&gt;</span></tt></li>
-<li><tt class="docutils literal"><span class="pre">rozofs-manager-agent_&lt;version&gt;_&lt;arch&gt;.&lt;deb|rpm&gt;</span></tt></li>
-<li><tt class="docutils literal"><span class="pre">rozofs-rprof_&lt;version&gt;_&lt;arch&gt;.&lt;deb|rpm&gt;</span></tt></li>
-<li><tt class="docutils literal"><span class="pre">rozofs-rozodiag_&lt;version&gt;_&lt;arch&gt;.&lt;deb|rpm&gt;</span></tt></li>
+<li><code class="docutils literal"><span class="pre">rozofs-manager-lib</span></code></li>
+<li><code class="docutils literal"><span class="pre">rozofs-manager-cli</span></code></li>
+<li><code class="docutils literal"><span class="pre">rozofs-manager-agent</span></code></li>
 </ul>
-<div class="section" id="advance-package-tool-apt">
-<h3>Advance Package Tool (APT)<a class="headerlink" href="#advance-package-tool-apt" title="Permalink to this headline">¶</a></h3>
+<p>To monitor and to get statistics about each RozoFS component,
+the following optional packages should be installed on each node involved in a RozoFS platform:</p>
+<ul class="simple">
+<li><code class="docutils literal"><span class="pre">rozofs-rozodiag</span></code></li>
+<li><code class="docutils literal"><span class="pre">nagios-plugins-rozofs</span></code></li>
+</ul>
+<div class="section" id="advance-package-tool-apt-for-debian-ubuntu">
+<h3>Advance Package Tool (APT) for Debian/Ubuntu<a class="headerlink" href="#advance-package-tool-apt-for-debian-ubuntu" title="Permalink to this headline">¶</a></h3>
+<p>Tested on the following OS:</p>
+<ul class="simple">
+<li>Debian 7 (<em>wheezy</em>), 8 (<em>jessie</em>)</li>
+<li>Ubuntu 14.04 (<em>trusty</em>)</li>
+</ul>
 <div class="section" id="install-release-key">
 <h4>Install Release Key<a class="headerlink" href="#install-release-key" title="Permalink to this headline">¶</a></h4>
-<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>wget -O - http://54.225.196.202/debian/devel@rozofs.com.gpg.key | apt-key add -
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>wget -O - http://dl.rozofs.org/deb/devel@rozofs.com.gpg.key <span class="p">|</span> apt-key add -
 </pre></div>
 </div>
 </div>
-<div class="section" id="add-release-packages">
-<h4>Add Release Packages<a class="headerlink" href="#add-release-packages" title="Permalink to this headline">¶</a></h4>
-<p>For the lastest stable release :</p>
-<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span><span class="nb">echo </span>deb http://54.225.196.202/debian/master <span class="k">$(</span>lsb_release -sc<span class="k">)</span> main | tee /etc/apt/sources.list.d/rozofs.list
+<div class="section" id="add-the-repository">
+<h4>Add the repository<a class="headerlink" href="#add-the-repository" title="Permalink to this headline">¶</a></h4>
+<p>For the lastest stable release:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span><span class="nb">echo </span>deb http://dl.rozofs.org/deb/master <span class="k">$(</span>lsb_release -sc<span class="k">)</span> main <span class="p">|</span> tee /etc/apt/sources.list.d/rozofs.list
 </pre></div>
 </div>
-<p>For the lastest development release :</p>
-<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span><span class="nb">echo </span>deb http://54.225.196.202/debian/develop <span class="k">$(</span>lsb_release -sc<span class="k">)</span> main | tee /etc/apt/sources.list.d/rozofs.list
+<p>For the lastest development release:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span><span class="nb">echo </span>deb http://dl.rozofs.org/deb/develop <span class="k">$(</span>lsb_release -sc<span class="k">)</span> main <span class="p">|</span> tee /etc/apt/sources.list.d/rozofs.list
 </pre></div>
 </div>
 </div>
@@ -173,14 +186,54 @@ be installed on each node involved in a RozoFS platform:</p>
 <span class="nv">$ </span>apt-get install rozofs-storaged
 <span class="nv">$ </span>apt-get install rozofs-exportd
 <span class="nv">$ </span>apt-get install rozofs-rozofsmount
-<span class="nv">$ </span>apt-get install rozofs-rprof
-<span class="nv">$ </span>apt-get install rozofs-rozodiag
 </pre></div>
 </div>
 <p>To help and automate management:</p>
 <div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>apt-get install rozofs-manager-lib
 <span class="nv">$ </span>apt-get install rozofs-manager-cli
 <span class="nv">$ </span>apt-get install rozofs-manager-agent
+</pre></div>
+</div>
+<p>To monitor and to get statistics:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>apt-get install rozofs-rozodiag
+<span class="nv">$ </span>apt-get install nagios-plugins-rozofs
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="yum-for-centos-rhel">
+<h3>Yum for CentOS (RHEL)<a class="headerlink" href="#yum-for-centos-rhel" title="Permalink to this headline">¶</a></h3>
+<p>Tested on the following OS:</p>
+<ul class="simple">
+<li>CentOS 6 (<em>el6</em>), 7 (<em>el7</em>)</li>
+</ul>
+<div class="section" id="install-repository-package">
+<h4>Install repository package<a class="headerlink" href="#install-repository-package" title="Permalink to this headline">¶</a></h4>
+<p>For the lastest stable release on <em>el7</em>:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>yum install http://dl.rozofs.org/rpms/master/el7/noarch/repo-rozofs-master-1.0-1.el7.noarch.rpm
+</pre></div>
+</div>
+<p>For the lastest development release on <em>el7</em>:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>yum install http://dl.rozofs.org/rpms/develop/el7/noarch/repo-rozofs-develop-1.0-1.el7.noarch.rpm
+</pre></div>
+</div>
+</div>
+<div class="section" id="id1">
+<h4>Install Packages<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h4>
+<p>On each node involved in a RozoFS platform:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>yum install rozofs-storaged
+<span class="nv">$ </span>yum install rozofs-exportd
+<span class="nv">$ </span>yum install rozofs-rozofsmount
+</pre></div>
+</div>
+<p>To help and automate management:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>yum install rozofs-manager-lib
+<span class="nv">$ </span>yum install rozofs-manager-cli
+<span class="nv">$ </span>yum install rozofs-manager-agent
+</pre></div>
+</div>
+<p>To monitor and to get statistics:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>yum install rozofs-rozodiag
 </pre></div>
 </div>
 </div>
@@ -197,16 +250,16 @@ libraries and tools. RozoFS uses the cross-platform build system
 <strong>cmake</strong> to get you started quickly. RozoFS <strong>dependencies</strong> are the
 following:</p>
 <ul class="simple">
-<li><tt class="docutils literal"><span class="pre">cmake</span></tt></li>
-<li><tt class="docutils literal"><span class="pre">libattr1-dev</span></tt></li>
-<li><tt class="docutils literal"><span class="pre">uuid-dev</span></tt></li>
-<li><tt class="docutils literal"><span class="pre">libconfig-dev</span></tt></li>
-<li><tt class="docutils literal"><span class="pre">libfuse-dev</span></tt></li>
-<li><tt class="docutils literal"><span class="pre">libreadline-dev</span></tt></li>
-<li><tt class="docutils literal"><span class="pre">python2.6-dev</span></tt></li>
-<li><tt class="docutils literal"><span class="pre">libpthread</span></tt></li>
-<li><tt class="docutils literal"><span class="pre">libcrypt</span></tt></li>
-<li><tt class="docutils literal"><span class="pre">swig</span></tt></li>
+<li><code class="docutils literal"><span class="pre">cmake</span></code></li>
+<li><code class="docutils literal"><span class="pre">libattr1-dev</span></code></li>
+<li><code class="docutils literal"><span class="pre">uuid-dev</span></code></li>
+<li><code class="docutils literal"><span class="pre">libconfig-dev</span></code></li>
+<li><code class="docutils literal"><span class="pre">libfuse-dev</span></code></li>
+<li><code class="docutils literal"><span class="pre">libreadline-dev</span></code></li>
+<li><code class="docutils literal"><span class="pre">python2.7-dev</span></code></li>
+<li><code class="docutils literal"><span class="pre">libpthread</span></code></li>
+<li><code class="docutils literal"><span class="pre">libcrypt</span></code></li>
+<li><code class="docutils literal"><span class="pre">swig</span></code></li>
 </ul>
 </div>
 <div class="section" id="build-the-source">
@@ -214,12 +267,12 @@ following:</p>
 <p>Once the required packages are installed on your appropriate system, you
 can generate the build configuration with the following commands (using
 default values compiles RozoFS in Release mode and installs it on
-<tt class="docutils literal"><span class="pre">/usr/local</span></tt>) :</p>
+<code class="docutils literal"><span class="pre">/usr/local</span></code>) :</p>
 <div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>cmake -G <span class="s2">&quot;Unix Makefiles&quot;</span> ..
 
 -- The C compiler identification is GNU
--- Check <span class="k">for </span>working C compiler: /usr/bin/gcc
--- Check <span class="k">for </span>working C caompiler: /usr/bin/gcc -- works
+-- Check <span class="k">for</span> working C compiler: /usr/bin/gcc
+-- Check <span class="k">for</span> working C caompiler: /usr/bin/gcc -- works
 -- Detecting C compiler ABI info
 -- Detecting C compiler ABI info - <span class="k">done</span>
 -- Configuring <span class="k">done</span>
@@ -230,7 +283,7 @@ default values compiles RozoFS in Release mode and installs it on
 </pre></div>
 </div>
 <p>If you use default values, make will place the executables in
-<tt class="docutils literal"><span class="pre">/usr/local/bin</span></tt>, build options (CMAKE_INSTALL_PREFIX,
+<code class="docutils literal"><span class="pre">/usr/local/bin</span></code>, build options (CMAKE_INSTALL_PREFIX,
 CMAKE_BUILD_TYPE...) of generated build tree can be modified with the
 following command :</p>
 <div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>make edit_cache
@@ -258,7 +311,7 @@ following command :</p>
 
   <div role="contentinfo">
     <p>
-        &copy; Copyright 2014, Fizians SAS.
+        &copy; Copyright 2015, Rozo Systems S.A.S.
     </p>
   </div>
 
@@ -277,8 +330,8 @@ following command :</p>
 
     <script type="text/javascript">
         var DOCUMENTATION_OPTIONS = {
-            URL_ROOT:'',
-            VERSION:'1.4.0',
+            URL_ROOT:'./',
+            VERSION:'2.0.0',
             COLLAPSE_INDEX:false,
             FILE_SUFFIX:'.html',
             HAS_SOURCE:  true

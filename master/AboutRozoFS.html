@@ -1,6 +1,5 @@
 
 
-
 <!DOCTYPE html>
 <!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
 <!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
@@ -8,7 +7,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>About RozoFS &mdash; RozoFS User&#39;s Guide 1.4.0 documentation</title>
+  <title>About RozoFS &mdash; RozoFS User&#39;s Guide 2.0.0 documentation</title>
   
 
   
@@ -29,7 +28,7 @@
   
 
   
-    <link rel="top" title="RozoFS User&#39;s Guide 1.4.0 documentation" href="index.html"/>
+    <link rel="top" title="RozoFS User&#39;s Guide 2.0.0 documentation" href="index.html"/>
         <link rel="next" title="Installing RozoFS" href="InstallingRozoFS.html"/>
         <link rel="prev" title="Welcome to RozoFS’s documentation!" href="index.html"/> 
 
@@ -78,7 +77,12 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="WorkingWithRozoFS.html">Working with RozoFS</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="WorkingWithRozoFS.html#manual-managing-of-rozofs-services">Manual Managing of RozoFS Services</a></li>
-<li class="toctree-l2"><a class="reference internal" href="WorkingWithRozoFS.html#using-the-rozo-console-manager">Using the Rozo Console Manager</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="ConfiguringRozoFSWithRozoCLI.html">Configuring RozoFS using the Rozo CLI</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="ConfiguringRozoFSWithRozoCLI.html#about-rozo-cli">About rozo CLI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ConfiguringRozoFSWithRozoCLI.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ConfiguringRozoFSWithRozoCLI.html#basic-commands">Basic Commands</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="Monitoring.html">Monitoring</a><ul>
@@ -244,9 +248,9 @@ volume that can be managed through resizable quotas (hard and soft).</p>
 </div>
 <div class="section" id="the-rozofsmount-clients">
 <h3>The rozofsmount clients<a class="headerlink" href="#the-rozofsmount-clients" title="Permalink to this headline">¶</a></h3>
-<p><tt class="docutils literal"><span class="pre">rozofsmount</span></tt> allows users to <strong>mount an export</strong> of the RozoFS file
+<p><code class="docutils literal"><span class="pre">rozofsmount</span></code> allows users to <strong>mount an export</strong> of the RozoFS file
 system on a local directory using the FUSE library. Once the file system
-is mounted, RozoFS usage is transparent to the user. <tt class="docutils literal"><span class="pre">rozofsmount</span></tt> is
+is mounted, RozoFS usage is transparent to the user. <code class="docutils literal"><span class="pre">rozofsmount</span></code> is
 responsible for data transformation and determines a set of storage
 servers for read and write operations.</p>
 </div>
@@ -393,7 +397,7 @@ decoding is low as well as the storage overhead.</p>
 
   <div role="contentinfo">
     <p>
-        &copy; Copyright 2014, Fizians SAS.
+        &copy; Copyright 2015, Rozo Systems S.A.S.
     </p>
   </div>
 
@@ -412,8 +416,8 @@ decoding is low as well as the storage overhead.</p>
 
     <script type="text/javascript">
         var DOCUMENTATION_OPTIONS = {
-            URL_ROOT:'',
-            VERSION:'1.4.0',
+            URL_ROOT:'./',
+            VERSION:'2.0.0',
             COLLAPSE_INDEX:false,
             FILE_SUFFIX:'.html',
             HAS_SOURCE:  true

@@ -1,0 +1,1467 @@
+
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>Monitoring &mdash; RozoFS User&#39;s Guide 1.4.0 documentation</title>
+  
+
+  
+  
+
+  
+  <link href='https://fonts.googleapis.com/css?family=Lato:400,700,400italic,700italic|Roboto+Slab:400,700|Inconsolata:400,700' rel='stylesheet' type='text/css'>
+
+  
+  
+    
+
+  
+
+  
+  
+    <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+  
+
+  
+    <link rel="top" title="RozoFS User&#39;s Guide 1.4.0 documentation" href="index.html"/>
+        <link rel="prev" title="Working with RozoFS" href="WorkingWithRozoFS.html"/> 
+
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/modernizr/2.6.2/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-nav-search">
+        <a href="index.html" class="fa fa-home"> RozoFS User's Guide</a>
+        <div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+        
+        
+            <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="AboutRozoFS.html">About RozoFS</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="AboutRozoFS.html#rozofs-fundamentals">RozoFS Fundamentals</a></li>
+<li class="toctree-l2"><a class="reference internal" href="AboutRozoFS.html#rozofs-data-flow">RozoFS Data Flow</a></li>
+<li class="toctree-l2"><a class="reference internal" href="AboutRozoFS.html#rozofs-data-protection">RozoFS Data Protection</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="InstallingRozoFS.html">Installing RozoFS</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="InstallingRozoFS.html#installing-rozofs-from-binary-packages">Installing RozoFS from Binary Packages</a></li>
+<li class="toctree-l2"><a class="reference internal" href="InstallingRozoFS.html#building-and-installing-from-sources">Building and Installing from Sources</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="SettingUpRozoFS.html">Setting up RozoFS</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="SettingUpRozoFS.html#networking-considerations">Networking Considerations</a></li>
+<li class="toctree-l2"><a class="reference internal" href="SettingUpRozoFS.html#preparing-nodes">Preparing Nodes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="SettingUpRozoFS.html#configuration-files">Configuration Files</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="WorkingWithRozoFS.html">Working with RozoFS</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="WorkingWithRozoFS.html#manual-managing-of-rozofs-services">Manual Managing of RozoFS Services</a></li>
+<li class="toctree-l2"><a class="reference internal" href="WorkingWithRozoFS.html#using-the-rozo-console-manager">Using the Rozo Console Manager</a></li>
+</ul>
+</li>
+<li class="toctree-l1 current"><a class="current reference internal" href="">Monitoring</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="#rozodiag-tools">Rozodiag tools</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#rozofs-nagios-plugins">RozoFS Nagios Plugins</a></li>
+</ul>
+</li>
+</ul>
+
+        
+      </div>
+      &nbsp;
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="index.html">RozoFS User's Guide</a>
+      </nav>
+
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="index.html">Docs</a> &raquo;</li>
+      
+    <li>Monitoring</li>
+      <li class="wy-breadcrumbs-aside">
+        
+          <a href="_sources/Monitoring.txt" rel="nofollow"> View page source</a>
+        
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main">
+            
+  <div class="section" id="monitoring">
+<h1>Monitoring<a class="headerlink" href="#monitoring" title="Permalink to this headline">¶</a></h1>
+<p>RozoFS comes with a command line tool called <tt class="docutils literal"><span class="pre">rozodiag</span></tt> that lets the
+RozoFS administrator access a huge amount of <strong>statistics</strong>. Even though
+these statistics are very helpful for troubleshooting and for diagnostic
+(see section below) they might be far too detailed for an everyday
+usage. For that purpose Fizians provides a simplified approach: <em>nagios
+modules</em>. The <tt class="docutils literal"><span class="pre">rozodiag</span></tt> application is used by Nagios scripts to
+provide high level informations related to the system health. The
+communication with <tt class="docutils literal"><span class="pre">rozodiag</span></tt> is achieved thanks to TCP.</p>
+<div class="section" id="rozodiag-tools">
+<h2>Rozodiag tools<a class="headerlink" href="#rozodiag-tools" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="introduction">
+<h3>Introduction<a class="headerlink" href="#introduction" title="Permalink to this headline">¶</a></h3>
+<p><tt class="docutils literal"><span class="pre">rozodiag</span></tt> is an utilitary whose role is to provide statistics about
+various resources of the RozoFS solution. Its goal is to provide
+information that permits to observe the internals of each process and to
+help in troubeshooting the RozoFS solution. The main information
+provided by <tt class="docutils literal"><span class="pre">rozodiag</span></tt> are:</p>
+<ul class="simple">
+<li>pseudo tasks statistics (activation times and average CPU time)</li>
+<li>various statistics about disk read/write and truncate requests</li>
+<li>TCP connections states and send/receive statistics</li>
+<li>internal buffer resources statistics</li>
+<li>per metadata services statistics</li>
+<li><em>FUSE</em> statistics</li>
+<li>etc..</li>
+</ul>
+<p>There is one <em>rozodiag</em> agent on each process of the RozoFS solution.</p>
+<div class="figure align-center">
+<img alt="" src="_images/rozodiag-overview.png" />
+</div>
+<p>The communication between <em>rozodiag</em> client and <em>rozodiag</em> agent is
+based on TCP. There is a predefined set of TCP ports that are reserved
+for the communication with the <em>rozodiag</em> agent. To address one
+<em>rozodiag</em> agent the client should provide the IP address of the
+<em>rozodiag</em> agent and the TCP port number of the target process
+(<em>rozofsmount</em>, <em>storcli</em>, <em>exportd</em>, etc...).</p>
+</div>
+<div class="section" id="list-of-the-rozodiag-agent-ports">
+<h3>List of the rozodiag agent ports<a class="headerlink" href="#list-of-the-rozodiag-agent-ports" title="Permalink to this headline">¶</a></h3>
+<p>The based TCP port for the <em>rozodiag</em> service is <strong>50000</strong>.</p>
+<div class="section" id="exportd-node">
+<h4>exportd node<a class="headerlink" href="#exportd-node" title="Permalink to this headline">¶</a></h4>
+<p>It is assumed that there is one <em>exportd</em> process per <em>exportd</em> node,
+one <em>exportd</em> process supporting more than one exported file system. The
+port value is the following:</p>
+<ul class="simple">
+<li><em>exportd</em>: <strong>50000</strong></li>
+</ul>
+</div>
+<div class="section" id="rozofs-client-node">
+<h4>RozoFS client node<a class="headerlink" href="#rozofs-client-node" title="Permalink to this headline">¶</a></h4>
+<p>There are 3 processes for one RozoFS client: <em>rozofsmount</em> and two
+<em>storcli</em> processes.</p>
+<p>It might be possible to instanciate more than one RozoFS Client on one
+RozoFS client node, as a consequence the port numbering includes the
+RozoFS client instance.</p>
+<p>The following port numbers are given for the instance 0:</p>
+<ul class="simple">
+<li><em>rozofsmount</em>: <strong>50003</strong> (50003 + 3 * client_instance_id)</li>
+<li><em>storcli-1</em>: <strong>50004</strong> (50004 + 3 * client_instance_id)</li>
+<li><em>storcli-2</em>: <strong>50005</strong> (50005 + 3 * client_instance_id)</li>
+</ul>
+</div>
+<div class="section" id="storaged-node">
+<h4>storaged node<a class="headerlink" href="#storaged-node" title="Permalink to this headline">¶</a></h4>
+<p>There is one <em>storaged</em> process (its role is to provided volume
+occupancy, file deletion,..) and several <em>storio</em> processes that are
+responsible of the low level disk operations (read, write and
+truncated). For the case of the <em>storio</em>, the port value depends on the
+<em>storio</em> instance identifier. The port values are the following:</p>
+<ul class="simple">
+<li><em>storaged</em>: <strong>50027</strong></li>
+<li><em>storio-0</em>: <strong>50028</strong> (50028 + storio_instance_id)</li>
+<li><em>storio-1</em>: <strong>50029</strong> (50028 + storio_instance_id)</li>
+</ul>
+</div>
+</div>
+<div class="section" id="rozodiag-usage">
+<h3>rozodiag usage<a class="headerlink" href="#rozodiag-usage" title="Permalink to this headline">¶</a></h3>
+<p>The following section provides the help of the <tt class="docutils literal"><span class="pre">rozodiag</span></tt> utilitary.</p>
+<p>Here is the menu of <tt class="docutils literal"><span class="pre">rozodiag</span></tt>. An external application can
+communicate with any component of RozoFS by providing the IP address and
+the RozoFS well-known <em>rozodiag</em> port associated with the component.</p>
+<div class="highlight-python"><pre>rozodiag [-i &lt;hostname&gt;] -p &lt;port&gt; [-c &lt;cmd&gt;] [-f &lt;cmd file&gt;] [-period &lt;s&gt;] [-t &lt;s&gt;]
+-i &lt;hostname&gt;           destination IP address or hostname of the debug server
+                        default is 127.0.0.1
+-p &lt;port&gt;               destination port number of the debug server
+                        mandatory parameter
+-c &lt;cmd|all&gt;            command to run in one shot or periodically (-period)
+                        several -c options can be set
+-f &lt;cmd file&gt;           command file to run in one shot or periodically (-period)
+                        several -f options can be set
+-period &lt;seconds&gt;       periodicity for running commands using -c or/and -f options
+-t &lt;seconds&gt;            timeout value to wait for a response (default 4 seconds)</pre>
+</div>
+<p><tt class="docutils literal"><span class="pre">rozodiag</span></tt> can operates in <strong>interactive mode</strong> or <strong>one shot mode</strong>:</p>
+<ul>
+<li><p class="first"><strong>Interactive mode</strong>:</p>
+<p>In that case we just need to provide the IP address and the TCP of
+<em>rozodiag</em> agent Once the TCP connection is established, the
+<em>rozodiag</em> agent displays the process&#8217;s dedicated prompt and then
+waits for a command to be entered.</p>
+<div class="highlight-python"><pre># rozodiag -p 50004
+system : storcli 1 of rozofsmount 0
+_________________________________________________________
+storcli 1 of rozofsmount 0&gt;</pre>
+</div>
+<p>Pressing the enter key provides the list of supported commands of the
+current <em>rozodiag</em> agent:</p>
+<div class="highlight-python"><pre>List of available topics :
+  af_unix
+  buffer
+  config_status
+  cpu
+  lbg
+  lbg_entries
+  profiler
+  ps
+  shaper
+  shared_mem
+  start_config
+  storaged_status
+  storcli_buf
+  system
+  tcp_info
+  tmr_default
+  tmr_set
+  tmr_show
+  trx
+  uptime
+  version
+  who
+  exit / quit / q</pre>
+</div>
+<p>Enter the <tt class="docutils literal"><span class="pre">exit</span></tt>, <tt class="docutils literal"><span class="pre">quit</span></tt> or <tt class="docutils literal"><span class="pre">q</span></tt> command (topic) to exit from
+the <em>rozodiag</em> agent.</p>
+</li>
+<li><p class="first"><strong>One shot mode</strong>:</p>
+<p>The one shot mode is used when <tt class="docutils literal"><span class="pre">rozodiag</span></tt> is invoked with the -c
+option. In that case the client opens the TCP connection, sends the
+commands to the <em>rozodiag</em> agent and finally closes the TCP
+connection.</p>
+<p>Here is an example where the <tt class="docutils literal"><span class="pre">cpu</span></tt> and <tt class="docutils literal"><span class="pre">buffer</span></tt> commands are
+combined:</p>
+<div class="highlight-python"><pre># rozodiag -p 50004 -c cpu -c buffer
+
+select max cpu time : 1000 us
+application                      sock  last  cumulated activation  average
+name                               nb   cpu        cpu      times      cpu  prio
+TMR_SOCK_XMIT                       4     0          0          0        0    0
+TMR_SOCK_RECV                       6    61       2061         31       66    0
+CNF_SOCK_XMIT                      15     0          0          0        0    0
+CNF_SOCK_RECV                      16     0          0          0        0    0
+DBG SERVER                         18    60         60          1       60    1
+C:localhost1/192.168.2.1:41000     21     0          0          0        0    3
+C:localhost2/192.168.2.2:41000     22     0          0          0        0    3
+C:localhost3/192.168.2.3:41000     23     0          0          0        0    3
+C:localhost4/192.168.2.4:41000     24     0          0          0        0    3
+L[U]:STORCLI_NORTH                 20     0          0          0        0    3
+A:STORCLI_NORTH                    26     0          0          0        0    3
+DBG 127.0.0.1                      27     0          0          0        0    2
+scheduler                           0     0          0          0        0
+NorthSmall - user data addr/len       0x17d55cc0 /    49152 - nb buff  48/ 48 size   1024
+NorthLarge - user data addr/len   0x2aaaab69e010 / 12681216 - nb buff  48/ 48 size 264192
+SouthSmall - user data addr/len       0x17d65010 /        4 - nb buff   1/  1 size      4
+SouthLarge - user data addr/len   0x2aaaac2e6010 /125829120 - nb buff 768/768 size 163840
+TxXmitSmall - user data addr/len       0x17d652a0 /        4 - nb buff   1/  1 size      4
+TxXmitLarge - user data addr/len       0x17d654c0 /        4 - nb buff   1/  1 size      4
+TxRcvSmall - user data addr/len       0x17d656e0 /        4 - nb buff   1/  1 size      4
+TxRcvLarge - user data addr/len   0x2aaab3b48010 /125829120 - nb buff 768/768 size 163840</pre>
+</div>
+</li>
+</ul>
+</div>
+<div class="section" id="common-rozodiag-commands">
+<h3>Common rozodiag commands<a class="headerlink" href="#common-rozodiag-commands" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="rpc-buffer-pools-statistics">
+<h4>RPC buffer pools statistics<a class="headerlink" href="#rpc-buffer-pools-statistics" title="Permalink to this headline">¶</a></h4>
+<p><strong>buffer command</strong></p>
+<p>That commands provides statistics related the buffer pools used by a
+process.</p>
+<p>The set of buffer pool is process dependant.</p>
+<p>Output example:</p>
+<div class="highlight-python"><pre>storcli 1 of rozofsmount 0&gt; buffer
+  NorthSmall - user data addr/len       0x17d55cc0 /    49152 - nb buff  48/ 48 size   1024
+  NorthLarge - user data addr/len   0x2aaaab69e010 / 12681216 - nb buff  48/ 48 size 264192
+  SouthSmall - user data addr/len       0x17d65010 /        4 - nb buff   1/  1 size      4
+  SouthLarge - user data addr/len   0x2aaaac2e6010 /125829120 - nb buff 768/768 size 163840
+ TxXmitSmall - user data addr/len       0x17d652a0 /        4 - nb buff   1/  1 size      4
+ TxXmitLarge - user data addr/len       0x17d654c0 /        4 - nb buff   1/  1 size      4
+  TxRcvSmall - user data addr/len       0x17d656e0 /        4 - nb buff   1/  1 size      4
+  TxRcvLarge - user data addr/len   0x2aaab3b48010 /125829120 - nb buff 768/768 size 163840</pre>
+</div>
+</div>
+<div class="section" id="configuration-status-of-the-process">
+<h4>Configuration status of the process<a class="headerlink" href="#configuration-status-of-the-process" title="Permalink to this headline">¶</a></h4>
+<p><strong>config_status command</strong></p>
+<p>That command is accessible for each process that needs a configuration
+synchronization with the <em>exportd</em> (typically the <em>storcli</em> process).</p>
+<p>Output example:</p>
+<div class="highlight-python"><pre>storcli 1 of rozofsmount 0&gt; config_status
+root path    :/root/rozofs_git/develop_storio/tests/export_1  (eid:1)
+exportd host : localhost
+hash config  : 0x7ead7b85
+     hostname        |  socket  | state  | cnf. status |  poll (attps/ok/nok) | conf send (attps/ok/nok)
+---------------------+----------+--------+-------------+----------------------+--------------------------
+           localhost |   19     |  UP    | SYNCED      | 001277/001277/000000 | 000001/000001/000000</pre>
+</div>
+<p><strong>Field names:</strong></p>
+<ul class="simple">
+<li><strong>root path</strong>: root pathname of the export associated with the
+process.</li>
+<li><strong>hash config</strong>: current hash value of the configuration file. When
+the process detects that its current hash value is not the same as
+the one of its associated exportd, it has to reload the configuration
+from the exportd.</li>
+<li><strong>cnf. status</strong>: when the current configuration is synced with the
+one of the exportd, the state is SYNCED, otherwise the state is NOT
+SYNCED.</li>
+<li><strong>poll</strong>: in order to detect a change of configuration, the process
+polls the exportd. Rozodiag provides statistics about the number of
+poll attempts. When the &#8220;nok&#8221; counter is incremented, it is an
+indication of communication failure with the export: either the
+exportd is down or is unreachable.</li>
+<li><strong>conf send</strong>: that counter is an indication of the number of times
+the configuration has changed since the start-up of the process.</li>
+</ul>
+</div>
+<div class="section" id="storcli-pseudo-tasks-statistics">
+<h4>Storcli pseudo tasks statistics<a class="headerlink" href="#storcli-pseudo-tasks-statistics" title="Permalink to this headline">¶</a></h4>
+<p><strong>cpu command</strong></p>
+<p>The goal of that service is to display statistics related to the pseudo
+tasks associated with a dedicated process of the RozoFS solution.</p>
+<p>Example with the case of the <em>exportd</em>:</p>
+<div class="highlight-python"><pre>rozofsmount 0&gt; cpu
+select max cpu time : 4089125414 us
+application                      sock       last  cumulated activation    average
+name                               nb        cpu        cpu      times        cpu  prio
+TMR_SOCK_XMIT                       8          0          0          0          0    0
+TMR_SOCK_RECV                       9          0     264236       4014         65    0
+CNF_SOCK_XMIT                      10          0          0          0          0    0
+CNF_SOCK_RECV                      11          0          0          0          0    0
+C:EXPORTD/127.0.0.1:606            12          0      12022         37        324    3
+DBG SERVER                         13          0       1092          2        546    1
+rozofs_fuse                         5          0      40536         38       1066    3
+C:EXPORTD/127.0.0.1:606            14       1000       1704         14        121    3
+DBG 127.0.0.1                       6          0          0          1          0    2
+C:STORCLI_1                        15          0          0          1          0    3
+L[U]:ROZO_DIRECT                   17          0          0          0          0    3
+scheduler                           0          0          0          0          0</pre>
+</div>
+<p><strong>Field names:</strong></p>
+<ul class="simple">
+<li><strong>sock nb</strong>: index of the socket used by the application (local to
+the process).</li>
+<li><strong>last cpu</strong>: last activation cpu time in microseconds.</li>
+<li><strong>cumulated cpu</strong>: cumulative cpu time in microseconds since the last
+cpu command interrogation.</li>
+<li><strong>activation times</strong>: number of activation since the last cpu command
+interrogation.</li>
+<li><strong>average cpu</strong>: average cpu time in microseconds since the last cpu
+command interrogation.</li>
+<li><strong>prio</strong>: internal priority of the pseudo task.</li>
+</ul>
+</div>
+<div class="section" id="detailed-statistics-of-load-balancing-group">
+<h4>Detailed statistics of load balancing group<a class="headerlink" href="#detailed-statistics-of-load-balancing-group" title="Permalink to this headline">¶</a></h4>
+<p><strong>lbg command</strong></p>
+<p>That command provides the detailed statistics for all the members of a
+load balancing group.</p>
+<p>Output example:</p>
+<div class="highlight-python"><pre>storcli 1 of rozofsmount 0&gt; lbg
+number of North Load Balancer contexts [size](initial/allocated) :[8984] 64/4
+NAME: localhost1                                 UP
+      local/remote             : local
+      size                     :            1
+      total Up/Down Transitions:            1
+      Main Queue               : EMPTY
+   Entry[0]
+       state                    :         UP
+       Queue_entry              : EMPTY
+       Cnx  Attempts            :            0
+       Xmit messages            :           50
+       Recv messages            :           50
+       Xmit Perf. (count/time)  : 50 / 598 us / cumul 29949 us
+  Cumulated
+       total Xmit messages      :           50
+       Main Xmit Queue Len      :            0
+       total Xmit retries       :            0
+       total Xmit aborted       :            0
+       total Xmit error         :            0
+       total Recv messages      :           50</pre>
+</div>
+</div>
+<div class="section" id="short-statistics-of-load-balancing-group">
+<h4>Short statistics of load balancing group<a class="headerlink" href="#short-statistics-of-load-balancing-group" title="Permalink to this headline">¶</a></h4>
+<p><strong>lbg_entries command</strong></p>
+<p>That command provides short statistics about the configured load
+balancing group of a process.</p>
+<p>Output example:</p>
+<div class="highlight-python"><pre>storcli 1 of rozofsmount 0&gt; lbg_entries
+  LBG Name                | lbg_id | idx  | sock |    state   |   Queue   | Cnx Attpts | Xmit Attpts | Recv count  |
+--------------------------+--------+------+------+------------+-----------+------------+-------------+-------------+
+ localhost1               |     0  |   0  |   21 |         UP |     EMPTY |          0 |          50 |          50 |
+ localhost2               |     1  |   0  |   22 |         UP |     EMPTY |          0 |          25 |          25 |
+ localhost3               |     2  |   0  |   23 |         UP |     EMPTY |          0 |          50 |          50 |
+ localhost4               |     3  |   0  |   24 |         UP |     EMPTY |          0 |           0 |           0 |</pre>
+</div>
+</div>
+<div class="section" id="process-information">
+<h4>Process information<a class="headerlink" href="#process-information" title="Permalink to this headline">¶</a></h4>
+<p><strong>ps&nbsp;command</strong></p>
+<p>That command provides the process information equivalent to <tt class="docutils literal"><span class="pre">ps</span> <span class="pre">-ef</span></tt>.</p>
+<p>Output example:</p>
+<div class="highlight-python"><pre>storcli 1 of rozofsmount 0&gt; ps
+  PID CPU     ELAPSED    VSZ COMMAND
+  935  0.0       56:32 365828 storcli -i 1 -H localhost -E /root/rozofs_git/develop_storio/tests/export_1
+                                      -M /root/rozofs_git/develop_storio/tests/mnt1 -D 50004 -R 0
+                                      --nbcores 4 --shaper 0 -s 4 -k 1380932144 -l 263168 -c 32</pre>
+</div>
+</div>
+<div class="section" id="tcp-connections-statistics">
+<h4>TCP connections statistics<a class="headerlink" href="#tcp-connections-statistics" title="Permalink to this headline">¶</a></h4>
+<p>That command provides a subset of the statistics of TCP connection as
+returned by <tt class="docutils literal"><span class="pre">getsockopt()</span></tt> with the option TCP_INFO.</p>
+<p>Output example:</p>
+<div class="highlight-python"><pre>storcli 1 of rozofsmount 0&gt; tcp_info
+  State      | Avail.|sock      |  retrans | probes   |  rto     | snd_mss  |  rcv_mss | unacked  |  lost    | retrans  |last_sent |   rtt    |
+-------------+-------+----------+----------+----------+----------+----------+----------+----------+----------+----------+----------+----------+
+ ESTABLISHED |   YES |       21 |        0 |        0 |   202000 |    16384 |    16384 |        0 |        0 |        0 |   440411 |     2500 |
+ ESTABLISHED |   YES |       22 |        0 |        0 |   201000 |    16384 |      536 |        0 |        0 |        0 |   447569 |     1875 |
+ ESTABLISHED |   YES |       23 |        0 |        0 |   201000 |    16384 |    16384 |        0 |        0 |        0 |   440411 |     1875 |
+ ESTABLISHED |   YES |       24 |        0 |        0 |   201000 |    16384 |      536 |        0 |        0 |        0 |  4132385 |     1000 |</pre>
+</div>
+<p><strong>Field names:</strong></p>
+<ul class="simple">
+<li><strong>state nb</strong>: current state of the TCP connection.</li>
+<li><strong>Avail.</strong>: availability status of the TCP connection.</li>
+</ul>
+<p>The status reflects the availability as seen by a RozoFS process.</p>
+<p>In fact, in order react quickly to a change of state, RozoFS processes
+implement a polling mechanism at RPC level to detect the availability of
+the remote end. As a consequence, even if the TCP layer reports an
+ESTABLISHED state, a RozoFS process might decide to not use the TCP
+connection because of a lack of polling response.</p>
+</div>
+<div class="section" id="rpc-transactions-statistics">
+<h4>RPC transactions statistics<a class="headerlink" href="#rpc-transactions-statistics" title="Permalink to this headline">¶</a></h4>
+<p><strong>trx command</strong></p>
+<p>That command provides statistics about the transactions contexts used
+for RPC (Remote Procedure Call).</p>
+<p>Output example:</p>
+<div class="highlight-python"><pre>storcli 1 of rozofsmount 0&gt; trx
+number of transaction contexts (initial/allocated) : 768/0
+context size (bytes)                               : 264
+Total memory size (bytes)                          : 202752
+Statistics
+TX_SEND           :          3
+TX_SEND_ERR       :          0
+TX_RECV_OK        :          3
+TX_RECV_OUT_SEQ   :          0
+TX_TIMEOUT        :          0
+TX_ENCODING_ERROR :          0
+TX_DECODING_ERROR :          0
+TX_CTX_MISMATCH   :          0
+TX_NO_CTX_ERROR   :          0
+TX_NO_BUFFER_ERROR:          0
+Buffer Pool (name[size] :initial/current
+Xmit Buffer
+  small[     1]  :      1/1
+  large[     1]  :      1/1
+Recv Buffer
+  small[     1]  :      1/1
+  large[163840]  :    768/768</pre>
+</div>
+<p><strong>Field names:</strong></p>
+<ul class="simple">
+<li><strong>TX_SEND</strong>: number of initiated transactions.</li>
+<li><strong>TX_SEND_ERR</strong>: that counter is incremented each time there is an
+error while attempting to initiate a transaction.</li>
+<li><strong>TX_RECV_OK</strong>: count of transactions received with no error</li>
+<li><strong>TX_RECV_OUT_SEQ</strong>: number of received transactions that are out
+of sequence. Typically the case when a response is received after the
+expiration of the time-out associated with a transaction.</li>
+<li><strong>TX_TIMEOUT</strong>: number of times the guard timer associated with a
+transaction has expired.</li>
+<li><strong>TX_ENCODING_ERROR RPC</strong>: encoding error counter.</li>
+<li><strong>RX_ENCODING_ERROR RPC</strong>: decoding error counter.</li>
+<li><strong>TX_CTX_MISMATCH</strong>: that counter is incremented each there is
+mismatched between the transaction id of a response and its
+associated transaction context.</li>
+<li><strong>TX_NO_CTX_ERROR</strong>: that counter is incremented each time the
+transaction pool runs out of transaction context.</li>
+<li><strong>TX_NO_BUFFER_ERROR</strong>: that counter is incremented each time a
+buffer pool runs out of buffer.</li>
+</ul>
+</div>
+<div class="section" id="process-uptime">
+<h4>Process Uptime<a class="headerlink" href="#process-uptime" title="Permalink to this headline">¶</a></h4>
+<p><strong>uptime command</strong></p>
+<p>That command provides the uptime of the process.</p>
+<p>Output example:</p>
+<div class="highlight-python"><pre>storcli 1 of rozofsmount 0&gt; uptime
+uptime = 0 days, 0:58:55</pre>
+</div>
+</div>
+</div>
+<div class="section" id="rozodiag-commands-for-exportd">
+<h3>rozodiag commands for exportd<a class="headerlink" href="#rozodiag-commands-for-exportd" title="Permalink to this headline">¶</a></h3>
+<p>This section describes various <tt class="docutils literal"><span class="pre">rozodiag</span></tt> commands concerning the
+<em>exportd</em> process.</p>
+<div class="figure align-center">
+<img alt="" src="_images/rozodiag-exportd.png" />
+</div>
+<div class="section" id="file-locking-statistics">
+<h4>File locking statistics<a class="headerlink" href="#file-locking-statistics" title="Permalink to this headline">¶</a></h4>
+<p><strong>flock command</strong></p>
+<p>The following command provides the information relative to the file
+locking.</p>
+<p>Output example:</p>
+<div class="highlight-python"><pre>exportd 1 &gt; flock
+File lock statistics:
+  nb_file_lock         = 0
+  nb_client_file_lock  = 0
+  nb_lock_allocate     = 0
+  nb_lock_unlink       = 0
+  nb_add_client        = 0
+  nb_remove_client     = 0</pre>
+</div>
+</div>
+<div class="section" id="cache-attributes-statistics">
+<h4>Cache attributes statistics<a class="headerlink" href="#cache-attributes-statistics" title="Permalink to this headline">¶</a></h4>
+<p><strong>lv2_cache command</strong></p>
+<p>That command provides statistics related to the cache attributes of
+metadata server.</p>
+<p>Output example:</p>
+<div class="highlight-python"><pre>exportd 1 &gt; lv2_cache
+lv2 attributes cache : current/max 3/256
+hit 439 / miss 2 / lru_del 0
+entry size 160 - current size 480 - maximum size 40960</pre>
+</div>
+</div>
+<div class="section" id="metadata-operations-statistics">
+<h4>Metadata operations statistics<a class="headerlink" href="#metadata-operations-statistics" title="Permalink to this headline">¶</a></h4>
+<p><strong>profiler_short command: display of the metadata operations
+statistics</strong></p>
+<p>That command provides statistics all the metadata operations supported
+by the <em>exportd</em>.</p>
+<p>Output example:</p>
+<div class="highlight-python"><pre>exportd 1 &gt; profiler_short
+GPROFILER version 1.3.alpha8 uptime =  0 days, 16:25:14
+   procedure              |     count       |  time(us) | cumulated time(us) |     bytes       |
+--------------------------+-----------------+-----------+--------------------+-----------------+
+ ep_mount                 |               3 |       333 |               1000 |                 |
+ ep_umount                |               0 |         0 |                  0 |                 |
+ ep_statfs                |               1 |       111 |                111 |                 |
+ ep_lookup                |             403 |        64 |              26025 |                 |
+ ep_getattr               |              11 |       290 |               3194 |                 |
+ ep_setattr               |               0 |         0 |                  0 |                 |
+ ep_readlink              |               0 |         0 |                  0 |                 |
+ ep_mknod                 |               2 |      1750 |               3501 |                 |
+ ep_mkdir                 |               0 |         0 |                  0 |                 |
+ ep_unlink                |               0 |         0 |                  0 |                 |
+ ep_rmdir                 |               0 |         0 |                  0 |                 |
+ ep_symlink               |               0 |         0 |                  0 |                 |
+ ep_rename                |               0 |         0 |                  0 |                 |
+ ep_readdir               |               0 |         0 |                  0 |                 |
+ ep_read_block            |               0 |         0 |                  0 |               0 |
+ ep_write_block           |              25 |        74 |               1863 |         6394854 |
+ ep_link                  |               0 |         0 |                  0 |                 |
+ ep_setxattr              |               0 |         0 |                  0 |                 |
+ ep_getxattr              |               0 |         0 |                  0 |                 |
+ ep_removexattr           |               0 |         0 |                  0 |                 |
+ ep_listxattr             |               0 |         0 |                  0 |                 |
+ get_mdirentry            |             405 |        28 |              11449 |                 |
+ put_mdirentry            |               4 |      4704 |              18819 |                 |
+ del_mdirentry            |               0 |         0 |                  0 |                 |
+ list_mdirentries         |               0 |         0 |                  0 |                 |
+ gw_invalidate            |               0 |         0 |                  0 |                 |
+ gw_invalidate_all        |               0 |         0 |                  0 |                 |
+ gw_configuration         |               0 |         0 |                  0 |                 |
+ gw_poll                  |               0 |         0 |                  0 |                 |
+ ep_clearclient_flock     |               1 |         0 |                  0 |                 |
+ ep_clearowner_flock      |               0 |         0 |                  0 |                 |
+ ep_set_file_lock         |               0 |         0 |                  0 |                 |
+ ep_get_file_lock         |               0 |         0 |                  0 |                 |
+ ep_poll_file_lock        |            1947 |        10 |              19644 |                 |</pre>
+</div>
+<p><strong>Legend</strong>:</p>
+<ul class="simple">
+<li><strong>get_mdirentry</strong>: That service corresponds to the retrieving of a
+unique file/directory identifier from a &#8220;mdirent&#8221; file associated
+with the parent directory of the object to retrieve.</li>
+<li><strong>put_mdirentry</strong>: That service corresponds to the insertion of a
+unique file identifier (FID) of a file/directory in the &#8220;mdirent&#8221;
+file associated with a parent directory.</li>
+<li><strong>del_mdirentry</strong>: That service corresponds to the removing of a
+unique file identifier (FID) of a file/directory from the &#8220;mdirent&#8221;
+file associated with a parent directory. It is typically associated
+with the rdmir and unlink services.</li>
+</ul>
+<p><strong>Metadata statistics clear</strong></p>
+<p>The statistics of the Metadata server are cleared with the following
+command:</p>
+<div class="highlight-python"><pre>exportd 1 &gt; profiler reset
+Reset Done</pre>
+</div>
+</div>
+<div class="section" id="volume-management-statistics">
+<h4>Volume management statistics<a class="headerlink" href="#volume-management-statistics" title="Permalink to this headline">¶</a></h4>
+<p><strong>vfstat command</strong></p>
+<p>That command provides detailed statistics related to each file system
+exported supported by the current <em>exportd</em> process.</p>
+<p>Output example:</p>
+<div class="highlight-python"><pre>exportd 1 &gt; vfstat
+Volume: 1  Bsize: 4096 Blocks: 9437728 Bfree: 676514 PercentFree: 7
+Sid    | Status | Capacity(B)          | Free(B)              |
+-------+--------+----------------------+----------------------+
+     1 | UP     |          14496350208 |           1039126528 |
+     2 | UP     |          14496350208 |           1039126528 |
+     3 | UP     |          14496350208 |           1039126528 |
+     4 | UP     |          14496350208 |           1039126528 |
+Eid    | Bsize  | Blocks               | Bfree                | Files        | Ffree        |
+-------+--------+----------------------+----------------------+--------------+--------------+
+     1 |   4096 |               678076 |               676514 |            2 |      3282090 |</pre>
+</div>
+<p><strong>vfstat_exp command</strong></p>
+<p>That command is the same as the previous one, without the details
+related to the sids (storage nodes).</p>
+<p>Output example:</p>
+<div class="highlight-python"><pre>exportd 1 &gt; vfstat_exp
+Eid    | Vid    | Bsize  | Blocks               | Bfree                | Files        | Ffree        |
+-------+--------+--------+----------------------+----------------------+--------------+--------------+
+     1 |      1 |   4096 |               678076 |               676514 |            2 |      3282090 |</pre>
+</div>
+</div>
+</div>
+<div class="section" id="rozodiag-commands-for-rozofsmount">
+<h3>rozodiag commands for rozofsmount<a class="headerlink" href="#rozodiag-commands-for-rozofsmount" title="Permalink to this headline">¶</a></h3>
+<p>This section describes various <tt class="docutils literal"><span class="pre">rozodiag</span></tt> commands concerning the
+<em>rozofsmount</em> process.</p>
+<div class="figure align-center">
+<img alt="" src="_images/rozodiag-rozofsmount.png" />
+</div>
+<div class="section" id="file-caching-mode">
+<h4>File caching mode<a class="headerlink" href="#file-caching-mode" title="Permalink to this headline">¶</a></h4>
+<p><strong>Caching Mode overview</strong></p>
+<p><tt class="docutils literal"><span class="pre">rozofsmount</span></tt> supports 3 caching modes:</p>
+<ul class="simple">
+<li><strong>standard</strong>: Default mode of rozofsmount. With that configuration
+VFS can cache the data.</li>
+<li><strong>direct io</strong>: In that mode the amount a data requested for a read is
+directly passed to <em>rozofsmount</em>. There is no caching neither at
+<em>FUSE</em> level nor VFS level.</li>
+<li><strong>keep cache</strong>: With that option, the Linux kernel can keep the data
+in its cache. That option can be used only when RozoFS operates in
+blockmode. Typically when the file can be read/write by a unique
+source.</li>
+</ul>
+<p>The cache mode applies at file opening time only. Changing the cache
+mode on the fly will not impact the files that are already opened.</p>
+<p><strong>Caching mode display</strong></p>
+<p>The current cache mode is displayed thanks the <tt class="docutils literal"><span class="pre">fuse</span></tt> <em>rozodiag</em>
+command:</p>
+<div class="highlight-python"><pre>rozofsmount 0&gt; fuse
+FUSE  running - 32/32 ctx remaining
+FS Mode    : standard
+cache Mode : default
+cpt_0:        0
+cpt_1:        0
+cpt_2:        0
+cpt_3:        0
+cpt_4:        0
+cpt_5:        0
+cpt_6:        0
+cpt_7:        0
+cpt_8:        0
+cpt_9:        0
+cpt_10:        0
+flush buf. count:        0
+readahead  count:        0
+read req.  count:        0
+read fuse  count:        0
+Per Read Array statitics:
+Per Write Array statitics:</pre>
+</div>
+<p><strong>Setting the RozoFS caching mode</strong></p>
+<p>The following command permits to change the current caching mode of the
+<em>rozofsmount</em> client. The caching mode does not affect the already
+opened files. It will be effective for any file that is opened after the
+change of mode. That command takes place in memory only. Restarting
+<em>rozofsmount</em> implies that <em>rozofsmount</em> reverts back to its initial
+configuration.</p>
+<p>Output example:</p>
+<div class="highlight-python"><pre>rozofsmount 0&gt; cache_set
+usage:
+cache_set {0|1|2}
+   0: no option on open/create
+   1: direct_io
+   2: keep_cache</pre>
+</div>
+</div>
+<div class="section" id="file-lock-statistics">
+<h4>File lock statistics<a class="headerlink" href="#file-lock-statistics" title="Permalink to this headline">¶</a></h4>
+<p>RozoFS supports BSD and POSIX file locking services. The following
+command displays statistics related to the file locking.</p>
+<div class="highlight-python"><pre>rozofsmount 0&gt; flock
+bsd_set_passing_lock     = 0
+bsd_set_blocking_lock    = 0
+posix_set_passing_lock   = 0
+posix_set_blocking_lock  = 0
+set_lock_refused         = 0
+set_lock_success         = 0
+set_lock_error           = 0
+set_lock_interrupted     = 0
+posix_get_lock           = 0
+get_lock_refused         = 0
+get_lock_success         = 0
+get_lock_error           = 0
+enoent                   = 0
+enomem                   = 0
+einval                   = 0
+send_common              = 0</pre>
+</div>
+</div>
+<div class="section" id="statistics-related-to-storcli-interface">
+<h4>Statistics related to storcli interface<a class="headerlink" href="#statistics-related-to-storcli-interface" title="Permalink to this headline">¶</a></h4>
+<p><strong>Storcli load balancing statistics</strong></p>
+<p>That command provides statistics about the load balancing of the
+read/write and truncate requests towards the <em>storcli</em> processes
+attached to the <em>rozofsmount</em> process. Output example:</p>
+<div class="highlight-python"><pre>rozofsmount 0&gt; stclbg
+number of configured storcli: 1
+storcli 0: 50
+storcli 1: 0
+hit/miss/insert 1/49/50</pre>
+</div>
+<p><strong>Legend</strong>:</p>
+<ul>
+<li><p class="first"><strong>storcli i</strong>: These counters reflect the number of requests
+submitted per <em>storcli</em> process.</p>
+</li>
+<li><p class="first"><strong>hit</strong>: That counter is incremented each time there is a read/write
+or truncate in progress request with the same FID (the FID being the
+unique identifier associated with a file).</p>
+<p>When there is a hit, the <em>rozofsmount</em> queues the request towards the
+<em>storcli</em> on which it founds the FID.</p>
+</li>
+<li><p class="first"><strong>miss</strong>: That counter is incremented each time there is no match for
+the FID. It is the case where there is no pending request for the FID
+associated with the file.</p>
+<p>In that case <em>rozofsmount</em> selects the next <em>storcli</em> process to use
+in a round-robin way.</p>
+</li>
+<li><p class="first"><strong>insert</strong>: That counter is incremented for each request submitted to
+a <em>storcli</em></p>
+</li>
+</ul>
+<p><strong>Shared memory statistics</strong></p>
+<p>By default <em>rozofsmount</em> uses one shared memory per <em>storcli</em> for the
+read operation. That option is selected at <em>rozofsmount</em> start-up (note:
+it might be possible to work without shared memory). The following
+command provides information related to the shared memory owns by
+<em>rozofsmount</em>:</p>
+<div class="highlight-python"><pre>rozofsmount 0&gt; shared_mem
+storcli  |     key     |  size    | count |    address     | read stats     |
+---------+-------------+----------+-------+----------------+----------------+
+     0   | 1380932144  | 00263168 |  32   | 0x2aaaaaaab000 |             25 |
+     1   | 1380932145  | 00263168 |  32   | 0x2aaaab2b3000 |              0 |</pre>
+</div>
+<p><strong>Legend</strong>:</p>
+<ul class="simple">
+<li><strong>storcli</strong>: index of the <em>storcli</em>.</li>
+<li><strong>key</strong>: key of the shared memory as reported by Linux.</li>
+<li><strong>size</strong>: size of a read buffer within the shared memory.</li>
+<li><strong>count</strong>: number of buffers supported by the shared memory.</li>
+<li><strong>read stats</strong>: number of times the shared memory has been used for
+reading.</li>
+</ul>
+</div>
+<div class="section" id="read-write-statistics-at-the-fuse-interface">
+<h4>Read/Write statistics at the FUSE interface<a class="headerlink" href="#read-write-statistics-at-the-fuse-interface" title="Permalink to this headline">¶</a></h4>
+<p><strong>fuse command</strong></p>
+<p>That command provides statistics about the read/write operations
+triggers by VFS towards <em>rozofsmount</em> across FUSE interface.</p>
+<p>That command operates in read and clear mode.</p>
+<p>Output example:</p>
+<div class="highlight-python"><pre>rozofsmount 0&gt; fuse
+FUSE  running - 32/32 ctx remaining
+FS Mode    : standard
+cache Mode : default
+cpt_0:        0
+cpt_1:        0
+cpt_2:        0
+cpt_3:        0
+cpt_4:        0
+cpt_5:        0
+cpt_6:        0
+cpt_7:        0
+cpt_8:        0
+cpt_9:        0
+cpt_10:        0
+flush buf. count:       25
+readahead  count:       23
+read req.  count:       25
+read fuse  count:       51
+Per Read Array statitics:
+   16384:        2
+   32768:        1
+   65536:        1
+  131072:       47
+Per Write Array statitics:
+    4096:     1562</pre>
+</div>
+<p><strong>Legend</strong>:</p>
+<ul class="simple">
+<li><strong>Per Write Array statitics</strong>: Provides statistics by range size
+(aligned on a 4K boundary).</li>
+<li><strong>Per Read Array statitics</strong>: Provides statistics by range size
+(aligned on a 4K boundary).</li>
+<li><strong>read fuse count</strong>: Number of read requests submitted at the
+interface between FUSE and <em>rozofsmount</em>.</li>
+<li><strong>read req. count</strong>: Number of read requests submitted at the
+interface between <em>rozofsmount</em> and <em>storcli</em>.</li>
+<li><strong>readahead count</strong>: Number of read requests submitted at the
+interface between <em>rozofsmount</em> and <em>storcli</em> because of readahead.</li>
+<li><strong>flush buf. count</strong>: Number of times a internal write buffer has
+been flushed towards a storage node.</li>
+</ul>
+</div>
+<div class="section" id="statistics-at-the-fuse-interface">
+<h4>Statistics at the FUSE interface<a class="headerlink" href="#statistics-at-the-fuse-interface" title="Permalink to this headline">¶</a></h4>
+<p><strong>profiler command: statistics display</strong></p>
+<p>That command provides statistics about al the fuse low-level operations
+supported by <em>rozofsmount</em>.</p>
+<p>Output example:</p>
+<div class="highlight-python"><pre>rozofsmount 0&gt; profiler
+GPROFILER version 1.3.alpha8 uptime =  0 days, 5:51:51
+  -ientry counter: 3
+   procedure  |     count       |  time(us) | cumulated time(us) |     bytes       |
+--------------+-----------------+-----------+--------------------+-----------------+
+ lookup       |             403 |       378 |             152631 |                 |
+ forget       |               0 |         0 |                  0 |                 |
+ getattr      |               6 |      2470 |              14821 |                 |
+ setattr      |               0 |         0 |                  0 |                 |
+ readlink     |               0 |         0 |                  0 |                 |
+ mknod        |               0 |         0 |                  0 |                 |
+ mkdir        |               0 |         0 |                  0 |                 |
+ unlink       |               0 |         0 |                  0 |                 |
+ rmdir        |               0 |         0 |                  0 |                 |
+ symlink      |               0 |         0 |                  0 |                 |
+ rename       |               0 |         0 |                  0 |                 |
+ open         |               1 |      1000 |               1000 |                 |
+ link         |               0 |         0 |                  0 |                 |
+ read         |              51 |      3073 |             156739 |         6291456 |
+ write        |            1562 |        74 |             116226 |         6394854 |
+ flush        |               3 |      2537 |               7611 |                 |
+ release      |               3 |       333 |               1000 |                 |
+ opendir      |               0 |         0 |                  0 |                 |
+ readdir      |               0 |         0 |                  0 |                 |
+ releasedir   |               0 |         0 |                  0 |                 |
+ fsyncdir     |               0 |         0 |                  0 |                 |
+ statfs       |               0 |         0 |                  0 |                 |
+ setxattr     |               0 |         0 |                  0 |                 |
+ getxattr     |               0 |         0 |                  0 |                 |
+ listxattr    |               0 |         0 |                  0 |                 |
+ removexattr  |               0 |         0 |                  0 |                 |
+ access       |               0 |         0 |                  0 |                 |
+ create       |               2 |      2479 |               4959 |                 |
+ getlk        |               0 |         0 |                  0 |                 |
+ setlk        |               0 |         0 |                  0 |                 |
+ setlk_int    |               0 |         0 |                  0 |                 |
+ clearlkowner |               0 |         0 |                  0 |                 |
+ ioctl        |              25 |       848 |              21205 |                 |</pre>
+</div>
+<p><strong>Legend</strong>:</p>
+<ul class="simple">
+<li><strong>ientry counter</strong>: Provides statistics about the number of inodes
+currently used by <em>rozofsmount</em>.</li>
+</ul>
+<p><strong>Statistics clear</strong></p>
+<p>The <em>rozofsmount</em> statistics can be cleared using the following command:</p>
+<div class="highlight-python"><pre>rozofsmount 0&gt; profiler reset
+Reset Done</pre>
+</div>
+</div>
+</div>
+<div class="section" id="rozodiag-commands-for-storcli">
+<h3>rozodiag commands for storcli<a class="headerlink" href="#rozodiag-commands-for-storcli" title="Permalink to this headline">¶</a></h3>
+<p>This section describes various <tt class="docutils literal"><span class="pre">rozodiag</span></tt> commands concerning the
+<em>storcli</em> process.</p>
+<div class="figure align-center">
+<img alt="" src="_images/rozodiag-storcli.png" />
+</div>
+<div class="section" id="pseudo-tasks-statistics">
+<h4>Pseudo tasks statistics<a class="headerlink" href="#pseudo-tasks-statistics" title="Permalink to this headline">¶</a></h4>
+<p><strong>List of the storcli pseudo tasks</strong></p>
+<p>The list of these tasks can be retrieved by using the <tt class="docutils literal"><span class="pre">cpu</span></tt> command:</p>
+<div class="highlight-python"><pre>rozodiag -p 50004 -c cpu</pre>
+</div>
+<p>The port number depends of the instance of the storcli and on the
+instance of the <em>rozofsmount</em> client that owns the <em>storcli</em>. For the
+<em>rozofsmount</em> instance 0 the storcli&#8217;s port numbers are:</p>
+<ul class="simple">
+<li><strong>50004</strong>: <em>storcli</em> instance 0.</li>
+<li><strong>50005</strong>: <em>storcli</em> instance 1.</li>
+</ul>
+<p>The following output example corresponds to a configuration where the
+<em>storcli</em> is connected with 4 storage nodes:</p>
+<div class="highlight-python"><pre>storcli 1 of rozofsmount 0&gt; cpu
+select max cpu time : 4089953392 us
+application                      sock       last  cumulated activation    average
+name                               nb        cpu        cpu      times        cpu  prio
+TMR_SOCK_XMIT                       3          0          0          0          0    0
+TMR_SOCK_RECV                       6          0     971005      18889         51    0
+CNF_SOCK_XMIT                      15          0          0          0          0    0
+CNF_SOCK_RECV                      16          0          0          0          0    0
+DBG SERVER                         18       3999       3999          1       3999    1
+C:localhost1/192.168.2.1:41000     21         39      49924         89        560    3
+C:localhost2/192.168.2.2:41000     22          0      51618         41       1258    3
+C:localhost3/192.168.2.3:41000     23          0          0          1          0    3
+C:localhost4/192.168.2.4:41000     24         13      39946         85        469    3
+L[U]:STORCLI_NORTH                 20        729        729          1        729    3
+A:STORCLI_NORTH                    26        170     262654         98       2680    3
+DBG 127.0.0.1                      27          0          0          1          0    2
+scheduler                           0          0          0          0          0</pre>
+</div>
+<p><strong>Legend</strong>:</p>
+<ul>
+<li><p class="first"><strong>storages TCP connection</strong>: There is one TCP connection per
+configured storage node. That TCP connection is used by the <em>storcli</em>
+to send read/write and truncate requests.</p>
+<p>When the number of TCP connections is less than the number of
+storages configured for the <em>storcli</em>, one of the possible causes is
+the following:</p>
+<ul class="simple">
+<li>remote storage server is down ;</li>
+<li>communication path is broken: check for ethernet ports states on
+servers and switches.</li>
+</ul>
+</li>
+<li><p class="first"><strong>Listening port</strong>: There only one listening port (STORCLI_NORTH)
+and it must have only one client that attempts to connect. The client
+is always the <em>rozofsmount</em> that owns the <em>storcli</em>. The connection
+is an AF_UNIX stream.</p>
+<p>The lack of &#8220;A:STORCLI_NORTH&#8221; in the display indicates that the
+connection is broken between the <em>storcli</em> and its associated
+<em>rozofsmount</em>. That situation must not occur.</p>
+</li>
+</ul>
+</div>
+<div class="section" id="read-write-statistics">
+<h4>Read/Write statistics<a class="headerlink" href="#read-write-statistics" title="Permalink to this headline">¶</a></h4>
+<p><strong>Profiler statistics display</strong></p>
+<p>That command provides statistics related to the read/write and truncate
+services. For the case of the read and write it provides the FEC
+encoding/decoding time.</p>
+<div class="highlight-python"><pre>rozodiag -p 50004 -c profiler</pre>
+</div>
+<p>Output example:</p>
+<div class="highlight-python"><pre>GPROFILER version  uptime =  0 days, 0:58:41
+   procedure      |     count        |  time(us)  | cumulated time(us)  |     bytes       |
+------------------+------------------+------------+---------------------+-----------------+
+ read             |              41  |      5967  |             244678  |        10502144 |
+ Mojette Inv      |              41  |       379  |              15569  |               0 |
+ read_prj         |              82  |      4645  |             380945  |        10563680 |
+ read_prj_err     |               0  |         0  |                  0  |                 |
+ read_prj_tmo     |               0  |         0  |                  0  |                 |
+ write            |              40  |     15833  |             633347  |        10485760 |
+ Mojette Fwd      |              40  |       777  |              31084  |               0 |
+ write_prj        |             120  |      9692  |            1163124  |        15820800 |
+ write_prj_tmo    |               0  |         0  |                  0  |                 |
+ write_prj_err    |               0  |         0  |                  0  |                 |
+ truncate         |               0  |         0  |                  0  |               0 |
+ truncate_prj     |               0  |         0  |                  0  |               0 |
+ truncate_prj_tmo |               0  |         0  |                  0  |                 |
+ truncate_prj_err |               0  |         0  |                  0  |                 |</pre>
+</div>
+<p><strong>Legend</strong>:</p>
+<ul>
+<li><p class="first"><strong>Read statistics</strong>:</p>
+<p>Provides statistics and error counters related to the read process.
+The &#8220;count&#8221; corresponds to the number of times the function is
+called. There is relation between the count of &#8220;read&#8221; and
+&#8220;read_prj&#8221;: &#8220;read_prj&#8221; must be n times &#8220;read&#8221;, where &#8220;n&#8221; depends on
+the configured layout : 2 for Layout 0 and 4 for layout 1.</p>
+<ul>
+<li><p class="first"><strong>read</strong>: it corresponds to the time that has been spent between
+the initiation of the read towards the different storage nodes
+(according to the file distribution until the full rebuilt of the
+requested payload (between 1..32 User Data Blocks),</p>
+</li>
+<li><p class="first"><strong>Mojette Inv</strong>: It corresponds to the rebuild time of a set of
+User Data Block (between 1 and 32).</p>
+</li>
+<li><p class="first"><strong>read_prj</strong>: It corresponds to the time spent for a read request
+handshake with one storage. Typically, under nominal condition it
+represents the line time and the disk read time.</p>
+</li>
+<li><p class="first"><strong>read_prj_err</strong>: It is a counter that is incremented each time
+a storage node reports a read error towards the <em>storcli</em>.
+Typically, that counter is incremented when the <em>storcli</em> attempts
+to read a projection from a spare storage that has never been
+used.</p>
+<p>That might happen in case of a read projection time-out, in that
+case the <em>storcli</em> issues a read request towards all the remaining
+storage of the distribution set of a file, an thus it might
+address some spare storage that has not been used yet.</p>
+<p>That counter is also incremented if the storcli cannot find enough
+projections to rebuild a User Data Block. This corresponds to a
+situation where more than one storage of the file&#8217;s distribution
+set are inaccessible. This can be a either a temporary error
+(typically a network failure) or a permanent failure (the disk(s)
+of the storage are damaged). In the lastest situation the file is
+lost.</p>
+</li>
+<li><p class="first"><strong>read_prj_tmo</strong>: It is a counter that is incremented each time
+the storage node does not respond in the configured time frame.</p>
+</li>
+</ul>
+</li>
+<li><p class="first"><strong>Write statistics</strong>:</p>
+<ul class="simple">
+<li><strong>write</strong>:</li>
+<li><strong>Mojette Fwd</strong>:</li>
+<li><strong>write_prj</strong>:</li>
+<li><strong>write_prj_tmo</strong>:</li>
+<li><strong>write_prj_err</strong>:</li>
+</ul>
+</li>
+<li><p class="first"><strong>Truncate statistics</strong>:</p>
+<ul class="simple">
+<li><strong>truncate</strong>:</li>
+<li><strong>truncate_prj</strong>:</li>
+<li><strong>truncate_prj_tmo</strong>:</li>
+<li><strong>truncate_prj_err</strong>:</li>
+</ul>
+</li>
+</ul>
+<p><strong>Profiler statistics clear</strong></p>
+<p>The profiler statistics can be cleared by using the following command:</p>
+<div class="highlight-python"><pre>rozodiag -p 50004 -c profiler reset</pre>
+</div>
+</div>
+<div class="section" id="storage-node-connection-status">
+<h4>Storage Node connection status<a class="headerlink" href="#storage-node-connection-status" title="Permalink to this headline">¶</a></h4>
+<p><strong>storaged_status command: Storcli North Contexts/Buffers statistics</strong></p>
+<p>That commands provides information related to the TCP connection towards
+the storage nodes that are used by the <em>storcli</em> process. The state
+information is displayed for each cluster id (cid) and for each storaged
+id within a cluster (sid).</p>
+<p>The individual TCP connection associated to each load balancing group is
+not displayed with that command.</p>
+<p>If details about the connection of load balancing group is needed,
+please use either the <tt class="docutils literal"><span class="pre">lbg</span></tt> or <tt class="docutils literal"><span class="pre">lbg_entries</span></tt> command for detailed
+status.</p>
+<p>Output example:</p>
+<div class="highlight-python"><pre>storcli 1 of rozofsmount 0&gt; storaged_status
+ cid  |  sid |      hostname        |  lbg_id  | state  | Path state | Sel | tmo   | Poll. |Per.|  poll state  |
+------+------+----------------------+----------+--------+------------+-----+-------+-------+----+--------------+
+ 001  |  01  | localhost1           |    0     |  UP    |  UP        | YES |     0 |     0 | 50 |  IDLE        |
+ 001  |  02  | localhost2           |    1     |  UP    |  UP        | YES |     0 |     0 | 50 |  IDLE        |
+ 001  |  03  | localhost3           |    2     |  UP    |  UP        | YES |     0 |     0 | 50 |  IDLE        |
+ 001  |  04  | localhost4           |    3     |  UP    |  UP        | YES |     0 |     0 | 50 |  IDLE        |</pre>
+</div>
+<p><strong>Legend</strong>:</p>
+<ul class="simple">
+<li><strong>cid</strong>: cluster identifier.</li>
+<li><strong>sid</strong>: storage identifier within the cluster.</li>
+<li><strong>hostname</strong>: hostname of the storaged node.</li>
+<li><strong>lbg_id</strong>: load balancing group identifier.</li>
+<li><strong>state</strong>: state of the load balancing group according to TCP.</li>
+<li><strong>Path state</strong>: Application path state. UP state indicates that there
+is at least one TCP connection of the load balancing group for which
+the storcli gets poll answser from the storaged node.</li>
+<li><strong>Sel</strong>: that field indicates if the load balancing group can be
+selectable for read/write request. Typically when the path state is
+down, the load balancing group is not selectable.</li>
+</ul>
+</div>
+<div class="section" id="north-read-write-buffer-statistics">
+<h4>North read/write buffer statistics<a class="headerlink" href="#north-read-write-buffer-statistics" title="Permalink to this headline">¶</a></h4>
+<p><strong>storcli_buf command: Storcli North Contexts/Buffers statistics</strong></p>
+<p>That command provides information related to the contexts that are used
+at the North Interface of a <em>storcli</em> to process the requests submitted
+by the <em>rozofsmount</em> client (Read/Write/Truncate).</p>
+<p>Output example:</p>
+<div class="highlight-python"><pre>storcli 1 of rozofsmount 0&gt; storcli_buf
+number of transaction contexts (initial/allocated) : 48/0
+Statistics
+req serialized :          2
+serialize mode : NORMAL
+SEND           :          0
+SEND_ERR       :          0
+RECV_OK        :          0
+RECV_OUT_SEQ   :          0
+RTIMEOUT       :          0
+EMPTY READ     :       1540
+EMPTY WRITE    :       1536
+Buffer Pool (name[size] :initial/current
+North interface Buffers
+  small[  1024]  :     48/48
+  large[264192]  :     48/48
+South interface Buffers
+  small[     1]  :      1/1
+  large[163840]  :    768/768</pre>
+</div>
+<p><strong>Legend</strong>:</p>
+<ul class="simple">
+<li><strong>req serialized</strong>: That counter is incremented each time there is
+already an in progress read/write truncate request for the same file.
+In fact, a <em>storcli</em> process serializes the requests concerning the
+same file to avoid collision between a read and a write.</li>
+<li><strong>serialize mode</strong>: must always be NORMAL.</li>
+<li><strong>SEND, SEND_ERR, RECV_OK, RECV_OUT_SEQ, RTIMEOUT</strong>: These
+counters are not used. Use command <tt class="docutils literal"><span class="pre">trx</span></tt> instead to get information
+about transactions initiated by the <em>storcli</em> towards the storage
+nodes.</li>
+<li><strong>EMPTY READ</strong>: That counter is incremented each time <em>storcli</em>
+detects a read buffer which is filled with 0 only. The goal of the
+detection is to avoid applying the Erasure Coding on an empty buffer.</li>
+<li><strong>EMPTY WRITE</strong>: That counter is incremented each time <em>storcli</em>
+detects a write buffer which is filled with 0 only.</li>
+</ul>
+</div>
+</div>
+<div class="section" id="rozodiag-commands-for-storaged-storio">
+<h3>rozodiag commands for storaged/storio<a class="headerlink" href="#rozodiag-commands-for-storaged-storio" title="Permalink to this headline">¶</a></h3>
+<p>This section describes various <tt class="docutils literal"><span class="pre">rozodiag</span></tt> commands concerning the
+<em>storaged</em>/<em>storio</em> processes.</p>
+<div class="figure align-center">
+<img alt="" src="_images/rozodiag-storage.png" />
+</div>
+<div class="section" id="disk-threads-statistics">
+<h4>Disk threads statistics<a class="headerlink" href="#disk-threads-statistics" title="Permalink to this headline">¶</a></h4>
+<p>That command provides statistics relative to the disk read/write at
+thread level.</p>
+<p>Output example:</p>
+<div class="highlight-python"><pre>storio localhost1&gt; diskThreads
+Thread number            |                0 |                1 |                2 |            TOTAL |
+Read Requests            |__________________|__________________|__________________|__________________|
+   number                |               14 |                2 |                9 |               25 |
+   Unknown cid/sid       |                0 |                0 |                0 |                0 |
+   error spare           |                0 |                0 |                0 |                0 |
+   error                 |                0 |                0 |                0 |                0 |
+   Bytes                 |          1732192 |           265216 |          1193472 |          3190880 |
+   Cumulative Time (us)  |            11032 |             1473 |             6167 |            18672 |
+   Average Bytes         |           123728 |           132608 |           132608 |           127635 |
+   Average Time (us)     |              788 |              736 |              685 |              746 |
+   Throughput (MBytes/s) |              157 |              180 |              193 |              170 |
+Write Requests           |__________________|__________________|__________________|__________________|
+   number                |                4 |                1 |               20 |               25 |
+   Unknown cid/sid       |                0 |                0 |                0 |                0 |
+   error                 |                0 |                0 |                0 |                0 |
+   Bytes                 |           451696 |           132608 |          2652160 |          3236464 |
+   Cumulative Time (us)  |             7998 |             1075 |            22997 |            32070 |
+   Average Bytes         |           112924 |           132608 |           132608 |           129458 |
+   Average Time (us)     |             1999 |             1075 |             1149 |             1282 |
+   Throughput (MBytes/s) |               56 |              123 |              115 |              100 |
+Truncate Requests        |__________________|__________________|__________________|__________________|
+   number                |                0 |                0 |                0 |                0 |
+   Unknown cid/sid       |                0 |                0 |                0 |                0 |
+   error                 |                0 |                0 |                0 |                0 |
+   Cumulative Time (us)  |                0 |                0 |                0 |                0 |
+   Average Time (us)     |                0 |                0 |                0 |                0 |
+                         |__________________|__________________|__________________|__________________|</pre>
+</div>
+</div>
+<div class="section" id="global-read-write-disk-statistics">
+<h4>Global read/write disk statistics<a class="headerlink" href="#global-read-write-disk-statistics" title="Permalink to this headline">¶</a></h4>
+<p><strong>profiler command</strong></p>
+<p>That command provides statistics relative to the disk read/write at
+thread level.</p>
+<p>Output example:</p>
+<div class="highlight-python"><pre>storio localhost1&gt; profiler
+GPROFILER version 1.3.alpha8 uptime =  0 days, 1:46:58
+ OP               | CALL         | RATE(msg/s)  | CPU(us)      | COUNT(B)     | THROUGHPUT(MB/s) |
+------------------+--------------+--------------+--------------+--------------+------------------+
+ read             | 25           | 549          | 1819         | 3190880      | 65               |
+ write            | 25           | 446          | 2241         | 3236464      | 53               |
+ truncate         | 0            | 0            | 0            | 0            | 0                |</pre>
+</div>
+<p><strong>Statistics reset</strong></p>
+<p>The read/write statistics can be clear with the following command:</p>
+<div class="highlight-python"><pre>storio localhost1&gt; profiler reset</pre>
+</div>
+</div>
+<div class="section" id="rpc-statistics">
+<h4>RPC statistics<a class="headerlink" href="#rpc-statistics" title="Permalink to this headline">¶</a></h4>
+<p><strong>rpc_resources command</strong></p>
+<p>That command provides statistics for all the transactions received by a
+<em>storio</em> process. It cumulates the read/write and truncate transactions.</p>
+<p>Among the information displayed only the information related to the
+transactions are significant. The default buffer pool of the RPC service
+are not used by the <em>storio</em>. Please use command <tt class="docutils literal"><span class="pre">buffer</span></tt> to get
+information related to the current buffer usage of the <em>storio</em>.</p>
+<p>Output example:</p>
+<div class="highlight-python"><pre> &lt;storio localhost1&gt;=""&gt; rpc_resources
+number of rpc contexts (initial/allocated) : 8/0
+Statistics
+SEND           :         50
+SEND_ERR       :          0
+RECV_OK        :         50
+RECV_OUT_SEQ   :          0
+ENCODING_ERROR :          0
+DECODING_ERROR :          0
+NO_CTX_ERROR   :          0
+NO_BUFFER_ERROR:          0
+Buffer Pool (name[size] :initial/current
+North interface Buffers
+  small[  1024]  :      8/8
+  large[ 38912]  :      8/8
+South interface Buffers
+  small[     1]  :      1/1
+  large[  8192]  :      8/8</pre>
+</div>
+<p><strong>buffer command: Storio Buffer pool statistics</strong></p>
+<div class="highlight-python"><pre>storio localhost1&gt; buffer
+   rpcDecodedRequest - user data addr/len        0x985c830 /      704 - nb buff   8/  8 size     88
+        diskSendPool - user data addr/len        0x985d580 /      320 - nb buff   8/  8 size     40
+        diskRecvPool - user data addr/len        0x985d8d0 /       40 - nb buff   1/  1 size     40
+            Pool_rcv - user data addr/len   0x2aaaab277010 /  1146880 - nb buff   8/  8 size 143360
+            Pool_snd - user data addr/len   0x2aaaab390010 /  1146880 - nb buff   8/  8 size 143360</pre>
+</div>
+<ul class="simple">
+<li><strong>diskSendPool/diskRecvPool</strong>: pool used for thread communication.</li>
+<li><strong>Pool_rcv/Pool_snd</strong>: pool used receiving and sending message
+from/to <em>storcli</em>.</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="section" id="rozofs-nagios-plugins">
+<h2>RozoFS Nagios Plugins<a class="headerlink" href="#rozofs-nagios-plugins" title="Permalink to this headline">¶</a></h2>
+<p>We develop Nagios Plugins for monitoring RozoFS process. These plugins
+are suitable for monitoring the status of each RozoFS daemon
+(<strong>rozofsmount</strong>, <strong>storcli</strong>, <strong>exportd</strong>, <strong>storaged</strong> and
+<strong>storio</strong>).</p>
+<div class="section" id="installation">
+<h3>Installation<a class="headerlink" href="#installation" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="plugins-installation">
+<h4>Plugins Installation<a class="headerlink" href="#plugins-installation" title="Permalink to this headline">¶</a></h4>
+<p>Under <tt class="docutils literal"><span class="pre">plugins</span></tt> directory are the RozoFS Nagios plugins to be copied
+under <tt class="docutils literal"><span class="pre">/usr/lib/nagios/plugins/</span></tt> where your Nagios runs.</p>
+</div>
+<div class="section" id="commands-configuration-file-installation">
+<h4>Commands Configuration File Installation<a class="headerlink" href="#commands-configuration-file-installation" title="Permalink to this headline">¶</a></h4>
+<p>Under <tt class="docutils literal"><span class="pre">cfg</span></tt> directory stand files related to RozoFS plugins command
+definitions. You should find the Nagios top configuration file on your
+Nagios server under <tt class="docutils literal"><span class="pre">/etc/nagios3/nagios.cfg</span></tt>. Open it and insert at
+the end the following lines to include the RozoFS configuration files.</p>
+<div class="highlight-python"><pre>cfg_file=/etc/nagios-plugins/config/rozofs-commands.cfg</pre>
+</div>
+<p>Copy file <tt class="docutils literal"><span class="pre">rozofs-commands.cfg</span></tt> under <tt class="docutils literal"><span class="pre">/etc/nagios-plugins/config/</span></tt>
+directory.</p>
+<p>This file defines the commands to invoke the different plugins and do
+not depends on your RozoFS cluster configuration.</p>
+</div>
+<div class="section" id="logos-installation">
+<h4>Logos Installation<a class="headerlink" href="#logos-installation" title="Permalink to this headline">¶</a></h4>
+<p>Copy all RozoFS logo files under
+<tt class="docutils literal"><span class="pre">/usr/share/nagios/htdocs/images/logos/rozofs</span></tt> directory and make a
+symbolic link:</p>
+<div class="highlight-bash"><div class="highlight"><pre><span class="nv">$ </span>ln -sf  /usr/share/nagios/htdocs/images/logos/rozofs /usr/share/nagios3/htdocs/images/logos/rozofs
+</pre></div>
+</div>
+</div>
+</div>
+<div class="section" id="plugins-description">
+<h3>Plugins Description<a class="headerlink" href="#plugins-description" title="Permalink to this headline">¶</a></h3>
+<div class="section" id="check-rozofs-volume-sh">
+<h4>check_rozofs_volume.sh<a class="headerlink" href="#check-rozofs-volume-sh" title="Permalink to this headline">¶</a></h4>
+<p>This plugin is used to monitor the state of a volume id using the
+<strong>rozodiag</strong> interface. It gets as mandatory parameters the host where
+the <strong>exportd</strong> handling this volume runs (VIP) and the acceptable
+critical/warning thresholds for the free volume space.</p>
+<p>The plugin pings the host of the <strong>exportd</strong> and on success requests the
+<strong>exportd</strong> for the volume statistics, and checks the status of the
+storage nodes servicing the volume.</p>
+<p>The result is <strong>OK</strong> when:</p>
+<ul>
+<li><p class="first">all storages nodes are up,</p>
+<p>AND</p>
+</li>
+<li><p class="first">the free volume space is over the warning threshold.</p>
+</li>
+</ul>
+<p>The result is <strong>CRITICAL</strong> when:</p>
+<ul>
+<li><p class="first">the free volume space is below the critical threshold,</p>
+<p>OR</p>
+</li>
+<li><p class="first">no storage node is up.</p>
+</li>
+</ul>
+<p>The result is <strong>WARNING</strong> in all other cases so:</p>
+<ul>
+<li><p class="first">the free volume space is between the warning and critical thresholds,</p>
+<p>AND/OR</p>
+</li>
+<li><p class="first">some storage nodes but not all are down.</p>
+</li>
+</ul>
+</div>
+<div class="section" id="check-rozofs-storaged-sh">
+<h4>check_rozofs_storaged.sh<a class="headerlink" href="#check-rozofs-storaged-sh" title="Permalink to this headline">¶</a></h4>
+<p>This plugin is used to monitor the state of a storage node using the
+<strong>rozodiag</strong> interface. It gets as mandatory parameter the host of the
+storage node.</p>
+<p>The plugin pings the storage node and then checks access to the
+<strong>rozodiag</strong> interface of the <strong>storaged</strong> and each <strong>storio</strong> of the
+storage node.</p>
+<p>The result is <strong>OK</strong> when:</p>
+<ul class="simple">
+<li>the <strong>storaged</strong> and all the <strong>storio</strong> are up.</li>
+</ul>
+<p>The result is <strong>WARNING</strong> when:</p>
+<ul class="simple">
+<li>some <strong>storio</strong> is not responding.</li>
+</ul>
+<p>The result is <strong>CRITICAL</strong> when:</p>
+<ul class="simple">
+<li>the <strong>storaged</strong> is down or when all <strong>storios</strong> are down.</li>
+</ul>
+</div>
+<div class="section" id="check-rozofs-rozofsmount-sh">
+<h4>check_rozofs_rozofsmount.sh<a class="headerlink" href="#check-rozofs-rozofsmount-sh" title="Permalink to this headline">¶</a></h4>
+<p>This plugin is used to monitor the state of a RozoFS client using the
+<strong>rozodiag</strong> interface. It gets as mandatory parameters the host of the
+RozoFS client.</p>
+<p>The plugin pings the host of the RozoFS client. It checks the status of
+the <strong>rozofsmount</strong> interface toward the <strong>exportd</strong>. It checks the
+status of the <strong>rozofsmount</strong> interfaces toward its <strong>storcli</strong>. It
+checks the status of the <strong>storcli</strong> interfaces toward the storage
+nodes.</p>
+<p>The result is <strong>OK</strong> when:</p>
+<ul>
+<li><p class="first">the <strong>rozofsmount</strong> has its interface toward the <strong>exportd</strong> UP,</p>
+<p>AND</p>
+</li>
+<li><p class="first">the <strong>rozofsmount</strong> has its 2 interfaces toward the <strong>storcli</strong> UP,</p>
+<p>AND</p>
+</li>
+<li><p class="first">the one or two <strong>storcli</strong> have their interfaces toward the
+<strong>storages</strong> UP.</p>
+</li>
+</ul>
+<p>The result is <strong>CRITICAL</strong> when:</p>
+<ul>
+<li><p class="first">the <strong>rozofsmount</strong> is unreachable,</p>
+<p>OR</p>
+</li>
+<li><p class="first">the <strong>rozofsmount</strong> has its interface toward the <strong>exportd</strong> DOWN,</p>
+<p>OR</p>
+</li>
+<li><p class="first">the <strong>rozofsmount</strong> has one of its interfaces toward a <strong>storcli</strong>
+DOWN,</p>
+<p>OR</p>
+</li>
+<li><p class="first">one of the <strong>storcli</strong> has more than one interface DOWN toward a
+storage node.</p>
+</li>
+</ul>
+<p>The result is <strong>WARNING</strong> when:</p>
+<ul>
+<li><p class="first">the <strong>rozofsmount</strong> has its interface UP toward the <strong>exportd</strong>,</p>
+<p>AND</p>
+</li>
+<li><p class="first">the <strong>rozofsmount</strong> has its 2 interfaces up toward the <strong>storcli</strong>,</p>
+<p>AND</p>
+</li>
+<li><p class="first">no <strong>storcli</strong> has more than one interface DOWN toward a storage
+node.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+
+
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+      
+        <a href="WorkingWithRozoFS.html" class="btn btn-neutral" title="Working with RozoFS"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2014, Fizians SAS.
+    </p>
+  </div>
+
+  <a href="https://github.com/snide/sphinx_rtd_theme">Sphinx theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>
+</footer>
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'',
+            VERSION:'1.4.0',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true
+        };
+    </script>
+      <script type="text/javascript" src="_static/jquery.js"></script>
+      <script type="text/javascript" src="_static/underscore.js"></script>
+      <script type="text/javascript" src="_static/doctools.js"></script>
+
+  
+
+  
+  
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+  
+
+  
+  
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+   
+
+</body>
+</html>

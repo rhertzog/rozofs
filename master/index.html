@@ -1,6 +1,5 @@
 
 
-
 <!DOCTYPE html>
 <!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
 <!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
@@ -8,7 +7,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>Welcome to RozoFS’s documentation! &mdash; RozoFS User&#39;s Guide 1.4.0 documentation</title>
+  <title>Welcome to RozoFS’s documentation! &mdash; RozoFS User&#39;s Guide 2.0.0 documentation</title>
   
 
   
@@ -29,7 +28,7 @@
   
 
   
-    <link rel="top" title="RozoFS User&#39;s Guide 1.4.0 documentation" href="#"/>
+    <link rel="top" title="RozoFS User&#39;s Guide 2.0.0 documentation" href="#"/>
         <link rel="next" title="About RozoFS" href="AboutRozoFS.html"/> 
 
   
@@ -77,7 +76,12 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="WorkingWithRozoFS.html">Working with RozoFS</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="WorkingWithRozoFS.html#manual-managing-of-rozofs-services">Manual Managing of RozoFS Services</a></li>
-<li class="toctree-l2"><a class="reference internal" href="WorkingWithRozoFS.html#using-the-rozo-console-manager">Using the Rozo Console Manager</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="ConfiguringRozoFSWithRozoCLI.html">Configuring RozoFS using the Rozo CLI</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="ConfiguringRozoFSWithRozoCLI.html#about-rozo-cli">About rozo CLI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ConfiguringRozoFSWithRozoCLI.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ConfiguringRozoFSWithRozoCLI.html#basic-commands">Basic Commands</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="Monitoring.html">Monitoring</a><ul>
@@ -141,7 +145,8 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="InstallingRozoFS.html">Installing RozoFS</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="InstallingRozoFS.html#installing-rozofs-from-binary-packages">Installing RozoFS from Binary Packages</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="InstallingRozoFS.html#advance-package-tool-apt">Advance Package Tool (APT)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="InstallingRozoFS.html#advance-package-tool-apt-for-debian-ubuntu">Advance Package Tool (APT) for Debian/Ubuntu</a></li>
+<li class="toctree-l3"><a class="reference internal" href="InstallingRozoFS.html#yum-for-centos-rhel">Yum for CentOS (RHEL)</a></li>
 </ul>
 </li>
 <li class="toctree-l2"><a class="reference internal" href="InstallingRozoFS.html#building-and-installing-from-sources">Building and Installing from Sources</a><ul>
@@ -178,12 +183,23 @@
 <li class="toctree-l3"><a class="reference internal" href="WorkingWithRozoFS.html#accessing-data-setting-up-rozofsmount-client">Accessing Data - Setting up rozofsmount Client</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="WorkingWithRozoFS.html#using-the-rozo-console-manager">Using the Rozo Console Manager</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="WorkingWithRozoFS.html#get-the-list-of-nodes-belonging-to-a-platform">Get the List of Nodes Belonging to a Platform</a></li>
-<li class="toctree-l3"><a class="reference internal" href="WorkingWithRozoFS.html#get-the-status-of-a-platform">Get the Status of a Platform</a></li>
-<li class="toctree-l3"><a class="reference internal" href="WorkingWithRozoFS.html#view-the-platform-configuration">View the Platform Configuration</a></li>
-<li class="toctree-l3"><a class="reference internal" href="WorkingWithRozoFS.html#extend-the-platform">Extend the Platform</a></li>
-<li class="toctree-l3"><a class="reference internal" href="WorkingWithRozoFS.html#add-an-export-to-the-platform">Add an Export to the Platform</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="ConfiguringRozoFSWithRozoCLI.html">Configuring RozoFS using the Rozo CLI</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="ConfiguringRozoFSWithRozoCLI.html#about-rozo-cli">About rozo CLI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ConfiguringRozoFSWithRozoCLI.html#prerequisites">Prerequisites</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="ConfiguringRozoFSWithRozoCLI.html#install-rozo-manager-packages">Install rozo manager Packages</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ConfiguringRozoFSWithRozoCLI.html#start-rozo-agent-on-each-node">Start rozo agent on each node</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ConfiguringRozoFSWithRozoCLI.html#ensure-connectivity">Ensure Connectivity</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="ConfiguringRozoFSWithRozoCLI.html#basic-commands">Basic Commands</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="ConfiguringRozoFSWithRozoCLI.html#get-the-list-of-nodes-belonging-to-a-platform">Get the List of Nodes Belonging to a Platform</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ConfiguringRozoFSWithRozoCLI.html#get-the-status-of-a-platform">Get the Status of a Platform</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ConfiguringRozoFSWithRozoCLI.html#view-the-platform-configuration">View the Platform Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ConfiguringRozoFSWithRozoCLI.html#extend-the-platform-add-a-volume">Extend the Platform (Add a Volume)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ConfiguringRozoFSWithRozoCLI.html#add-an-export-to-the-platform">Add an Export to the Platform</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ConfiguringRozoFSWithRozoCLI.html#mount-an-export">Mount an Export</a></li>
 </ul>
 </li>
 </ul>
@@ -191,7 +207,7 @@
 <li class="toctree-l1"><a class="reference internal" href="Monitoring.html">Monitoring</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="Monitoring.html#rozodiag-tools">Rozodiag tools</a><ul>
 <li class="toctree-l3"><a class="reference internal" href="Monitoring.html#introduction">Introduction</a></li>
-<li class="toctree-l3"><a class="reference internal" href="Monitoring.html#list-of-the-rozodiag-agent-ports">List of the rozodiag agent ports</a></li>
+<li class="toctree-l3"><a class="reference internal" href="Monitoring.html#list-of-the-rozodiag-agent-functionnal-targets">List of the rozodiag agent functionnal targets</a></li>
 <li class="toctree-l3"><a class="reference internal" href="Monitoring.html#rozodiag-usage">rozodiag usage</a></li>
 <li class="toctree-l3"><a class="reference internal" href="Monitoring.html#common-rozodiag-commands">Common rozodiag commands</a></li>
 <li class="toctree-l3"><a class="reference internal" href="Monitoring.html#rozodiag-commands-for-exportd">rozodiag commands for exportd</a></li>
@@ -213,9 +229,9 @@
 <div class="section" id="indices-and-tables">
 <h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this headline">¶</a></h1>
 <ul class="simple">
-<li><a class="reference internal" href="genindex.html"><em>Index</em></a></li>
-<li><a class="reference internal" href="py-modindex.html"><em>Module Index</em></a></li>
-<li><a class="reference internal" href="search.html"><em>Search Page</em></a></li>
+<li><a class="reference internal" href="genindex.html"><span>Index</span></a></li>
+<li><a class="reference internal" href="py-modindex.html"><span>Module Index</span></a></li>
+<li><a class="reference internal" href="search.html"><span>Search Page</span></a></li>
 </ul>
 </div>
 
@@ -235,7 +251,7 @@
 
   <div role="contentinfo">
     <p>
-        &copy; Copyright 2014, Fizians SAS.
+        &copy; Copyright 2015, Rozo Systems S.A.S.
     </p>
   </div>
 
@@ -254,8 +270,8 @@
 
     <script type="text/javascript">
         var DOCUMENTATION_OPTIONS = {
-            URL_ROOT:'',
-            VERSION:'1.4.0',
+            URL_ROOT:'./',
+            VERSION:'2.0.0',
             COLLAPSE_INDEX:false,
             FILE_SUFFIX:'.html',
             HAS_SOURCE:  true

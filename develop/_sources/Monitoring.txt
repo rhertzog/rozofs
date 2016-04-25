@@ -122,7 +122,6 @@ the RozoFS target name associated with the component.
                 	      mount[:<mount instance>]             for a rozofsmount
                 	      mount[:<mount instance>[:<1|2>]]     for a storcli of a rozofsmount
     At least one -p or -m value must be given.
-
     -c <cmd|all>            command to run in one shot or periodically (-period)
                             several -c options can be set
     -f <cmd file>           command file to run in one shot or periodically (-period)
@@ -1002,7 +1001,7 @@ The list of these tasks can be retrieved by using the ``cpu`` command:
 
     rozodiag -T mount:0:1 -c cpu
 
-The tarhet name depends of the instance of the storcli and on the
+The target name depends of the instance of the storcli and on the
 instance of the *rozofsmount* client that owns the *storcli*. For the
 *rozofsmount* instance 0 the storcli's target names are:
 
@@ -1068,7 +1067,7 @@ encoding/decoding time.
 
 ::
 
-    rozodiag -T mount:0:1 -c profiler
+    rozodiag -p 50004 -c profiler
 
 Output example:
 

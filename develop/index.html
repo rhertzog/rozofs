@@ -7,7 +7,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
-  <title>Welcome to RozoFS’s documentation! &mdash; RozoFS User&#39;s Guide 1.4.0 documentation</title>
+  <title>Welcome to RozoFS’s documentation! &mdash; RozoFS User&#39;s Guide 2.0.0 documentation</title>
   
 
   
@@ -28,7 +28,7 @@
   
 
   
-    <link rel="top" title="RozoFS User&#39;s Guide 1.4.0 documentation" href="#"/>
+    <link rel="top" title="RozoFS User&#39;s Guide 2.0.0 documentation" href="#"/>
         <link rel="next" title="About RozoFS" href="AboutRozoFS.html"/> 
 
   
@@ -76,7 +76,12 @@
 </li>
 <li class="toctree-l1"><a class="reference internal" href="WorkingWithRozoFS.html">Working with RozoFS</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="WorkingWithRozoFS.html#manual-managing-of-rozofs-services">Manual Managing of RozoFS Services</a></li>
-<li class="toctree-l2"><a class="reference internal" href="WorkingWithRozoFS.html#using-the-rozo-console-manager">Using the Rozo Console Manager</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="ConfiguringRozoFSWithRozoCLI.html">Configuring RozoFS using the Rozo CLI</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="ConfiguringRozoFSWithRozoCLI.html#about-rozo-cli">About rozo CLI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ConfiguringRozoFSWithRozoCLI.html#prerequisites">Prerequisites</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ConfiguringRozoFSWithRozoCLI.html#basic-commands">Basic Commands</a></li>
 </ul>
 </li>
 <li class="toctree-l1"><a class="reference internal" href="Monitoring.html">Monitoring</a><ul>
@@ -178,13 +183,23 @@
 <li class="toctree-l3"><a class="reference internal" href="WorkingWithRozoFS.html#accessing-data-setting-up-rozofsmount-client">Accessing Data - Setting up rozofsmount Client</a></li>
 </ul>
 </li>
-<li class="toctree-l2"><a class="reference internal" href="WorkingWithRozoFS.html#using-the-rozo-console-manager">Using the Rozo Console Manager</a><ul>
-<li class="toctree-l3"><a class="reference internal" href="WorkingWithRozoFS.html#get-the-list-of-nodes-belonging-to-a-platform">Get the List of Nodes Belonging to a Platform</a></li>
-<li class="toctree-l3"><a class="reference internal" href="WorkingWithRozoFS.html#get-the-status-of-a-platform">Get the Status of a Platform</a></li>
-<li class="toctree-l3"><a class="reference internal" href="WorkingWithRozoFS.html#view-the-platform-configuration">View the Platform Configuration</a></li>
-<li class="toctree-l3"><a class="reference internal" href="WorkingWithRozoFS.html#extend-the-platform">Extend the Platform</a></li>
-<li class="toctree-l3"><a class="reference internal" href="WorkingWithRozoFS.html#add-an-export-to-the-platform">Add an Export to the Platform</a></li>
-<li class="toctree-l3"><a class="reference internal" href="WorkingWithRozoFS.html#rebuild-a-storage-node">Rebuild a Storage Node</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="ConfiguringRozoFSWithRozoCLI.html">Configuring RozoFS using the Rozo CLI</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="ConfiguringRozoFSWithRozoCLI.html#about-rozo-cli">About rozo CLI</a></li>
+<li class="toctree-l2"><a class="reference internal" href="ConfiguringRozoFSWithRozoCLI.html#prerequisites">Prerequisites</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="ConfiguringRozoFSWithRozoCLI.html#install-rozo-manager-packages">Install rozo manager Packages</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ConfiguringRozoFSWithRozoCLI.html#start-rozo-agent-on-each-node">Start rozo agent on each node</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ConfiguringRozoFSWithRozoCLI.html#ensure-connectivity">Ensure Connectivity</a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="ConfiguringRozoFSWithRozoCLI.html#basic-commands">Basic Commands</a><ul>
+<li class="toctree-l3"><a class="reference internal" href="ConfiguringRozoFSWithRozoCLI.html#get-the-list-of-nodes-belonging-to-a-platform">Get the List of Nodes Belonging to a Platform</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ConfiguringRozoFSWithRozoCLI.html#get-the-status-of-a-platform">Get the Status of a Platform</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ConfiguringRozoFSWithRozoCLI.html#view-the-platform-configuration">View the Platform Configuration</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ConfiguringRozoFSWithRozoCLI.html#extend-the-platform-add-a-volume">Extend the Platform (Add a Volume)</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ConfiguringRozoFSWithRozoCLI.html#add-an-export-to-the-platform">Add an Export to the Platform</a></li>
+<li class="toctree-l3"><a class="reference internal" href="ConfiguringRozoFSWithRozoCLI.html#mount-an-export">Mount an Export</a></li>
 </ul>
 </li>
 </ul>
@@ -236,7 +251,7 @@
 
   <div role="contentinfo">
     <p>
-        &copy; Copyright 2014, Fizians SAS.
+        &copy; Copyright 2015, Rozo Systems S.A.S.
     </p>
   </div>
 
@@ -256,7 +271,7 @@
     <script type="text/javascript">
         var DOCUMENTATION_OPTIONS = {
             URL_ROOT:'./',
-            VERSION:'1.4.0',
+            VERSION:'2.0.0',
             COLLAPSE_INDEX:false,
             FILE_SUFFIX:'.html',
             HAS_SOURCE:  true
