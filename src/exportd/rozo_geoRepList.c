@@ -20,7 +20,7 @@
 #include "econfig.h"
 #include "rozofs/common/log.h"
 
-int rozofs_no_site_file;
+int rozofs_no_site_file=0;
 
 
 char      * pPath = NULL;
@@ -290,25 +290,18 @@ int main(int argc, char *argv[]) {
   ** Loop on export
   */
   export_config_t * econfig;
-  volume_config_t * vconfig;
-  list_t          * e, * v;
+  list_t          * e;
 
   list_for_each_forward(e, &exportd_config.exports) {
 
     econfig = list_entry(e, export_config_t, list);
     if (econfig->eid != eid) continue;
 
+    
     // Retrieve volume to get the layout
-    list_for_each_forward(v, &exportd_config.volumes) {
-      
-      vconfig = list_entry(v, volume_config_t, list);
-      if (vconfig->vid == econfig->vid) {  
-        layout = vconfig->layout;
-	break;
-      }
-    }  
+    layout = econfig->layout;
     if (layout==-1) {
-      severe("Can not find volume %d referenced by eid %d\n",econfig->vid,eid);
+      severe("Can not find volume %d referenced by eid %d\n",layout,eid);
       goto out;
     }
         

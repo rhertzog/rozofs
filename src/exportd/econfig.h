@@ -56,6 +56,7 @@ typedef struct volume_config {
 typedef struct export_config {
     eid_t eid;
     vid_t vid;
+    uint8_t layout;
     ROZOFS_BSIZE_E  bsize;
     char root[FILENAME_MAX];
     char md5[MD5_LEN];

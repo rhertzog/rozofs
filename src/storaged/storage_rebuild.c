@@ -101,7 +101,6 @@ int     nb_rbs_entry=0;
 typedef struct rbs_monitor_s {
   uint8_t  cid;
   uint8_t  sid;
-  uint8_t  layout;
   int      list_building_sec;
   uint64_t nb_files;
   uint64_t done_files;
@@ -1154,24 +1153,9 @@ void rb_hash_table_delete() {
   
   free(rb_fid_table);
   rb_fid_table = NULL;
-}
-
-/** Write the storage to rebuild information in the heaer
- *  of the rebuild file one the layout is known
- *
- * @return: 0 on success -1 otherwise (errno is set)
- */
-static int rbs_write_st2rebuild(uint8_t layout) {
-
-  /*
-  ** Update layout in st2rebuild
-  */
-  storage_config.layout = layout;
-  rbs_monitor[rbs_index].layout = layout;
-           
-  return rbs_write_storage_config_file(parameter.rebuildRef, &storage_config);
 } 
-  
+
+
 
 /** Retrieves the list of bins files to rebuild from a storage
  *
@@ -1181,7 +1165,7 @@ static int rbs_write_st2rebuild(uint8_t layout) {
  *
  * @return: the number of file to rebuild.  -1 otherwise (errno is set)
  */
-uint64_t rbs_get_rb_entry_list_one_storage(rb_stor_t *rb_stor, cid_t cid, sid_t sid, int *cfgfd, int failed, int * entry_size) {
+uint64_t rbs_get_rb_entry_list_one_storage(rb_stor_t *rb_stor, cid_t cid, sid_t sid, int *cfgfd, int failed) {
     uint16_t slice = 0;
     uint8_t spare = 0;
     uint8_t device = 0;
@@ -1193,7 +1177,8 @@ uint64_t rbs_get_rb_entry_list_one_storage(rb_stor_t *rb_stor, cid_t cid, sid_t 
     bins_file_rebuild_t * free_it = NULL;
     int            ret;
     rozofs_rebuild_entry_file_t file_entry;
-	uint64_t count=0;
+    int      entry_size;
+    uint64_t count=0;
     
     DEBUG_FUNCTION;
 
@@ -1214,61 +1199,53 @@ uint64_t rbs_get_rb_entry_list_one_storage(rb_stor_t *rb_stor, cid_t cid, sid_t 
 
         // For each entry 
         while (iterator != NULL) {
-	
-	   /*
-	   ** Check that not too much storages are failed for this layout
-	   */
-	   if (failed) {
-	     switch(iterator->layout) {
-	     
-	       case LAYOUT_2_3_4:
-	         if (failed>1) {
-		   severe("%d failed storages on LAYOUT_2_3_4",failed);
-		   return -1;
-		 }
-		 break;
-	       case LAYOUT_4_6_8:
-	         if (failed>2) {
-		   severe("%d failed storages on LAYOUT_4_6_8",failed);
-		   return -1;
-		 }
-		 break;	
-	       case LAYOUT_8_12_16:
-	         if (failed>2) {
-		   severe("%d failed storages on LAYOUT_8_12_16",failed);
-		   return -1;
-		 }
-		 break;	
-	       default:	         	 		 	 
-		 severe("Unexpected layout %d",iterator->layout);
-		 return -1;
-	     }
-	     failed = 0;
-	   }
 
-           // Verify if this entry is already present in list
-	    if (rb_hash_table_search(iterator->fid) == 0) { 
+	  /*
+	  ** Check that not too much storages are failed for this layout
+	  */
+	  failed = 0;
+	  switch(iterator->layout) {
 
-	        /*
-		** Layout not yet filled in st2rebuild. It is time
-		** to update it
-		*/
-	    if (*entry_size == 0) {
-		  ret = rbs_write_st2rebuild(iterator->layout);
-		  if (ret != 0) return -1;
-		  *entry_size = rbs_entry_size_from_layout(iterator->layout);
-                }
-			    
-                rb_hash_table_insert(iterator->fid);
-			
-		memcpy(file_entry.fid,iterator->fid, sizeof (fid_t));
-		file_entry.bsize       = iterator->bsize;
-        	file_entry.todo        = 1;    
-	        file_entry.relocate    = 0;		    
-		file_entry.block_start = 0;  
-		file_entry.block_end   = -1; 
-                file_entry.error       = rozofs_rbs_error_none;
-        	memcpy(file_entry.dist_set_current, iterator->dist_set_current, sizeof (sid_t) * ROZOFS_SAFE_MAX);	    
+	    case LAYOUT_2_3_4:
+	      if (failed>1) {
+		severe("%d failed storages on LAYOUT_2_3_4",failed);
+		return -1;
+	      }
+	      break;
+	    case LAYOUT_4_6_8:
+	      if (failed>2) {
+		severe("%d failed storages on LAYOUT_4_6_8",failed);
+		return -1;
+	      }
+	      break;	
+	    case LAYOUT_8_12_16:
+	      if (failed>2) {
+		severe("%d failed storages on LAYOUT_8_12_16",failed);
+		return -1;
+	      }
+	      break;	
+	    default:	         	 		 	 
+	      severe("Unexpected layout %d",iterator->layout);
+	      return -1;
+	  }
+
+
+          // Verify if this entry is already present in list
+	  if (rb_hash_table_search(iterator->fid) == 0) { 
+		
+	  entry_size = rbs_entry_size_from_layout(iterator->layout);
+
+          rb_hash_table_insert(iterator->fid);
+
+	  memcpy(file_entry.fid,iterator->fid, sizeof (fid_t));
+	  file_entry.bsize       = iterator->bsize;
+          file_entry.todo        = 1;    
+	  file_entry.relocate    = 0;		    
+	  file_entry.block_start = 0;  
+	  file_entry.block_end   = -1;
+	  file_entry.layout      = iterator->layout;
+          file_entry.error       = rozofs_rbs_error_none;
+          memcpy(file_entry.dist_set_current, iterator->dist_set_current, sizeof (sid_t) * ROZOFS_SAFE_MAX);	    
 
 #if 0
   {
@@ -1284,21 +1261,20 @@ uint64_t rbs_get_rb_entry_list_one_storage(rb_stor_t *rb_stor, cid_t cid, sid_t 
    printf("\n");
   }  
 #endif
-        	ret = write(cfgfd[current_file_index],&file_entry,*entry_size); 
-		if (ret != *entry_size) {
-		  severe("can not write file cid%d sid%d %d %s",cid,sid,current_file_index,strerror(errno));
-		}	    
-		current_file_index++;
-		count++;
-		if (current_file_index >= parameter.parallel) current_file_index = 0; 		
-		
-            }
+          ret = write(cfgfd[current_file_index],&file_entry,entry_size); 
+	  if (ret != entry_size) {
+	    severe("can not write file cid%d sid%d %d %s",cid,sid,current_file_index,strerror(errno));
+	  }	    
+	  current_file_index++;
+	  count++;
+	  if (current_file_index >= parameter.parallel) current_file_index = 0; 		
 
-            free_it = iterator;
-            iterator = iterator->next;
-            free(free_it);
         }
+        free_it = iterator;
+        iterator = iterator->next;
+        free(free_it);
       }
+    }
 
     return count;
 }
@@ -1483,34 +1459,35 @@ int rbs_build_job_list_from_export() {
   char      cmd[255];
   char    * pChar = cmd;
   int       first=1;
-  uint8_t   layout;
   uint16_t  vid;
 
+  uint8_t   vlayout;
   int delay = time(NULL);
   
   *pChar = 0;
   
   for (idx=0; idx<nb_rbs_entry; idx++) {
 
-	// Get the list of storages for this cluster ID
-	pExport_host = rbs_get_cluster2_list(&rpcclt_export, parameter.rbs_export_hostname, 
-                                    	parameter.storaged_geosite, 
-										rbs_stor_configs[idx].cid, 
-										&cluster_entries,
-										&layout, &vid);
-	if (pExport_host == NULL) {					
+    // Get the list of storages for this cluster ID
+    pExport_host = rbs_get_cluster2_list(&rpcclt_export, parameter.rbs_export_hostname, 
+                                         parameter.storaged_geosite, 
+					 rbs_stor_configs[idx].cid, 
+					 &cluster_entries,
+					 &vlayout,
+					 &vid);
+    if (pExport_host == NULL) {					
       severe("rbs_get_cluster2_list failed exportd %s cid %d %s", 
 		      parameter.rbs_export_hostname, rbs_stor_configs[idx].cid, strerror(errno));
       continue;
-	}  
+    }  
 
     // Initialize the storage to rebuild
     if (rbs_initialize(rbs_stor_configs[idx].cid, 
-	                   rbs_stor_configs[idx].sid, 
-					   rbs_stor_configs[idx].root, 
-					   rbs_stor_configs[idx].device.total, 
-					   rbs_stor_configs[idx].device.mapper, 
-					   rbs_stor_configs[idx].device.redundancy) != 0) {
+	               rbs_stor_configs[idx].sid, 
+		       rbs_stor_configs[idx].root, 
+		       rbs_stor_configs[idx].device.total, 
+		       rbs_stor_configs[idx].device.mapper, 
+		       rbs_stor_configs[idx].device.redundancy) != 0) {
         severe("can't init. storage to rebuild (cid:%u;sid:%u;path:%s)",
                 rbs_stor_configs[idx].cid, rbs_stor_configs[idx].sid, rbs_stor_configs[idx].root);
         continue;
@@ -1519,14 +1496,10 @@ int rbs_build_job_list_from_export() {
     strcpy(storage_config.export_hostname,parameter.rbs_export_hostname);
     strcpy(storage_config.config_file,parameter.storaged_config_file);
     storage_config.site   = parameter.storaged_geosite;
-    storage_config.layout = layout;
     storage_config.device = parameter.rbs_device_number;
     rbs_stor_configs[idx].status = RBS_STATUS_PROCESSING_LIST;
     rbs_write_storage_config_file(parameter.rebuildRef, &storage_config);
 	
-    rbs_monitor[idx].layout = layout;
-           
-		  
     if (first) {	
 	  pChar += sprintf(pChar,"rozo_make_rebuild_lists.py -d -e %s -p %d -r %d -E %s -S %s -c %d:%d", 
                 	   pExport_host, 
@@ -1537,8 +1510,8 @@ int rbs_build_job_list_from_export() {
                            (int) rbs_stor_configs[idx].cid, 
 			   (int) rbs_stor_configs[idx].sid);
 	  first = 0;
-	}			
-	else {
+    }			
+    else {
   	  pChar += sprintf(pChar, ",%d:%d",rbs_stor_configs[idx].cid, rbs_stor_configs[idx].sid);
     }
 	
@@ -1549,7 +1522,7 @@ int rbs_build_job_list_from_export() {
   
   if (first) {
     severe("No CID/SID to rebuild");
-	return -1;
+    return -1;
   }
 
   if (parameter.simu != NULL) {
@@ -1563,10 +1536,9 @@ int rbs_build_job_list_from_export() {
   for (idx=0; idx<nb_rbs_entry; idx++) {
   
     rbs_monitor[idx].list_building_sec = delay/nb_rbs_entry;  
-	rbs_monitor[idx].nb_files = rbs_read_file_count(parameter.rebuildRef,
+    rbs_monitor[idx].nb_files = rbs_read_file_count(parameter.rebuildRef,
 	                                            rbs_stor_configs[idx].cid,
-												rbs_stor_configs[idx].sid);
-												
+						    rbs_stor_configs[idx].sid);					
   }
   
   return 0;  
@@ -1587,8 +1559,7 @@ static int rbs_get_rb_entry_list_one_cluster(list_t * cluster_entries,
     char           filename[FILENAME_MAX];
     int            idx;
     int            cfgfd[MAXIMUM_PARALLEL_REBUILD_PER_SID];
-    int            entry_size=0;
-	uint64_t       count=0;
+    uint64_t       count=0;
     char         * pChar;
 	   
     /*
@@ -1627,8 +1598,8 @@ static int rbs_get_rb_entry_list_one_cluster(list_t * cluster_entries,
 		            continue;   
 
                 // Get the list of bins files to rebuild for this storage
-                count = rbs_get_rb_entry_list_one_storage(rb_stor, cid, sid,cfgfd, failed, &entry_size);
-				if (count == -1) {
+                count = rbs_get_rb_entry_list_one_storage(rb_stor, cid, sid,cfgfd, failed);
+		if (count == -1) {
                     severe("rbs_get_rb_entry_list_one_storage failed: %s\n",
                             strerror(errno));
                     goto out;
@@ -1680,8 +1651,6 @@ static int rbs_build_one_fid_list(cid_t cid, sid_t sid, uint8_t layout, uint8_t 
     return -1;
   }
 
-  rbs_write_st2rebuild(layout);    
-
   memcpy(file_entry.fid, parameter.fid2rebuild, sizeof (fid_t));
   file_entry.bsize       = bsize;  
   file_entry.todo        = 1;      
@@ -1689,6 +1658,7 @@ static int rbs_build_one_fid_list(cid_t cid, sid_t sid, uint8_t layout, uint8_t 
   file_entry.block_start = 0;  
   file_entry.block_end   = -1;  
   file_entry.error       = rozofs_rbs_error_none;
+  file_entry.layout      = layout;
   
   for(i=0; i<ROZOFS_SAFE_MAX; i++) {
     file_entry.dist_set_current[i] = dist[i];
@@ -2023,15 +1993,7 @@ static int rbs_build_device_missing_list_one_cluster(cid_t cid,
 		continue;
 	      }	      
 
-	      /*
-	      ** Layout not yet filled in st2rebuild. It is time
-	      ** to update it
-	      */
-	      if (entry_size == 0) {
-	        ret = rbs_write_st2rebuild(file_hdr.v0.layout);
-		if (ret != 0) goto out;
-		entry_size = rbs_entry_size_from_layout(file_hdr.v0.layout);
-              }
+	      entry_size = rbs_entry_size_from_layout(file_hdr.v0.layout);
 
 	      memcpy(file_entry.fid,file_hdr.v0.fid, sizeof (fid_t));
 	      file_entry.bsize       = file_hdr.v0.bsize;
@@ -2040,6 +2002,7 @@ static int rbs_build_device_missing_list_one_cluster(cid_t cid,
 	      file_entry.block_start = chunk * ROZOFS_STORAGE_NB_BLOCK_PER_CHUNK(file_hdr.v0.bsize);  
 	      file_entry.block_end   = file_entry.block_start + ROZOFS_STORAGE_NB_BLOCK_PER_CHUNK(file_hdr.v0.bsize) -1;  
               file_entry.error       = rozofs_rbs_error_none;
+	      file_entry.layout      = file_hdr.v0.layout;
 	      
               memcpy(file_entry.dist_set_current, file_hdr.v0.dist_set_current, sizeof (sid_t) * ROZOFS_SAFE_MAX);	    
 
@@ -2087,8 +2050,8 @@ int rbs_build_job_lists(cid_t cid, sid_t sid, const char *root, uint32_t dev, ui
     strcpy(storage_config.export_hostname,parameter.rbs_export_hostname);
     strcpy(storage_config.config_file,parameter.storaged_config_file);
     storage_config.site = parameter.storaged_geosite;
-    storage_config.layout = 0xFF;
     storage_config.device = parameter.rbs_device_number;
+    rbs_write_storage_config_file(parameter.rebuildRef, &storage_config);
 
     // Get the list of storages for this cluster ID
     pExport_host = rbs_get_cluster_list(&rpcclt_export, parameter.rbs_export_hostname, 
@@ -2128,8 +2091,6 @@ int rbs_build_job_lists(cid_t cid, sid_t sid, const char *root, uint32_t dev, ui
         goto out;
       rb_fid_table_count = 1;	
       parameter.parallel = 1;
-      storage_config.layout  = layout;
-      rbs_monitor[rbs_index].layout = layout;
     }
     else if (parameter.type == rbs_rebuild_type_storage) {
       // Build the list from the remote storages
@@ -2137,7 +2098,7 @@ int rbs_build_job_lists(cid_t cid, sid_t sid, const char *root, uint32_t dev, ui
         goto out;  	 	 	 
     }
     else {
-      // The device number is to big for theis storage
+      // The device number is to big for their storage
       if (parameter.rbs_device_number >= storage_config.storage.device_number) {
         REBUILD_FAILED("No such device number %d.",parameter.rbs_device_number);
 	status = -2;	
@@ -2241,6 +2202,7 @@ void storaged_rebuild_list_read(char * fid_list) {
   uint64_t   offset;
   rozofs_rebuild_entry_file_t   file_entry;
   char fidString[40];
+  int entry_size;
       
   fd = open(fid_list,O_RDONLY);
   if (fd < 0) {
@@ -2248,13 +2210,11 @@ void storaged_rebuild_list_read(char * fid_list) {
       goto error;
   }
   
-  int entry_size = rbs_entry_size_from_layout(storage_config.layout);
-
   offset = 0;
 
-  while (pread(fd,&file_entry,entry_size,offset) == entry_size) {
+  while (pread(fd,&file_entry,sizeof(rozofs_rebuild_entry_file_t),offset)>0) {
   
-    offset += entry_size;    
+    offset += rbs_entry_size_from_layout(file_entry.layout);;    
     
     /* Next file to rebuild */ 
     if (file_entry.todo) {
@@ -2267,35 +2227,7 @@ void storaged_rebuild_list_read(char * fid_list) {
 error: 
   if (fd != -1) close(fd);   
 }
-/*
-** Display the list of remaining FID in a given rebuild job list
-** given by its file name
-*/
-int storaged_rebuild_list_count(char * fid_list,uint64_t * count) {
-  int        fd = -1;
-  uint64_t   offset;
-  rozofs_rebuild_entry_file_t   file_entry;
-      
-  fd = open(fid_list,O_RDONLY);
-  if (fd < 0) {
-    severe("Can not open file %s %s",fid_list,strerror(errno));
-    goto error;
-  }
-  
-  int entry_size = rbs_entry_size_from_layout(storage_config.layout);
-  
-  offset = 0;
-  
-  while (pread(fd,&file_entry,entry_size,offset) == entry_size) {
-    offset += entry_size;    
-    *count += 1;
-  }
 
-
-error: 
-  if (fd != -1) close(fd);   
-  return storage_config.layout;
-}
 /** Display the list of remaining FIDs
  *
  */
@@ -2324,7 +2256,8 @@ void rbs_list_remaining_fid(void) {
       severe("opendir(%s) %s", dirName, strerror(errno));
     }  
     return;
-  } 	  
+  } 
+  
   /*
   ** Loop on distibution sub directories
   */
@@ -2356,6 +2289,7 @@ void rbs_list_remaining_fid(void) {
       continue;
 	}
 	
+    	
     /*
     ** Loop on distibution sub directories
     */
@@ -2855,27 +2789,26 @@ static inline int rbs_rebuild_process() {
 		continue;
 	  } 
 
-      // Copy the configuration for the storage to rebuild
-      strncpy(rbs_stor_configs[nb_rbs_entry].export_hostname, parameter.rbs_export_hostname,
-      ROZOFS_HOSTNAME_MAX);
-      rbs_stor_configs[nb_rbs_entry].cid = sc->cid;
-      rbs_stor_configs[nb_rbs_entry].sid = sc->sid;
-      rbs_stor_configs[nb_rbs_entry].stor_idx = nb_rbs_entry;
+	  // Copy the configuration for the storage to rebuild
+	  strncpy(rbs_stor_configs[nb_rbs_entry].export_hostname, parameter.rbs_export_hostname,
+	  ROZOFS_HOSTNAME_MAX);
+	  rbs_stor_configs[nb_rbs_entry].cid = sc->cid;
+	  rbs_stor_configs[nb_rbs_entry].sid = sc->sid;
+	  rbs_stor_configs[nb_rbs_entry].stor_idx = nb_rbs_entry;
 	  rbs_stor_configs[nb_rbs_entry].device.total      = sc->device.total;
 	  rbs_stor_configs[nb_rbs_entry].device.mapper     = sc->device.mapper;
 	  rbs_stor_configs[nb_rbs_entry].device.redundancy = sc->device.redundancy;
 	  rbs_stor_configs[nb_rbs_entry].status            = RBS_STATUS_BUILD_JOB_LIST;
 
-      strncpy(rbs_stor_configs[nb_rbs_entry].root, sc->root, PATH_MAX);
+	  strncpy(rbs_stor_configs[nb_rbs_entry].root, sc->root, PATH_MAX);
 
-      rbs_monitor[nb_rbs_entry].cid        = sc->cid;
-      rbs_monitor[nb_rbs_entry].sid        = sc->sid;
-      rbs_monitor[nb_rbs_entry].nb_files   = 0;	
-      rbs_monitor[nb_rbs_entry].done_files = 0;
-      rbs_monitor[nb_rbs_entry].deleted    = 0;	
-	  rbs_monitor[nb_rbs_entry].layout     = 0xFF;
+	  rbs_monitor[nb_rbs_entry].cid        = sc->cid;
+	  rbs_monitor[nb_rbs_entry].sid        = sc->sid;
+	  rbs_monitor[nb_rbs_entry].nb_files   = 0;	
+	  rbs_monitor[nb_rbs_entry].done_files = 0;
+	  rbs_monitor[nb_rbs_entry].deleted    = 0;	
 	  strcpy(rbs_monitor[nb_rbs_entry].status,"to do");
-      rbs_monitor[rbs_index].list_building_sec = 0;	
+	  rbs_monitor[rbs_index].list_building_sec = 0;	
 	  nb_rbs_entry++;
 
 	  // Create a temporary directory to receive the list files 
@@ -2898,10 +2831,10 @@ static inline int rbs_rebuild_process() {
     }
 
 #if 1
-	/*
-	** Try to get list of FID to rebuild from export
-	*/
-	while (1) {
+    /*
+    ** Try to get list of FID to rebuild from export
+    */
+    while (1) {
 
       // FID rebuild
       if (parameter.type == rbs_rebuild_type_fid) break;     
@@ -2923,8 +2856,8 @@ static inline int rbs_rebuild_process() {
       if (storage_config.storage.device_number == 1) {
 	    rbs_build_job_list_from_export();
       }
-	  break;           		
-	}
+      break;           		
+    }
 #endif
 
     /*
@@ -3026,10 +2959,9 @@ static inline int rbs_rebuild_resume() {
 
     rbs_monitor[nb_rbs_entry].cid        = cid;
     rbs_monitor[nb_rbs_entry].sid        = sid;
-	rbs_monitor[nb_rbs_entry].nb_files   = rbs_read_file_count(parameter.rebuildRef,cid,sid); 
+    rbs_monitor[nb_rbs_entry].nb_files   = rbs_read_file_count(parameter.rebuildRef,cid,sid); 
     rbs_monitor[nb_rbs_entry].done_files = 0;
     rbs_monitor[nb_rbs_entry].deleted    = 0;	
-    rbs_monitor[nb_rbs_entry].layout     = 0xFF;
     strcpy(rbs_monitor[nb_rbs_entry].status,"to do");
         
     sprintf(fname,"%s/%s",get_rebuild_directory_name(parameter.rebuildRef),file0->d_name);
@@ -3041,14 +2973,12 @@ static inline int rbs_rebuild_resume() {
     }
 
     /*
-	** Read the storage configuration file
-	*/
-	if (rbs_read_storage_config_file(fname, &storage_config) == NULL) {
+    ** Read the storage configuration file
+    */
+    if (rbs_read_storage_config_file(fname, &storage_config) == NULL) {
       severe("rbs_read_storage_config_file(%s) %s", fname, strerror(errno));
       continue;
-	}
-	
-	rbs_monitor[nb_rbs_entry].layout = storage_config.layout;
+    }
 
     if (rbs_monitor[nb_rbs_entry].nb_files == 0) {
       /* No file to rebuild => the list is to be built */

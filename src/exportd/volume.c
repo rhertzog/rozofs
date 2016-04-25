@@ -1116,7 +1116,7 @@ static int do_cluster_distribute(uint8_t layout,int site_idx, cluster_t *cluster
   severe("No such distribution rule %d\n",common_config.file_distribution_rule);
   return -1;    
 }
-int volume_distribute(volume_t *volume,int site_number, cid_t *cid, sid_t *sids) {
+int volume_distribute(uint8_t layout, volume_t *volume,int site_number, cid_t *cid, sid_t *sids) {
     list_t *p,*q;
     int xerrno = ENOSPC;
     int site_idx;
@@ -1141,7 +1141,7 @@ int volume_distribute(volume_t *volume,int site_number, cid_t *cid, sid_t *sids)
       cluster_t *next_cluster;
       cluster_t *cluster = list_entry(p, cluster_t, list);
 
-      if (do_cluster_distribute(volume->layout,site_idx, cluster, sids,volume->multi_site) == 0) {
+      if (do_cluster_distribute(layout,site_idx, cluster, sids,volume->multi_site) == 0) {
 
         *cid = cluster->cid;
         xerrno = 0;

@@ -21,11 +21,12 @@ def setLayout(l=0):
     sys.exit(-1)  
   
 #_____________________________________ 
-def setNbHosts(nbHosts):
+def setVolumeHosts(nbHosts):
   global layout_int
   global nbclusters
   global clients_nb
   global georep
+  global failures
     
   # Is there more server than sid per cluster
   factor=int(1)
@@ -36,7 +37,11 @@ def setNbHosts(nbHosts):
     nb=int(nb) * int(2)  
     
   # Create a volume
-  v1 = volume_class(layout,rozofs.failures(layout))
+  v1 = volume_class(layout)
+  if factor != 1:
+    failures = int(v1.get_failures())
+    failures = failures / factor
+    v1.set_failures(failures)
   
   # Create clusters on this volume
   for i in range(nbclusters):
@@ -56,13 +61,17 @@ def setNbHosts(nbHosts):
         for f in range(factor):
           c.add_sid_on_host((2*s)+1,0,(2*s)+2,1)
         
-  # Create on export for 4K, and one mount point
-  e1 = v1.add_export(rozofs.bsize4K())
-  
-  for i in range(1,clients_nb+1): 
-    m = e1.add_mount((i-1) % rozofs.site_number)
-    if georep==True: m2 = e1.add_mount(1)
+  return v1  
     
+#_____________________________________ 
+def addExport(vol,layout=None):
+
+  # Create on export for 4K, and one mount point
+  e = vol.add_export(rozofs.bsize4K(),layout)
+
+  for i in range(1,clients_nb+1): 
+    m1 = e.add_mount((i-1) % rozofs.site_number)
+    if georep==True: m2 = e1.add_mount(1)
 
     
 #_____________________________________ 
@@ -130,8 +139,8 @@ rozofs.set_self_healing(1)
 
 
 #-------------- NB devices
-devices    = 4
-mapper     = 2
+devices    = 3
+mapper     = 3
 redundancy = 2
 
 # Nb cluster per volume
@@ -144,7 +153,9 @@ clients_nb = rozofs.site_number
 setLayout(1)
 
 # Define number of Host 
-setNbHosts(8)
+vol = setVolumeHosts(4)
+addExport(vol,1)
+addExport(vol,0)
 
 
 # Set host 1 faulty

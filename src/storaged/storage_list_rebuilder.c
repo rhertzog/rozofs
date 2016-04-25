@@ -751,18 +751,22 @@ out:
     RESTORE_ONE_RB_ENTRY_FREE_ALL;   
     return status;
 }
-void storaged_rebuild_compact_list(char * fid_list, int fd, int entry_size) {
+void storaged_rebuild_compact_list(char * fid_list, int fd) {
   uint64_t   write_offset;
   uint64_t   read_offset;
+  int        entry_size=0;
   rozofs_rebuild_entry_file_t   file_entry;
   fid_t      null_fid={0};
         
   write_offset = 0;
   read_offset  = 0;
   
-  while (pread(fd,&file_entry,entry_size,read_offset) == entry_size) {
-      
-    read_offset += entry_size;  
+  while (1) {
+  
+    if (pread(fd,&file_entry,sizeof(file_entry),read_offset) <= 0) break;
+    
+    entry_size = rbs_entry_size_from_layout(file_entry.layout);   
+    read_offset += entry_size; 
        
     if (file_entry.todo == 0) continue;
     if (memcmp(null_fid,file_entry.fid,sizeof(fid_t))==0) {
@@ -806,6 +810,7 @@ int storaged_rebuild_list(char * fid_list, char * statFilename) {
   int        nbSuccess=0;
   list_t     cluster_entries;
   uint64_t   offset;
+  uint64_t   next_offset;
   ROZOFS_RBS_COUNTERS_T         statistics;
   rozofs_rebuild_entry_file_t   file_entry;
   rozofs_rebuild_entry_file_t   file_entry_saved;
@@ -847,10 +852,6 @@ int storaged_rebuild_list(char * fid_list, char * statFilename) {
       goto error;
   }  
 
-
-        
-  int entry_size = rbs_entry_size_from_layout(storage_config.layout);
-  //info("layout %d entry size %d", storage_config.layout, entry_size);
 
   // Initialize the list of storage config
   if (sconfig_initialize(&sconfig) != 0) {
@@ -894,55 +895,56 @@ int storaged_rebuild_list(char * fid_list, char * statFilename) {
   // Get connections for this given cluster  
   rbs_init_cluster_cnts(&cluster_entries, storage_config.storage.cid, storage_config.storage.sid,&failed,&available);
   
-  /*
-  ** Check that enough servers are available
-  */
-  rozofs_inverse = rozofs_get_rozofs_inverse(storage_config.layout);  
-  rozofs_safe    = rozofs_get_rozofs_safe(storage_config.layout);
-  rozofs_forward = rozofs_get_rozofs_forward(storage_config.layout);
-
-  if (available<rozofs_inverse) {
-    /*
-    ** Not possible to rebuild any thing
-    */
-    REBUILD_MSG("only %d failed storages !!!",available);
-    goto error;
-  }
-  if (failed > (rozofs_forward-rozofs_inverse)) {
-    /*
-    ** Possibly some file may not be rebuilt !!! 
-    */
-    REBUILD_MSG("   -> %s rebuild start (%d storaged failed!!!)",fid_list, failed);
-  }
-  else {
-    /*
-    ** Every file should be rebuilt 
-    */
-    REBUILD_MSG("   -> %s rebuild start",fid_list);
-  }
+  REBUILD_MSG("   -> %s rebuild start",fid_list);
   
   nbJobs    = 0;
   nbSuccess = 0;
   offset    = 0;
 
+  next_offset = 0;
+  
   entry_idx       = 0;
   
-  while (pread(fdlist,&file_entry,entry_size,offset) == entry_size) {
-  
+  while (1) {
+    
+    offset = next_offset;
+    if (pread(fdlist,&file_entry,sizeof(file_entry),offset) <= 0) {
+      break;
+    } 
     if (sigusr_received) break;
   
     entry_idx++;
-    offset += entry_size; 
        
+   /*
+    ** Check that enough servers are available
+    */
+    int entry_size = rbs_entry_size_from_layout(file_entry.layout);
+    next_offset = offset + entry_size; 
     if (file_entry.todo == 0) continue;
     if (memcmp(null_fid,file_entry.fid,sizeof(fid_t))==0) {
       severe("Null entry");
       continue;
     }
-    // Padd end of distibution with 0. Just in case...
+ 
+
+    rozofs_inverse = rozofs_get_rozofs_inverse(file_entry.layout);  
+    rozofs_safe    = rozofs_get_rozofs_safe(file_entry.layout);
+    rozofs_forward = rozofs_get_rozofs_forward(file_entry.layout);
+
+    if (available<rozofs_inverse) {
+      /*
+      ** Not possible to rebuild any thing
+      */
+      file_entry.error = rozofs_rbs_error_not_enough_storages_up;
+      continue;
+    }
+
+   // Padd end of distibution with 0. Just in case...
     memset(&file_entry.dist_set_current[rozofs_safe],0,ROZOFS_SAFE_MAX-rozofs_safe); 
     memcpy(&file_entry_saved,&file_entry,entry_size);
 
+  
+  
     nbJobs++;
         
 #if 0
@@ -951,7 +953,7 @@ int storaged_rebuild_list(char * fid_list, char * statFilename) {
     int i;
     rozofs_uuid_unparse(file_entry.fid,fid_string);  
     printf("rebuilding FID %s layout %d bsize %d from %llu to %llu dist %d",
-          fid_string,storage_config.layout, file_entry.bsize,
+          fid_string,file_entry.layout, file_entry.bsize,
          (long long unsigned int) file_entry.block_start, 
 	 (long long unsigned int) file_entry.block_end,
 	 file_entry.dist_set_current[0]);
@@ -962,8 +964,8 @@ int storaged_rebuild_list(char * fid_list, char * statFilename) {
     
     memcpy(re.fid,file_entry.fid, sizeof(re.fid));
     memcpy(re.dist_set_current,file_entry.dist_set_current, sizeof(re.dist_set_current));
-    re.bsize = file_entry.bsize;
-    re.layout = storage_config.layout;
+    re.bsize  = file_entry.bsize;
+    re.layout = file_entry.layout;
 
     // Get storage connections for this entry
     local_index = rbs_get_rb_entry_cnts(&re, 
@@ -1003,7 +1005,7 @@ int storaged_rebuild_list(char * fid_list, char * statFilename) {
       // Restore this entry
       uint32_t block_start = file_entry.block_start;
       if (spare == 1) {
-	ret = rbs_restore_one_spare_entry(&storage_config.storage, storage_config.layout, local_index, file_entry.relocate,
+	ret = rbs_restore_one_spare_entry(&storage_config.storage, file_entry.layout, local_index, file_entry.relocate,
                                           &block_start, file_entry.block_end, 
 					  &re, prj,
 					  &size_written,
@@ -1011,7 +1013,7 @@ int storaged_rebuild_list(char * fid_list, char * statFilename) {
 					  &file_entry.error);     
       }
       else {
-	ret = rbs_restore_one_rb_entry(&storage_config.storage, storage_config.layout, local_index, file_entry.relocate,
+	ret = rbs_restore_one_rb_entry(&storage_config.storage, file_entry.layout, local_index, file_entry.relocate,
                                        &block_start, file_entry.block_end, 
 				       &re, prj, 
 				       &size_written,
@@ -1093,7 +1095,7 @@ int storaged_rebuild_list(char * fid_list, char * statFilename) {
       ** Update input job file if any change
       */
       if (memcmp(&file_entry_saved,&file_entry, entry_size) != 0) {
-	if (pwrite(fdlist, &file_entry, entry_size, offset-entry_size)!=entry_size) {
+	if (pwrite(fdlist, &file_entry, entry_size, offset)!=entry_size) {
 	  severe("pwrite size %lu offset %llu %s",(unsigned long int)entry_size, 
         	 (unsigned long long int) offset-entry_size, strerror(errno));
 	}
@@ -1118,7 +1120,7 @@ int storaged_rebuild_list(char * fid_list, char * statFilename) {
   ** Truncate the file after the last failed entry
   */
   if (nbSuccess!=0) {
-    storaged_rebuild_compact_list(fid_list, fdlist, entry_size);
+    storaged_rebuild_compact_list(fid_list, fdlist);
   }
    
 error: 

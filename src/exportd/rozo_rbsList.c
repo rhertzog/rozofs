@@ -19,6 +19,7 @@
 #include "exp_cache.h"
 #include "econfig.h"
 #include "rozofs/common/log.h"
+#include "rozofs/rozofs_srv.h"
 
 int rozofs_no_site_file;
 
@@ -44,8 +45,8 @@ typedef sid_info_t * sid_tbl_t[SID_MAX];
 sid_tbl_t          * cid_tbl[ROZOFS_CLUSTERS_MAX] = {0};
 
 lv2_cache_t  cache;
-int rozofs_fwd  = -1;
-int rozofs_safe = -1;
+uint8_t rozofs_safe = -1;
+uint8_t layout = -1;
 
 int     nb_requested_vid = 0;
 uint8_t requested_vid[256] = {0};
@@ -153,29 +154,7 @@ int rozofs_visit(void *exportd,void *inode_attr_p,void *p) {
   pCid = cid_tbl[cid];
   if (pCid == NULL) return 0;
 
-  if (rozofs_fwd < 0) {
-    /*
-    ** compute the layout on the first file
-    */
-    rozofs_safe = 0;
-    for (i=0; i < ROZOFS_SAFE_MAX; i++,rozofs_safe++) {
-      if (inode_p->s.attrs.sids[i]==0) break;
-    }
-    switch (rozofs_safe) {
-      case 4:
-	rozofs_fwd = 3;
-	break;
-      case 8:
-	rozofs_fwd = 6;
-	break;
-      case 16:
-	rozofs_fwd = 12;
-	break;
-      default:
-	exit(-1);
-    }
-    entry_size =  sizeof(rozofs_rebuild_entry_file_t) - ROZOFS_SAFE_MAX + rozofs_safe;
-  }	
+	
 
   /*
   ** check for sid
@@ -188,10 +167,11 @@ int rozofs_visit(void *exportd,void *inode_attr_p,void *p) {
     pSid = (*pCid)[sid];
     if (pSid == NULL) continue;
 
-    memset(&entry,0,sizeof(entry));
+    memset(&entry,0,entry_size);
     memcpy(entry.fid,inode_p->s.attrs.fid,sizeof(fid_t));
     entry.todo      = 1;
     entry.block_end = -1;
+    entry.layout    = layout;
     for (j=0; j<rozofs_safe;j++) {
       entry.dist_set_current[j] = inode_p->s.attrs.sids[j];
     }
@@ -529,6 +509,7 @@ int main(int argc, char *argv[]) {
             configFileName, strerror(errno));
        exit(EXIT_FAILURE);  
   } 
+  rozofs_layout_initialize();
   
   /*
   ** Create a clean directory
@@ -565,8 +546,9 @@ int main(int argc, char *argv[]) {
   list_for_each_forward(p, &exportd_config.exports) {
 
     econfig = list_entry(p, export_config_t, list);
+    layout = econfig->layout;
 
-    TRACE("export %d in volume %d path %s\n", econfig->eid, econfig->vid, econfig->root);
+    TRACE("export %d layout %d in volume %d path %s\n", econfig->eid, layout, econfig->vid, econfig->root);
 	
     // Check whether the volume of this export is interresting
     for (i=0; i < nb_requested_vid; i++) {
@@ -586,8 +568,23 @@ int main(int argc, char *argv[]) {
     ** init of the lv2 cache
     */
     lv2_cache_initialize(&cache);   
-    rozofs_fwd = -1;
-    rz_scan_all_inodes(rozofs_export_p,ROZOFS_REG,1,rozofs_visit,NULL,NULL,NULL);	
+    
+    /*
+    ** Compute entry size for this export
+    */
+    rozofs_safe = rozofs_get_rozofs_safe(layout);
+    if (rozofs_safe == 0) {
+      severe("eid %d has layout %d",econfig->eid, layout);
+      continue;
+    }
+    
+    entry_size =  sizeof(rozofs_rebuild_entry_file_t) - ROZOFS_SAFE_MAX + rozofs_safe;
+    
+    rz_scan_all_inodes(rozofs_export_p,ROZOFS_REG,1,rozofs_visit,NULL,NULL,NULL);
+    free(rozofs_export_p);
+    
+    lv2_cache_release (&cache); 
+      	
   }
   
   close_all();

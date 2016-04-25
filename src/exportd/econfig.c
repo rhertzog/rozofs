@@ -186,12 +186,13 @@ void expgw_config_release(expgw_config_t *c) {
 
 
 
-int export_config_initialize(export_config_t *e, eid_t eid, vid_t vid, uint32_t bsize,
+int export_config_initialize(export_config_t *e, eid_t eid, vid_t vid, uint8_t layout, uint32_t bsize,
         const char *root, const char *md5, uint64_t squota, uint64_t hquota) {
     DEBUG_FUNCTION;
 
     e->eid = eid;
     e->vid = vid;
+    e->layout = layout;
     e->bsize = bsize;
     strncpy(e->root, root, FILENAME_MAX);
     strncpy(e->md5, md5, MD5_LEN);
@@ -778,10 +779,12 @@ static int load_exports_conf(econfig_t *ec, struct config_t *config) {
         int eid; // Export identifier
         int vid; // Volume identifier
 	int bsize; // Block size
+	int layout; // Export layout
 #else
         long int eid; // Export identifier
         long int vid; // Volume identifier
         long int bsize; // Block size
+	long int layout; // Export layout	
 #endif
         const char *str;
         uint64_t squota;
@@ -879,8 +882,14 @@ static int load_exports_conf(econfig_t *ec, struct config_t *config) {
             goto out;
         }
 
+		
+        // Lookup export layout if any
+        if (config_setting_lookup_int(mfs_setting, ELAYOUT, &layout) == CONFIG_FALSE) {
+	  layout = -1;           
+        }
+	
         econfig = xmalloc(sizeof (export_config_t));
-        if (export_config_initialize(econfig, (eid_t) eid, (vid_t) vid, bsize, root,
+        if (export_config_initialize(econfig, (eid_t) eid, (vid_t) vid, layout, bsize, root,
                 md5, squota, hquota) != 0) {
             severe("can't initialize export config.");
         }
@@ -1050,6 +1059,51 @@ static int econfig_validate_clusters(volume_config_t *config) {
 out:
     return status;
 }
+/** Checks if the nb. of storages is valid
+ *
+ * @param config: volume configuration
+ *
+ * @return: 0 on success -1 otherwise (errno is set)
+ */
+static int econfig_validate_volume_clusters_vs_layout(volume_config_t *config, uint8_t layout) {
+  list_t  *q;
+  int      size;
+  int      safe;
+
+  safe = rozofs_get_rozofs_safe(layout);
+
+  // For each cluster
+  list_for_each_forward(q, &config->clusters) {
+
+    cluster_config_t *c = list_entry(q, cluster_config_t, list);
+
+    // Check if the nb. of storages in this cluster is sufficient
+    // for this layout
+    size = list_size(&c->storages[0]);
+    if (size < safe) {
+      severe("not enough storages (%d) in cluster %d to use layout %d.",
+              size, c->cid, layout);
+      errno = EINVAL;
+      return -1;
+    }
+
+    // Geo replication case
+    if (config->georep == 0) continue;
+
+
+    // Check if the nb. of storages in this cluster is sufficient
+    // for this layout
+    size = list_size(&c->storages[1]);
+    if (size < safe) {
+      severe("not enough storages (%d) in cluster %d of site 1 to use layout %d.",
+              size, c->cid, layout);
+      errno = EINVAL;
+      return -1;
+    }       
+    
+  }
+  return 0;
+}
 
 /** Checks if the nb. of storages is valid
  *
@@ -1077,6 +1131,12 @@ static int econfig_validate_storage_nb(volume_config_t *config) {
     stor_node_check_t stor_nodes[STORAGE_NODES_MAX];
     memset(stor_nodes, 0, STORAGE_NODES_MAX * sizeof (stor_node_check_t));
 
+    // Check if the nb. of storages in the clusters is sufficient
+    // for the required volume layout
+    if (econfig_validate_volume_clusters_vs_layout(config,config->layout) != 0) {
+      severe("Volume %d has layout %d",config->vid,config->layout);
+      return -1;
+    }
     for (j = 0; j <ROZOFS_GEOREP_MAX_SITE; j++) 
     {
 
@@ -1085,14 +1145,6 @@ static int econfig_validate_storage_nb(volume_config_t *config) {
      list_for_each_forward(q, &config->clusters) {
          cluster_config_t *c = list_entry(q, cluster_config_t, list);
 
-         // Check if the nb. of storages in this cluster is sufficient
-         // for this layout
-         if (list_size(c->storages) < rozofs_get_rozofs_safe(config->layout)) {
-             severe("not enough storages (%d) in cluster %d to use layout %d.",
-                     list_size(c->storages), c->cid, config->layout);
-             errno = EINVAL;
-             goto out;
-         }
 
          // For each storage
 
@@ -1221,6 +1273,7 @@ static int econfig_validate_exports(econfig_t *config) {
     int status = -1;
     list_t *p, *q, *r;
     int found = 0;
+    volume_config_t *e3
     DEBUG_FUNCTION;
 
     list_for_each_forward(p, &config->exports) {
@@ -1244,7 +1297,7 @@ static int econfig_validate_exports(econfig_t *config) {
         found = 0;
 
         list_for_each_forward(r, &config->volumes) {
-            volume_config_t *e3 = list_entry(r, volume_config_t, list);
+            e3 = list_entry(r, volume_config_t, list);
             if (e1->vid == e3->vid) {
                 found = 1;
                 break;
@@ -1259,6 +1312,16 @@ static int econfig_validate_exports(econfig_t *config) {
             severe("can't access %s: %s.", e1->root, strerror(errno));
             goto out;
         }
+	// When layout is not set in the config file, get the volume layout
+	if (e1->layout>LAYOUT_MAX) e1->layout = e3->layout;
+	else {
+	  // one should check that enough SID are defined in each cluster
+	  // to support this layout
+          if (econfig_validate_volume_clusters_vs_layout(e3,e1->layout) != 0) {
+            severe("Export %d has layout %d on volume %d",e1->eid,e1->layout, e1->vid);
+            goto out;
+          }
+	}
     }
 
     status = 0;

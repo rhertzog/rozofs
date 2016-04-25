@@ -111,7 +111,6 @@ typedef struct _rbs_storage_config_t {
   char          export_hostname[ROZOFS_HOSTNAME_MAX];
   int           site;
   storage_t     storage;
-  uint8_t       layout;
   uint8_t       device; 
 } rbs_storage_config_t;
 

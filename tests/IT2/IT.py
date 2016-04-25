@@ -41,6 +41,7 @@ safe=None
 nb_failures=None
 sids=[]
 hosts=[]
+verbose=False
 
 #___________________________________________________
 def clean_cache(val=1): os.system("echo %s > /proc/sys/vm/drop_caches"%val)
@@ -976,7 +977,7 @@ def gruyere_one_reread():
 #___________________________________________________ 
   clean_cache()
   syslog.syslog("re-read %d files"%(int(nbGruyere)))
-  res=os.system("./IT2/test_rebuild.exe -action check -nbfiles %d -mount %s"%(int(nbGruyere),exepath))
+  res=cmd_returncode("./IT2/test_rebuild.exe -action check -nbfiles %d -mount %s"%(int(nbGruyere),exepath))
   syslog.syslog("re-read result %s"%(res))
   return res
   
@@ -1029,10 +1030,10 @@ def rebuild_one_dev() :
     
     dev=int(hid)%int(mapper_modulo)
     clean_rebuild_dir()    
-    string="./setup.py sid %s %s rebuild -fg -d %s -o one_cid%s_sid%s_dev%s 1> /dev/null"%(cid,sid,dev,cid,sid,dev)
+    string="./setup.py sid %s %s rebuild -fg -d %s -o one_cid%s_sid%s_dev%s"%(cid,sid,dev,cid,sid,dev)
     os.system("./setup.py sid %s %s device-delete %s"%(cid,sid,dev))
     os.system("./setup.py sid %s %s device-create %s"%(cid,sid,dev))
-    ret = os.system(string)
+    ret = cmd_returncode(string)
     if ret != 0:
       return ret
       
@@ -1040,7 +1041,7 @@ def rebuild_one_dev() :
       dev=(dev+1)%int(mapper_modulo)
       os.system("./setup.py sid %s %s device-delete %s"%(cid,sid,dev))
       os.system("./setup.py sid %s %s device-create %s"%(cid,sid,dev))
-      ret = os.system("./setup.py sid %s %s rebuild -fg -d %s -o one_cid%s_sid%s_dev%s 1> /dev/null"%(cid,sid,dev,cid,sid,dev))
+      ret = cmd_returncode("./setup.py sid %s %s rebuild -fg -d %s -o one_cid%s_sid%s_dev%s "%(cid,sid,dev,cid,sid,dev))
       if ret != 0:
 	return ret
 	
@@ -1101,7 +1102,7 @@ def relocate_one_dev() :
     # No self healing configured. Ask for a rebuild with relocation	      
     if selfHealing == "No":
       syslog.syslog("No self healing => call relocate")	      
-      ret = os.system("./setup.py sid %s %s rebuild -fg -d 0 -o reloc_cid%s_sid%s_dev0 1> /dev/null"%(cid,sid,cid,sid))
+      ret = cmd_returncode("./setup.py sid %s %s rebuild -fg -d 0 -o reloc_cid%s_sid%s_dev0 "%(cid,sid,cid,sid))
       if ret != 0:
 	return ret
 	
@@ -1125,8 +1126,8 @@ def relocate_one_dev() :
         time.sleep(10)
 	
         # Check The status of the device
-        if mode == "multiple": string="./build/src/rozodiag/rozodiag -i localhost%s -T storio:%s -c device 1> /dev/null"%(hid,cid)
-	else                 : string="./build/src/rozodiag/rozodiag -i localhost%s -T storio:0 -c device 1> /dev/null"%(hid)
+        if mode == "multiple": string="./build/src/rozodiag/rozodiag -i localhost%s -T storio:%s -c device "%(hid,cid)
+	else                 : string="./build/src/rozodiag/rozodiag -i localhost%s -T storio:0 -c device "%(hid)
 	parsed = shlex.split(string)
 	cmd = subprocess.Popen(parsed, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	curcid=0
@@ -1161,7 +1162,7 @@ def relocate_one_dev() :
       
     if selfHealing != "No":
       ret = os.system("./setup.py sid %s %s device-create 0"%(cid,sid))
-      ret = os.system("./setup.py sid %s %s rebuild -fg -d 0 -C -o clear_cid%s_sid%s_dev0 1> /dev/null"%(cid,sid,cid,sid))
+      ret = cmd_returncode("./setup.py sid %s %s rebuild -fg -d 0 -C -o clear_cid%s_sid%s_dev0 "%(cid,sid,cid,sid))
       
       
   if rebuildCheck == True:      
@@ -1185,7 +1186,7 @@ def rebuild_all_dev() :
 
     os.system("./setup.py sid %s %s device-delete all 1> /dev/null"%(cid,sid))
     os.system("./setup.py sid %s %s device-create all 1> /dev/null"%(cid,sid))
-    ret = os.system("./setup.py sid %s %s rebuild -fg -o all_cid%s_sid%s 1> /dev/null"%(cid,sid,cid,sid))
+    ret = cmd_returncode("./setup.py sid %s %s rebuild -fg -o all_cid%s_sid%s "%(cid,sid,cid,sid))
     if ret != 0:
       return ret
 
@@ -1224,8 +1225,8 @@ def rebuild_one_node() :
 
     clean_rebuild_dir()
     
-    string="./setup.py storage %s rebuild -fg -o node_%s 1> /dev/null"%(hid,hid)
-    ret = os.system(string)
+    string="./setup.py storage %s rebuild -fg -o node_%s"%(hid,hid)
+    ret = cmd_returncode(string)
     if ret != 0:
       return ret
 
@@ -1301,12 +1302,10 @@ def rebuild_fid() :
 
       clean_rebuild_dir()
 	    	
-      string="./setup.py sid %s %s rebuild -fg -f %s -o fid%s_cid%s_sid%s 1> /dev/null"%(cid,sid,fid,fid,cid,sid)
-      parsed = shlex.split(string)
-      cmd = subprocess.Popen(parsed, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-      cmd.wait()
+      string="./setup.py sid %s %s rebuild -fg -f %s -o fid%s_cid%s_sid%s"%(cid,sid,fid,fid,cid,sid)
+      ret = cmd_returncode(string)
 
-      if cmd.returncode != 0:
+      if ret != 0:
         print "%s failed"%(string)
 	return 1 	       
 
@@ -1579,7 +1578,20 @@ def resolve_mnt(inst):
   if pid == None:
     print "RozoFS instance %s is not running"%(instance)
     exit(1)      
-    
+#___________________________________________  
+def cmd_returncode (string):
+  global verbose
+  if verbose: print string
+  parsed = shlex.split(string)
+  cmd = subprocess.Popen(parsed, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+  cmd.wait()
+  return cmd.returncode
+#___________________________________________  
+def cmd_system (string):
+  global verbose
+  if verbose: print string
+  os.system(string)
+        
 #___________________________________________________
 def usage():
 #___________________________________________________

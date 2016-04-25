@@ -1218,7 +1218,7 @@ static int load_exports_conf() {
 	info("initializing export %d path %s",econfig->eid,econfig->root);
 
         // Initialize export
-        if (export_initialize(&entry->export, volume,econfig->bsize,
+        if (export_initialize(&entry->export, volume, econfig->layout, econfig->bsize,
                 &cache, econfig->eid, econfig->root, econfig->md5,
                 econfig->squota, econfig->hquota) != 0) {
             severe("can't initialize export with path %s: %s\n",

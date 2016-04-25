@@ -175,6 +175,7 @@ void volume_balance(volume_t *volume);
 /** gives the cluster and in this cluster the storages to used
  * for a new file.
  *
+ * @param layout: the layout to use
  * @param volume: the volume to scan
    @param site_number: needed for geo-replication
  * @param cid: destination cid_t where cid is copied
@@ -182,7 +183,7 @@ void volume_balance(volume_t *volume);
  *
  * @return: 0 on success -1 otherwise (errno is set)
  */
-int volume_distribute(volume_t *volume,int site_number, cid_t *cid, sid_t *sids);
+int volume_distribute(uint8_t layout, volume_t *volume,int site_number, cid_t *cid, sid_t *sids);
 
 /** get status of a volume
  *

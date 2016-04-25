@@ -105,15 +105,15 @@ class host_class:
   def start(self):
     if self.admin == False: return
     self.add_if() 
-    cmd_system("rozolauncher start /var/run/launcher_storaged_%s.pid storaged -c %s -H %s &"%(self.number,self.get_config_name(),self.addr))
+    os.system("rozolauncher start /var/run/launcher_storaged_%s.pid storaged -c %s -H %s &"%(self.number,self.get_config_name(),self.addr))
 
   def stop(self):
-    cmd_system("rozolauncher stop /var/run/launcher_storaged_%s.pid storaged"%(self.number))
+    os.system("rozolauncher stop /var/run/launcher_storaged_%s.pid storaged"%(self.number))
 
   def del_if(self,nb=None):
     # Delete one interface
     if nb != None:
-      silent_system("ip addr del 192.168.%s.%s/32 dev %s"%(int(nb)+10,self.number,rozofs.interface))  
+      cmd_silent("ip addr del 192.168.%s.%s/32 dev %s"%(int(nb)+10,self.number,rozofs.interface))  
       return
     # Delete all interfaces
     for i in range(rozofs.nb_listen): self.del_if(i)  
@@ -121,7 +121,7 @@ class host_class:
   def add_if(self,nb=None):
     # Add one interface
     if nb != None:
-      silent_system("ip addr add 192.168.%s.%s/32 dev %s"%(int(nb)+10,self.number,rozofs.interface))
+      cmd_silent("ip addr add 192.168.%s.%s/32 dev %s"%(int(nb)+10,self.number,rozofs.interface))
       return
     # Add all interfaces
     for i in range(rozofs.nb_listen): self.add_if(i)  
@@ -160,7 +160,7 @@ class host_class:
       if not "storage_%s.conf"%(self.number) in line: continue
       pid=line.split()[1]
       print "\n_______________STORAGE localhost%s"%(self.number)     
-      cmd_system("pstree %s %s"%(opt,pid))
+      os.system("pstree %s %s"%(opt,pid))
     return
     
   def rebuild(self,argv):  
@@ -170,10 +170,10 @@ class host_class:
       if argv[i] == "-id": rebef = True
       param += " %s"%(argv[i])
     if rebef == True:
-      cmd_system("storage_rebuild --simu %s %s"%(exportd.get_config_name(),param))      
+      res=cmd_returncode("storage_rebuild --simu %s %s"%(exportd.get_config_name(),param))      
     else:  
-      cmd_system("storage_rebuild --simu %s -c %s -H localhost%s -r %s %s"%(exportd.get_config_name(),self.get_config_name(),self.number,exportd.export_host,param))  
-
+      res=cmd_returncode("storage_rebuild --simu %s -c %s -H localhost%s -r %s %s"%(exportd.get_config_name(),self.get_config_name(),self.number,exportd.export_host,param))  
+    sys.exit(res)
 #____________________________________
 # Class sid
 #____________________________________
@@ -262,7 +262,7 @@ class sid_class:
       return
       
     path=self.get_device_file_path(h.site)   
-    cmd_system("touch %s/%s/X"%(self.get_root_path(h.number),dev))
+    os.system("touch %s/%s/X"%(self.get_root_path(h.number),dev))
        
     string="losetup -j %s%s "%(path,dev)
     parsed = shlex.split(string)
@@ -272,18 +272,18 @@ class sid_class:
       loop=output.split(':')[0]  
       print "%s%s -> %s -> %s/%s"%(path,dev,loop,self.get_root_path(h.number),dev)
       if rozofs.fstype == "ext4":
-        cmd_system("mount -t ext4 %s %s/%s"%(loop,self.get_root_path(h.number),dev))
+        os.system("mount -t ext4 %s %s/%s"%(loop,self.get_root_path(h.number),dev))
       else:
         if rozofs.allocsize == None:
-          cmd_system("mount -t xfs %s %s/%s"%(loop,self.get_root_path(h.number),dev))      		
+          os.system("mount -t xfs %s %s/%s"%(loop,self.get_root_path(h.number),dev))      		
 	else:
-          cmd_system("mount -t xfs -o allocsize=%s %s %s/%s"%(rozofs.allocsize,loop,self.get_root_path(h.number),dev))      	
+          os.system("mount -t xfs -o allocsize=%s %s %s/%s"%(rozofs.allocsize,loop,self.get_root_path(h.number),dev))      	
     else:
       print "No /dev/loop for %s%s"%(path,dev)  
     return
      	  
   def umount_device_file(self,dev, h):
-    silent_system("umount %s/%s"%(self.get_root_path(h.number),dev))
+    cmd_silent("umount %s/%s"%(self.get_root_path(h.number),dev))
       
   def create_device_file(self,device,h):
   
@@ -294,7 +294,7 @@ class sid_class:
       return
     
     tmpdir="/tmp/setup"
-    cmd_system("mkdir -p %s"%(tmpdir))
+    os.system("mkdir -p %s"%(tmpdir))
           
 	  
     path=self.get_device_file_path(h.site) 
@@ -302,7 +302,7 @@ class sid_class:
     except: pass 
     
     if os.path.exists("%s/%s"%(path,device)): return
-    cmd_system("dd if=/dev/zero of=%s/%s bs=1MB count=%s 2>&1"%(path,device,rozofs.disk_size_mb))
+    os.system("dd if=/dev/zero of=%s/%s bs=1MB count=%s 2>&1"%(path,device,rozofs.disk_size_mb))
     for loop in range(1,128):
 #      try:
 	string="losetup /dev/loop%s %s/%s "%(loop,path,device)
@@ -311,15 +311,15 @@ class sid_class:
 	output, error = cmd.communicate()
 	if error == "":
 	  if rozofs.fstype == "ext4" :
-	    cmd_system("mkfs.ext4 -q /dev/loop%s"%(loop))
-            cmd_system("mount -t ext4 /dev/loop%s %s"%(loop,tmpdir))
+	    os.system("mkfs.ext4 -q /dev/loop%s"%(loop))
+            os.system("mount -t ext4 /dev/loop%s %s"%(loop,tmpdir))
 	  else:  
-	    cmd_system("mkfs.xfs -f -q /dev/loop%s"%(loop))
-            cmd_system("mount -t xfs /dev/loop%s %s"%(loop,tmpdir))      		
-          cmd_system("touch %s/storage_c%s_s%s_%s"%(tmpdir,self.cid.cid,self.sid,device))
+	    os.system("mkfs.xfs -f -q /dev/loop%s"%(loop))
+            os.system("mount -t xfs /dev/loop%s %s"%(loop,tmpdir))      		
+          os.system("touch %s/storage_c%s_s%s_%s"%(tmpdir,self.cid.cid,self.sid,device))
 	  time.sleep(2)
-          cmd_system("umount %s"%(tmpdir))	  
-          cmd_system("umount -f %s"%(tmpdir))
+          os.system("umount %s"%(tmpdir))	  
+          os.system("umount -f %s"%(tmpdir))
           print "%s/%s -> /dev/loop%s -> %s/%s"%(path,device,loop,self.get_root_path(h.number),device)	  
 	  return
 #      except: 
@@ -345,7 +345,7 @@ class sid_class:
     output, error = cmd.communicate()
     if output != "":
       loop=output.split(':')[0] 
-      cmd_system("losetup -d %s"%(loop))
+      os.system("losetup -d %s"%(loop))
     else:
       print "No /dev/loop for %s"%(path) 
     try:os.remove(path)
@@ -371,11 +371,12 @@ class sid_class:
       if argv[i] == "-id": rebef = True
       param += " %s"%(argv[i])
     if rebef == True:
-      cmd_system("storage_rebuild --simu %s %s"%(exportd.get_config_name(),param))      
+      res=cmd_returncode("storage_rebuild --simu %s %s"%(exportd.get_config_name(),param))      
     else: 
       h = self.host[0]   
-      cmd_system("storage_rebuild --simu %s -c %s -H localhost%s -r %s -s %d/%d %s"%(exportd.get_config_name(),h.get_config_name(),h.number,exportd.export_host,self.cid.cid,self.sid,param))  
-                      
+      res=cmd_returncode("storage_rebuild --simu %s -c %s -H localhost%s -r %s -s %d/%d %s"%(exportd.get_config_name(),h.get_config_name(),h.number,exportd.export_host,self.cid.cid,self.sid,param))  
+    sys.exit(res)
+                   
   def info(self):
     print "cid = %s"%(self.cid.cid)
     print "sid = %s"%(self.sid)
@@ -453,12 +454,13 @@ class cid_class:
 #____________________________________
 class mount_point_class:
 
-  def __init__(self, eid, site=0):
+  def __init__(self, eid, layout, site=0):
     global mount_points
     instance = len(mount_points)    
     self.instance = instance
     self.eid = eid
     self.site= site    
+    self.layout = layout
     self.nfs_path="/mnt/nfs-%s"%(self.instance) 
     mount_points.append(self)
 
@@ -468,9 +470,9 @@ class mount_point_class:
     print "vid = %s"%(self.eid.volume.vid)
     print "site = %s"%(self.site)
     print "path = %s"%(self.get_mount_path())
-    l=rozofs.layout(self.eid.volume.layout).split('_')
+    l=self.layout.split('_')
     print "layout = %s %s %s"%(l[1],l[2],l[3])
-    print "failures = %s"%(self.eid.volume.failures)
+    print "failures = %s"%(self.eid.failures)
     list=[]
     string=""
     for h in hosts:
@@ -541,17 +543,17 @@ class mount_point_class:
     if rozofs.write_mojette_threads == False: options += " -o mojThreadWrite=0"
     if rozofs.mojette_threads_threshold != None: options += " -o mojThreadThreshold=%s"%(rozofs.mojette_threads_threshold)
 
-    cmd_system("rozofsmount -H %s -E %s %s %s"%(exportd.export_host,self.eid.get_root_path(),self.get_mount_path(),options))
-    cmd_system("chmod 0777 %s"%(self.get_mount_path()))
+    os.system("rozofsmount -H %s -E %s %s %s"%(exportd.export_host,self.eid.get_root_path(),self.get_mount_path(),options))
+    os.system("chmod 0777 %s"%(self.get_mount_path()))
           
   def stop(self):
     try: self.nfs(False)
     except: pass
     if os.path.exists(self.get_mount_path()):
       if os.path.ismount(self.get_mount_path()):
-        cmd_system("umount %s"%(self.get_mount_path()))
+        os.system("umount %s"%(self.get_mount_path()))
         if os.path.ismount(self.get_mount_path()): 
-          cmd_system("umount -l %s"%(self.get_mount_path()))
+          os.system("umount -l %s"%(self.get_mount_path()))
      
   def reset(self): 
     self.stop()
@@ -579,11 +581,11 @@ class mount_point_class:
     if status == "on":
       self.nfs_server("off")
       self.nfs_add_mount_path()
-      cmd_system("/etc/init.d/nfs-kernel-server start")
+      os.system("/etc/init.d/nfs-kernel-server start")
       return
       
     if status == "off":
-      cmd_system("/etc/init.d/nfs-kernel-server stop")  
+      os.system("/etc/init.d/nfs-kernel-server stop")  
       return
           
   def nfs(self,status):      
@@ -592,10 +594,10 @@ class mount_point_class:
       if not os.path.exists(self.nfs_path):  
 	try:os.mkdir(self.nfs_path)
 	except: pass 
-      if os.path.ismount(self.nfs_path): cmd_system("umount %s"%(self.nfs_path))
-      cmd_system("mount 127.0.0.1:%s %s"%(self.get_mount_path(),self.nfs_path))
+      if os.path.ismount(self.nfs_path): os.system("umount %s"%(self.nfs_path))
+      os.system("mount 127.0.0.1:%s %s"%(self.get_mount_path(),self.nfs_path))
     else:
-      if os.path.ismount(self.nfs_path): cmd_system("umount %s"%(self.nfs_path))
+      if os.path.ismount(self.nfs_path): os.system("umount %s"%(self.nfs_path))
            
   def display(self):   
     d = adaptative_tbl(2,"Mount points") 
@@ -618,7 +620,7 @@ class mount_point_class:
       d.set_column(1,"%s"%(m.instance))
       d.set_column(2,"%s"%(m.eid.volume.vid))      
       d.set_column(3,"%s"%(m.eid.eid))
-      d.set_column(4,"%s"%(rozofs.layout(m.eid.volume.layout)))
+      d.set_column(4,"%s"%(m.layout))
       d.set_column(5,"%s"%(rozofs.bsize(m.eid.bsize))) 
       d.set_column(6,"%s"%(m.site))   
       d.set_column(7,"%s"%(m.get_mount_path())) 
@@ -632,7 +634,7 @@ class mount_point_class:
       if not "instance=%s"%(self.instance) in line: continue
       pid=line.split()[1]
       print "\n_______________FS %s eid %s vid %s %s"%(self.instance,self.eid.eid,self.eid.volume.vid,self.get_mount_path())     
-      cmd_system("pstree %s %s"%(opt,pid))
+      os.system("pstree %s %s"%(opt,pid))
     return    
     
   def process(self,opt):
@@ -643,22 +645,30 @@ class mount_point_class:
       if not "instance=%s"%(self.instance) in line: continue
       pid=line.split()[1]
       print "\n_______________FS %s eid %s vid %s %s"%(self.instance,self.eid.eid,self.eid.volume.vid,self.get_mount_path())     
-      cmd_system("pstree %s %s"%(opt,pid))
+      os.system("pstree %s %s"%(opt,pid))
     return        
 #____________________________________
 # Class export
 #____________________________________
 class export_class:
 
-  def __init__(self, bsize, volume):
+  def __init__(self, bsize, volume,layout=None):
     global eid_nb
     eid_nb += 1
     self.eid   = eid_nb
     self.bsize = bsize
     self.volume= volume
+    if layout == None:
+      self.layout = volume.layout
+    else:
+      self.layout = rozofs.layout(layout)
     self.hquota= ""
     self.squota= "" 
     self.mount =[]
+    if int(rozofs.failures(layout)) <=  int(volume.get_failures()): 
+      self.failures = rozofs.failures(layout)   
+    else:
+      self.failures = volume.get_failures()
     
   def set_hquota(self,quota):
     self.hquota= quota
@@ -670,7 +680,7 @@ class export_class:
     return "%s/export_%s"%(rozofs.get_config_path(),self.eid)  
      
   def add_mount(self,site=0):
-    m = mount_point_class(self,site)
+    m = mount_point_class(self,self.layout,site)
     self.mount.append(m)
   
   def create_path(self):  
@@ -684,7 +694,7 @@ class export_class:
     except: pass 
 
   def nb_mount_point(self): return len(self.mount)
-          
+  	          
   def display(self):
     for m in self.mount: m.display()
 #____________________________________
@@ -692,21 +702,25 @@ class export_class:
 #____________________________________
 class volume_class:
 
-  def __init__(self,layout,failures):
+  def __init__(self,layout):
     global vid_nb
+    global rozofs
     vid_nb+=1
     self.vid        = vid_nb
     self.cid        = [] 
     self.eid        = []  
     self.layout     = layout
-    self.failures   = failures;
     volumes.append(self)
+    self.set_failures(rozofs.failures(layout))
+
+  def set_failures(self, failures): self.failures = failures
+  def get_failures(self): return self.failures
     
   def add_cid(self, dev_total, dev_mapper, dev_red, dev_size=0):
     c = cid_class(self,dev_total, dev_mapper, dev_red, dev_size)
     self.cid.append(c)
     return c
-
+    
   def georep(self,):
     georep = None
     for c in self.cid:
@@ -716,8 +730,8 @@ class volume_class:
 	  exit(1)
     return georep
      
-  def add_export(self, bsize):
-    e = export_class(bsize,self)
+  def add_export(self, bsize,layout=None):
+    e = export_class(bsize,self,layout)
     self.eid.append(e)
     return e
 
@@ -788,30 +802,30 @@ class exportd_class:
     if pid != 0: 
       print "exportd is already started as process %s"%(pid)
       return
-    cmd_system("exportd -c %s"%(self.get_config_name()))    
+    os.system("exportd -c %s"%(self.get_config_name()))    
     
   def stop(self):
     pid=self.pid()
     if pid == 0: return
-    cmd_system("kill %s"%(pid))
+    os.system("kill %s"%(pid))
     pid=self.pid()
     if pid == 0: return
-    cmd_system("kill -9 %s"%(pid))    
+    os.system("kill -9 %s"%(pid))    
 
   def reset(self):
     pid=self.pid()
     if pid == 0: self.start_exportd()
-    cmd_system("kill -HUP %s"%(pid))
+    os.system("kill -HUP %s"%(pid))
 
   def reload(self):
     pid=self.pid()
-    cmd_system("kill -1 %s"%(pid))
+    os.system("kill -1 %s"%(pid))
     
   def process(self,opt):
     pid = self.pid()
     if pid != 0: 
       print "\n_______________EXPORTD"    
-      cmd_system("pstree %s %s"%(opt,pid))
+      os.system("pstree %s %s"%(opt,pid))
      
   def display_config (self):  
     global volumes
@@ -854,8 +868,8 @@ class exportd_class:
     nexte=" "
     for v in volumes:
       for e in v.eid:
-        root_path=e.get_root_path()	
-	print "  %s{eid=%s; bsize=\"%s\"; root=\"%s\"; md5=\"\"; squota=\"%s\"; hquota=\"%s\"; vid=%s;}"%(nexte,e.eid,rozofs.bsize(e.bsize),root_path,e.squota,e.hquota,v.vid)
+        root_path=e.get_root_path()
+	print "  %s{eid=%s; bsize=\"%s\"; root=\"%s\"; md5=\"\"; squota=\"%s\"; hquota=\"%s\"; vid=%s; layout=%s}"%(nexte,e.eid,rozofs.bsize(e.bsize),root_path,e.squota,e.hquota,v.vid,rozofs.layout2int(e.layout))
 	nexte=","	
     print ");"
 
@@ -887,7 +901,7 @@ class geomgr_class:
     except: pass    
 
   def modify(self):
-    cmd_system("nedit %s"%(self.get_config_name()))
+    os.system("nedit %s"%(self.get_config_name()))
       
   def reinit(self): 
     self.delete_config()
@@ -933,10 +947,10 @@ class geomgr_class:
 
           
   def start(self):
-    cmd_system("rozolauncher start /var/run/launcher_geomgr.pid geomgr -c %s -t 5 &"%(self.get_config_name()))
+    os.system("rozolauncher start /var/run/launcher_geomgr.pid geomgr -c %s -t 5 &"%(self.get_config_name()))
 
   def stop(self):
-    cmd_system("rozolauncher stop /var/run/launcher_geomgr.pid geomgr")
+    os.system("rozolauncher stop /var/run/launcher_geomgr.pid geomgr")
      
   def reset(self): 
     self.stop()
@@ -950,7 +964,7 @@ class geomgr_class:
       if not "geomgr" in line: continue
       pid=line.split()[1]
       print "\n_______________GEOMGR"
-      cmd_system("pstree %s %s"%(opt,pid))
+      os.system("pstree %s %s"%(opt,pid))
     return
   
 #____________________________________
@@ -1016,7 +1030,7 @@ class rozofs_class:
     self.fstype = "ext4"
     self.disk_size_mb = mb
     self.set_device_automount()
-    
+      
   def get_config_path(self):
     path = "%s/SIMU"%(os.getcwd())
     if not os.path.exists(path): os.makedirs(path)
@@ -1032,6 +1046,10 @@ class rozofs_class:
     if val == 1: return "layout_4_6_8"
     if val == 2: return "layout_8_12_16"
     if val == 3: return "layout_4_6_9"
+  def layout2int(self,val):
+    if val == "layout_2_3_4": return 0
+    if val == "layout_4_6_8": return 1
+    if val == "layout_8_12_16": return 2
    
   def min_sid(self,val):
     if val == 0: return 4
@@ -1039,11 +1057,10 @@ class rozofs_class:
     if val == 2: return 16
     if val == 3: return 9
 
-  def failures(self,val):
-    if val == 0: return 1
+  def failures(self,val): 
     if val == 1: return 2
     if val == 2: return 4
-    if val == 3: return 1
+    return 1
        
   def bsize4K(self)    : return 0
   def bsize8K(self)    : return 1
@@ -1155,7 +1172,7 @@ class rozofs_class:
     for h in hosts: h.stop()
     exportd.stop() 
     time.sleep(1)
-    cmd_system("killall rozolauncher 2>/dev/null")
+    os.system("killall rozolauncher 2>/dev/null")
 #    self.delete_config()
 
   def stop(self):
@@ -1246,7 +1263,7 @@ class rozofs_class:
     self.do_monitor_cfg()
     sys.stdout.close()
     sys.stdout = save_stdout  
-    cmd_system("./monitor.py 5 -c monitor.cfg")
+    os.system("./monitor.py 5 -c monitor.cfg")
 
   def core(self,argv):
     if len(argv) == 2:
@@ -1278,15 +1295,19 @@ class rozofs_class:
     if not os.path.exists(exe):
       syntax("No such executable","debug")
       return
-    cmd_system("ddd %s -core %s"%(exe,os.path.join(self.core_dir(), argv[2]))) 
+    os.system("ddd %s -core %s"%(exe,os.path.join(self.core_dir(), argv[2]))) 
 	      
 #___________________________________________  
-def cmd_system (string):
+def cmd_returncode (string):
+  global rozofs
   if rozofs.trace: print string
-  os.system(string)
-	      
+  parsed = shlex.split(string)
+  cmd = subprocess.Popen(parsed, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+  cmd.wait()
+  return cmd.returncode
+ 
 #___________________________________________  
-def silent_system (string):
+def cmd_silent (string):
   # print string
   parsed = shlex.split(string)
   cmd = subprocess.Popen(parsed, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -1438,9 +1459,9 @@ def test_parse(command, argv):
   elif command == "stop"               : rozofs.stop()  
   elif command == "pause"              : rozofs.pause()  
   elif command == "resume"             : rozofs.resume()  
-  elif command == "build"              : cmd_system("./setup.sh build")
-  elif command == "rebuild"            : cmd_system("./setup.sh rebuild")
-  elif command == "clean"              : cmd_system("./setup.sh clean")
+  elif command == "build"              : os.system("./setup.sh build")
+  elif command == "rebuild"            : os.system("./setup.sh rebuild")
+  elif command == "clean"              : os.system("./setup.sh clean")
   elif command == "monitor"            : rozofs.monitor()
 
   elif command == "ifup":
@@ -1473,7 +1494,7 @@ def test_parse(command, argv):
       else:
         param +=" %s"%(argv[i])
       i+=1
-    cmd_system("%s/IT2/IT.py -m %s %s"%(os.getcwd(),mount.instance,param))    
+    os.system("%s/IT2/IT.py -m %s %s"%(os.getcwd(),mount.instance,param))    
 
   elif command == "process"            : 
     if len(argv) == 2: rozofs.process('-a') 

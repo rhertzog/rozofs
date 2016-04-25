@@ -1039,7 +1039,7 @@ static void *load_trash_dir_thread(void *v) {
     return 0;
 }
 
-int export_initialize(export_t * e, volume_t *volume, ROZOFS_BSIZE_E bsize,
+int export_initialize(export_t * e, volume_t *volume, uint8_t layout, ROZOFS_BSIZE_E bsize,
         lv2_cache_t *lv2_cache, uint32_t eid, const char *root, const char *md5,
         uint64_t squota, uint64_t hquota) {
 
@@ -1073,7 +1073,12 @@ int export_initialize(export_t * e, volume_t *volume, ROZOFS_BSIZE_E bsize,
     e->volume = volume;
     e->bsize = bsize;
     e->lv2_cache = lv2_cache;
-    e->layout = volume->layout; // Layout used for this volume
+    if (layout<LAYOUT_MAX) {
+      e->layout = layout; // Layout used for this volume
+    }
+    else {
+      e->layout = volume->layout; // Layout used for this volume
+    }  
     e->load_trash_thread = 0;
     /*
     ** init of the replication context
@@ -1877,7 +1882,7 @@ int export_mknod_multiple(export_t *e,uint32_t site_number,fid_t pfid, char *nam
 
     for (k = 0; k < filecount+1 ; k++,buf_attr_work_p++)
     {
-      if (volume_distribute(e->volume,site_number, &buf_attr_work_p->s.attrs.cid, buf_attr_work_p->s.attrs.sids) != 0)
+      if (volume_distribute(e->layout,e->volume,site_number, &buf_attr_work_p->s.attrs.cid, buf_attr_work_p->s.attrs.sids) != 0)
           goto error;
       if (k !=0) 
       {
@@ -2229,7 +2234,7 @@ int export_mknod(export_t *e,uint32_t site_number,fid_t pfid, char *name, uint32
       /*
       ** get the distribution for the file
       */
-      if (volume_distribute(e->volume,site_number, &ext_attrs.s.attrs.cid, ext_attrs.s.attrs.sids) != 0)
+      if (volume_distribute(e->layout,e->volume,site_number, &ext_attrs.s.attrs.cid, ext_attrs.s.attrs.sids) != 0)
           goto error;
     }
     ext_attrs.s.attrs.mode = mode;

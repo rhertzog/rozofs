@@ -265,6 +265,7 @@ int export_create(const char *root,export_t * e,lv2_cache_t *lv2_cache);
  *
  * @param export: pointer to the export
  * @param volume: pointer to the volume the export relies on
+ * @param layout: Layout of this export. May differ from the volume layout
  * @param bsize: Block size as defined in enum ROZOFS_BSIZE_E
  * @param lv2_cache: pointer to the cache to use
  * @param eid: id of this export
@@ -275,7 +276,7 @@ int export_create(const char *root,export_t * e,lv2_cache_t *lv2_cache);
  *
  * @return 0 on success -1 otherwise (errno is set)
  */
-int export_initialize(export_t * e, volume_t *volume, ROZOFS_BSIZE_E bsize,
+int export_initialize(export_t * e, volume_t *volume, uint8_t layout, ROZOFS_BSIZE_E bsize,
         lv2_cache_t *lv2_cache, eid_t eid, const char *root, const char *md5,
         uint64_t squota, uint64_t hquota);
 
