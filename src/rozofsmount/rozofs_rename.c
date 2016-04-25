@@ -83,6 +83,14 @@ void rozofs_ll_rename_nb(fuse_req_t req, fuse_ino_t parent, const char *name,
         errno = ENOENT;
         goto error;
     }
+
+    /*
+    ** Clear the timestamp of the new parent & old parent to force RozoFS to
+    ** get the last attributes of each of them
+    */
+    pie->timestamp = 0;
+    npie->timestamp = 0;
+
     /*
     ** fill up the structure that will be used for creating the xdr message
     */    
