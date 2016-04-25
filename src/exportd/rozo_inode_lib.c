@@ -73,6 +73,7 @@ buf_work_t *buf_dir_save = NULL;
 buf_work_t *buf_dir_read_save = NULL;
 int count_threshold = 200000;
 
+extern export_tracking_table_t * export_tracking_table[];
 /*
 **_________________________________________________________________
 
@@ -1309,7 +1310,7 @@ int export_scan_from_dir(scan_export_intf_t *intf_p)
   /*
   ** init of dirent stuff
   */
-  dirent_cache_level0_initialize();
+  //dirent_cache_level0_initialize();
   dirent_wbcache_init();
   dirent_wbcache_disable();
   /*
@@ -2062,6 +2063,12 @@ void *rz_inode_lib_init(char *root_path)
   ** create the tracking context
   */
   sprintf(root_export_host_id,"%s/host%d",root_path,rozofs_get_export_host_id());
+#warning Workaround for scaning several exports 
+  if (export_tracking_table[0]!= NULL) {
+    free(export_tracking_table[0]);
+    export_tracking_table[0] = NULL;
+  }
+  
   fake_export_p->trk_tb_p = exp_create_attributes_tracking_context(fake_export_p->eid,root_export_host_id,0);
   if (fake_export_p->trk_tb_p == NULL)
   {
