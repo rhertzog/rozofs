@@ -532,9 +532,10 @@ class mount_point_class:
     options += " -o rozofsbufsize=256" 
     options += " -o rozofsminreadsize=256"
     options += " -o rozofsshaper=0"
-    if rozofs.posix_lock == True: options += " -o posixlock"
-    if rozofs.bsd_lock == True  : options += " -o bsdlock"
-    options += " -o rozofsrotate=3"	
+    options += " -o rozofsrotate=3"
+    options += " -o posixlock"
+    options += " -o bsdlock"
+  
     options += " -o site=%s"%(self.site)
     if self.instance != 0: options += " -o instance=%s"%(self.instance)
     if rozofs.read_mojette_threads == True: options += " -o mojThreadRead=1"
@@ -970,8 +971,6 @@ class rozofs_class:
     self.write_mojette_threads = True
     self.mojette_threads_threshold = None
     self.nb_storcli = 1
-    self.posix_lock = True
-    self.bsd_lock = True
     self.disk_size_mb = None
     self.trace = False
     self.storio_slice = 8
@@ -1005,8 +1004,6 @@ class rozofs_class:
   def disable_write_mojette_threads(self): self.read_mojette_threads = False
   def set_mojette_threads_threshold(self,threshold): self.mojette_threads_threshold = threshold
   def dual_storcli(self): self.nb_storcli = 2
-  def no_posix_lock(self): self.posix_lock = False
-  def no_bsd_lock(self): self.bsd_lock = False
   def set_file_distribution(self,val): self.file_distribution = val
   def set_xfs(self,mb,allocsize=None):
     self.fstype       = "xfs"
@@ -1102,8 +1099,6 @@ class rozofs_class:
     exportd.display()
     print "STORCLI:" 
     print "  . %-12s : %s "%("Nb",self.nb_storcli)
-    print "  . %-12s : %s "%("POSIX lock",self.posix_lock)
-    print "  . %-12s : %s "%("BSD lock",self.bsd_lock)
     print "  * Mojette threads"
     print "    . %-10s : %s"%("Read",self.read_mojette_threads)
     print "    . %-10s : %s"%("Write",self.write_mojette_threads)

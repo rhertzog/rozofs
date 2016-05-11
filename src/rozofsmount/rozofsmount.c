@@ -195,8 +195,9 @@ static void usage() {
     fprintf(stderr, "    -o rozofsnbstorcli=N\tdefine the number of storcli process(es) to use (default: 1)\n");
     fprintf(stderr, "    -o rozofsshaper=N\t\tdefine the storcli shaper configuration (default: 1)\n");
     fprintf(stderr, "    -o rozofsrotate=N\t\tdefine the modulo on read distribution rotation (default: 0)\n");
-    fprintf(stderr, "    -o posixlock\t\tactive support for POSIX file lock\n");
-    fprintf(stderr, "    -o bsdlock\t\t\tactive support for BSD file lock\n");
+    fprintf(stderr, "    -o posixlock\t\tDeprecated.\n");
+    fprintf(stderr, "    -o bsdlock\t\t\tDeprecated.\n");
+    fprintf(stderr, "    -o nolock\t\t\tTo dectivate BSD as well as POSIX locks.\n");
     fprintf(stderr, "    -o noXattr\t\t\tdisable support of extended attributes\n");
     fprintf(stderr, "    -o no0trunc\t\t\tdisable sending truncate to zero to storages\n");
     fprintf(stderr, "    -o onlyWriter\t\t\tthis client is the only writer of the file it writes\n");
@@ -246,6 +247,7 @@ static struct fuse_opt rozofs_opts[] = {
     MYFS_OPT("rozofsrotate=%u", rotate, 0),
     MYFS_OPT("posixlock", posix_file_lock, 1),
     MYFS_OPT("bsdlock", bsd_file_lock, 1),
+    MYFS_OPT("nolock", no_file_lock, 1),
     MYFS_OPT("grpquota", quota, 2),
     MYFS_OPT("noquota", quota, 0),
     MYFS_OPT("quota", quota, 3),
@@ -389,8 +391,7 @@ void show_start_config(char * argv[], uint32_t tcpRef, void *bufRef) {
   DISPLAY_UINT32_CONFIG(symlink_timeout);
   DISPLAY_UINT32_CONFIG(shaper);  
   DISPLAY_UINT32_CONFIG(rotate);  
-  DISPLAY_UINT32_CONFIG(posix_file_lock);  
-  DISPLAY_UINT32_CONFIG(bsd_file_lock);  
+  DISPLAY_UINT32_CONFIG(no_file_lock);  
   DISPLAY_UINT32_CONFIG(noXattr); 
   DISPLAY_UINT32_CONFIG(no0trunc);
   DISPLAY_UINT32_CONFIG(onlyWriter);
@@ -1679,16 +1680,11 @@ int fuseloop(struct fuse_args *args, int fg) {
         return 1;
     }
     /*
-    ** Are POSIX lock required ?
+    ** Are BSD and POSIX lockdisabled
     */
-    if (conf.posix_file_lock) {
+    if (!conf.no_file_lock) {
       rozofs_ll_operations.getlk = rozofs_ll_getlk_nb;
       rozofs_ll_operations.setlk = rozofs_ll_setlk_nb;
-    }
-    /*
-    ** Are BSD lock required ?
-    */
-    if (conf.bsd_file_lock) {
       rozofs_ll_operations.flock = rozofs_ll_flock_nb;
     }
 
@@ -2055,6 +2051,7 @@ int main(int argc, char *argv[]) {
     conf.rotate = 0;
     conf.posix_file_lock = 0; // No posix file lock until explicitly activated  man 2 fcntl)
     conf.bsd_file_lock = 0;   // No BSD file lock until explicitly activated    man 2 flock)
+    conf.no_file_lock = 0;   // To disable locks 
     conf.noXattr = 0;   // By default extended attributes are supported
     conf.no0trunc = 0;  // By default truncate to zero are sent to exportd and storages
     conf.onlyWriter = 0;  // By default this client is not the only writer of the file it writes to

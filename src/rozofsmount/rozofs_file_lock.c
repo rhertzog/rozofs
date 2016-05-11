@@ -290,7 +290,7 @@ void rozofs_flock_service_periodic(void * ns) {
   nbTxCredits--;
   
   /* No more than 3 requests at a time */
-  if (nbTxCredits > 3) nbTxCredits = 3;
+  if (nbTxCredits > 10) nbTxCredits = 10;
 
   linkNext = NULL;
   while (((link = ruc_objGetNext(&pending_lock_list, &linkNext)) != NULL) && (nbTxCredits)) {

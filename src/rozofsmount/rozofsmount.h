@@ -75,6 +75,7 @@ typedef struct rozofsmnt_conf {
     unsigned rotate;
     unsigned posix_file_lock;    
     unsigned bsd_file_lock;  
+    unsigned no_file_lock;  
     unsigned max_write_pending ; /**< Maximum number pending write */
     unsigned quota; /* ignored */    
     unsigned noXattr;

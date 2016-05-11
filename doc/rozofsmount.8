@@ -100,17 +100,17 @@ Specify the operating mode of rozofsmount: 0: filesystem, 1: block mode (default
 \fB\-o rozofsnbstorcli=\fP\fIN\fP
 Specify the number of storcli process(es) to use (in range: 1..2 - default: 1).
 .TP
-\fB\-o rozofsshaper=\fP\fIN\fP
-Specify the storcli shaper configuration (default: 1).
+\fB\-o rozofsshaper : Deprecated !
 .TP
 \fB\-o rozofsrotate=\fP\fIN\fP
 Specify the modulo on read distribution rotation (default: 0).
 .TP
-\fB\-o posixlock
-Active support for POSIX file lock.
+\fB\-o posixlock : Deprecated !
 .TP
-\fB\-o bsdlock
-Active support for BSD file lock.
+\fB\-o bsdlock : Deprecated !
+.TP
+\fB\-o nolock
+To disable BSD as well as POSIX file lock.
 .TP
 \fB\-o noXattr
 Disable support of extended attributes.
