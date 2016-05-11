@@ -122,6 +122,14 @@ file is ignored and can even be omitted. All the pathes are automatically create
 This parameter provides an optionnal mount option that should be supported by the lowlevel file system.
 .SS device_self_healing_process
 This parameter sets the number of rebuilder processes that run in parallel in case of an automatic rebuild for selfhealing purpose. This is also the default number of rebuilder processes for operator rebuild commands.
+.SS mkdir_ok_instead_of_eexist
+When set to True this parameter makes the export respond OK instead of EEXIST on a directory creation while the directory already exist. 
+This enables concurrent processes to all execute mkdir at the same time without getting any error. 
+.B Be aware that this will prevent some application to make use of mkdir to simulate a lock between nodes.
+.SS mknod_ok_instead_of_eexist
+When set to True this parameter makes the export respond OK instead of EEXIST on a file creation while the file already exist. 
+This enables concurrent processes to all execute mkdir at the same time without getting any error. 
+.B Be aware that this will prevent some application to make use of mknod to simulate a lock between nodes.
 .SH EXAMPLE
 .PP
 .nf

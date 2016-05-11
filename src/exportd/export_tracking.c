@@ -2177,8 +2177,38 @@ int export_mknod(export_t *e,uint32_t site_number,fid_t pfid, char *name, uint32
     fdp = export_open_parent_directory(e,pfid);
 
     if (get_mdirentry(plv2->dirent_root_idx_p,fdp, pfid, name, node_fid, &type,&root_dirent_mask) == 0) {
-        errno = EEXIST;
-        goto error;
+        /*
+	** Creation may have been asked from several mount points in //
+	** This is typical in HPC case where the same program is executed 
+	** on several compute nodes at the same time.
+	*/
+	lv2_child = EXPORT_LOOKUP_FID(e->trk_tb_p,e->lv2_cache, node_fid);
+	if(lv2_child !=NULL) {
+	    while (common_config.mknod_ok_instead_of_eexist) {
+		/*
+		** Check creation date, uid, gid
+		*/
+		if ((time(NULL) - lv2_child->attributes.s.cr8time) > 15) break;
+		if (lv2_child->attributes.s.attrs.uid != uid)            break;
+		if (lv2_child->attributes.s.attrs.gid != gid)            break;
+
+		/*
+		** Let's respond the file has been created by this request
+		*/
+		memcpy(attrs, &lv2_child->attributes.s.attrs, sizeof (mattr_t));	
+        	if (lv2_child->attributes.s.i_state == 0) rozofs_clear_xattr_flag(&attrs->mode);
+		memcpy(pattrs, &plv2->attributes.s.attrs, sizeof (mattr_t));
+		if (plv2->attributes.s.i_state == 0) rozofs_clear_xattr_flag(&pattrs->mode);
+		status = 0;
+		goto out;	   
+	    }
+
+	    /*
+	    ** Let's respond that the file is already created
+	    */
+            errno = EEXIST;
+            goto error;
+	}
     }
     /*
      ** nothing has been found, need to check the read only flag:
@@ -2416,40 +2446,40 @@ int export_mkdir(export_t *e, fid_t pfid, char *name, uint32_t uid,
 	** safe way here is to get the i-node attribute of the directory and makes the mkdir successful.
 	*/
 	lv2 = EXPORT_LOOKUP_FID(e->trk_tb_p,e->lv2_cache, node_fid);
-	if (lv2 !=NULL)
-	{
-	   /*
-	   ** get the attributes of the directory and parent directory
-	   */
-	   memcpy(attrs, &lv2->attributes.s.attrs, sizeof (mattr_t));	
-           if (lv2->attributes.s.i_state == 0) rozofs_clear_xattr_flag(&attrs->mode);
-	   memcpy(pattrs, &plv2->attributes.s.attrs, sizeof (mattr_t));
-	   if (plv2->attributes.s.i_state == 0) rozofs_clear_xattr_flag(&pattrs->mode);
-	   status = 0;
-	   goto out;	   
-	
-	}
-	/*
-	**  The directory is not found in the inode file:
-	**
-	** It might be possible that the file is still referenced in the dirent file but 
-	** not present on disk: its FID has been released (and the associated file deleted)
-	** In that case when attempt to read that fid file, we get a ENOENT error.
-	** So for that particular case, we remove the entry from the dirent file
-	**
-	**  open point : that issue is not related to regular file but also applied to directory
-	** 
-	*/
-        int xerrno;
-        uint32_t type;
-        fid_t fid;
-	if (errno != ENOENT) goto error;
-	/*
-	**  The entry was not existing: save the initial errno and remove that entry
-	*/
-        xerrno = errno;
-        del_mdirentry(plv2->dirent_root_idx_p,fdp, pfid, name, fid, &type,root_dirent_mask);
-        errno = xerrno;
+	if (lv2 !=NULL) {
+	  if (common_config.mkdir_ok_instead_of_eexist) {
+	     /*
+	     ** get the attributes of the directory and parent directory
+	     */
+	     memcpy(attrs, &lv2->attributes.s.attrs, sizeof (mattr_t));	
+             if (lv2->attributes.s.i_state == 0) rozofs_clear_xattr_flag(&attrs->mode);
+	     memcpy(pattrs, &plv2->attributes.s.attrs, sizeof (mattr_t));
+	     if (plv2->attributes.s.i_state == 0) rozofs_clear_xattr_flag(&pattrs->mode);
+	     status = 0;
+	     goto out;	   
+  	  }
+  	  /*
+	  **  The directory is not found in the inode file:
+	  **
+	  ** It might be possible that the file is still referenced in the dirent file but 
+	  ** not present on disk: its FID has been released (and the associated file deleted)
+	  ** In that case when attempt to read that fid file, we get a ENOENT error.
+	  ** So for that particular case, we remove the entry from the dirent file
+	  **
+	  **  open point : that issue is not related to regular file but also applied to directory
+	  ** 
+	  */
+          int xerrno;
+          uint32_t type;
+          fid_t fid;
+	  if (errno != ENOENT) goto error;
+	  /*
+	  **  The entry was not existing: save the initial errno and remove that entry
+	  */
+          xerrno = errno;
+          del_mdirentry(plv2->dirent_root_idx_p,fdp, pfid, name, fid, &type,root_dirent_mask);
+          errno = xerrno;
+	}  
     }
     /*
      ** nothing has been found, need to check the read only flag:
