@@ -77,13 +77,19 @@ Specify timeout in seconds for IO storaged requests (default: 4).
 Specify timeout in seconds for storcli requests (default: 15).
 .TP
 \fB\-o rozofsattrtimeout=\fP\fIN\fP
-Specify timeout in seconds for which file/directory attributes are cached (default: 10).
+Specify timeout in seconds for which file/directory attributes are cached. Should not be set along with -o rozofsattrtimeoutms.
+.TP
+\fB\-o rozofsattrtimeoutms=\fP\fIN\fP
+Specify timeout in milliseconds for which file/directory attributes are cached. This parameter is ignored if rozofsattrtimeout is also set.
 .TP
 \fB\-o rozofsentrytimeout=\fP\fIN\fP
-Specify timeout in seconds for which name lookups will be cached (default: 10).
+Specify timeout in seconds for which name lookups will be cached. Should not be set along with -o rozofsentrytimeoutms.
+.TP
+\fB\-o rozofsentrytimeoutms=\fP\fIN\fP
+Specify timeout in milliseconds for which name lookups will be cached. This parameter is ignored if rozofsentrytimeout is also set.
 .TP
 \fB\-o rozofssymlinktimeout=\fP\fIN\fP
-Specify timeout in milli seconds for which symbolic targets will be cached (default: 1000ms).
+Specify timeout in milliseconds for which symbolic targets will be cached (default: 1000ms).
 .TP
 \fB\-o debug_port=\fP\fIN\fP
 Specify the base debug port for rozofsmount (default: none).

@@ -435,8 +435,8 @@ lookup_objectmode:
     mattr_to_stat(&nie->attrs, &stbuf,exportclt.bsize);
     stbuf.st_ino = nie->inode;
     fep.ino = nie->inode;    
-    fep.attr_timeout = rozofs_tmr_get(TMR_FUSE_ATTR_CACHE);
-    fep.entry_timeout = rozofs_tmr_get(TMR_FUSE_ENTRY_CACHE);
+    fep.attr_timeout = rozofs_tmr_get_attr();
+    fep.entry_timeout = rozofs_tmr_get_entry();
     memcpy(&fep.attr, &stbuf, sizeof (struct stat));
     nie->nlookup++;
 
@@ -597,8 +597,8 @@ void rozofs_ll_lookup_cbk(void *this,void *param)
 	  memset(&fep, 0, sizeof (fep));
 	  errcode = errno;
 	  fep.ino = 0;
-	  fep.attr_timeout = rozofs_tmr_get(TMR_FUSE_ATTR_CACHE);
-	  fep.entry_timeout = rozofs_tmr_get(TMR_FUSE_ENTRY_CACHE);
+	  fep.attr_timeout = rozofs_tmr_get_attr();
+	  fep.entry_timeout = rozofs_tmr_get_entry();
 	  rz_fuse_reply_entry(req, &fep);
 	  /*
 	  ** OK now let's check if there was some other lookup request for the same
@@ -675,9 +675,8 @@ void rozofs_ll_lookup_cbk(void *this,void *param)
     }
     stbuf.st_size = nie->attrs.size;
 
-    fep.attr_timeout = rozofs_tmr_get(TMR_FUSE_ATTR_CACHE);
-    if (S_ISDIR(attrs.mode))fep.entry_timeout = rozofs_tmr_get(TMR_FUSE_ENTRY_CACHE);
-    else fep.entry_timeout = rozofs_tmr_get(TMR_FUSE_ENTRY_CACHE);
+    fep.attr_timeout = rozofs_tmr_get_attr();
+    fep.entry_timeout = rozofs_tmr_get_entry();
     memcpy(&fep.attr, &stbuf, sizeof (struct stat));
     nie->nlookup++;
 

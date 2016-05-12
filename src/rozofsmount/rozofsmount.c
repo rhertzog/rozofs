@@ -184,8 +184,12 @@ static void usage() {
     fprintf(stderr, "    -o rozofsstorclitimeout=N\tdefine timeout (s) for IO storcli requests (default: 15)\n");
     fprintf(stderr, "    -o rozofsattrtimeout=N\tdefine timeout (s) for which file/directory attributes are cached (default: %ds)\n",
                             rozofs_tmr_get(TMR_FUSE_ATTR_CACHE));
+    fprintf(stderr, "    -o rozofsattrtimeoutms=N\tdefine timeout (ms) for which file/directory attributes are cached (default: %ds)\n",
+                            rozofs_tmr_get(TMR_FUSE_ATTR_CACHE_MS));
     fprintf(stderr, "    -o rozofsentrytimeout=N\tdefine timeout (s) for which name lookups will be cached (default: %ds)\n",
                             rozofs_tmr_get(TMR_FUSE_ENTRY_CACHE));
+    fprintf(stderr, "    -o rozofsentrytimeoutms=N\tdefine timeout (ms) for which name lookups will be cached (default: %ds)\n",
+                            rozofs_tmr_get(TMR_FUSE_ENTRY_CACHE_MS));
     fprintf(stderr, "    -o rozofssymlinktimeout=N\tdefine timeout (ms) for which symlink targets will be cached (default: %dms)\n",
                             rozofs_tmr_get(TMR_LINK_CACHE));
     fprintf(stderr, "    -o debug_port=N\t\tdefine the base debug port for rozofsmount (default: none)\n");
@@ -237,7 +241,9 @@ static struct fuse_opt rozofs_opts[] = {
     MYFS_OPT("rozofsstoragetimeout=%u", storage_timeout, 0),
     MYFS_OPT("rozofsstorclitimeout=%u", storcli_timeout, 0),
     MYFS_OPT("rozofsattrtimeout=%u", attr_timeout, 0),
+    MYFS_OPT("rozofsattrtimeoutms=%u", attr_timeout_ms, 0),
     MYFS_OPT("rozofsentrytimeout=%u", entry_timeout, 0),
+    MYFS_OPT("rozofsentrytimeoutms=%u", entry_timeout_ms, 0),
     MYFS_OPT("rozofssymlinktimeout=%u", symlink_timeout, 0),
     MYFS_OPT("debug_port=%u", dbg_port, 0),
     MYFS_OPT("instance=%u", instance, 0),
@@ -387,7 +393,9 @@ void show_start_config(char * argv[], uint32_t tcpRef, void *bufRef) {
   DISPLAY_UINT32_CONFIG(fs_mode); 
   DISPLAY_UINT32_CONFIG(cache_mode);  
   DISPLAY_UINT32_CONFIG(attr_timeout);
+  DISPLAY_UINT32_CONFIG(attr_timeout_ms);
   DISPLAY_UINT32_CONFIG(entry_timeout);
+  DISPLAY_UINT32_CONFIG(entry_timeout_ms);
   DISPLAY_UINT32_CONFIG(symlink_timeout);
   DISPLAY_UINT32_CONFIG(shaper);  
   DISPLAY_UINT32_CONFIG(rotate);  
@@ -2044,7 +2052,9 @@ int main(int argc, char *argv[]) {
     conf.min_read_size = ROZOFS_BSIZE_BYTES(ROZOFS_BSIZE_MIN)/1024;
     conf.max_write_pending = ROZOFS_BSIZE_BYTES(ROZOFS_BSIZE_MIN)/1024; /*  */ 
     conf.attr_timeout = -1;
+    conf.attr_timeout_ms = -1;
     conf.entry_timeout = -1;
+    conf.entry_timeout_ms = -1;
     conf.symlink_timeout = -1; /* Get default value */
     conf.nbstorcli = 0;
     conf.shaper = 0; // Default traffic shaper value
@@ -2196,15 +2206,40 @@ int main(int argc, char *argv[]) {
     }
     rozofs_mode = conf.fs_mode;
     
-    if (conf.attr_timeout != -1) {
-        if (rozofs_tmr_configure(TMR_FUSE_ATTR_CACHE,conf.attr_timeout) < 0)
-        {
-          fprintf(stderr,
-                "timeout for which file/directory attributes are cached is out"
-                  " of range: revert to default setting");
-        }
+    // attr_timeout & attr_timeout_ms are defined => ignore attr_timeout_ms
+    if ((conf.attr_timeout != -1)&&(conf.attr_timeout_ms != -1)) { 
+	fprintf(stderr,
+            "attr_timeout as well as attr_timeout_ms are defined."
+	      " Ignoring attr_timeout_ms.");
+	conf.attr_timeout_ms = -1;
     }
-    
+    if (conf.attr_timeout != -1) {    
+        if (rozofs_tmr_configure(TMR_FUSE_ATTR_CACHE,conf.attr_timeout) < 0)
+	{
+          fprintf(stderr,
+        	"timeout for which file/directory attributes are cached is out"
+                  " of range: revert to default setting");
+	}
+    }
+    else if (conf.attr_timeout_ms != -1) {
+        if (rozofs_tmr_configure(TMR_FUSE_ATTR_CACHE_MS,conf.attr_timeout_ms) < 0)	
+	{
+          fprintf(stderr,
+        	"timeout for which file/directory attributes are cached is out"
+                  " of range: revert to default setting");
+	}
+	else {
+	  rozofs_tmr_configure(TMR_FUSE_ATTR_CACHE,0);
+	}
+    }
+
+    // entry_timeout & entry_timeout_ms are defined => ignore entry_timeout_ms    
+    if ((conf.entry_timeout != -1)&&(conf.entry_timeout_ms != -1)) { 
+	fprintf(stderr,
+            "entry_timeout as well as entry_timeout_ms are defined."
+	      " Ignoring entry_timeout_ms.");
+	conf.entry_timeout_ms = -1;
+    }
     if (conf.entry_timeout != -1) {
         if (rozofs_tmr_configure(TMR_FUSE_ENTRY_CACHE,conf.entry_timeout) < 0)
         {
@@ -2213,7 +2248,18 @@ int main(int argc, char *argv[]) {
                   " revert to default setting");
         }
     }
-    
+    else if (conf.entry_timeout_ms != -1) {
+        if (rozofs_tmr_configure(TMR_FUSE_ENTRY_CACHE_MS,conf.entry_timeout_ms) < 0)	
+	{
+          fprintf(stderr,
+                "timeout for which name lookups will be cached is out of range:"
+                  " of range: revert to default setting");
+	}
+	else {
+	  rozofs_tmr_configure(TMR_FUSE_ENTRY_CACHE,0);
+	}
+    }
+        
     if (conf.symlink_timeout != -1) {
         if (rozofs_tmr_configure(TMR_LINK_CACHE,conf.symlink_timeout) < 0)
         {
@@ -2222,7 +2268,8 @@ int main(int argc, char *argv[]) {
                   " revert to default setting");
         }
     }
-    
+
+        
     if (fuse_version() < 28) {
         if (fuse_opt_add_arg(&args, "-o" FUSE27_DEFAULT_OPTIONS) == -1) {
             fprintf(stderr, "fuse_opt_add_arg failed\n");

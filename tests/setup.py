@@ -533,7 +533,7 @@ class mount_point_class:
     options += " -o rozofsminreadsize=256"
     options += " -o rozofsshaper=0"
     options += " -o rozofsrotate=3"
-    options += " -o posixlock"
+    options += " -o rozofsattrtimeoutms=30,rozofsentrytimeoutms=30"
     options += " -o bsdlock"
   
     options += " -o site=%s"%(self.site)
