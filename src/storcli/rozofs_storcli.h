@@ -386,6 +386,11 @@ extern storcli_kpi_t storcli_kpi_transform_inverse;
  { \
   gprofiler.the_probe[P_COUNT]++;\
 }
+
+#define STORCLI_ERR_COUNT_PROF(the_probe,count)\
+ { \
+  gprofiler.the_probe[P_COUNT] = gprofiler.the_probe[P_COUNT] + count;\
+}
 /**
 * transaction statistics
 */
@@ -469,6 +474,7 @@ typedef struct storcli_conf {
     unsigned mojThreadRead;    
     unsigned mojThreadThreshold; 
     unsigned localPreference;
+    unsigned noReadFaultTolerant;
 } storcli_conf;
 
 extern storcli_conf conf;
@@ -1499,4 +1505,21 @@ void rozofs_storcli_truncate_timeout(rozofs_storcli_ctx_t *working_ctx_p);
  */
 
 void rozofs_storcli_write_timeout(rozofs_storcli_ctx_t *working_ctx_p) ;
+
+/*
+**____________________________________________________
+** Corrupted block read information
+**
+*/
+// Whether the STORCLI is actualy block corrupted tolerant
+extern int noReadFaultTolerant;
+
+
+#define      STORCLI_MAX_CORRUPTED_FID_NB   16
+typedef struct _storcli_corrupted_fid_ctx {
+  int              nextIdx;
+  fid_t            fid[STORCLI_MAX_CORRUPTED_FID_NB];
+} storcli_corrupted_fid_ctx;
+extern storcli_corrupted_fid_ctx storcli_fid_corrupted;
+
 #endif

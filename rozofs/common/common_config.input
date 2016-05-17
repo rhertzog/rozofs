@@ -104,3 +104,9 @@ STRING 	export 	export_temporary_dir		"/tmp"
 // Directory to use on the storage node to build temporary files.
 // Used for instance by the rebuild process.
 STRING 	storage storage_temporary_dir		"/tmp"
+// To activate workaround that make mkdir respond OK instead of EEXIST
+// when the directory is already created 
+BOOL	export mkdir_ok_instead_of_eexist	False
+// To activate workaround that make mknod respond OK instead of EEXIST
+// when the file is already created 
+BOOL	export mknod_ok_instead_of_eexist	False

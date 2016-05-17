@@ -207,6 +207,7 @@ mkdir -p %{buildroot}%{_initrddir}
 %{_bindir}/storcli
 %{_bindir}/rozo_clusterstats.sh
 %{_bindir}/rozo_repquota.sh
+%{_bindir}/rozo_mount_cleanup.sh
 %{_bindir}/rozo_distributionCheck.py
 
 /sbin/mount.rozofs

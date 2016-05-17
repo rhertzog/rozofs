@@ -146,7 +146,7 @@ void show_start_config(char * argv[], uint32_t tcpRef, void *bufRef) {
   DISPLAY_UINT32_CONFIG(mojThreadThreshold);   
   DISPLAY_UINT32_CONFIG(site);
   DISPLAY_UINT32_CONFIG(localPreference);  
-  
+  DISPLAY_UINT32_CONFIG(noReadFaultTolerant);    
   uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
 }    
 
@@ -237,6 +237,7 @@ void show_profiler(char * argv[], uint32_t tcpRef, void *bufRef) {
     SHOW_PROFILER_PROBE_COUNT(read_blk_footer);
     SHOW_PROFILER_PROBE_COUNT(read_blk_crc);
     SHOW_PROFILER_PROBE_COUNT(read_blk_prjid);
+    SHOW_PROFILER_PROBE_COUNT(read_blk_corrupted);
     SHOW_PROFILER_PROBE_BYTE(write)
     SHOW_PROFILER_KPI_BYTE(Mojette Fwd,storcli_kpi_transform_forward);
     SHOW_PROFILER_PROBE_COUNT(write_sid_miss)    
@@ -272,6 +273,7 @@ void show_profiler(char * argv[], uint32_t tcpRef, void *bufRef) {
 	RESET_PROFILER_PROBE(read_blk_footer);
 	RESET_PROFILER_PROBE(read_blk_crc);
 	RESET_PROFILER_PROBE(read_blk_prjid);
+        RESET_PROFILER_PROBE(read_blk_corrupted);	
 	RESET_PROFILER_PROBE_BYTE(write)
 	RESET_PROFILER_KPI_BYTE(Mojette Fwd,storcli_kpi_transform_forward);;
 	RESET_PROFILER_PROBE(write_sid_miss);		
@@ -306,8 +308,113 @@ void show_profiler(char * argv[], uint32_t tcpRef, void *bufRef) {
      
     uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
 }
+/*
+**____________________________________________________
+** Effective behaviour when reading corrupted blocks
+**
+*/
+int noReadFaultTolerant=0;
+storcli_corrupted_fid_ctx storcli_fid_corrupted = { 0 };
+/* 
+**____________________________________________________
+** Corrupted CLI man
+**
+*/
+void man_corrupted(char * pChar) {
+  pChar += rozofs_string_append(pChar,"corrupted          : display block corruption counter and configuration.\n");
+  pChar += rozofs_string_append(pChar,"corrupted reset    : reset block corruption counter.\n");
+  pChar += rozofs_string_append(pChar,"corrupted tolerant : be tolerant to corrupted blocks.\n");  
+  pChar += rozofs_string_append(pChar,"corrupted eio      : return EIO on corrupted block read.\n");   
+}
+/*
+**____________________________________________________
+** Display counters and configuration
+**
+*/
+char * display_corrupted(char * pChar) {
+  int        idx;
+  uint64_t * fid;
+  int        first=1;
+  
+  
+  /*
+  ** Display counters and configuration
+  */
+  pChar += rozofs_string_append(pChar, "{\n   \"corrupted blocks\" : {\n      \"configuration\" : {\n         \"startup\" : ");
+  pChar += rozofs_string_append(pChar, (conf.noReadFaultTolerant==0)?"\"Tolerant\"":"\"EIO\"");
+  pChar += rozofs_string_append(pChar, ",\n         \"running\" : ");
+  pChar += rozofs_string_append(pChar, (noReadFaultTolerant==0)?"\"Tolerant\"":"\"EIO\"");
+  pChar += rozofs_string_append(pChar, "\n      },\n      \"corruption count\" : ");
+  pChar += rozofs_u64_append(pChar, gprofiler.read_blk_corrupted[P_COUNT]);
+  pChar += rozofs_string_append(pChar, ",\n");
 
+  /*
+  ** Display log of corrupted FID list
+  */
+  pChar += rozofs_string_append(pChar, "      \"corrupted FID\" : [\n");  
+  fid = (uint64_t *)storcli_fid_corrupted.fid[0];
+  for (idx=0; idx<STORCLI_MAX_CORRUPTED_FID_NB; idx++,fid+=2) {
+    if ((fid[0]==0)&&(fid[1]==0)) continue;
+    if (first) first = 0;
+    else       pChar += rozofs_string_append(pChar, ",\n");  
+    pChar += rozofs_string_append(pChar, "         {\"FID\" : \"");  
+    rozofs_uuid_unparse((uint8_t*)fid, pChar);
+    pChar += 36;
+    pChar += rozofs_string_append(pChar, "\"}");  
+  }
+  pChar += rozofs_string_append(pChar, "\n      ]\n   }\n}\n");  
 
+  return pChar;
+}
+/*
+**____________________________________________________
+** Corrupted block CLI
+**
+*/
+void show_corrupted(char * argv[], uint32_t tcpRef, void *bufRef) {
+  char *pChar = uma_dbg_get_buffer();
+
+  if (argv[1] != NULL) {
+
+    /*
+    ** Reset counter
+    */
+    if (strcasecmp(argv[1],"reset")==0) {
+      pChar = display_corrupted(pChar);
+      RESET_PROFILER_PROBE(read_blk_corrupted);	   
+      memset(&storcli_fid_corrupted,0, sizeof(storcli_fid_corrupted));     
+      pChar += rozofs_string_append(pChar, "\nBlock corruption counter reset.\n");	
+    }
+
+    /*
+    ** Be tolerant
+    */
+    else if (strcasecmp(argv[1],"tolerant")==0) {
+      noReadFaultTolerant = 0;
+      pChar = display_corrupted(pChar);	
+    }	
+
+    /*
+    ** Don't be tolerant
+    */      
+    else if (strcasecmp(argv[1],"eio")==0) {
+      noReadFaultTolerant = 1;
+      pChar = display_corrupted(pChar);	
+    }
+
+    /*
+    ** Help
+    */      
+    else {
+      man_corrupted(pChar);  
+    }	 
+  }  
+  else {
+    pChar = display_corrupted(pChar);    
+  } 
+  
+  uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
+}
 static char bufall[1024];
 
 /*__________________________________________________________________________
@@ -1186,6 +1293,7 @@ void usage() {
     printf("\t-L,--layout <0|1|2>\t\tredundancy level supported by the process\n");
     printf("\t-B,--bsize <0|1|2>\t\tfile system block size (0:4K/1:8K/2:16K\n");
     printf("\t-f,--localPreference\t\tfavor local storage on read to save network bandwith in case of poor network connection\n");
+    printf("\t-F,--noReadFaultTolerant\t\tReturn EIO on block corruption detection.\n");
 
 }
 
@@ -1223,6 +1331,7 @@ int main(int argc, char *argv[]) {
         { "geosite", required_argument, 0, 'g'},
         { "owner", required_argument, 0, 'o'},
         { "localPreference", required_argument, 0, 'f'},
+        { "noReadFaultTolerant", required_argument, 0, 'F'},
         { 0, 0, 0, 0}
     };
 
@@ -1283,10 +1392,12 @@ int main(int argc, char *argv[]) {
     conf.mojThreadRead       = -1;    
     conf.mojThreadThreshold  = -1;
     conf.localPreference     = 0;  
+    conf.noReadFaultTolerant = 0;
+    
     while (1) {
 
         int option_index = 0;
-        c = getopt_long(argc, argv, "hH:E:P:i:D:M:R:s:k:c:l:S:g:o:r:w:m:L:B:f", long_options, &option_index);
+        c = getopt_long(argc, argv, "hH:E:P:i:D:M:R:s:k:c:l:S:g:o:r:w:m:L:B:Ff", long_options, &option_index);
 
         if (c == -1)
             break;
@@ -1313,6 +1424,9 @@ int main(int argc, char *argv[]) {
                 break;
 	    case 'f':
 	        conf.localPreference = 1;
+		break;
+	    case 'F':
+	        conf.noReadFaultTolerant = 1;
 		break;
             case 'i':
                 errno = 0;
@@ -1496,6 +1610,8 @@ int main(int argc, char *argv[]) {
         }
     }
     storcli_site_number = conf.site;
+    noReadFaultTolerant = conf.noReadFaultTolerant;
+    
     /*
      ** Check the parameters
      */
@@ -1539,6 +1655,29 @@ int main(int argc, char *argv[]) {
     storcli_lbg_cnx_sup_init();
 
     gprofiler.uptime = time(0);
+    
+    /*
+    ** Kill the eventual storcli with same instance that main be locked
+    */
+    {
+      char cmd[256];
+      pid_t pid = getpid();
+      
+      sprintf(cmd,"ps -o pid,cmd -C storcli | grep rozofsmount | grep \" -i %d \"  | grep \" -R %d \" > /tmp/stc1.%d",
+             conf.module_index, conf.rozofsmount_instance, pid); 
+      system(cmd);
+      
+      sprintf(cmd,"awk \'{if ($1!=pid) print $1; }\' pid=%d /tmp/stc1.%d >  /tmp/stc2.%d", pid, pid, pid); 
+      system(cmd);
+      
+      sprintf(cmd,"for p in `cat /tmp/stc2.%d`; do kill -9 $p; done", pid); 
+      system(cmd); 
+      
+      sprintf(cmd,"rm -f /tmp/stc1.%d; rm -f /tmp/stc2.%d", pid, pid); 
+      system(cmd); 
+         
+    }
+    
     
     /*
     ** check if the rozofsmount has provided a shared memory
@@ -1666,6 +1805,11 @@ int main(int argc, char *argv[]) {
      ** add the topic for the local profiler
      */
     uma_dbg_addTopic_option("profiler", show_profiler,UMA_DBG_OPTION_RESET);
+    /*
+     ** add the topic for the local profiler
+     */
+    uma_dbg_addTopicAndMan("corrupted", show_corrupted, man_corrupted, 0);
+
     /*
     ** add the topic for repair capabilities
     */

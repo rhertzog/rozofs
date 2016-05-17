@@ -4,3 +4,4 @@
 /usr/bin/rozo_repquota.sh
 /usr/share/man/man8/rozofsmount.8
 /usr/bin/rozo_distributionCheck.py
+/usr/bin/rozo_mount_cleanup.sh

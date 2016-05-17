@@ -56,7 +56,9 @@ void rozofs_tmr_init_configuration()
   ** timers related to dirent cache
   */
   DEF_TMR(FUSE_ATTR_CACHE,0,300,10,TMR_SEC);            /**< attribute cache timeout for fuse           default 10 s */
+  DEF_TMR(FUSE_ATTR_CACHE_MS,0,2000,0,TMR_MS);            /**< attribute cache timeout for fuse           default 10 s */
   DEF_TMR(FUSE_ENTRY_CACHE,0,300,10,TMR_SEC);           /**< entry cache timeout for fuse               default 10 s */
+  DEF_TMR(FUSE_ENTRY_CACHE_MS,0,2000,0,TMR_MS);           /**< entry cache timeout for fuse               default 10 s */
   /*
   ** timer related to TCP connection and load balancing group
   */
