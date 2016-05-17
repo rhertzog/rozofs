@@ -98,7 +98,8 @@ typedef struct rozofsmnt_conf {
     ** Whether to favor local storage on read to save network bandwith
     ** in case of poor network connection
     */
-    unsigned localPreference;     
+    unsigned localPreference;    
+    unsigned noReadFaultTolerant;         
 } rozofsmnt_conf_t;
 rozofsmnt_conf_t conf;
 

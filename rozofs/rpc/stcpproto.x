@@ -62,7 +62,8 @@ struct stcpp_profiler_t {
     uint64_t    read_prj_enoent[2];
     uint64_t    read_blk_footer[2];
     uint64_t    read_blk_crc[2];
-    uint64_t    read_blk_prjid[2];    
+    uint64_t    read_blk_prjid[2];       
+    uint64_t    read_blk_corrupted[2];    
     uint64_t    write_prj_tmo[2];
     uint64_t    write_prj_nospace[2]; 
     uint64_t    write_prj_sid_err[2];       

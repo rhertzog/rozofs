@@ -210,6 +210,7 @@ static void usage() {
     fprintf(stderr, "    -o mojThreadRead=0|1\t\t\tdisable|enable Mojette threads use for read in storcli\n");
     fprintf(stderr, "    -o mojThreadThreshold=<bytes>\t\t\tset the byte threshold to use Mojette threads in storcli\n");
     fprintf(stderr, "    -o localPreference\t\t\tFavor local storage on read to save network bandwith in case of poor network connection\n");
+    fprintf(stderr, "    -o noReadFaultTolerant\t\t\tGive back blocks with 0 on read for corrupted block instead of EIO\n");
 
 
 }
@@ -259,7 +260,8 @@ static struct fuse_opt rozofs_opts[] = {
     MYFS_OPT("quota", quota, 3),
     MYFS_OPT("usrquota", quota, 1),
     MYFS_OPT("noXattr", noXattr, 1),
-    MYFS_OPT("localPreference", localPreference, 1),    
+    MYFS_OPT("localPreference", localPreference, 1), 
+    MYFS_OPT("noReadFaultTolerant", noReadFaultTolerant, 1), 
     MYFS_OPT("site=%u", site, 0),
     MYFS_OPT("mojThreadWrite=%u",mojThreadWrite,-1),
     MYFS_OPT("mojThreadRead=%u",mojThreadRead,-1),
@@ -410,7 +412,7 @@ void show_start_config(char * argv[], uint32_t tcpRef, void *bufRef) {
   DISPLAY_UINT32_CONFIG(mojThreadRead);  
   DISPLAY_UINT32_CONFIG(mojThreadThreshold);  
   DISPLAY_UINT32_CONFIG(localPreference);
-
+  DISPLAY_UINT32_CONFIG(noReadFaultTolerant);
   uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
 } 
 /*__________________________________________________________________________
@@ -1508,6 +1510,10 @@ void rozofs_start_one_storcli(int instance) {
       cmd_p += sprintf(cmd_p, "-f ");
     } 
     
+    if (conf.noReadFaultTolerant) {
+      cmd_p += sprintf(cmd_p, "-F ");
+    } 
+    
     sprintf(pid_file,"/var/run/launcher_rozofsmount_%d_storcli_%d.pid", conf.instance, instance);
     rozo_launcher_start(pid_file,cmd);
     
@@ -2071,7 +2077,7 @@ int main(int argc, char *argv[]) {
     conf.mojThreadRead      = -1; // By default, do not modify the storli default
     conf.mojThreadThreshold = -1; // By default, do not modify the storli default
     conf.localPreference = 0; // No local preference on read
-
+    conf.noReadFaultTolerant = 0; // Give back blocks with 0 on read for corrupted block instead of EIO
     if (fuse_opt_parse(&args, &conf, rozofs_opts, myfs_opt_proc) < 0) {
         exit(1);
     }

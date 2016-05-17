@@ -533,8 +533,9 @@ class mount_point_class:
     options += " -o rozofsminreadsize=256"
     options += " -o rozofsshaper=0"
     options += " -o rozofsrotate=3"
-    options += " -o rozofsattrtimeoutms=30,rozofsentrytimeoutms=30"
+    options += " -o rozofsattrtimeout=0,rozofsentrytimeoutms=0"
     options += " -o bsdlock"
+#    options += "-o noReadFaultTolerant"
   
     options += " -o site=%s"%(self.site)
     if self.instance != 0: options += " -o instance=%s"%(self.instance)

@@ -53,6 +53,7 @@
 
 DECLARE_PROFILING(stcpp_profiler_t);
 
+uint64_t  corrupted_log_filter=0;
 
 /*
 **__________________________________________________________________________
@@ -112,11 +113,18 @@ static inline int rozofs_storcli_rebuild_check(uint8_t layout,rozofs_storcli_pro
   uint8_t   rozofs_safe = rozofs_get_rozofs_safe(layout);
   int i;
   int received = 0;
+  int enoent   = 0;
   
   for (i = 0; i <rozofs_safe; i++,prj_cxt_p++)
   {
-    if (prj_cxt_p->prj_state == ROZOFS_PRJ_READ_DONE) received++;
-    if (received == rozofs_inverse) return received;   
+    if (prj_cxt_p->prj_state == ROZOFS_PRJ_READ_DONE) { 
+      received++;
+      if (received == rozofs_inverse) return received;  
+    }   
+    if (prj_cxt_p->prj_state == ROZOFS_PRJ_READ_ENOENT) {
+      enoent++;
+      if (enoent > rozofs_inverse) return enoent;   
+    } 
   }
   return received;
 }
@@ -752,7 +760,7 @@ retry:
        ** attempt to select a new storage
        **
        */
-       severe("FDL error on send: EIO returned");
+       warning("FDL error on send to lbg %d",lbg_id);
        STORCLI_ERR_PROF(read_prj_err);       
        STORCLI_STOP_NORTH_PROF(&working_ctx_p->prj_ctx[projection_id],read_prj,0);
        prj_cxt_p[projection_id].prj_state = ROZOFS_PRJ_READ_ERROR;
@@ -762,7 +770,9 @@ retry:
          /*
          ** Out of storage !!-> too many storages are down
          ** release the allocated xmit buffer and then reply with appropriated error code
-         */
+         */ 
+         STORCLI_ERR_PROF(read_sid_miss); 
+         severe("FDL error on send: EIO returned");
          error = EIO;
          ruc_buf_freeBuffer(xmit_buf);
          goto fatal;
@@ -788,6 +798,8 @@ retry:
          ** Out of storage !!-> too many storages are down
          ** release the allocated xmit buffer and then reply with appropriated error code
          */
+         STORCLI_ERR_PROF(read_sid_miss); 
+         severe("FDL error on send: EIO returned");
          error = EIO;
          ruc_buf_freeBuffer(xmit_buf);
          goto fatal;
@@ -895,15 +907,24 @@ int rozofs_storcli_read_projection_retry(rozofs_storcli_ctx_t *working_ctx_p,uin
       */
       {
         int i;
-        for (i=0; i< rozofs_inverse; i++) {
-	  if (prj_cxt_p[i].prj_state != ROZOFS_PRJ_READ_ERROR) break;
-	  if (prj_cxt_p[i].errcode   != ENOENT) break;
-	}
-	if (i == rozofs_inverse) {
-	  error = ENOENT;
-	  goto reject;
-	}
-      }	
+	int enoent=0;
+        for (i=0; i< rozofs_safe; i++) {
+	  if (prj_cxt_p[i].prj_state == ROZOFS_PRJ_READ_ENOENT) {
+	    enoent++;
+	    // 1rst inverse tell ENOENT 
+	    if ((i<rozofs_inverse)&&(enoent==rozofs_inverse)) {
+	      error = ENOENT;
+	      goto reject;	      
+	    }
+	    // More than inverse tell ENOENT
+	    if (enoent>rozofs_inverse) {
+	      error = ENOENT;
+	      goto reject;	      
+	    }
+	    	    
+	  }  
+        }	
+      }
       
       /*
       ** Cannot select a new storage: OK so now double check if the retry on the same storage is
@@ -1055,6 +1076,7 @@ reject:
      */
      if (rozofs_storcli_check_read_in_progress_projections(layout,working_ctx_p->prj_ctx) == 0)
      {
+            
        /*
        ** we fall in that case when we run out of  storage
        */
@@ -1116,6 +1138,7 @@ void rozofs_storcli_read_req_processing_cbk(void *this,void *param)
    uint64_t raw_file_size;
    int bins_len = 0;
    int lbg_id;
+   int corrupted_blocks = 0;
    /*
    ** take care of the rescheduling of the pending frames
    */
@@ -1328,7 +1351,12 @@ void rozofs_storcli_read_req_processing_cbk(void *this,void *param)
        ** there was an error on the remote storage while attempt to read the file
        ** try to read the projection on another storaged
        */
-       working_ctx_p->prj_ctx[projection_id].prj_state = ROZOFS_PRJ_READ_ERROR;
+       if (errno == ENOENT) {
+         working_ctx_p->prj_ctx[projection_id].prj_state = ROZOFS_PRJ_READ_ENOENT;     
+       }
+       else {
+         working_ctx_p->prj_ctx[projection_id].prj_state = ROZOFS_PRJ_READ_ERROR; 
+       }	 
        working_ctx_p->prj_ctx[projection_id].errcode = errno;
        /**
        * The error has been reported by the remote, we cannot retry on the same storage
@@ -1344,7 +1372,7 @@ void rozofs_storcli_read_req_processing_cbk(void *this,void *param)
        {
          working_ctx_p->prj_ctx[projection_id].rebuild_req = 1;       
        }
-       goto retry_attempt;    
+       goto retry_attempt;    	 
     }
 
 
@@ -1365,6 +1393,7 @@ void rozofs_storcli_read_req_processing_cbk(void *this,void *param)
     */
     rozofs_storcli_transform_update_headers(read_prj_work_p,layout,bsize,
                     nb_projection_blocks_returned,working_ctx_p->nb_projections2read,raw_file_size);
+
     /*
     ** OK now check if we have enough projection to rebuild the initial message
     */
@@ -1383,11 +1412,12 @@ void rozofs_storcli_read_req_processing_cbk(void *this,void *param)
        */
        goto wait_more_projection;
     }
+
     /*
     ** stop the guard timer since enough projection have been received
     */
     rozofs_storcli_stop_read_guard_timer(working_ctx_p);
-    
+
     /*
     ** That's fine, all the projections have been received start rebuild the initial message
     ** for the case of the shared memory, we must check if the rozofsmount has not aborted the request
@@ -1403,18 +1433,89 @@ void rozofs_storcli_read_req_processing_cbk(void *this,void *param)
         error = EPROTO;
         goto io_error;
       }    
-    }    
+    }  
+        
     /*
     ** check if we can proceed with transform inverse
     */
+    corrupted_blocks = 0;
     ret = rozofs_storcli_transform_inverse_check_for_thread(working_ctx_p->prj_ctx,
                                      layout,
                                      working_ctx_p->cur_nmbs2read,
                                      working_ctx_p->nb_projections2read,
                                      working_ctx_p->block_ctx_table,
                                      &working_ctx_p->effective_number_of_blocks,
-				     &working_ctx_p->rozofs_storcli_prj_idx_table[0]);				     
+				     &working_ctx_p->rozofs_storcli_prj_idx_table[0],
+				     &corrupted_blocks);				     
 
+
+    /*
+    ** There are some corrupted blocks !!!!
+    ** These blocks are replaced by empty blocks. What else ?
+    */
+    if (corrupted_blocks) {
+
+      /*
+      ** Count number of corrupted blocks read
+      */
+      STORCLI_ERR_COUNT_PROF(read_blk_corrupted, corrupted_blocks);
+
+      /*
+      ** Log the error, but no more than one every 60 seconds
+      */
+      if (corrupted_log_filter < rozofs_get_ticker_us()) {
+	char msg[80];
+	char * pChar = msg;
+	
+	/* 
+	* Next log in 60 secs 
+	*/
+	corrupted_log_filter = rozofs_get_ticker_us() + 60000000; 
+	
+	/*
+	** Format and send the log
+	*/
+	pChar += rozofs_u32_append(pChar,corrupted_blocks);
+	pChar += rozofs_string_append(pChar," blocs corrupted in FID ");
+	rozofs_uuid_unparse(storcli_read_rq_p->fid, pChar);
+	pChar += 36;
+	pChar += rozofs_string_append(pChar," within blocks [");
+	pChar += rozofs_u32_append(pChar,working_ctx_p->cur_nmbs2read);
+	pChar += rozofs_string_append(pChar,"..");
+	pChar += rozofs_u32_append(pChar,working_ctx_p->cur_nmbs2read+working_ctx_p->effective_number_of_blocks-1);
+	pChar += rozofs_string_append(pChar,"]");
+	severe("%s",msg);
+      }
+
+      /*
+      ** Log FID in the corrupted FID table
+      */
+      uint8_t  * fid;
+      int        idx;	
+      fid = storcli_fid_corrupted.fid[0];
+      // Search for this FID in the table
+      for (idx=0; idx<STORCLI_MAX_CORRUPTED_FID_NB; idx++,fid+=16) {
+        if (memcmp(fid,storcli_read_rq_p->fid,16)==0) break;
+      }
+      // Insert this FID in the table
+      if (idx == STORCLI_MAX_CORRUPTED_FID_NB) {
+	fid = storcli_fid_corrupted.fid[storcli_fid_corrupted.nextIdx];
+        memcpy(fid,storcli_read_rq_p->fid,16);
+	storcli_fid_corrupted.nextIdx++;
+	if (storcli_fid_corrupted.nextIdx>=STORCLI_MAX_CORRUPTED_FID_NB) {
+	  storcli_fid_corrupted.nextIdx = 0;
+	}
+      }
+      
+      /*
+      ** In case we must not tolerate corrupted block,
+      ** just return an EIO.
+      */
+      if (noReadFaultTolerant) {
+        ret = -1;
+      }	
+    }
+    
     if (ret < 0)
     {
       /*
