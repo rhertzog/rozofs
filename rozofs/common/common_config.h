@@ -86,6 +86,12 @@ typedef struct _common_config_global_t {
   // Directory to use on the export to build temporary files.
   // Used for instance to build list of files to rebuild.
   char *      export_temporary_dir;
+  // To activate workaround that make mkdir respond OK instead of EEXIST
+  // when the directory is already created 
+  uint32_t    mkdir_ok_instead_of_eexist;
+  // To activate workaround that make mknod respond OK instead of EEXIST
+  // when the file is already created 
+  uint32_t    mknod_ok_instead_of_eexist;
 
   /*
   ** client scope configuration elements

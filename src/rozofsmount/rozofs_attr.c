@@ -54,6 +54,7 @@ uint64_t rozofs_max_getattr_duplicate = 0;
     struct stat stbuf;
     int trc_idx;
     errno = 0;
+    uint64_t attr_us = rozofs_tmr_get_attr_us();
 
 
     trc_idx = rozofs_trc_req(srv_rozofs_ll_getattr,ino,NULL);
@@ -86,14 +87,14 @@ uint64_t rozofs_max_getattr_duplicate = 0;
     */
     if (
          /* check regular file */
-         ((((ie->timestamp+rozofs_tmr_get(TMR_FUSE_ATTR_CACHE)*1000000) > rozofs_get_ticker_us()) || (rozofs_mode == 1))&&(S_ISREG(ie->attrs.mode))) ||
+         ((((ie->timestamp+attr_us) > rozofs_get_ticker_us()) || (rozofs_mode == 1))&&(S_ISREG(ie->attrs.mode))) ||
 	 /* check directory */
-	 (((ie->pending_getattr_cnt>0)||((ie->timestamp+(rozofs_tmr_get(TMR_FUSE_ATTR_CACHE)*1000000)) > rozofs_get_ticker_us()))&&(S_ISDIR(ie->attrs.mode)))
+	 (((ie->pending_getattr_cnt>0)||((ie->timestamp+attr_us) > rozofs_get_ticker_us()))&&(S_ISDIR(ie->attrs.mode)))
 	 ) 
     {
       mattr_to_stat(&ie->attrs, &stbuf, exportclt.bsize);
       stbuf.st_ino = ino; 
-      rz_fuse_reply_attr(req, &stbuf, rozofs_tmr_get(TMR_FUSE_ATTR_CACHE));
+      rz_fuse_reply_attr(req, &stbuf, rozofs_tmr_get_attr());
       goto out;   
     }
     /*
@@ -305,7 +306,7 @@ void rozofs_ll_getattr_cbk(void *this,void *param)
     */
     //if (ie->pending_getattr_cnt>=0) ie->pending_getattr_cnt--;
 
-    rz_fuse_reply_attr(req, &stbuf, rozofs_tmr_get(TMR_FUSE_ATTR_CACHE));
+    rz_fuse_reply_attr(req, &stbuf, rozofs_tmr_get_attr());
     goto out;
 error:
     fuse_reply_err(req, errno);
@@ -759,7 +760,7 @@ void rozofs_ll_setattr_cbk(void *this,void *param)
     */
     o_stbuf.st_size = ie->attrs.size;
 
-    rz_fuse_reply_attr(req, &o_stbuf, rozofs_tmr_get(TMR_FUSE_ATTR_CACHE));
+    rz_fuse_reply_attr(req, &o_stbuf, rozofs_tmr_get_attr());
 
     goto out;
 error:

@@ -43,7 +43,8 @@ typedef enum
   ROZOFS_PRJ_READ_IDLE = 0,  /**< no read initiated for the prjection  */
   ROZOFS_PRJ_READ_IN_PRG,    /**< storaqe read request issued          */
   ROZOFS_PRJ_READ_DONE,      /**< storage has answered                 */
-  ROZOFS_PRJ_READ_ERROR,      /**< read error reported by storage      */
+  ROZOFS_PRJ_READ_ERROR,     /**< read error reported by storage      */
+  ROZOFS_PRJ_READ_ENOENT,    /**< file does not exist reported by storage      */
   ROZOFS_PRJ_READ_MAX
 } rozofs_read_req_state_e;
 
@@ -252,8 +253,7 @@ void rozofs_storcli_transform_update_headers(rozofs_storcli_projection_ctx_t *pr
 int  rozofs_storcli_transform_get_read_len_in_bytes(rozofs_storcli_inverse_block_t *inverse_res_p, 
                                                     uint32_t number_of_blocks_read,uint8_t *eof_p);
  
- 
- /*
+/* 
 **__________________________________________________________________________
 */
 /**
@@ -265,14 +265,16 @@ int  rozofs_storcli_transform_get_read_len_in_bytes(rozofs_storcli_inverse_block
   @param number_of_blocks: number of blocks to write
   @param *number_of_blocks_p: pointer to the array where the function returns number of blocks on which the transform was applied
   @param *rozofs_storcli_prj_idx_table: pointer to the array used for storing the projections index for inverse process
+  @param *uint32_t *corrupted_blocks : returns the number of corrupted blocks within the read blocks
  
   @return: the length written on success, -1 otherwise (errno is set)
 */
- int rozofs_storcli_transform_inverse_check_for_thread(rozofs_storcli_projection_ctx_t *prj_ctx_p,  
+int rozofs_storcli_transform_inverse_check_for_thread(rozofs_storcli_projection_ctx_t *prj_ctx_p,  
                                        uint8_t layout,
                                        uint32_t first_block_idx, 
                                        uint32_t number_of_blocks, 
                                        rozofs_storcli_inverse_block_t *block_ctx_p,
                                        uint32_t *number_of_blocks_p,
-				       uint8_t  *rozofs_storcli_prj_idx_table) ;                                                   
+				       uint8_t  *rozofs_storcli_prj_idx_table,
+				       uint32_t *corrupted_blocks);                                        
 #endif

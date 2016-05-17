@@ -73,7 +73,7 @@ void rozofs_storcli_transform_update_headers(rozofs_storcli_projection_ctx_t *pr
     rozofs_stor_bins_hdr_t* rozofs_bins_hdr_p;
     int prj_size_in_msg =  rozofs_get_max_psize_in_msg(layout,bsize);
     int prj_effective_size = 0; 
-    		       
+    		        		    	       
     for (block_idx = 0; block_idx < number_of_blocks_returned; block_idx++) 
     {
       /*
@@ -167,7 +167,8 @@ inline int rozofs_storcli_transform_inverse_check_timestamp_tb(rozofs_storcli_pr
                                        uint32_t block_idx, 
                                        uint8_t *prj_idx_tb_p,
                                        uint64_t *timestamp_p,
-                                       uint16_t *effective_len_p)
+                                       uint16_t *effective_len_p,
+				       uint32_t * corrupted_blocks)
 {
     uint8_t prj_ctx_idx;
     uint8_t prjid;
@@ -175,20 +176,30 @@ inline int rozofs_storcli_transform_inverse_check_timestamp_tb(rozofs_storcli_pr
     *timestamp_p = 0;
     uint8_t rozofs_inverse = rozofs_get_rozofs_inverse(layout);
     uint8_t rozofs_safe = rozofs_get_rozofs_safe(layout);
+    uint8_t rozofs_forward = rozofs_get_rozofs_forward(layout);
     rozofs_storcli_timestamp_ctx_t *p;
     int eof = 1;
     rozofs_storcli_timestamp_ctx_t rozofs_storcli_timestamp_tb[ROZOFS_SAFE_MAX_STORCLI];
     uint8_t  rozofs_storcli_timestamp_next_free_idx=0;
-
+    int      left_storage = rozofs_safe;
+    
     for (prj_ctx_idx = 0; prj_ctx_idx < rozofs_safe; prj_ctx_idx++)
     {
+      if (prj_ctx_p[prj_ctx_idx].prj_state == ROZOFS_PRJ_READ_ENOENT) 
+      {
+        left_storage--;
+	continue;
+      }
+      
       if (prj_ctx_p[prj_ctx_idx].prj_state != ROZOFS_PRJ_READ_DONE)
       {
         /*
         ** that projection context does not contain valid data, so skip it
         */
         continue;      
-      }
+      } 
+      left_storage--;
+
       /*
       ** Get the pointer to the projection header
       */      
@@ -282,14 +293,40 @@ inline int rozofs_storcli_transform_inverse_check_timestamp_tb(rozofs_storcli_pr
     /*
     ** take care of the case where we try to read after the end of file
     */
-    if (eof) return 0;
+    if (eof) {
+      return 0;
+    }
     /*
     ** unlucky, we did not find rozof_inverse projections with the same timestamp
     ** we need to read one more projection unless we already attempt to read rozofs_safe
     ** projection or we run out of storage that are up among the set of rozofs_safe storage   
     */
-    return -1;
+    
+    /*
+    *** Check whether there is enough letf storage to have a chance to decode this block one day
+    */
+    for(timestamp_entry = 0; timestamp_entry < rozofs_storcli_timestamp_next_free_idx;timestamp_entry++) {
 
+      p = &rozofs_storcli_timestamp_tb[timestamp_entry];
+      /*
+      ** A valid TS must be written forward times !
+      ** so the number of time a TS is found + the number of non readable storage
+      */
+      if (left_storage+ p->count >= rozofs_forward) {
+          // info("Bloc %d TS %llu has count %d and left %d : this could work", block_idx, p->timestamp, p->count, left_storage);
+	  return -1;      
+      }
+    }
+      
+    // No way. Even with the left storage, nothing will match...
+    // Let's tell the block is empty
+
+    *timestamp_p     = 0;
+    #warning Works only with 4K blocks
+    *effective_len_p = ROZOFS_BSIZE_BYTES(0);
+    *corrupted_blocks = *corrupted_blocks + 1;
+    // info("Bloc %d Said to be empty",block_idx);      
+    return 0;
 }
 
 
@@ -305,7 +342,8 @@ inline int rozofs_storcli_transform_inverse_check(rozofs_storcli_projection_ctx_
                                        uint32_t block_idx, 
                                        uint8_t *prj_idx_tb_p,
                                        uint64_t *timestamp_p,
-                                       uint16_t *effective_len_p)
+                                       uint16_t *effective_len_p,
+				       uint32_t * corrupted_blocks)
 {
     uint8_t prj_ctx_idx;
     uint8_t nb_projection_with_same_timestamp = 0;
@@ -321,6 +359,7 @@ inline int rozofs_storcli_transform_inverse_check(rozofs_storcli_projection_ctx_
     uint8_t  rozofs_storcli_timestamp_next_free_idx=0;
     uint8_t prjid;    
     ref_ctx_p->count = 0;
+    
     /*
     ** clean data used for tracking projection to rebuild
     */
@@ -401,7 +440,7 @@ inline int rozofs_storcli_transform_inverse_check(rozofs_storcli_projection_ctx_
                                                     rozofs_storcli_timestamp_tb,
                                                     rozofs_storcli_timestamp_next_free_idx+1,
                                                     rozofs_storcli_timestamp_next_free_idx);
-          }
+          }	  
           return (int)rozofs_inverse;        
         }
         continue;      
@@ -431,7 +470,8 @@ inline int rozofs_storcli_transform_inverse_check(rozofs_storcli_projection_ctx_
                                         block_idx, 
                                         prj_idx_tb_p,
                                         timestamp_p,
-                                        effective_len_p);
+                                        effective_len_p,
+					corrupted_blocks);
     return ret;
 }
 
@@ -447,6 +487,7 @@ inline int rozofs_storcli_transform_inverse_check(rozofs_storcli_projection_ctx_
   @param number_of_blocks: number of blocks to write
   @param *number_of_blocks_p: pointer to the array where the function returns number of blocks on which the transform was applied
   @param *rozofs_storcli_prj_idx_table: pointer to the array used for storing the projections index for inverse process
+  @param *uint32_t *corrupted_blocks : returns the number of corrupted blocks within the read blocks
  
   @return: the length written on success, -1 otherwise (errno is set)
 */
@@ -456,13 +497,13 @@ inline int rozofs_storcli_transform_inverse_check(rozofs_storcli_projection_ctx_
                                        uint32_t number_of_blocks, 
                                        rozofs_storcli_inverse_block_t *block_ctx_p,
                                        uint32_t *number_of_blocks_p,
-				       uint8_t  *rozofs_storcli_prj_idx_table) 
+				       uint8_t  *rozofs_storcli_prj_idx_table,
+				       uint32_t *corrupted_blocks) 
 
 {
 
     int block_idx;
     int ret;
-
    
     *number_of_blocks_p = 0;
     
@@ -477,7 +518,8 @@ inline int rozofs_storcli_transform_inverse_check(rozofs_storcli_projection_ctx_
         ret =  rozofs_storcli_transform_inverse_check(prj_ctx_p,layout,
                                                       block_idx, &rozofs_storcli_prj_idx_table[block_idx*ROZOFS_SAFE_MAX_STORCLI],
                                                       &block_ctx_p[block_idx].timestamp,
-                                                      &block_ctx_p[block_idx].effective_length);
+                                                      &block_ctx_p[block_idx].effective_length,
+						      corrupted_blocks);
         if (ret < 0)
         {
           /*

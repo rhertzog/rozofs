@@ -91,7 +91,7 @@ void rozofs_ll_open_nb(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi
     ** a transaction with the exportd
     */
     if ((rozofs_mode == 1) ||
-       ((ie->timestamp+rozofs_tmr_get(TMR_FUSE_ATTR_CACHE)*1000000) > rozofs_get_ticker_us()))
+       ((ie->timestamp+rozofs_tmr_get_attr_us()) > rozofs_get_ticker_us()))
     {
       /*
       ** allocate a context for the file descriptor

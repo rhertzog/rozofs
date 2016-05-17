@@ -50,7 +50,9 @@ typedef enum
   ** timer related to dirent cache
   */
   TMR_FUSE_ATTR_CACHE,            /**< attribute cache timeout for fuse           default 10 s */
+  TMR_FUSE_ATTR_CACHE_MS,         /**< attribute cache timeout for fuse           default 10 s */
   TMR_FUSE_ENTRY_CACHE,           /**< entry cache timeout for fuse               default 10 s */
+  TMR_FUSE_ENTRY_CACHE_MS,        /**< entry cache timeout for fuse               default 10 s */
   /*
   ** dirent cache timer
   */
@@ -133,7 +135,48 @@ static inline uint32_t rozofs_tmr_get(int timer_id)
 {
   return rozofs_timer_conf[timer_id].cur_val;
 }
+/*__________________________________________________________________________
+*/
+/**
+*  Get the attribute cache timer for FUSE
 
+*/
+static inline double rozofs_tmr_get_attr()
+{
+  if (rozofs_timer_conf[TMR_FUSE_ATTR_CACHE].cur_val != 0) {
+    return (double) rozofs_timer_conf[TMR_FUSE_ATTR_CACHE].cur_val;
+  }
+  if (rozofs_timer_conf[TMR_FUSE_ATTR_CACHE_MS].cur_val != 0) {
+    return ((double) rozofs_timer_conf[TMR_FUSE_ATTR_CACHE_MS].cur_val)/1000;
+  }
+  return 0;
+}
+/*__________________________________________________________________________
+*/
+/**
+*  Get the attribute cache timer in micro sec to compare to the IE timestamp
+
+*/
+static inline uint64_t rozofs_tmr_get_attr_us()
+{
+  return (uint64_t) (rozofs_tmr_get_attr()*1000000);
+}
+/*__________________________________________________________________________
+*/
+/**
+*  Get the entry cache timer for FUSE
+
+*/
+static inline double rozofs_tmr_get_entry()
+{
+  if (rozofs_timer_conf[TMR_FUSE_ENTRY_CACHE].cur_val != 0) {
+    return (double) rozofs_timer_conf[TMR_FUSE_ENTRY_CACHE].cur_val;
+  }
+  if (rozofs_timer_conf[TMR_FUSE_ENTRY_CACHE_MS].cur_val != 0) {
+    return ((double) rozofs_timer_conf[TMR_FUSE_ENTRY_CACHE_MS].cur_val)/1000;
+  }
+  return 0;
+}
 
 int rozofs_tmr_get_idx_from_name(char * name);
 

@@ -102,6 +102,12 @@ char *pChar = uma_dbg_get_buffer();
   pChar += rozofs_string_append(pChar,"// Directory to use on the export to build temporary files.\n");
   pChar += rozofs_string_append(pChar,"// Used for instance to build list of files to rebuild.\n");
   COMMON_CONFIG_SHOW_STRING(export_temporary_dir,"/tmp");
+  pChar += rozofs_string_append(pChar,"// To activate workaround that make mkdir respond OK instead of EEXIST\n");
+  pChar += rozofs_string_append(pChar,"// when the directory is already created \n");
+  COMMON_CONFIG_SHOW_BOOL(mkdir_ok_instead_of_eexist,False);
+  pChar += rozofs_string_append(pChar,"// To activate workaround that make mknod respond OK instead of EEXIST\n");
+  pChar += rozofs_string_append(pChar,"// when the file is already created \n");
+  COMMON_CONFIG_SHOW_BOOL(mknod_ok_instead_of_eexist,False);
 
   /*
   ** client scope configuration elements
@@ -241,6 +247,12 @@ static inline void common_config_generated_read(char * fname) {
   // Directory to use on the export to build temporary files. 
   // Used for instance to build list of files to rebuild. 
   COMMON_CONFIG_READ_STRING(export_temporary_dir,"/tmp");
+  // To activate workaround that make mkdir respond OK instead of EEXIST 
+  // when the directory is already created  
+  COMMON_CONFIG_READ_BOOL(mkdir_ok_instead_of_eexist,False);
+  // To activate workaround that make mknod respond OK instead of EEXIST 
+  // when the file is already created  
+  COMMON_CONFIG_READ_BOOL(mknod_ok_instead_of_eexist,False);
   /*
   ** client scope configuration elements
   */

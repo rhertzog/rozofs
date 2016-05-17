@@ -185,8 +185,12 @@ static void usage() {
     fprintf(stderr, "    -o rozofsstorclitimeout=N\tdefine timeout (s) for IO storcli requests (default: 15)\n");
     fprintf(stderr, "    -o rozofsattrtimeout=N\tdefine timeout (s) for which file/directory attributes are cached (default: %ds)\n",
                             rozofs_tmr_get(TMR_FUSE_ATTR_CACHE));
+    fprintf(stderr, "    -o rozofsattrtimeoutms=N\tdefine timeout (ms) for which file/directory attributes are cached (default: %ds)\n",
+                            rozofs_tmr_get(TMR_FUSE_ATTR_CACHE_MS));
     fprintf(stderr, "    -o rozofsentrytimeout=N\tdefine timeout (s) for which name lookups will be cached (default: %ds)\n",
                             rozofs_tmr_get(TMR_FUSE_ENTRY_CACHE));
+    fprintf(stderr, "    -o rozofsentrytimeoutms=N\tdefine timeout (ms) for which name lookups will be cached (default: %ds)\n",
+                            rozofs_tmr_get(TMR_FUSE_ENTRY_CACHE_MS));
     fprintf(stderr, "    -o rozofssymlinktimeout=N\tdefine timeout (ms) for which symlink targets will be cached (default: %dms)\n",
                             rozofs_tmr_get(TMR_LINK_CACHE));
     fprintf(stderr, "    -o debug_port=N\t\tdefine the base debug port for rozofsmount (default: none)\n");
@@ -196,8 +200,9 @@ static void usage() {
     fprintf(stderr, "    -o rozofsnbstorcli=N\tdefine the number of storcli process(es) to use (default: 1)\n");
     fprintf(stderr, "    -o rozofsshaper=N\t\tdefine the storcli shaper configuration (default: 1)\n");
     fprintf(stderr, "    -o rozofsrotate=N\t\tdefine the modulo on read distribution rotation (default: 0)\n");
-    fprintf(stderr, "    -o posixlock\t\tactive support for POSIX file lock\n");
-    fprintf(stderr, "    -o bsdlock\t\t\tactive support for BSD file lock\n");
+    fprintf(stderr, "    -o posixlock\t\tDeprecated.\n");
+    fprintf(stderr, "    -o bsdlock\t\t\tDeprecated.\n");
+    fprintf(stderr, "    -o nolock\t\t\tTo dectivate BSD as well as POSIX locks.\n");
     fprintf(stderr, "    -o noXattr\t\t\tdisable support of extended attributes\n");
     fprintf(stderr, "    -o no0trunc\t\t\tdisable sending truncate to zero to storages\n");
     fprintf(stderr, "    -o onlyWriter\t\t\tthis client is the only writer of the file it writes\n");
@@ -206,6 +211,7 @@ static void usage() {
     fprintf(stderr, "    -o mojThreadRead=0|1\t\t\tdisable|enable Mojette threads use for read in storcli\n");
     fprintf(stderr, "    -o mojThreadThreshold=<bytes>\t\t\tset the byte threshold to use Mojette threads in storcli\n");
     fprintf(stderr, "    -o localPreference\t\t\tFavor local storage on read to save network bandwith in case of poor network connection\n");
+    fprintf(stderr, "    -o noReadFaultTolerant\t\t\tGive back blocks with 0 on read for corrupted block instead of EIO\n");
 
 
 }
@@ -237,7 +243,9 @@ static struct fuse_opt rozofs_opts[] = {
     MYFS_OPT("rozofsstoragetimeout=%u", storage_timeout, 0),
     MYFS_OPT("rozofsstorclitimeout=%u", storcli_timeout, 0),
     MYFS_OPT("rozofsattrtimeout=%u", attr_timeout, 0),
+    MYFS_OPT("rozofsattrtimeoutms=%u", attr_timeout_ms, 0),
     MYFS_OPT("rozofsentrytimeout=%u", entry_timeout, 0),
+    MYFS_OPT("rozofsentrytimeoutms=%u", entry_timeout_ms, 0),
     MYFS_OPT("rozofssymlinktimeout=%u", symlink_timeout, 0),
     MYFS_OPT("debug_port=%u", dbg_port, 0),
     MYFS_OPT("instance=%u", instance, 0),
@@ -247,12 +255,14 @@ static struct fuse_opt rozofs_opts[] = {
     MYFS_OPT("rozofsrotate=%u", rotate, 0),
     MYFS_OPT("posixlock", posix_file_lock, 1),
     MYFS_OPT("bsdlock", bsd_file_lock, 1),
+    MYFS_OPT("nolock", no_file_lock, 1),
     MYFS_OPT("grpquota", quota, 2),
     MYFS_OPT("noquota", quota, 0),
     MYFS_OPT("quota", quota, 3),
     MYFS_OPT("usrquota", quota, 1),
     MYFS_OPT("noXattr", noXattr, 1),
-    MYFS_OPT("localPreference", localPreference, 1),    
+    MYFS_OPT("localPreference", localPreference, 1), 
+    MYFS_OPT("noReadFaultTolerant", noReadFaultTolerant, 1), 
     MYFS_OPT("site=%u", site, 0),
     MYFS_OPT("mojThreadWrite=%u",mojThreadWrite,-1),
     MYFS_OPT("mojThreadRead=%u",mojThreadRead,-1),
@@ -386,12 +396,13 @@ void show_start_config(char * argv[], uint32_t tcpRef, void *bufRef) {
   DISPLAY_UINT32_CONFIG(fs_mode); 
   DISPLAY_UINT32_CONFIG(cache_mode);  
   DISPLAY_UINT32_CONFIG(attr_timeout);
+  DISPLAY_UINT32_CONFIG(attr_timeout_ms);
   DISPLAY_UINT32_CONFIG(entry_timeout);
+  DISPLAY_UINT32_CONFIG(entry_timeout_ms);
   DISPLAY_UINT32_CONFIG(symlink_timeout);
   DISPLAY_UINT32_CONFIG(shaper);  
   DISPLAY_UINT32_CONFIG(rotate);  
-  DISPLAY_UINT32_CONFIG(posix_file_lock);  
-  DISPLAY_UINT32_CONFIG(bsd_file_lock);  
+  DISPLAY_UINT32_CONFIG(no_file_lock);  
   DISPLAY_UINT32_CONFIG(noXattr); 
   DISPLAY_UINT32_CONFIG(no0trunc);
   DISPLAY_UINT32_CONFIG(onlyWriter);
@@ -402,7 +413,7 @@ void show_start_config(char * argv[], uint32_t tcpRef, void *bufRef) {
   DISPLAY_UINT32_CONFIG(mojThreadRead);  
   DISPLAY_UINT32_CONFIG(mojThreadThreshold);  
   DISPLAY_UINT32_CONFIG(localPreference);
-
+  DISPLAY_UINT32_CONFIG(noReadFaultTolerant);
   uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
 } 
 /*__________________________________________________________________________
@@ -1500,6 +1511,10 @@ void rozofs_start_one_storcli(int instance) {
       cmd_p += sprintf(cmd_p, "-f ");
     } 
     
+    if (conf.noReadFaultTolerant) {
+      cmd_p += sprintf(cmd_p, "-F ");
+    } 
+    
     sprintf(pid_file,"/var/run/launcher_rozofsmount_%d_storcli_%d.pid", conf.instance, instance);
     rozo_launcher_start(pid_file,cmd);
     
@@ -1680,16 +1695,11 @@ int fuseloop(struct fuse_args *args, int fg) {
         return 1;
     }
     /*
-    ** Are POSIX lock required ?
+    ** Are BSD and POSIX lockdisabled
     */
-    if (conf.posix_file_lock) {
+    if (!conf.no_file_lock) {
       rozofs_ll_operations.getlk = rozofs_ll_getlk_nb;
       rozofs_ll_operations.setlk = rozofs_ll_setlk_nb;
-    }
-    /*
-    ** Are BSD lock required ?
-    */
-    if (conf.bsd_file_lock) {
       rozofs_ll_operations.flock = rozofs_ll_flock_nb;
     }
 
@@ -2049,13 +2059,16 @@ int main(int argc, char *argv[]) {
     conf.min_read_size = ROZOFS_BSIZE_BYTES(ROZOFS_BSIZE_MIN)/1024;
     conf.max_write_pending = ROZOFS_BSIZE_BYTES(ROZOFS_BSIZE_MIN)/1024; /*  */ 
     conf.attr_timeout = -1;
+    conf.attr_timeout_ms = -1;
     conf.entry_timeout = -1;
+    conf.entry_timeout_ms = -1;
     conf.symlink_timeout = -1; /* Get default value */
     conf.nbstorcli = 0;
     conf.shaper = 0; // Default traffic shaper value
     conf.rotate = 0;
     conf.posix_file_lock = 0; // No posix file lock until explicitly activated  man 2 fcntl)
     conf.bsd_file_lock = 0;   // No BSD file lock until explicitly activated    man 2 flock)
+    conf.no_file_lock = 0;   // To disable locks 
     conf.noXattr = 0;   // By default extended attributes are supported
     conf.no0trunc = 0;  // By default truncate to zero are sent to exportd and storages
     conf.onlyWriter = 0;  // By default this client is not the only writer of the file it writes to
@@ -2065,7 +2078,7 @@ int main(int argc, char *argv[]) {
     conf.mojThreadRead      = -1; // By default, do not modify the storli default
     conf.mojThreadThreshold = -1; // By default, do not modify the storli default
     conf.localPreference = 0; // No local preference on read
-
+    conf.noReadFaultTolerant = 0; // Give back blocks with 0 on read for corrupted block instead of EIO
     if (fuse_opt_parse(&args, &conf, rozofs_opts, myfs_opt_proc) < 0) {
         exit(1);
     }
@@ -2200,15 +2213,40 @@ int main(int argc, char *argv[]) {
     }
     rozofs_mode = conf.fs_mode;
     
-    if (conf.attr_timeout != -1) {
-        if (rozofs_tmr_configure(TMR_FUSE_ATTR_CACHE,conf.attr_timeout) < 0)
-        {
-          fprintf(stderr,
-                "timeout for which file/directory attributes are cached is out"
-                  " of range: revert to default setting");
-        }
+    // attr_timeout & attr_timeout_ms are defined => ignore attr_timeout_ms
+    if ((conf.attr_timeout != -1)&&(conf.attr_timeout_ms != -1)) { 
+	fprintf(stderr,
+            "attr_timeout as well as attr_timeout_ms are defined."
+	      " Ignoring attr_timeout_ms.");
+	conf.attr_timeout_ms = -1;
     }
-    
+    if (conf.attr_timeout != -1) {    
+        if (rozofs_tmr_configure(TMR_FUSE_ATTR_CACHE,conf.attr_timeout) < 0)
+	{
+          fprintf(stderr,
+        	"timeout for which file/directory attributes are cached is out"
+                  " of range: revert to default setting");
+	}
+    }
+    else if (conf.attr_timeout_ms != -1) {
+        if (rozofs_tmr_configure(TMR_FUSE_ATTR_CACHE_MS,conf.attr_timeout_ms) < 0)	
+	{
+          fprintf(stderr,
+        	"timeout for which file/directory attributes are cached is out"
+                  " of range: revert to default setting");
+	}
+	else {
+	  rozofs_tmr_configure(TMR_FUSE_ATTR_CACHE,0);
+	}
+    }
+
+    // entry_timeout & entry_timeout_ms are defined => ignore entry_timeout_ms    
+    if ((conf.entry_timeout != -1)&&(conf.entry_timeout_ms != -1)) { 
+	fprintf(stderr,
+            "entry_timeout as well as entry_timeout_ms are defined."
+	      " Ignoring entry_timeout_ms.");
+	conf.entry_timeout_ms = -1;
+    }
     if (conf.entry_timeout != -1) {
         if (rozofs_tmr_configure(TMR_FUSE_ENTRY_CACHE,conf.entry_timeout) < 0)
         {
@@ -2217,7 +2255,18 @@ int main(int argc, char *argv[]) {
                   " revert to default setting");
         }
     }
-    
+    else if (conf.entry_timeout_ms != -1) {
+        if (rozofs_tmr_configure(TMR_FUSE_ENTRY_CACHE_MS,conf.entry_timeout_ms) < 0)	
+	{
+          fprintf(stderr,
+                "timeout for which name lookups will be cached is out of range:"
+                  " of range: revert to default setting");
+	}
+	else {
+	  rozofs_tmr_configure(TMR_FUSE_ENTRY_CACHE,0);
+	}
+    }
+        
     if (conf.symlink_timeout != -1) {
         if (rozofs_tmr_configure(TMR_LINK_CACHE,conf.symlink_timeout) < 0)
         {
@@ -2226,7 +2275,8 @@ int main(int argc, char *argv[]) {
                   " revert to default setting");
         }
     }
-    
+
+        
     if (fuse_version() < 28) {
         if (fuse_opt_add_arg(&args, "-o" FUSE27_DEFAULT_OPTIONS) == -1) {
             fprintf(stderr, "fuse_opt_add_arg failed\n");

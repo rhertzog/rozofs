@@ -292,8 +292,8 @@ void rozofs_ll_mkdir_cbk(void *this,void *param)
     if (nie->attrs.size < stbuf.st_size) nie->attrs.size = stbuf.st_size;
     stbuf.st_size = nie->attrs.size;
        
-    fep.attr_timeout = rozofs_tmr_get(TMR_FUSE_ATTR_CACHE);
-    fep.entry_timeout = rozofs_tmr_get(TMR_FUSE_ENTRY_CACHE);
+    fep.attr_timeout = rozofs_tmr_get_attr();
+    fep.entry_timeout = rozofs_tmr_get_entry();
     memcpy(&fep.attr, &stbuf, sizeof (struct stat));
 
     rozofs_inode_t * finode = (rozofs_inode_t *) nie->attrs.fid;
