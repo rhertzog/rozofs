@@ -700,7 +700,7 @@ void uma_dbg_counters_reset(char * argv[], uint32_t tcpRef, void *bufRef) {
   char mybuffer[1024];
   char *pChar = mybuffer;
   
-  if ((argv[1] == NULL)||(strcmp(argv[1],"reset")!=0)) {  
+  if ((argv[1] == NULL)||(strcasecmp(argv[1],"reset")!=0)) {  
     uma_dbg_send(tcpRef, bufRef, TRUE, "counters requires \"reset\" as parameter\n");
     return; 
   }
@@ -957,7 +957,7 @@ int uma_dbg_differentiator(char * st1, char * st2) {
     
   while(*st1) {		
     if ((*st1==0) || (*st2==0)) return res;
-    if (*st1!=*st2) return res;
+    if (tolower(*st1) != tolower(*st2)) return res;
 	res++;
 	st1++;
 	st2++;
@@ -1127,7 +1127,7 @@ void uma_dbg_listTopic(uint32_t tcpCnxRef, void *bufRef, char * topic) {
   
     if (uma_dbg_topic[topicNum].option & UMA_DBG_OPTION_HIDE) continue;
 
-    if ((len == 0)||(strncmp(topic,uma_dbg_topic[topicNum].name, len) == 0)) {
+    if ((len == 0)||(strncasecmp(topic,uma_dbg_topic[topicNum].name, len) == 0)) {
 	  if (old) idx += uma_dbg_display_old_topic(topicNum, &p[idx]);
 	  else     idx += uma_dbg_display_new_topic(topicNum, &p[idx]);
     }
