@@ -3037,8 +3037,45 @@ static void storaged_release() {
         free(s);
     }
 }
+/*__________________________________________________________________________
+*/
+int rbs_remove_rebuild_mark(char * root, int dev) {
+  char          path[FILENAME_MAX];
+  char        * pChar = path;
 
-
+  pChar += rozofs_string_append(pChar, root);
+  pChar += rozofs_string_append(pChar, "/");
+  pChar += rozofs_u32_append(pChar, dev); 
+  pChar += rozofs_string_append(pChar, "/");
+  pChar += rozofs_string_append(pChar, STORAGE_DEVICE_REBUILD_REQUIRED_MARK);  
+    
+  /*
+  ** Check that the device is writable
+  */
+  return unlink(path);
+}
+/*__________________________________________________________________________
+*/
+void rbs_remove_rebuild_marks() {
+  int idx;
+  int dev;
+    
+  // Only on disk to rebuild
+  if (parameter.type == rbs_rebuild_type_device) {
+    rbs_remove_rebuild_mark(rbs_stor_configs[0].root, parameter.rbs_device_number);
+    return;
+  }
+  
+  for (idx=0; idx<nb_rbs_entry; idx++) {
+    for (dev=0; dev < rbs_stor_configs[idx].device.total; dev++) {
+      rbs_remove_rebuild_mark(rbs_stor_configs[idx].root,dev);
+    }  
+  }
+  return;
+}     
+  
+/*__________________________________________________________________________
+*/
 static void on_stop() {
     DEBUG_FUNCTION;   
     
@@ -3247,9 +3284,17 @@ int main(int argc, char *argv[]) {
     else       
       status = rbs_rebuild_process();
     
-    on_stop();  
-    if (status == 0) exit(EXIT_SUCCESS);
-    else             exit(EXIT_FAILURE);
+    on_stop(); 
+     
+    if (status == 0) {
+      /*
+      ** Remove the rebuild marks from the device on success
+      */
+      rbs_remove_rebuild_marks();
+      exit(EXIT_SUCCESS);
+    }
+    
+    exit(EXIT_FAILURE);
     
 error:
     REBUILD_MSG("Can't start storage_rebuild. See logs for more details.");

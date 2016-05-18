@@ -430,7 +430,8 @@ static inline int storio_device_monitor_get_free_space(storage_t   * st,
   pChar += rozofs_string_append(pChar, st->root);
   *pChar++ ='/';
   pChar += rozofs_u32_append(pChar, dev); 
-
+  pChar += rozofs_string_append(pChar, "/");
+  
   /*
   ** Check that the device is writable
   */
@@ -458,7 +459,7 @@ static inline int storio_device_monitor_get_free_space(storage_t   * st,
   ** Check we can see an X file. 
   ** This would mean that the device is not mounted
   */
-  rozofs_string_append(pChar, "/X");
+  rozofs_string_append(pChar, "X");
   if (access(path,F_OK) == 0) {
     *diagnostic = DEV_DIAG_UNMOUNTED;
     *relocate_allowed = 1;
@@ -501,8 +502,18 @@ static inline int storio_device_monitor_get_free_space(storage_t   * st,
     *free  = 0;   
     *diagnostic = DEV_DIAG_BLOCK_DEPLETION;
     return 0;
-  }         
+  }     
+
   *diagnostic = DEV_DIAG_OK;
+    
+  /*
+  ** Check whether the device contains a rebuild mark
+  */
+  rozofs_string_append(pChar, STORAGE_DEVICE_REBUILD_REQUIRED_MARK);
+  if (access(path,F_OK) == 0) {
+    *diagnostic = DEV_DIAG_REBUILD_REQUIRED;
+  }  
+  
   return 0;
 }
 /*

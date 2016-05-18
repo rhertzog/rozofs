@@ -38,6 +38,13 @@
 
 #include "storio_device_mapping.h"
 
+
+/*
+** The mark that should be present on a disk that requires to
+** be rebuilt
+*/
+#define STORAGE_DEVICE_REBUILD_REQUIRED_MARK "PREPARING_DISK"
+
 #define ROZOFS_MAX_DISK_THREADS  32
 
 /* Storage config to be configured in cfg file */
@@ -139,6 +146,7 @@ typedef enum _storage_device_diagnostic_e {
   DEV_DIAG_INODE_DEPLETION,
   DEV_DIAG_BLOCK_DEPLETION,
   DEV_DIAG_INVERTED_DISK,
+  DEV_DIAG_REBUILD_REQUIRED,
 } storage_device_diagnostic_e;
 
 static inline char * storage_device_diagnostic2String(storage_device_diagnostic_e diagnostic) { 
@@ -150,6 +158,7 @@ static inline char * storage_device_diagnostic2String(storage_device_diagnostic_
     case DEV_DIAG_INODE_DEPLETION: return "INODE DEPLETION";
     case DEV_DIAG_BLOCK_DEPLETION: return "BLOCK DEPLETION";
     case DEV_DIAG_INVERTED_DISK: return "INVERTED DISK";
+    case DEV_DIAG_REBUILD_REQUIRED: return "REBUILD REQUIRED";
     default: return "??";
   }  
 }  
