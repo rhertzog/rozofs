@@ -130,6 +130,12 @@ This enables concurrent processes to all execute mkdir at the same time without 
 When set to True this parameter makes the export respond OK instead of EEXIST on a file creation while the file already exist. 
 This enables concurrent processes to all execute mkdir at the same time without getting any error. 
 .B Be aware that this will prevent some application to make use of mknod to simulate a lock between nodes.
+.SS ssh_user
+This parameter tells what user name to use between storage and export for ssh or scp when different from root. 
+.SS ssh_port
+This parameter tells what port to use between storage and export for ssh or scp when different from 22. 
+.SS ssh_param
+This parameter gives extra options to be used by ssh or scp ( -i <keypath> for instance). 
 .SH EXAMPLE
 .PP
 .nf

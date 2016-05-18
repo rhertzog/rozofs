@@ -165,6 +165,12 @@ char *pChar = uma_dbg_get_buffer();
   pChar += rozofs_string_append(pChar,"// Directory to use on the storage node to build temporary files.\n");
   pChar += rozofs_string_append(pChar,"// Used for instance by the rebuild process.\n");
   COMMON_CONFIG_SHOW_STRING(storage_temporary_dir,"/tmp");
+  pChar += rozofs_string_append(pChar,"// Port to be used for ssh or scp \n");
+  COMMON_CONFIG_SHOW_INT(ssh_port,0);
+  pChar += rozofs_string_append(pChar,"// User name to be used for ssh or scp \n");
+  COMMON_CONFIG_SHOW_STRING(ssh_user,"root");
+  pChar += rozofs_string_append(pChar,"// Other ssh/scp parameter (such as key location) \n");
+  COMMON_CONFIG_SHOW_STRING(ssh_param,"");
 
   uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
   return;
@@ -302,6 +308,12 @@ static inline void common_config_generated_read(char * fname) {
   // Directory to use on the storage node to build temporary files. 
   // Used for instance by the rebuild process. 
   COMMON_CONFIG_READ_STRING(storage_temporary_dir,"/tmp");
+  // Port to be used for ssh or scp  
+  COMMON_CONFIG_READ_INT(ssh_port,0);
+  // User name to be used for ssh or scp  
+  COMMON_CONFIG_READ_STRING(ssh_user,"root");
+  // Other ssh/scp parameter (such as key location)  
+  COMMON_CONFIG_READ_STRING(ssh_param,"");
  
   config_destroy(&cfg);
 }

@@ -1501,12 +1501,21 @@ int rbs_build_job_list_from_export() {
     rbs_write_storage_config_file(parameter.rebuildRef, &storage_config);
 	
     if (first) {	
-	  pChar += sprintf(pChar,"rozo_make_rebuild_lists.py -d -e %s -p %d -r %d -E %s -S %s -c %d:%d", 
+	  pChar += sprintf(pChar,"rozo_make_rebuild_lists.py -d -e %s -p %d -r %d -E %s -S %s -u %s ",
                 	   pExport_host, 
 			   (int) parameter.parallel, 
 			   (int) parameter.rebuildRef,
 			   common_config.export_temporary_dir,
 			   common_config.storage_temporary_dir,
+			   common_config.ssh_user);
+	  if (common_config.ssh_port) {
+	    pChar += sprintf(pChar,"-P %d ",common_config.ssh_port);
+	  }		   
+	  if (strcmp(common_config.ssh_param,"")!=0) {
+	    pChar += sprintf(pChar,"-o \"%s\" ",common_config.ssh_param);
+	  }		   
+			  		      
+	  pChar += sprintf(pChar,"-c %d:%d", 
                            (int) rbs_stor_configs[idx].cid, 
 			   (int) rbs_stor_configs[idx].sid);
 	  first = 0;

@@ -72,13 +72,32 @@ def system_cmd(cmd):
     
 #_______________________________________________
 def ssh_export(exp,cmd): 
-  string="ssh root@%s %s"%(exp,cmd)
+  global options
+  
+  string="ssh "
+  if options.port:      string=string+"-p %s "%(options.port)
+  if options.sshoption: string=string+"%s "%(options.sshoption)
+  if options.user:      string=string+"%s@%s %s"%(options.user,exp,cmd)
+  else:                 string=string+"root@%s %s"%(exp,cmd)
+      
   system_cmd(string)
   
 #_______________________________________________
-def get_export(exp,cmd): 
+def get_export(ldir,rdir,exp): 
+  global options
 
-  parsed = ["scp", "-r", "root@%s:"%(exp),cmd]  
+  string="scp -r "
+  # Capital -P for scp. 
+  if options.port:       string=string+"-P %s "%(options.port)
+  if options.sshoption:  string=string+"%s "%(options.sshoption)
+  if options.user:       string=string+"%s"%(options.user)
+  else:                  string=string+"root"
+  string=string+"@%s:%s/* %s "%(exp,rdir,ldir)
+
+  debug("%s"%(string)) 
+
+#  parsed = ["scp", "-r", "root@%s:"%(exp),cmd]  
+  parsed = shlex.split(string)
   try:    command = subprocess.Popen(parsed, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
   except: return None
 
@@ -109,6 +128,9 @@ parser.add_option("-E","--expDirectory", action="store",type="string", dest="exp
 parser.add_option("-S","--storDirectory", action="store",type="string", dest="storDirectory", help="Storage directory to use.")
 parser.add_option("-d","--debug", action="store_true",default=False, dest="debug", help="Debug trace.")
 parser.add_option("-s","--simu", action="store",type="string", dest="simu", help="exportd configuration file")
+parser.add_option("-u","--user", action="store",type="string", dest="user", help="User name to use for scp or ssh when different from root.")
+parser.add_option("-P","--port", action="store",type="string", dest="port", help="Port to use for scp or ssh.")
+parser.add_option("-o","--sshoption", action="store",type="string", dest="sshoption", help="Other ssh or scp option (such as -i <key path>)")
 
 (options, args) = parser.parse_args()
 
@@ -154,6 +176,6 @@ ssh_export(export,cmd)
 ldir="%s/rbs.%d"%(options.storDirectory,rebuildRef)
 rdir="%s/rebuild.%d"%(options.expDirectory,rebuildRef)
 
-system_cmd("cd %s;scp -r root@%s:%s/* . > /dev/null"%(ldir,export,rdir))
+get_export(ldir,rdir,export)
 ssh_export(export,"rm -rf %s"%(rdir))
 log("%.2f sec"%(time.time()-debut))

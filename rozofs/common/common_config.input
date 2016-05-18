@@ -110,3 +110,9 @@ BOOL	export mkdir_ok_instead_of_eexist	False
 // To activate workaround that make mknod respond OK instead of EEXIST
 // when the file is already created 
 BOOL	export mknod_ok_instead_of_eexist	False
+// Port to be used for ssh or scp 
+INT     storage ssh_port 	0
+// User name to be used for ssh or scp 
+STRING  storage ssh_user 	"root"
+// Other ssh/scp parameter (such as key location) 
+STRING  storage ssh_param 	""
