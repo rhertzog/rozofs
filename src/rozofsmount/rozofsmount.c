@@ -2365,7 +2365,20 @@ int main(int argc, char *argv[]) {
     /*
     ** read common config file
     */
-    common_config_read(NULL);        
+    common_config_read(NULL);  
+    
+    /*
+    ** Check whether fast reconnect is required
+    */
+    if (common_config.client_fast_reconnect) {
+      /*
+      ** Change some timer values
+      */
+      rozofs_tmr_configure(TMR_TCP_FIRST_RECONNECT,1);
+      rozofs_tmr_configure(TMR_TCP_RECONNECT,1);
+      rozofs_tmr_configure(TMR_RPC_NULL_PROC_TCP,1);
+      rozofs_tmr_configure(TMR_RPC_NULL_PROC_LBG,1);   
+    }      
 
     gprofiler.uptime = time(0);
 

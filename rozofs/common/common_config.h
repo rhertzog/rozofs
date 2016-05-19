@@ -101,6 +101,8 @@ typedef struct _common_config_global_t {
   uint32_t    wr_ack_on_inverse;
   // To activate rozofsmount reply fuse threads.
   uint32_t    rozofsmount_fuse_reply_thread;
+  // To activate fast reconnect from client to exportd
+  uint32_t    client_fast_reconnect;
 
   /*
   ** storage scope configuration elements

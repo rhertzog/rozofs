@@ -130,6 +130,8 @@ This enables concurrent processes to all execute mkdir at the same time without 
 When set to True this parameter makes the export respond OK instead of EEXIST on a file creation while the file already exist. 
 This enables concurrent processes to all execute mkdir at the same time without getting any error. 
 .B Be aware that this will prevent some application to make use of mknod to simulate a lock between nodes.
+.SS client_fast_reconnect
+When set to True, the rozofsmount updates some of its timers in order to reconnect to the exportd as fast as possible.
 .SH EXAMPLE
 .PP
 .nf
