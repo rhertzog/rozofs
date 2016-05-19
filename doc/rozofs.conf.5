@@ -136,6 +136,8 @@ This parameter tells what user name to use between storage and export for ssh or
 This parameter tells what port to use between storage and export for ssh or scp when different from 22. 
 .SS ssh_param
 This parameter gives extra options to be used by ssh or scp ( -i <keypath> for instance). 
+.SS client_fast_reconnect
+When set to True, the rozofsmount updates some of its timers in order to reconnect to the exportd as fast as possible.
 .SH EXAMPLE
 .PP
 .nf

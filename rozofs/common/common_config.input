@@ -116,3 +116,5 @@ INT     storage ssh_port 	0
 STRING  storage ssh_user 	"root"
 // Other ssh/scp parameter (such as key location) 
 STRING  storage ssh_param 	""
+// To activate fast reconnect from client to exportd
+BOOL	client client_fast_reconnect	        False

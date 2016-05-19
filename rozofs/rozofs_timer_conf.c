@@ -62,10 +62,10 @@ void rozofs_tmr_init_configuration()
   /*
   ** timer related to TCP connection and load balancing group
   */
-  DEF_TMR(TCP_FIRST_RECONNECT,2,10,2,TMR_SEC);        /**< TCP timer for the first TCP re-connect attempt  default   2 s */
-  DEF_TMR(TCP_RECONNECT,2,30,4,TMR_SEC);              /**< TCP timer for subsequent TCP re-connect attempts  default 4 s */
-  DEF_TMR(RPC_NULL_PROC_TCP,2,120,3,TMR_SEC);          /**< timer associated to a null rpc procedure polling initiated from TCP cnx default 3 s */
-  DEF_TMR(RPC_NULL_PROC_LBG,3,120,4,TMR_SEC);          /**< timer associated to a null rpc procedure polling initiated from TCP cnx default 4 s */
+  DEF_TMR(TCP_FIRST_RECONNECT,1,10,2,TMR_SEC);        /**< TCP timer for the first TCP re-connect attempt  default   2 s */
+  DEF_TMR(TCP_RECONNECT,1,30,4,TMR_SEC);              /**< TCP timer for subsequent TCP re-connect attempts  default 4 s */
+  DEF_TMR(RPC_NULL_PROC_TCP,1,120,3,TMR_SEC);          /**< timer associated to a null rpc procedure polling initiated from TCP cnx default 3 s */
+  DEF_TMR(RPC_NULL_PROC_LBG,1,120,4,TMR_SEC);          /**< timer associated to a null rpc procedure polling initiated from TCP cnx default 4 s */
   /*
   ** timer related to projection read/write
   */

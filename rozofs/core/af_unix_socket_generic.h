@@ -872,7 +872,22 @@ static inline void af_inet_set_cnx_tmo (af_unix_ctx_generic_t  *sock_p, int tmo)
      p->s.check_cnx_rq = 1;
    }   
 }
-
+/*
+**__________________________________________________________________________
+*/
+/**
+*  Set the timout to expire immediatly
+   
+   @param tmo: tmo in ticker (base is 100 ms)
+*/
+static inline void af_inet_set_cnx_restart_tmo (af_unix_ctx_generic_t  *sock_p)
+{
+   af_inet_check_cnx_t *p = &sock_p->cnx_supevision;
+   if (p->s.check_cnx_enabled == 0) return;
+ 
+   p->s.timestamp = timer_get_ticker();
+   p->s.check_cnx_rq = 1;
+}
 /*
 **__________________________________________________________________________
 */

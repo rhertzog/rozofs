@@ -119,6 +119,8 @@ char *pChar = uma_dbg_get_buffer();
   COMMON_CONFIG_SHOW_BOOL(wr_ack_on_inverse,False);
   pChar += rozofs_string_append(pChar,"// To activate rozofsmount reply fuse threads.\n");
   COMMON_CONFIG_SHOW_BOOL(rozofsmount_fuse_reply_thread,False);
+  pChar += rozofs_string_append(pChar,"// To activate fast reconnect from client to exportd\n");
+  COMMON_CONFIG_SHOW_BOOL(client_fast_reconnect,False);
 
   /*
   ** storage scope configuration elements
@@ -266,6 +268,8 @@ static inline void common_config_generated_read(char * fname) {
   COMMON_CONFIG_READ_BOOL(wr_ack_on_inverse,False);
   // To activate rozofsmount reply fuse threads. 
   COMMON_CONFIG_READ_BOOL(rozofsmount_fuse_reply_thread,False);
+  // To activate fast reconnect from client to exportd 
+  COMMON_CONFIG_READ_BOOL(client_fast_reconnect,False);
   /*
   ** storage scope configuration elements
   */
