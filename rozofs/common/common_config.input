@@ -110,3 +110,5 @@ BOOL	export mkdir_ok_instead_of_eexist	False
 // To activate workaround that make mknod respond OK instead of EEXIST
 // when the file is already created 
 BOOL	export mknod_ok_instead_of_eexist	False
+// To activate fast reconnect from client to exportd
+BOOL	client client_fast_reconnect	        False

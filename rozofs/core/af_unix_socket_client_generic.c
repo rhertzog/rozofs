@@ -230,7 +230,8 @@ uint32_t af_unix_generic_cli_connectReply_CBK(void * socket_ctx_p,int socketId)
       if (sock_p->userPollingCallBack)
       {
 	    sock_p->cnx_availability_state = AF_UNIX_CNX_UNAVAILABLE;
-	    af_inet_set_cnx_tmo(sock_p,20);
+	    // Request polling immediatly
+	    af_inet_set_cnx_restart_tmo(sock_p);
       }
       else
       {
