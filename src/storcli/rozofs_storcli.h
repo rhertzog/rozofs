@@ -1514,11 +1514,25 @@ void rozofs_storcli_write_timeout(rozofs_storcli_ctx_t *working_ctx_p) ;
 // Whether the STORCLI is actualy block corrupted tolerant
 extern int noReadFaultTolerant;
 
+/*
+** Description of one corrupted FID
+*/
+typedef struct _storcli_one_corrupted_fid_ctx {
+  fid_t            fid;
+  uint64_t         count;
+} storcli_one_corrupted_fid_ctx;
 
+/*
+** Max number of kept corrupted FID
+*/
 #define      STORCLI_MAX_CORRUPTED_FID_NB   16
+
+/*
+** Table of corrupted FID
+*/
 typedef struct _storcli_corrupted_fid_ctx {
-  int              nextIdx;
-  fid_t            fid[STORCLI_MAX_CORRUPTED_FID_NB];
+  int                           nextIdx;
+  storcli_one_corrupted_fid_ctx ctx[STORCLI_MAX_CORRUPTED_FID_NB];
 } storcli_corrupted_fid_ctx;
 extern storcli_corrupted_fid_ctx storcli_fid_corrupted;
 

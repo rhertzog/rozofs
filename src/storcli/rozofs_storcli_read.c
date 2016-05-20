@@ -1491,16 +1491,22 @@ void rozofs_storcli_read_req_processing_cbk(void *this,void *param)
       ** Log FID in the corrupted FID table
       */
       uint8_t  * fid;
-      int        idx;	
-      fid = storcli_fid_corrupted.fid[0];
+      int        idx;
+      storcli_one_corrupted_fid_ctx * pCtx = storcli_fid_corrupted.ctx;	
       // Search for this FID in the table
-      for (idx=0; idx<STORCLI_MAX_CORRUPTED_FID_NB; idx++,fid+=16) {
-        if (memcmp(fid,storcli_read_rq_p->fid,16)==0) break;
+      for (idx=0; idx<STORCLI_MAX_CORRUPTED_FID_NB; idx++,pCtx++) {
+        fid = (uint8_t  *)pCtx->fid;
+        if (memcmp(fid,storcli_read_rq_p->fid,16)==0) {
+	  pCtx->count++;
+	  break;
+	}  
       }
       // Insert this FID in the table
       if (idx == STORCLI_MAX_CORRUPTED_FID_NB) {
-	fid = storcli_fid_corrupted.fid[storcli_fid_corrupted.nextIdx];
+	pCtx = &storcli_fid_corrupted.ctx[storcli_fid_corrupted.nextIdx];
+	fid = pCtx->fid;
         memcpy(fid,storcli_read_rq_p->fid,16);
+	pCtx->count = 1;
 	storcli_fid_corrupted.nextIdx++;
 	if (storcli_fid_corrupted.nextIdx>=STORCLI_MAX_CORRUPTED_FID_NB) {
 	  storcli_fid_corrupted.nextIdx = 0;

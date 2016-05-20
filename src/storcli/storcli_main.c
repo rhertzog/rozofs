@@ -332,8 +332,9 @@ void man_corrupted(char * pChar) {
 **
 */
 char * display_corrupted(char * pChar) {
-  int        idx;
-  uint64_t * fid;
+  uint        idx;
+  uint8_t *   fid;
+  storcli_one_corrupted_fid_ctx * pCtx;
   int        first=1;
   
   
@@ -352,15 +353,18 @@ char * display_corrupted(char * pChar) {
   ** Display log of corrupted FID list
   */
   pChar += rozofs_string_append(pChar, "      \"corrupted FID\" : [\n");  
-  fid = (uint64_t *)storcli_fid_corrupted.fid[0];
-  for (idx=0; idx<STORCLI_MAX_CORRUPTED_FID_NB; idx++,fid+=2) {
-    if ((fid[0]==0)&&(fid[1]==0)) continue;
+  pCtx = storcli_fid_corrupted.ctx;
+  for (idx=0; idx<STORCLI_MAX_CORRUPTED_FID_NB; idx++,pCtx++) {
+    if (pCtx->count == 0) continue;
     if (first) first = 0;
-    else       pChar += rozofs_string_append(pChar, ",\n");  
-    pChar += rozofs_string_append(pChar, "         {\"FID\" : \"");  
+    else       pChar += rozofs_string_append(pChar, ",\n"); 
+    fid = (uint8_t  *)pCtx->fid;
+    pChar += rozofs_string_append(pChar, "         {\"FID\" : \"@rozofs_uuid@");  
     rozofs_uuid_unparse((uint8_t*)fid, pChar);
     pChar += 36;
-    pChar += rozofs_string_append(pChar, "\"}");  
+    pChar += rozofs_string_append(pChar, "\", \"count\" : ");  
+    pChar += rozofs_u64_append(pChar, pCtx->count);
+    pChar += rozofs_string_append(pChar, "}");  
   }
   pChar += rozofs_string_append(pChar, "\n      ]\n   }\n}\n");  
 
