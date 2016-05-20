@@ -412,6 +412,158 @@ int export_wr_attr_th_init()
      A T T R I B U T E  W R I T E - B A C K    T H R E A D  E N D
 **__________________________________________________________________
 */
+
+/*
+ **__________________________________________________________________
+ ** Missing directory repair statistics
+ */
+
+uint64_t export_repair_missing_directory_success_counter = 0;
+uint64_t export_repair_missing_directory_failure_counter = 0;
+/*
+ **__________________________________________________________________
+ */
+
+/**
+* service to repair a missing directory. This directory is referred 
+  in a direntry of its parent, but /root/<slice>/<FID> directory does
+  not exist in the meta data.
+
+  @param node_path : The missing directoy path
+  
+  @retval 0 on success
+  @retval < 0 on error
+*/
+
+int export_repair_missing_directory(char * node_path) {
+
+    dirent_dir_root_idx_bitmap_t root_idx_bitmap;
+    dirent_dir_root_idx_bitmap_t *root_idx_bitmap_p = &root_idx_bitmap;
+    mdir_t node_mdir;
+    
+    if (mkdir(node_path, S_IRWXU) != 0) {
+        export_repair_missing_directory_failure_counter++;
+        return -1;
+    }	   
+    // write attributes to mdir file
+    if (mdir_open(&node_mdir, node_path) < 0) {
+        export_repair_missing_directory_failure_counter++;
+	severe("mdir_open(%s) (success=%llu,failure=%llu) %s",
+		node_path,
+	       (unsigned long long int)export_repair_missing_directory_success_counter, 
+	       (unsigned long long int)export_repair_missing_directory_failure_counter,	       
+	       strerror(errno));
+        return -1;
+	
+    }
+    /*
+    ** write the initial bitmap on disk
+    */
+    memset(&root_idx_bitmap,0,sizeof(dirent_dir_root_idx_bitmap_t));
+    ssize_t lenbit = pwrite(node_mdir.fdattrs, root_idx_bitmap_p->bitmap,DIRENT_FILE_BYTE_BITMAP_SZ,0);
+    if (lenbit != DIRENT_FILE_BYTE_BITMAP_SZ)
+    {
+       export_repair_missing_directory_failure_counter++;
+       severe("write root_idx bitmap failure (%s) (success=%llu,failure=%llu) %s",
+               node_path,
+	       (unsigned long long int)export_repair_missing_directory_success_counter, 
+	       (unsigned long long int)export_repair_missing_directory_failure_counter,	       
+	       strerror(errno));
+       mdir_close(&node_mdir);
+       return -1;       
+    }
+    mdir_close(&node_mdir);
+    
+    export_repair_missing_directory_success_counter++;
+    severe("export_repair_missing_directory(%s) success (success=%llu,failure=%llu)",
+            node_path, 
+	    (unsigned long long int)export_repair_missing_directory_success_counter, 
+	    (unsigned long long int)export_repair_missing_directory_failure_counter);   
+    return 0;
+}
+/*
+ **__________________________________________________________________
+ ** Missing attribute file repair statistics
+ */
+
+uint64_t export_repair_missing_attribute_file_success_counter = 0;
+uint64_t export_repair_missing_attribute_file_failure_counter = 0;
+/*
+ **__________________________________________________________________
+ */
+
+/**
+* service to repair a directory which attribute file is missing or
+  corrupted (wrong size)
+
+  @param node_path : The missing directoy path
+  
+  @retval 0 on success
+  @retval < 0 on error
+*/
+
+int export_repair_missing_attribute_file(char * node_path) {
+    dirent_dir_root_idx_bitmap_t root_idx_bitmap;
+    dirent_dir_root_idx_bitmap_t *root_idx_bitmap_p = &root_idx_bitmap;
+    mdir_t node_mdir;
+    char   direntry_name[32];
+    int idx;
+    
+    // Create attributes to mdir file
+    if (mdir_open(&node_mdir, node_path) < 0) {
+        export_repair_missing_attribute_file_failure_counter++;
+	severe("mdir_open(%s) (success=%llu,failure=%llu) %s",
+		node_path,
+	       (unsigned long long int)export_repair_missing_attribute_file_success_counter, 
+	       (unsigned long long int)export_repair_missing_attribute_file_failure_counter,       
+	       strerror(errno));
+        return -1;
+	
+    }
+    /*
+    ** Initialize the initial bitmap on disk
+    */
+    memset(&root_idx_bitmap,0,sizeof(dirent_dir_root_idx_bitmap_t));
+    
+    /*
+    ** Loop on the direntry files
+    */
+    for (idx=0; idx < DIRENT_MAX_IDX_FOR_EXPORT; idx++) {
+      
+      sprintf(direntry_name,"d_%d", idx);
+    
+      /*
+      ** Check whether the root direntry file exist
+      */
+      if (faccessat(node_mdir.fdp,direntry_name,W_OK,AT_EACCESS) == 0) {
+        export_dir_update_root_idx_bitmap(&root_idx_bitmap,idx,1);
+      }
+    }
+    
+    /*
+    ** Write the bitmap on flash
+    */
+    ssize_t lenbit = pwrite(node_mdir.fdattrs, root_idx_bitmap_p->bitmap,DIRENT_FILE_BYTE_BITMAP_SZ,0);
+    if (lenbit != DIRENT_FILE_BYTE_BITMAP_SZ)
+    {
+       export_repair_missing_attribute_file_failure_counter++;
+       severe("write root_idx bitmap failure (%s) (success=%llu,failure=%llu) %s",
+               node_path,
+	       (unsigned long long int)export_repair_missing_attribute_file_success_counter, 
+	       (unsigned long long int)export_repair_missing_attribute_file_failure_counter,	       
+	       strerror(errno));
+       mdir_close(&node_mdir);
+       return -1;       
+    }
+    mdir_close(&node_mdir);
+    
+    export_repair_missing_attribute_file_success_counter++;
+    severe("export_repair_missing_attribute_file(%s) success (success=%llu,failure=%llu)",
+            node_path, 
+	    (unsigned long long int)export_repair_missing_attribute_file_success_counter, 
+	    (unsigned long long int)export_repair_missing_attribute_file_failure_counter);	       
+    return 0;
+}
 /*
  **__________________________________________________________________
  */
@@ -432,6 +584,7 @@ int export_dir_load_root_idx_bitmap(export_t *e,fid_t fid,lv2_entry_t *lvl2)
    char node_path[PATH_MAX];
    char lv3_path[PATH_MAX];
    dirent_dir_root_idx_bitmap_t *bitmap_p;
+   int loop_control = 0;
 
    if (lvl2->dirent_root_idx_p != NULL)
    {
@@ -457,13 +610,62 @@ int export_dir_load_root_idx_bitmap(export_t *e,fid_t fid,lv2_entry_t *lvl2)
    ** read the bitmap from disk
    */    
    if (export_lv2_resolve_path(e, fid, node_path) != 0) goto error;
-   sprintf(lv3_path, "%s/%s", node_path, MDIR_ATTRS_FNAME);   
+   
+   /*
+   ** Check whether the directory exist
+   */
+   if (access(node_path,W_OK) != 0) {
+     switch(errno) {
+       case ENOENT:
+       {
+         if (export_repair_missing_directory(node_path) != 0) {
+	   goto error;
+	 }  
+         break;
+       }
+       
+       default:
+         severe("acces(%s) %s",node_path,strerror(errno));
+	 goto error;
+     }
+   }
+   
+   sprintf(lv3_path, "%s/%s", node_path, MDIR_ATTRS_FNAME);  
+   loop_control = 0;
+reloop:
    if ((fd = open(lv3_path, O_RDONLY | O_NOATIME, S_IRWXU)) < 0) 
    {
-     goto error;
+     switch(errno) {
+       case ENOENT:
+       {
+          if (loop_control == 1) goto error;
+	  loop_control = 1;
+	  	  
+          if (export_repair_missing_attribute_file(node_path) != 0) {
+	    goto error;
+	  }  
+	  goto reloop;
+          break;
+       }
+       default:
+         severe("open(%s) %s",lv3_path,strerror(errno));
+	 goto error;       
+     }
    }
+   
    ssize_t len = pread(fd,bitmap_p->bitmap,DIRENT_FILE_BYTE_BITMAP_SZ,0);
-   if (len != DIRENT_FILE_BYTE_BITMAP_SZ) goto error;
+   if (len != DIRENT_FILE_BYTE_BITMAP_SZ) {
+     if (loop_control == 1) goto error;
+
+     close(fd);
+     fd = -1;    	
+     loop_control = 1;  	  
+     if (export_repair_missing_attribute_file(node_path) != 0) {
+	goto error;
+     }  
+     goto reloop;       
+   }
+     
    /*
    ** clear the dirty bit
    */
