@@ -533,6 +533,7 @@ void rozofs_storcli_write_req_processing_exec(rozofs_storcli_ctx_t *working_ctx_
          {
            working_ctx_p->write_ctx_lock = 0;
            errcode = errno;
+           storcli_trace_error(__LINE__,errcode, working_ctx_p);     	   
            severe("fatal error on internal read");
            goto failure;        
          }
@@ -549,6 +550,7 @@ void rozofs_storcli_write_req_processing_exec(rozofs_storcli_ctx_t *working_ctx_
       ** direct error while attempting to read
       */
       errcode = EFAULT;
+      storcli_trace_error(__LINE__,errcode, working_ctx_p);     	   
       goto failure;   
    }
    /*
@@ -562,6 +564,8 @@ void rozofs_storcli_write_req_processing_exec(rozofs_storcli_ctx_t *working_ctx_
      if (ret < 0) 
      {
         errno = EPROTO;
+        storcli_trace_error(__LINE__,errcode, working_ctx_p);     	   
+	
 	goto failure;
      }
      return;   
@@ -978,6 +982,7 @@ void rozofs_storcli_write_req_processing(rozofs_storcli_ctx_t *working_ctx_p)
         ** the source has aborted the request
         */
         error = EPROTO;
+        storcli_trace_error(__LINE__,error, working_ctx_p);     	   
         goto fail;
       }      
   }   
@@ -1005,6 +1010,7 @@ void rozofs_storcli_write_req_processing(rozofs_storcli_ctx_t *working_ctx_p)
        */
        error = EIO;
        STORCLI_ERR_PROF(write_sid_miss);
+       storcli_trace_error(__LINE__,error,working_ctx_p);     	   
        goto fail;
     }
   }  
@@ -1026,6 +1032,7 @@ void rozofs_storcli_write_req_processing(rozofs_storcli_ctx_t *working_ctx_p)
        ** fatal error since the ressource control already took place
        */       
        error = EIO;
+       storcli_trace_error(__LINE__,error,working_ctx_p);     	   
        goto fatal;     
      }
      /*
@@ -1092,6 +1099,8 @@ retry:
          /*
          ** Out of storage !!-> too many storages are down
          */
+         storcli_trace_error(__LINE__,error,working_ctx_p);     	   
+
          goto fatal;
        } 
        /*
@@ -1107,6 +1116,8 @@ retry:
        if (prj_cxt_p[projection_id].prj_state == ROZOFS_PRJ_WR_ERROR)
        {
           error = prj_cxt_p[projection_id].errcode;
+          storcli_trace_error(__LINE__,error,working_ctx_p);     	   
+
           goto fatal;       
        }
      }
@@ -1169,6 +1180,7 @@ void rozofs_storcli_write_projection_retry(rozofs_storcli_ctx_t *working_ctx_p,u
     storcli_write_arg_no_data_t *storcli_write_rq_p = (storcli_write_arg_no_data_t*)&working_ctx_p->storcli_write_arg;
     int error=0;
     int storage_idx;
+    int line = 0;
 
     rozofs_storcli_projection_ctx_t *prj_cxt_p   = working_ctx_p->prj_ctx;   
     rozofs_storcli_lbg_prj_assoc_t  *lbg_assoc_p = working_ctx_p->lbg_assoc_tb;
@@ -1203,12 +1215,14 @@ void rozofs_storcli_write_projection_retry(rozofs_storcli_ctx_t *working_ctx_p,u
       {
         error = EIO;
         prj_cxt_p[projection_id].errcode = error;
+	line = __LINE__;
         goto reject;      
       }
       if (++prj_cxt_p[projection_id].retry_cpt >= ROZOFS_STORCLI_MAX_RETRY)
       {
         error = EIO;
         prj_cxt_p[projection_id].errcode = error;
+	line = __LINE__;
         goto reject;          
       }
     } 
@@ -1284,6 +1298,7 @@ void rozofs_storcli_write_projection_retry(rozofs_storcli_ctx_t *working_ctx_p,u
        */
        error = EFAULT;
        prj_cxt_p[projection_id].errcode = error;
+       line = __LINE__;
        goto fatal;     
      }
      /*
@@ -1350,6 +1365,7 @@ retry:
          /*
          ** Out of storage !!-> too many storages are down
          */
+  	 line = __LINE__;
          goto fatal;
        } 
        /*
@@ -1364,6 +1380,7 @@ retry:
      if ( prj_cxt_p[projection_id].prj_state == ROZOFS_PRJ_WR_ERROR)
      {
         error = prj_cxt_p[projection_id].errcode;
+	line = __LINE__;
         goto fatal;     
      }    
     return;
@@ -1375,6 +1392,9 @@ retry:
     
 reject:  
      if (working_ctx_p->write_ctx_lock != 0) return;
+
+     storcli_trace_error(line,error, working_ctx_p);     	   
+     
      /*
      ** we fall in that case when we run out of  storage
      */
@@ -1391,6 +1411,9 @@ fatal:
      ** caution -> reply error is only generated if the ctx_lock is 0
      */
      if (working_ctx_p->write_ctx_lock != 0) return;
+
+     storcli_trace_error(line,error, working_ctx_p);     	   
+
      /*
      ** we fall in that case when we run out of  resource-> that case is a BUG !!
      */
@@ -1430,7 +1453,7 @@ void rozofs_storcli_write_req_processing_cbk(void *this,void *param)
    storcli_write_arg_no_data_t *storcli_write_rq_p = NULL;
    rpc_reply.acpted_rply.ar_results.proc = NULL;
    int lbg_id;
-
+   int line = 0;
    
    int status;
    void     *recv_buf = NULL;   
@@ -1529,6 +1552,7 @@ void rozofs_storcli_write_req_processing_cbk(void *this,void *param)
        error = EFAULT;  
        working_ctx_p->prj_ctx[projection_id].prj_state = ROZOFS_PRJ_WR_ERROR;
        working_ctx_p->prj_ctx[projection_id].errcode = error;
+       line = __LINE__;
        goto fatal;         
     }
     /*
@@ -1680,6 +1704,9 @@ fatal:
     ** caution lock can be asserted either by a write retry attempt or an initial attempt
     */
     if (working_ctx_p->write_ctx_lock != 0) return;
+
+    storcli_trace_error(line,error, working_ctx_p);     	   
+
     /*
     ** unrecoverable error : mostly a bug!!
     */  
@@ -1888,6 +1915,7 @@ int rozofs_storcli_internal_read_rsp_cbk(void *buffer,uint32_t socket_ref,void *
      if (errcode != ENOENT) {
        wr_proj_buf_p[match_idx].state = ROZOFS_WR_ST_ERROR;
        wr_proj_buf_p[match_idx].errcode = errcode;
+       storcli_trace_error(__LINE__,errcode, working_ctx_p);     	   
        goto write_procedure_failure;
      }
      

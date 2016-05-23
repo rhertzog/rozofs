@@ -419,6 +419,109 @@ void show_corrupted(char * argv[], uint32_t tcpRef, void *bufRef) {
   
   uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
 }
+/* 
+**____________________________________________________
+** RW error buffer CLI man
+**
+*/
+void man_rwerror(char * pChar) {
+  pChar += rozofs_string_append(pChar,"rwerror          : display r/w error buffer.\n");
+  pChar += rozofs_string_append(pChar,"rwerror reset    : reset r/w error buffer.\n");
+}
+
+char * storcli_ope2string(int ope) {       
+  switch(ope) {
+    case  STORCLI_READ:     return "READ";
+    case  STORCLI_WRITE:    return "WRITE";
+    case  STORCLI_TRUNCATE: return "TRUNCATE";
+  }
+  return "?";
+}   
+/*
+**____________________________________________________
+** Display counters and configuration
+**
+*/
+char * display_rwerror(char * pChar) {
+  uint        idx;
+  uint8_t *   fid;
+  int        first=1;
+  storcli_rw_error_record_t * pCtx;
+  struct tm  ts;
+
+  pChar += rozofs_string_append(pChar, "{\"rw errors\" : [\n");
+  
+  /*
+  ** Display log of corrupted FID list
+  */
+  pCtx = &storcli_rw_error.record[0];
+  for (idx=0; idx<ROZOFS_STORCLI_ERROR_RECORD_NB; idx++,pCtx++) {
+    if (pCtx->ts == 0) continue;
+    fid = (uint8_t  *)pCtx->fid;
+    
+    if (!first) pChar += rozofs_string_append(pChar, ",\n");  
+    first = 0;   
+    pChar += rozofs_string_append(pChar, "   {  \"time\" : \"");    
+    ts = *localtime(&pCtx->ts);
+    pChar += strftime(pChar, 100, "%Y-%m-%d %H:%M:%S\",", &ts);
+    pChar += rozofs_string_append(pChar, " \"error\" : \"");
+    pChar += rozofs_string_append(pChar, strerror(pCtx->error));   
+
+
+    pChar += rozofs_string_append(pChar, "\",\n      \"FID\" : \"@rozofs_uuid@");
+    rozofs_uuid_unparse((uint8_t*)fid, pChar);
+    pChar += 36;
+    
+    pChar += rozofs_string_append(pChar, "\",\n      \"ope\" : \"");
+    pChar += rozofs_string_append(pChar, storcli_ope2string(pCtx->opcode)); 
+    pChar += rozofs_string_append(pChar, "\", \"line\" : ");
+    pChar += rozofs_i32_append(pChar, pCtx->line);
+    pChar += rozofs_string_append(pChar, ", \"bid\" : ");  
+    pChar += rozofs_u64_append(pChar, pCtx->offset);
+    pChar += rozofs_string_append(pChar, ", \"size\" : ");  
+    pChar += rozofs_i32_append(pChar, pCtx->size);
+    pChar += rozofs_string_append(pChar, ",\n      \"prj\" : \"");  
+    pChar += rozofs_string_append(pChar, pCtx->prj);  
+    pChar += rozofs_string_append(pChar, "\", \"lbg\" : \"");  
+    pChar += rozofs_string_append(pChar, pCtx->lbg);  
+    pChar += rozofs_string_append(pChar, "\"\n   }");  
+  }
+  pChar += rozofs_string_append(pChar, "\n   ]\n}\n");
+
+  return pChar;
+}
+/*
+**____________________________________________________
+** Corrupted block CLI
+**
+*/
+void show_rwerror(char * argv[], uint32_t tcpRef, void *bufRef) {
+  char *pChar = uma_dbg_get_buffer();
+
+  if (argv[1] != NULL) {
+
+    /*
+    ** Reset counter
+    */
+    if (strcasecmp(argv[1],"reset")==0) {
+      pChar = display_rwerror(pChar);
+      memset(&storcli_rw_error,0,sizeof(storcli_rw_error));	   
+      pChar += rozofs_string_append(pChar, "\nrwerror buffer reset.\n");	
+    }
+
+    /*
+    ** Help
+    */      
+    else {
+      man_rwerror(pChar);  
+    }	 
+  }  
+  else {
+    pChar = display_rwerror(pChar);    
+  } 
+  
+  uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
+}
 static char bufall[1024];
 
 /*__________________________________________________________________________
@@ -1813,6 +1916,7 @@ int main(int argc, char *argv[]) {
      ** add the topic for the local profiler
      */
     uma_dbg_addTopicAndMan("corrupted", show_corrupted, man_corrupted, 0);
+    uma_dbg_addTopicAndMan("rwerror", show_rwerror, man_rwerror, 0);
 
     /*
     ** add the topic for repair capabilities
