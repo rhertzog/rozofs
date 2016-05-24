@@ -49,7 +49,7 @@ RozoFS storaged daemon stores encoded data for the RozoFS filesystems.
 Summary: RozoFS filesystem (mount utility package).
 License: GPLv2
 Group: System Environment/File
-Requires: fuse >= 2.9, rozofs-rozolauncher numactl libconfig
+Requires: fuse >= 2.9, rozofs-rozolauncher numactl libconfig attr
 %description rozofsmount
 rozofsmount mounts RozoFS filesystems using FUSE.
 
