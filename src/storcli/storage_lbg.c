@@ -167,6 +167,12 @@ int storaged_lbg_initialize(mstorage_t *s, int index) {
       severe("Cannot create Load Balancing Group %d for storaged %s",s->lbg_id[index],s->host);
       return -1;    
      }
+     
+     /*
+     ** Mark this LBG as dedicated to a storage
+     */
+     storcli_lbg_cnx_supervision_tab[s->lbg_id[index]].storage = 1;
+     
      north_lbg_set_next_global_entry_idx_p(s->lbg_id[index],&storcli_next_storio_global_index);
      return  0;
 }     

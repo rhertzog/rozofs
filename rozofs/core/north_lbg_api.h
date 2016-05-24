@@ -39,6 +39,8 @@
 #include "uma_dbg_api.h"
 #include "north_lbg.h"
 
+extern uint32_t north_lbg_context_allocated;
+
 /*
 **____________________________________________________
 */
@@ -333,4 +335,15 @@ void north_lbg_set_active_entry(int  lbg_idx, int sock_idx_in_lbg);
   @retval == 0 no IP@
 */
 uint32_t north_lbg_get_remote_ip_address(int  lbg_idx);
+/*__________________________________________________________________________
+*/
+/**
+*  Get the number of alloated LBG
+
+
+  @retval number of alloated LBG
+*/
+static inline uint32_t north_lbg_context_allocated_get() {
+  return north_lbg_context_allocated;
+}
 #endif

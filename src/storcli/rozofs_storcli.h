@@ -506,7 +506,8 @@ typedef struct _storcli_lbg_cnx_supervision_t
 {
 //  uint64_t   expiration_date;  /**< date for which the lbg  leaves the quarantine  */
   uint64_t   next_poll_date;   /**< date for the next polling  */
-  uint16_t   state:2 ;         /*< state : RUNNING/DOWNGRADED  */
+  uint16_t   storage:1 ;         /*< 1 when LBG toward storage  */
+  uint16_t   state:1 ;         /*< state : RUNNING/DOWNGRADED  */
   uint16_t   poll_state:2 ;         /*< polling state  */
   uint16_t   tmo_counter ; 
   uint16_t   poll_counter ; 
@@ -521,6 +522,7 @@ typedef struct _storcli_lbg_cnx_supervision_t
 extern storcli_lbg_cnx_supervision_t storcli_lbg_cnx_supervision_tab[];
 
 
+
 /**
 *  init of the load balancing group supervision table
 */
@@ -532,12 +534,29 @@ static inline void storcli_lbg_cnx_sup_init()
   {
     storcli_lbg_cnx_supervision_tab[i].state = STORCLI_LBG_RUNNING;
     storcli_lbg_cnx_supervision_tab[i].poll_state = STORCLI_POLL_IDLE;
+    storcli_lbg_cnx_supervision_tab[i].storage = 0;
     storcli_lbg_cnx_supervision_tab[i].tmo_counter = 0;
     storcli_lbg_cnx_supervision_tab[i].poll_counter = 0;
 //    storcli_lbg_cnx_supervision_tab[i].expiration_date = 0;  
     storcli_lbg_cnx_supervision_tab[i].next_poll_date = 0;  
   }
 }
+/*
+**----------------------------------------------
+**  Create periodic timer to relaunch storage LBG
+** polling
+**----------------------------------------------
+**
+**   charging timer service initialisation request
+**    
+**  IN : period_ms : period between two queue sequence reading in ms
+**
+**  OUT : OK/NOK
+**
+**-----------------------------------------------
+*/
+int storcli_lbg_cnx_sup_tmr_init(uint32_t period_ms);
+#define STORCLI_LBG_STORAGE_POLL_FREQ_MS 1000
 
 /**
 *  Increment the time-out counter of a load balancing group

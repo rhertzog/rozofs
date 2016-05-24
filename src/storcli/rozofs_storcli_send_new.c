@@ -979,3 +979,68 @@ void storcli_lbg_cnx_sup_increment_tmo(int lbg_id)
  */
  storcli_poll_lbg_with_null_proc(p,lbg_id);
 }
+
+/*
+**____________________________________________
+** Peridoic timer to relaunch polling on LGB
+** in POLL_ERROR state
+*/
+void storcli_lbg_cnx_sup_periodic(void *ns) 
+{
+  int lbg_count = north_lbg_context_allocated_get();
+  storcli_lbg_cnx_supervision_t *p = storcli_lbg_cnx_supervision_tab;
+  int idx;
+  
+  
+  for (idx=0; idx<lbg_count; idx++,p++) {
+
+    if (p->storage == 0) continue;
+    
+    /*
+    ** Restart polling when in POLL_ERR since
+    ** no other tmer is running
+    */
+    if (p->poll_state == STORCLI_POLL_ERR) {
+      /*
+      ** attempt to poll
+      */
+      storcli_poll_lbg_with_null_proc(p,idx);    
+    }
+  }
+  
+}
+/*
+**----------------------------------------------
+**  Create periodic timer to relaunch storage LBG
+** polling
+**----------------------------------------------
+**
+**   charging timer service initialisation request
+**    
+**  IN : period_ms : period between two queue sequence reading in ms
+**
+**  OUT : OK/NOK
+**
+**-----------------------------------------------
+*/
+int storcli_lbg_cnx_sup_tmr_init(uint32_t period_ms)
+{
+    struct timer_cell * timer_cell = NULL;
+    int i;
+    
+
+    /*
+    ** charging timer periodic launching
+    */
+    timer_cell = ruc_timer_alloc(0,0);
+    if (timer_cell == (struct timer_cell *)NULL){
+        severe( "No timer available" );
+        return(RUC_NOK);
+    }
+    ruc_periodic_timer_start(timer_cell,
+	      (period_ms*TIMER_TICK_VALUE_100MS/100),
+	      &storcli_lbg_cnx_sup_periodic,
+	      0);
+	      
+    return(RUC_OK);
+}

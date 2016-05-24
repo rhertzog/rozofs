@@ -277,6 +277,11 @@ int rozofs_storcli_non_blocking_init(uint16_t dbg_port, uint16_t rozofsmount_ins
  ret = ruc_init(FALSE,dbg_port,rozofsmount_instance);
  
  if (ret != RUC_OK) return -1;
+
+ /*
+ ** Start the timer to relaunch polling on c
+ */
+ storcli_lbg_cnx_sup_tmr_init(STORCLI_LBG_STORAGE_POLL_FREQ_MS);
  
  return 0;
 
