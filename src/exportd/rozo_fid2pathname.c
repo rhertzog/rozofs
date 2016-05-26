@@ -208,7 +208,7 @@ char *rozo_get_relative_path(void *exportd,void *inode_p,char *buf,int lenmax)
  *_______________________________________________________________________
  */
 static void usage() {
-    printf("\nUsage: rozo_fid2pathname [-r] -p export_root_path -i <input_filename | fid> [-o output_filename] \n\n");
+    printf("\nUsage: rozo_fid2pathname [-r] -i <input_filename | fid> [-o output_filename] [-c export_cfg_file]\n\n");
     printf("Options:\n");
     printf("\t-h,--help:     print this message.\n");
     printf("\t-r,--relative: when asserted the output is generated with @rozofs_uuid@<FID_parent>/<child_name> format  \n");
