@@ -219,6 +219,7 @@ set_target_properties(rozofs_inode PROPERTIES COMPILE_FLAGS "-fPIC")
 #
 add_executable(rozo_fid2pathname
     rozo_fid2pathname.c  
+    econfig.c      
 )
 target_link_libraries(rozo_fid2pathname rozofs_inode rozofs ${PTHREAD_LIBRARY} ${UUID_LIBRARY} ${CONFIG_LIBRARY})
 
