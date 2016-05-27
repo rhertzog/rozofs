@@ -32,13 +32,18 @@ int    parallel=0;
 char * configFileName = EXPORTD_DEFAULT_CONFIG;
 int    rebuildRef=0;
 
-typedef struct _sid_info_t {  
+typedef struct _sid_one_info_t {  
   // Count of FID that match
   uint64_t     count;
   // Next job file to write
   int          fd_idx;
   // One file descriptor opened per job file
   int          fd[MAXIMUM_PARALLEL_REBUILD_PER_SID];
+} sid_one_info_t;
+
+typedef struct _sid_info_t {
+  sid_one_info_t nominal;
+  sid_one_info_t spare;
 } sid_info_t;
 
 typedef sid_info_t * sid_tbl_t[SID_MAX];
@@ -46,6 +51,7 @@ sid_tbl_t          * cid_tbl[ROZOFS_CLUSTERS_MAX] = {0};
 
 lv2_cache_t  cache;
 uint8_t rozofs_safe = -1;
+uint8_t rozofs_forward = -1;
 uint8_t layout = -1;
 
 int     nb_requested_vid = 0;
@@ -57,6 +63,7 @@ uint64_t total=0;
 int      entry_size;
 
 #define TRACE if (debug) info
+
 
 /*
 **_______________________________________________________________________
@@ -138,6 +145,7 @@ int rozofs_visit(void *exportd,void *inode_attr_p,void *p) {
   sid_tbl_t   * pCid;
   sid_info_t  * pSid;
   char          name[64];
+  sid_one_info_t *pOne;
 
   if (debug) {
      i = 0;
@@ -166,7 +174,7 @@ int rozofs_visit(void *exportd,void *inode_attr_p,void *p) {
     sid = inode_p->s.attrs.sids[i]-1;
     pSid = (*pCid)[sid];
     if (pSid == NULL) continue;
-
+    
     memset(&entry,0,entry_size);
     memcpy(entry.fid,inode_p->s.attrs.fid,sizeof(fid_t));
     entry.todo      = 1;
@@ -174,10 +182,17 @@ int rozofs_visit(void *exportd,void *inode_attr_p,void *p) {
     entry.layout    = layout;
     for (j=0; j<rozofs_safe;j++) {
       entry.dist_set_current[j] = inode_p->s.attrs.sids[j];
+    }    
+    
+    if (i<rozofs_forward) {
+      pOne = &pSid->nominal;
     }
-
-    idx = pSid->fd_idx;	
-    if (write(pSid->fd[idx],&entry,entry_size) < entry_size) {
+    else {
+      pOne = &pSid->spare;    
+    }  
+					
+    idx = pOne->fd_idx;	
+    if (write(pOne->fd[idx],&entry,entry_size) < entry_size) {
       severe("write(cid %d sid %d job %d) %s\n", cid+1, sid+1, idx, strerror(errno));
     }
     else {
@@ -185,8 +200,8 @@ int rozofs_visit(void *exportd,void *inode_attr_p,void *p) {
     }  
     idx++;
     if (idx>=parallel) idx = 0;
-    pSid->fd_idx = idx;
-    pSid->count++;
+    pOne->fd_idx = idx;
+    pOne->count++;
     total++;
   }  
   return 0;
@@ -296,20 +311,32 @@ int parse_cidsid_list(char *line,int rebuildRef, int parallel)
 	(*pCid)[sid] = pSid;
       }
 
-      // Create directory
-      sprintf(fName,"%scid%d_sid%d",pDir,cid+1,sid+1);
+      sprintf(fName,"%scid%d_sid%d_%d",pDir,cid+1,sid+1,rbs_file_type_nominal);
       if (mkdir(fName,766)<0) {
         severe("mkdir(%s) %s\n",fName,strerror(errno));
       }  
 
       for (i=0; i< parallel; i++) {
-	sprintf(fName,"%scid%d_sid%d/job%d",pDir,cid+1,sid+1,i);
-	pSid->fd[i] = open(fName, O_CREAT | O_TRUNC | O_APPEND | O_WRONLY,0755);
-	if (pSid->fd[i] == -1) {
+	sprintf(fName,"%scid%d_sid%d_%d/job%d",pDir,cid+1,sid+1,rbs_file_type_nominal,i);
+	pSid->nominal.fd[i] = open(fName, O_CREAT | O_TRUNC | O_APPEND | O_WRONLY,0755);
+	if (pSid->nominal.fd[i] == -1) {
 	  severe("open(%s) %s\n",fName,strerror(errno));
 	}
 	TRACE("%s opened\n",fName);
-      }
+      }  
+      sprintf(fName,"%scid%d_sid%d_%d",pDir,cid+1,sid+1,rbs_file_type_spare);
+      if (mkdir(fName,766)<0) {
+        severe("mkdir(%s) %s\n",fName,strerror(errno));
+      }  
+
+      for (i=0; i< parallel; i++) {
+	sprintf(fName,"%scid%d_sid%d_%d/job%d",pDir,cid+1,sid+1,rbs_file_type_spare,i);
+	pSid->spare.fd[i] = open(fName, O_CREAT | O_TRUNC | O_APPEND | O_WRONLY,0755);
+	if (pSid->spare.fd[i] == -1) {
+	  severe("open(%s) %s\n",fName,strerror(errno));
+	}
+	TRACE("%s opened\n",fName);
+      }  	    
       break;		
     }
 
@@ -342,29 +369,48 @@ void close_all() {
       if (pSid == NULL) continue;
 
       for (job=0; job<parallel; job++) {
-	if (pSid->fd[job]>0) {
-	  close(pSid->fd[job]);
-	  pSid->fd[job] = 0;
+	if (pSid->nominal.fd[job]>0) {
+	  close(pSid->nominal.fd[job]);
+	  pSid->nominal.fd[job] = 0;
 	}
+	if (pSid->spare.fd[job]>0) {
+	  close(pSid->spare.fd[job]);
+	  pSid->spare.fd[job] = 0;
+	}	
       }
 
-      sprintf(fname,"%s/cid%d_sid%d/count",pDir,cid+1,sid+1);
+      sprintf(fname,"%s/cid%d_sid%d_%d/count",pDir,cid+1,sid+1,rbs_file_type_nominal);
       fd = open(fname, O_WRONLY | O_APPEND | O_CREAT | O_TRUNC,0755);
       if (fd<0) {
         severe("open(%s) %s\n",fname,strerror(errno));
 	continue;
       }	
-      if (write(fd,&(pSid->count), sizeof(uint64_t)) != sizeof(uint64_t)) {
+      if (write(fd,&(pSid->nominal.count), sizeof(uint64_t)) != sizeof(uint64_t)) {
         severe("write(%d,%s) %s\n",fd,fname,strerror(errno));	  
       }
       close(fd);
       
-      sprintf(fname,"%s/cid%d_sid%d",pDir,cid+1,sid+1);
-      info("cid/sid %d/%d : %llu files in %s",
+      info("cid/sid %d/%d : %llu nominal files",
             cid+1,
 	    sid+1,
-	    (unsigned long long)pSid->count,
-	    fname);
+	    (unsigned long long)pSid->nominal.count);
+
+
+      sprintf(fname,"%s/cid%d_sid%d_%d/count",pDir,cid+1,sid+1,rbs_file_type_spare);
+      fd = open(fname, O_WRONLY | O_APPEND | O_CREAT | O_TRUNC,0755);
+      if (fd<0) {
+        severe("open(%s) %s\n",fname,strerror(errno));
+	continue;
+      }	
+      if (write(fd,&(pSid->spare.count), sizeof(uint64_t)) != sizeof(uint64_t)) {
+        severe("write(%d,%s) %s\n",fd,fname,strerror(errno));	  
+      }
+      close(fd);
+      
+      info("cid/sid %d/%d : %llu spare files",
+            cid+1,
+	    sid+1,
+	    (unsigned long long)pSid->spare.count);	    
     }
   }
 }
@@ -380,7 +426,6 @@ static void usage() {
     printf("\t-E,--expDir     <cfgFile>    optionnal result directory.\n");
     printf("\t-c,--config     <cfgFile>    optionnal configuration file name.\n");
     printf("\t-d,--debug                   display debugging information.\n");
-
 };
 
 
@@ -391,9 +436,6 @@ int main(int argc, char *argv[]) {
   void *rozofs_export_p;
   char *cidsid_p= NULL;
   int   i;
-
-
-
   int ret;
 
   static struct option long_options[] = {
@@ -577,6 +619,11 @@ int main(int argc, char *argv[]) {
       severe("eid %d has layout %d",econfig->eid, layout);
       continue;
     }
+    rozofs_forward = rozofs_get_rozofs_forward(layout);
+    if (rozofs_forward == 0) {
+      severe("eid %d has layout %d",econfig->eid, layout);
+      continue;
+    }    
     
     entry_size =  sizeof(rozofs_rebuild_entry_file_t) - ROZOFS_SAFE_MAX + rozofs_safe;
     

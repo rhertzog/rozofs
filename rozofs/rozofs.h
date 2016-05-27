@@ -709,11 +709,33 @@ typedef struct _rozofs_rebuild_entry_file_t {
 #define JSON_end_element { JSON_remove_coma; json_offset--; JSON_write_offset; *pJSON++ = '}'; JSON_coma_eol; }
 #define JSON_i32(name, value) { JSON_name(name); pJSON += rozofs_i32_append(pJSON, value);JSON_coma_eol; }
 #define JSON_u32( name, value) {JSON_name(name); pJSON += rozofs_u32_append(pJSON, value);JSON_coma_eol; }
-#define JSON_2u32(name1, value1, name2, value2) { JSON_name(name1); pJSON += rozofs_u32_append(pJSON, value1);\
+
+#define JSON_2u32(name1, value1, name2, value2) { \
+  JSON_name(name1); pJSON += rozofs_u32_append(pJSON, value1);\
   *pJSON++ = ','; *pJSON++ = ' ';\
-  JSON_make_name(name2); JSON_separator; pJSON += rozofs_u32_append(pJSON, value2); JSON_coma_eol;}
+  JSON_make_name(name2); JSON_separator; pJSON += rozofs_u32_append(pJSON, value2);\
+  JSON_coma_eol;}
+ 
 #define JSON_u64(name, value) { JSON_name(name); pJSON += rozofs_u64_append(pJSON, value);JSON_coma_eol;}
 
 
+/*
+**________________________________________________________________________
+**
+** Some declaration for file rebuild
+*/
+typedef enum _rbs_file_type_e {
+  rbs_file_type_nominal,
+  rbs_file_type_spare,
+  rbs_file_type_all  
+} rbs_file_type_e;
 
+static inline char * rbs_file_type2string(rbs_file_type_e ftype) {
+  switch (ftype) {
+    case rbs_file_type_nominal: return "nominal";
+    case rbs_file_type_spare:   return "spare";
+    case rbs_file_type_all:     return "all";
+  }
+  return "?";
+}  
 #endif

@@ -30,8 +30,7 @@
 #include <rozofs/rpc/mclient.h>
 
 #include "storage.h"
- 
-
+  
 
 
 #define DEFAULT_REBUILD_RELOOP           4  
@@ -97,7 +96,7 @@ typedef struct rb_cluster {
  *
  */
 char * get_rebuild_directory_name(int rebuildRef) ;
-char * get_rebuild_sid_directory_name(int rebuildRef, int cid, int sid) ;
+char * get_rebuild_sid_directory_name(int rebuildRef, int cid, int sid, rbs_file_type_e ftype) ;
 
 
 
@@ -112,6 +111,7 @@ typedef struct _rbs_storage_config_t {
   int           site;
   storage_t     storage;
   uint8_t       device; 
+  rbs_file_type_e ftype;
 } rbs_storage_config_t;
 
 /*_____________________________________________
@@ -127,7 +127,7 @@ static inline int rbs_write_storage_config_file(int rebuildRef, rbs_storage_conf
   /*
   ** storage config file name
   */
-  dir = get_rebuild_sid_directory_name(rebuildRef,st->storage.cid,st->storage.sid);
+  dir = get_rebuild_sid_directory_name(rebuildRef,st->storage.cid,st->storage.sid, st->ftype);
   pChar += rozofs_string_append(pChar,dir);
   pChar += rozofs_string_append(pChar,"/storage.conf");
 
@@ -192,12 +192,12 @@ static inline rbs_storage_config_t * rbs_read_storage_config_file(char *path, rb
 /*_____________________________________________
 ** Read the count file
 */
-static inline uint64_t rbs_read_file_count(int rebuildRef, int cid, int sid) {
+static inline uint64_t rbs_read_file_count(int rebuildRef, int cid, int sid, rbs_file_type_e ftype) {
   char       fileName[FILENAME_MAX];
   char     * dir;
   uint64_t   res = 0;
   
-  dir = get_rebuild_sid_directory_name(rebuildRef, cid, sid);
+  dir = get_rebuild_sid_directory_name(rebuildRef, cid, sid, ftype);
   sprintf(fileName,"%s/count", dir);
   
   
