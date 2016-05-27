@@ -1466,7 +1466,7 @@ void rozofs_storcli_read_req_processing_cbk(void *this,void *param)
     */
     corrupted_blocks = 0;
     ret = rozofs_storcli_transform_inverse_check_for_thread(working_ctx_p->prj_ctx,
-                                     layout,
+                                     layout, bsize,
                                      working_ctx_p->cur_nmbs2read,
                                      working_ctx_p->nb_projections2read,
                                      working_ctx_p->block_ctx_table,
