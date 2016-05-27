@@ -1163,7 +1163,7 @@ void rozofs_storcli_read_req_processing_cbk(void *this,void *param)
    uint64_t raw_file_size;
    int bins_len = 0;
    int lbg_id;
-   int corrupted_blocks = 0;
+   uint32_t corrupted_blocks = 0;
    /*
    ** take care of the rescheduling of the pending frames
    */

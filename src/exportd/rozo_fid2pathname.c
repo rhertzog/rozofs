@@ -238,7 +238,7 @@ int main(int argc, char *argv[]) {
     char name[4096];
     char *pbuf;  
     char fid_buf[64]; 
-    export_t *e;    
+    export_t *e = NULL;    
     int relative= 0;
     rozofs_inode_t *inode_val_p;
     char    * root_path;

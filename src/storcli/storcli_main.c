@@ -1772,16 +1772,16 @@ int main(int argc, char *argv[]) {
       
       sprintf(cmd,"ps -o pid,cmd -C storcli | grep rozofsmount | grep \" -i %d \"  | grep \" -R %d \" > /tmp/stc1.%d",
              conf.module_index, conf.rozofsmount_instance, pid); 
-      system(cmd);
+      if (system(cmd)){};
       
       sprintf(cmd,"awk \'{if ($1!=pid) print $1; }\' pid=%d /tmp/stc1.%d >  /tmp/stc2.%d", pid, pid, pid); 
-      system(cmd);
+      if (system(cmd)){};
       
       sprintf(cmd,"for p in `cat /tmp/stc2.%d`; do kill -9 $p; done", pid); 
-      system(cmd); 
+      if (system(cmd)){};
       
       sprintf(cmd,"rm -f /tmp/stc1.%d; rm -f /tmp/stc2.%d", pid, pid); 
-      system(cmd); 
+      if (system(cmd)){};
          
     }
     
