@@ -675,8 +675,50 @@ char *display_mstorage(mstorage_t *s,char *buffer)
   }
   return buffer;
 }
+/*
+**________________________________________________________________________
+*/
 
+void show_cnf_storaged(char * argv[], uint32_t tcpRef, void *bufRef) {
+   list_t *iterator = NULL;
+   char *pchar = uma_dbg_get_buffer();       
+   int i;
+   int lbg_id;
+   int cid,sid;
+   uint32_t *sid_lbg_id_p;
+   int first = 1;
 
+   pchar += sprintf(pchar,"{\"configuration status\" : [\n");
+    
+   /* Search if the node has already been created  */
+   list_for_each_forward(iterator, &exportclt.storages) {
+     mstorage_t *s = list_entry(iterator, mstorage_t, list);
+
+     for (i = 0; i< s->sids_nb; i++) {
+	cid = s->cids[i];
+	sid = s->sids[i];
+
+	sid_lbg_id_p = rozofs_storcli_cid_table[cid-1];
+	if (sid_lbg_id_p == NULL) {
+	  lbg_id = -1;
+	}
+	else {       
+	  lbg_id = sid_lbg_id_p[sid-1];
+	}
+	if (!first) {
+	  pchar += sprintf(pchar,",\n");
+	}
+	first = 0;
+	pchar += sprintf(pchar,"   {\"cid\" : %2d, \"sid\" : %2d, \"host\" : \"%s\", \"lbg\" : %3d,",cid,sid,s->host,lbg_id);
+	pchar += sprintf(pchar," \"status\" : \"");
+	pchar += mstorage_cnf_status2string(pchar,s->cnf_status);
+	pchar += sprintf(pchar,"\", \"count\" : %d, \"errno\" : \"%s\"}",s->cnf_count, strerror(s->error));
+     }     
+   }
+   pchar += sprintf(pchar,"\n  ]\n}\n");
+
+   uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());      
+}      
 
 /**
 *  Display the configuration et operationbal status of the storaged
@@ -959,6 +1001,7 @@ static int get_storage_ports(mstorage_t *s) {
 
     /* Initialize connection with storage (by mproto) */
     if (mclient_connect(&mclt, timeo) != 0) {
+        s->error = errno;
         DEBUG("Warning: failed to join storage (host: %s), %s.\n",
                 s->host, strerror(errno));
         goto out;
@@ -967,6 +1010,7 @@ static int get_storage_ports(mstorage_t *s) {
     
     /* Send request to get storage TCP ports */
     if (mclient_ports(&mclt, &s->single_storio, io_address) != 0) {
+        s->error = errno;
         DEBUG("Warning: failed to get ports for storage (host: %s).\n",
                 s->host);
 	/* Release mclient*/
@@ -1019,22 +1063,33 @@ void *connect_storage(void *v) {
 
 
 	struct timespec ts = { CONNECTION_THREAD_TIMESPEC, 0 };
-
+	mstorage->cnf_status = mstorage_cnf_idle;
+        mstorage->cnf_count  = 0;
+	mstorage->error      = 0;
+	
 	if (mstorage->sclients_nb != 0) {
 		configuration_done = 1;
 		ts.tv_sec = CONNECTION_THREAD_TIMESPEC * 20;
+		mstorage->cnf_status = mstorage_cnf_already_done;
 	}
 
 	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 
 	for (;;) {
 		if (configuration_done == 0) {
+		
+			mstorage->cnf_count++;
+
 			/* We don't have the ports for this storage node */
 			if (mstorage->sclients_nb == 0) {
+			        mstorage->cnf_status = mstorage_cnf_get_ports;
 				/* Get ports for this storage node */
-				if (get_storage_ports(mstorage) != 0) {
-					DEBUG("Cannot get ports for host: %s", mstorage->host);
-				}
+				get_storage_ports(mstorage);
+				if (mstorage->sclients_nb != 0) {
+				  mstorage->cnf_status = mstorage_cnf_add_lbg;
+				  mstorage->cnf_count  = 0;
+				  mstorage->error = 0;
+				}  
 			}
 			if (mstorage->sclients_nb != 0) {
 				/*
@@ -1045,10 +1100,12 @@ void *connect_storage(void *v) {
 				 ** we just can assert a flag to indicate that the configuration
 				 ** data of the lbg are available.
 				 */
-				storcli_sup_send_lbg_port_configuration((void *) mstorage);
-				configuration_done = 1;
-
-				ts.tv_sec = CONNECTION_THREAD_TIMESPEC * 20;
+				mstorage->cnf_status = mstorage_cnf_add_lbg;
+				if (storcli_sup_send_lbg_port_configuration((void *) mstorage) == 0) {				  
+				  configuration_done = 1;
+				  mstorage->cnf_status = mstorage_cnf_done;
+				  ts.tv_sec = CONNECTION_THREAD_TIMESPEC * 20;
+				}  
 			}
 		}
 
@@ -1889,6 +1946,7 @@ int main(int argc, char *argv[]) {
     ** Declare the debug entry to get the currrent configuration of the storcli
     */
     uma_dbg_addTopic("storaged_status", show_storage_configuration);
+    uma_dbg_addTopic("cnf_storaged", show_cnf_storaged);
     /*
     ** shared memory with rozofsmount
     */

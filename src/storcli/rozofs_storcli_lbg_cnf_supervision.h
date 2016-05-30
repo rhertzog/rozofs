@@ -61,7 +61,7 @@ typedef struct _storcli_sup_msg_t
 
 
 storcli_lbg_sup_conf_t *storcli_sup_getObjRef();
-int storcli_sup_send_lbg_port_configuration(void *mstorage);
+int storcli_sup_send_lbg_port_configuration(mstorage_t *mstorage);
 uint32_t  storcli_sup_getIntSockIdxFromSocketId(storcli_lbg_sup_conf_t *p,int socketId);
 uint32_t storcli_sup_rcvReadyInternalSock(void * not_significant,int socketId);
 uint32_t storcli_sup_rcvMsgInternalSock(void * not_significant,int socketId);
