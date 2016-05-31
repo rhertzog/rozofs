@@ -2051,7 +2051,6 @@ int storage_truncate(storage_t * st, storio_device_mapping_t * fidCtx, uint8_t l
     uint16_t rozofs_disk_psize;
     bid_t bid_truncate;
     size_t nb_write = 0;
-    int open_flags;
     int block_per_chunk         = ROZOFS_STORAGE_NB_BLOCK_PER_CHUNK(bsize);
     int chunk                   = input_bid/block_per_chunk;
     int result;
@@ -2173,10 +2172,6 @@ int storage_truncate(storage_t * st, storio_device_mapping_t * fidCtx, uint8_t l
     if ((device[chunk] == ROZOFS_EOF_CHUNK)||(device[chunk] == ROZOFS_EMPTY_CHUNK)) {
       rewrite_file_hdr = 1;// Header files will have to be re-written to disk    
       device[chunk] = storio_device_mapping_allocate_device(st);
-      open_flags = ROZOFS_ST_BINS_FILE_FLAG; // File should be created
-    }
-    else {
-      open_flags = ROZOFS_ST_NO_CREATE_FILE_FLAG; // File must already exist
     }
     
     // Build the chunk file name
@@ -2188,12 +2183,12 @@ int storage_truncate(storage_t * st, storio_device_mapping_t * fidCtx, uint8_t l
     }   
 
     // Open bins file
-    fd = open(path, open_flags, ROZOFS_ST_BINS_FILE_MODE);
-    if (fd < 0) {
-        storio_fid_error(fid, device[chunk], chunk, bid, last_seg,"open truncate"); 		        
-	storage_error_on_device(st,device[chunk]);  				    
-        severe("open failed (%s) : %s", path, strerror(errno));
-        goto out;
+    fd = open(path, ROZOFS_ST_BINS_FILE_FLAG, ROZOFS_ST_BINS_FILE_MODE);
+    if (fd < 0) {	
+      storio_fid_error(fid, device[chunk], chunk, bid, last_seg,"open truncate"); 		        
+      storage_error_on_device(st,device[chunk]);  				    
+      severe("open failed (%s) : %s", path, strerror(errno));
+      goto out;
     }
 
 
