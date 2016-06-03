@@ -24,6 +24,7 @@ fulldiagnostic=False
 alarm_level = int(-1)
 
 time_limit_minutes=0
+layout=None
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
@@ -310,6 +311,12 @@ def add_error_table(host, port, module, addr, criticity, string, tip=None):
   global   base
   global   alarm_level
 
+  if debug == True:
+    if tip == None:
+      print "add_error_table(%s,%s,%s,%s,%s,%s)"%(host, port, module, addr, criticity, string)
+    else:
+      print "add_error_table(%s,%s,%s,%s,%s,%s,%s)"%(host, port, module, addr, criticity, string,tip)
+
   # Check whether this error has already been registered
   if check_error_table(host, port, module, criticity, string) == True: return 
 
@@ -383,12 +390,12 @@ class rozofs_module:
     self.activeAddr = None
     for addr in self.addr:
       if addr == '': continue
-      parsed = ["ping", addr,"-c","1","-w","2"]
+      parsed = ["ping", addr,"-c","1","-w","1"]
       increment_counter(parsed)
       cmd = subprocess.Popen(parsed, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
       output, error = cmd.communicate()
       if error != '':
-	self.WARNING("No response to ping on address %s"%(addr))
+	self.WARNING("No response to ping from %s"%(addr))
       else:
         for line in output.split('\n'):
 	  words = line.split()
@@ -396,11 +403,11 @@ class rozofs_module:
 	    if words[i] == "received,":
 	      nb=int(words[i-1])
 	      if nb == int(0):  
-	         self.WARNING("No response to ping on address %s"%(addr))
+	         self.WARNING("No response to ping from %s"%(addr))
               else:		        
                 self.activeAddr = addr
     if self.activeAddr == None: 
-      self.CRITICAL("does not respond to ping")    
+      self.ERROR("Does not respond to ping on any address")    
       return False	
     return True
 
@@ -469,9 +476,9 @@ class rozofs_module:
       lines = self.rozodiag_one_addr(cmd,addr)
       if lines != None: return lines
     
-    if cmd == "uptime": self.CRITICAL("Not responding !!!")  
+    if cmd == "uptime": self.ERROR("Not responding !!!")  
     if cmd == "version" and self.module == "exportd" : return None       
-    else:               self.CRITICAL("Can not run %sdiag \"%s\"!!!"%(base,cmd),"%s"%(cmd))
+    else:               self.ERROR("Can not run %sdiag \"%s\"!!!"%(base,cmd),"%s"%(cmd))
     return None
     
 
@@ -621,6 +628,22 @@ class rozofs_module:
 	if words[3] != 0: 
 	  self.ERROR("%s %s"%(words[3],words[1]),"trx");	     
 	  status = False
+
+      
+#_______________________________________________
+def init_layout(l):
+  global layout
+  if layout != None: return
+  layout = l
+  
+def max_error():
+  global layout
+  
+  if layout == "2_3_4":   return int(1)
+  if layout == "4_6_8":   return int(2)
+  if layout == "8_12_16": return int(4)
+  return int(1)
+   
       
 #_______________________________________________
 class storio(rozofs_module):
@@ -891,7 +914,7 @@ class storcli(rozofs_module):
 	self.ERROR("cid%d/sid%d unreachable on host %s"%(int(words[0]),int(words[2]),words[4]),"storaged_status")
 	error_list.append("%d"%(int(words[0])))
     for error in error_list:
-      if error_list.count(error) > int(2):
+      if error_list.count(error) > max_error():
         self.CRITICAL("Too much sid failed on cid %s"%(error),"storaged_status")   
     return status
 
@@ -944,7 +967,8 @@ class client(rozofs_module):
           self.layout = words[0].split('LAYOUT_')[1]
 	  self.bsize  = words[4]
 	  break
-	  
+      init_layout(self.layout)
+        
   def add_vid(self,vid):
     self.vid = vid
       
@@ -1050,7 +1074,7 @@ class export_slave(rozofs_module):
 	    error_list.append("%s"%(words[2]))
       # More than 1 error per CID/SID is critical
       for error in error_list:
-	if error_list.count(error) > int(2): self.CRITICAL("Too much sid failed on cid %s"%(error),"vfstat_stor")         
+	if error_list.count(error) > max_error(): self.CRITICAL("Too much sid failed on cid %s"%(error),"vfstat_stor")         
     if fulldiagnostic == True:
       self.check_version()  
       self.check_trx()
@@ -1077,7 +1101,8 @@ class exportd(rozofs_module):
     
     self.volumes = []  
     self.clients = []
-    self.eids    = []    
+    self.eids    = []  
+    self.slaves  = []  
 
     # Check it responds to rozodiag
     res = self.rozodiag("vfstat_vol")
@@ -1111,23 +1136,6 @@ class exportd(rozofs_module):
       v = self.get_volume(vol)
       v.add_storage(words[0],words[4],words[6],words[8])
     
-    res = self.rozodiag("vfstat_stor")
-    for v in self.volumes:
-      error_list=[]	    
-      for line in res:
-	words = line.split()
-	if len(words) < 6: continue
-	try:   vol=int(words[0])
-	except:continue
-	if int(v.vid) == int(words[0]):
-          status = words[6]
-	  if status != 'UP': 
-  	    self.ERROR("cid%s/sid%s unreachable"%(words[2],words[4]),"vfstat_stor")
-	    error_list.append("%s"%(words[2]))
-      # More than 1 error per CID/SID is critical
-      for error in error_list:
-	if error_list.count(error) > int(2): self.CRITICAL("Too much sid failed on cid %s"%(error),"vfstat_stor")         
-
   def get_version(self):
     """Get the exportd version
     """    
@@ -1154,8 +1162,8 @@ class exportd(rozofs_module):
         if status == None: status = "Success"
         if words[1] != "cs:Connected" or words[2] != "ro:Primary/Secondary" or words[3] != "ds:UpToDate/UpToDate":
 	  status = "Failed"
-    if status == None       : self.WARNING("No DRBD synchronization","synchro")  
-    elif status == "Failed" : self.CRITICAL("DRBD not synchronized","synchro drbd")
+    if status == None       : self.WARNING("No DRBD synchronization","synchro drdb")  
+    elif status == "Failed" : self.ERROR("DRBD not synchronized","synchro drbd")
 
   def check_pacemaker(self):
     res = self.rozodiag("synchro crm")
@@ -1170,6 +1178,31 @@ class exportd(rozofs_module):
     global device_error
     self.check_drbd()
     self.check_pacemaker()
+
+    self.check_clients()
+    error=int(0)
+    for c in self.clients:
+      if c.status == "Failed": error=error+int(1)
+    if error > int(1):
+      self.CRITICAL("Too much failed clients");
+    
+    res = self.rozodiag("vfstat_stor")
+    for v in self.volumes:
+      error_list=[]	    
+      for line in res:
+	words = line.split()
+	if len(words) < 6: continue
+	try:   vol=int(words[0])
+	except:continue
+	if int(v.vid) == int(words[0]):
+          status = words[6]
+	  if status != 'UP': 
+  	    self.ERROR("cid%s/sid%s unreachable"%(words[2],words[4]),"vfstat_stor")
+	    error_list.append("%s"%(words[2]))
+      # More than 1 error per CID/SID is critical
+      for error in error_list:
+	if error_list.count(error) > max_error(): self.CRITICAL("Too much sid failed on cid %s"%(error),"vfstat_stor")         
+
     if fulldiagnostic == True:
       self.check_trx()
       self.check_buffer()	  
@@ -1177,6 +1210,7 @@ class exportd(rozofs_module):
       #self.check_tcp_info()
       self.check_uptime()
       self.check_core_files() 
+
     device_error=[]
     for v in self.volumes:
       for c in (v.clusters_0+v.clusters_1):
@@ -1198,13 +1232,9 @@ class exportd(rozofs_module):
 	  if count > int(1): break;
       if count > int(1):
         self.CRITICAL("Several SID have disk failures in %s"%(cid)) 	
-
-    self.check_clients()
-    error=int(0)
-    for c in self.clients:
-      if c.status == "Failed": error=error+int(1)
-    if error > int(1):
-      self.CRITICAL("Too much failed clients");
+    
+    for slave in self.slaves:
+      slave.check()
     
   def add_eid(self,eid,vid,path):
     e = export_id(int(eid),vid,path)
@@ -1243,8 +1273,10 @@ class exportd(rozofs_module):
                      
   def get_clients(self):
     for idx in range (1,9):
-      slave = export_slave(self.host,idx,self)
-      slave.check()
+    
+      slave = export_slave(self.host,idx,self)  
+      self.slaves.append(slave)
+          
       res = slave.rozodiag("client")
       if res == None: continue  
       for line in res:
@@ -1261,6 +1293,7 @@ class exportd(rozofs_module):
   def check_clients(self):
     self.get_clients()
     for cl in self.clients: cl.check()
+    
 #_______________________________________________
 def display_unit(val,precision=1):
 
@@ -1391,7 +1424,7 @@ try:
     add_error_table("","","crm","",'CRITICAL',"exportd not running","crm resource status exportd-rozofs")
 
 except: 
-  if options.nocrm == False: fatal("crm is not installed and nocrm option is not set")
+  if options.nocrm == False: add_error_table("","","crm","",'WARNING',"crm is not installed","crm resource status exportd-rozofs")
   exportd_host="127.0.0.1"
 
 if  exportd_host != None: 
