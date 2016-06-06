@@ -108,6 +108,8 @@ char *pChar = uma_dbg_get_buffer();
   pChar += rozofs_string_append(pChar,"// To activate workaround that make mknod respond OK instead of EEXIST\n");
   pChar += rozofs_string_append(pChar,"// when the file is already created \n");
   COMMON_CONFIG_SHOW_BOOL(mknod_ok_instead_of_eexist,False);
+  pChar += rozofs_string_append(pChar,"// To disable synchronous write of attributes when set to True\n");
+  COMMON_CONFIG_SHOW_BOOL(disable_sync_attributes,False);
 
   /*
   ** client scope configuration elements
@@ -261,6 +263,8 @@ static inline void common_config_generated_read(char * fname) {
   // To activate workaround that make mknod respond OK instead of EEXIST 
   // when the file is already created  
   COMMON_CONFIG_READ_BOOL(mknod_ok_instead_of_eexist,False);
+  // To disable synchronous write of attributes when set to True 
+  COMMON_CONFIG_READ_BOOL(disable_sync_attributes,False);
   /*
   ** client scope configuration elements
   */

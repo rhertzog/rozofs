@@ -210,11 +210,12 @@ int exp_metadata_release_inode(exp_trck_top_header_t *top_hdr_p,rozofs_inode_t *
     @param inode: address of the inode
     @param attr_p: pointer to the attribute array
     @param attr_sz: size of the attributes
+    @param sync: whether to force sync on disk of attributes
     
     @retval 0 on success
     @retval -1 on error    
 */
-int exp_metadata_write_attributes(exp_trck_top_header_t *top_hdr_p,rozofs_inode_t *inode,void *attr_p,int attr_sz);
+int exp_metadata_write_attributes(exp_trck_top_header_t *top_hdr_p,rozofs_inode_t *inode,void *attr_p,int attr_sz, int sync);
 /*
 **__________________________________________________________________
 */
@@ -343,13 +344,14 @@ int exp_trck_write_main_tracking_file(char * root_path,uint8_t user_id,off_t off
     @param inode: address of the inode
     @param attr_p: pointer to the attribute array
     @param attr_sz: size of the attributes
+    @param sync: whether to force sync on disk of attributes
 
     
     @retval 0 on success
     @retval -1 on error
     
 */
-int exp_metadata_create_attributes_burst(exp_trck_top_header_t *top_hdr_p,rozofs_inode_t *inode,void *attr_p,int attr_sz);
+int exp_metadata_create_attributes_burst(exp_trck_top_header_t *top_hdr_p,rozofs_inode_t *inode,void *attr_p,int attr_sz, int sync);
 
 /*
 **__________________________________________________________________

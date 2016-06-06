@@ -190,7 +190,7 @@ int ext4_mark_iloc_dirty(void *unused,lv2_entry_t *inode,struct ext4_iloc *iloc_
    */
    trk_tb_p = xattr_get_tracking_context();
    
-   error = export_lv2_write_attributes(trk_tb_p,inode);
+   error = export_lv2_write_attributes(trk_tb_p,inode, 0 /* no sync */);
    if (error < 0)
    {
      error = 0-errno;

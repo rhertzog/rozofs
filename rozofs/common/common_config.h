@@ -92,6 +92,8 @@ typedef struct _common_config_global_t {
   // To activate workaround that make mknod respond OK instead of EEXIST
   // when the file is already created 
   uint32_t    mknod_ok_instead_of_eexist;
+  // To disable synchronous write of attributes when set to True
+  uint32_t    disable_sync_attributes;
 
   /*
   ** client scope configuration elements

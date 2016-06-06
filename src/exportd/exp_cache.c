@@ -553,10 +553,11 @@ out:
  *
    @param trk_tb_p: export attributes tracking table
    @param entry: the entry used
+   @param sync: whether to force sync on disk of attributes
  
    @return: 0 on success otherwise -1
  */
-int export_lv2_write_attributes(export_tracking_table_t *trk_tb_p,lv2_entry_t *entry) {
+int export_lv2_write_attributes(export_tracking_table_t *trk_tb_p,lv2_entry_t *entry,int sync) {
 
    int ret;
    rozofs_inode_t *fake_inode;
@@ -577,7 +578,7 @@ int export_lv2_write_attributes(export_tracking_table_t *trk_tb_p,lv2_entry_t *e
    /*
    ** read the attributes from disk
    */
-   ret = exp_metadata_write_attributes(p,fake_inode,entry,sizeof(ext_mattr_t));
+   ret = exp_metadata_write_attributes(p,fake_inode,entry,sizeof(ext_mattr_t), sync);
    if (ret < 0)
    { 
      return -1;
@@ -654,6 +655,7 @@ int exp_attr_create_write_cond(export_tracking_table_t *trk_tb_p,uint32_t slice,
    uint32_t link_slice;
    int inode_allocated = 0;
    int link_allocated = 0;
+   int sync = 1;
    
    rozofs_uuid_generate(fid,rozofs_get_export_host_id());
 
@@ -695,7 +697,7 @@ int exp_attr_create_write_cond(export_tracking_table_t *trk_tb_p,uint32_t slice,
        /*
        ** write the metadata on disk for the directory and the regular file
        */
-       ret = exp_metadata_write_attributes(p,fake_inode,global_attr_p,sizeof(ext_mattr_t));
+       ret = exp_metadata_write_attributes(p,fake_inode,global_attr_p,sizeof(ext_mattr_t),sync);
        if (ret < 0)
        {
 	 goto error;
@@ -735,7 +737,7 @@ int exp_attr_create_write_cond(export_tracking_table_t *trk_tb_p,uint32_t slice,
    ** write the link value
    */
    int len = strlen(link);
-   ret = exp_metadata_write_attributes(p_link,&fake_inode_link,link,len+1);
+   ret = exp_metadata_write_attributes(p_link,&fake_inode_link,link,len+1,sync);
    if (ret < 0)
    {
     goto error;
@@ -746,7 +748,7 @@ int exp_attr_create_write_cond(export_tracking_table_t *trk_tb_p,uint32_t slice,
    global_attr_p->s.i_link_name = fake_inode_link.fid[1];
    if (write)
    {
-     ret = exp_metadata_write_attributes(p,fake_inode,global_attr_p,sizeof(ext_mattr_t));
+     ret = exp_metadata_write_attributes(p,fake_inode,global_attr_p,sizeof(ext_mattr_t),sync);
      if (ret < 0)
      {  
        goto error;
@@ -769,141 +771,6 @@ error:
 
 
 
-/*
-**__________________________________________________________________
-*/
-/**
-*  Create the attributes of a directory/regular file or symbolic link
-
-  create an oject according to its type. The service performs the allocation of the fid. 
-  It is assumed that all the other fields of the object attributes are already been filled in.
-  
-  @param trk_tb_p: export attributes tracking table
-  @param slice: slice of the parent directory
-  @param global_attr_p : pointer to the attributes of the object
-  @param type: type of the object (ROZOFS_REG: regular file, ROZOFS_SLNK: symbolic link, ROZOFS_DIR : directory
-  @param link: pointer to the symbolic link (significant for ROZOFS_SLNK only)
-  
-  @retval 0 on success: (the attributes contains the lower part of the fid that is allocated by the service)
-  @retval -1 on error (see errno for details)
-*/
-int exp_attr_create(export_tracking_table_t *trk_tb_p,uint32_t slice,ext_mattr_t *global_attr_p,int type,char *link)
-{
-   fid_t fid;
-   rozofs_inode_t *fake_inode;
-   rozofs_inode_t fake_inode_link;
-   int ret;
-   exp_trck_top_header_t *p = NULL;
-   exp_trck_top_header_t *p_link = NULL;
-   uint32_t link_slice;
-   int inode_allocated = 0;
-   int link_allocated = 0;
-   
-   rozofs_uuid_generate(fid,rozofs_get_export_host_id());
-
-
-   fake_inode = (rozofs_inode_t*)fid;
-   fake_inode->fid[1] = 0;
-   fake_inode->s.key = type;
-   fake_inode->s.usr_id = slice; /** always the parent slice for storage */
-   fake_inode->s.eid = trk_tb_p->eid; 
-      
-   if (fake_inode->s.key >= ROZOFS_MAXATTR)
-   {
-     errno = EINVAL;
-     return -1;
-   }
-   p = trk_tb_p->tracking_table[fake_inode->s.key];
-   if (p == NULL)
-   {
-     errno = ENOTSUP;
-     goto error;
-   }   
-   /*
-   ** allocate the inode
-   */
-   ret = exp_metadata_allocate_inode(p,fake_inode,type,slice);
-   if (ret < 0)
-   { 
-      goto error;
-   }
-   inode_allocated = 1;
-   /*
-   ** copy the definitive fid of the object
-   */
-   memcpy(&global_attr_p->s.attrs.fid,fake_inode,sizeof(fid_t));
-   if (link == NULL)
-   {
-     /*
-     ** write the metadata on disk for the directory and the regular file
-     */
-    ret = exp_metadata_write_attributes(p,fake_inode,global_attr_p,sizeof(ext_mattr_t));
-    if (ret < 0)
-    {
-      goto error;
-    }
-    return 0;
-  }
-  /*
-  ** case of a symbolic link: here we need to allocate a block for storing the link
-  ** the slice associated with the link is the one associated with the fid of the file
-  ** and not the fid of the parent directory
-  */
-  exp_trck_get_slice(global_attr_p->s.attrs.fid,&link_slice);
-
-  fake_inode = (rozofs_inode_t*)fid;
-  fake_inode_link.fid[1] = 0;
-  fake_inode_link.s.key = ROZOFS_SLNK;
-  fake_inode_link.s.usr_id = link_slice; 
-  fake_inode_link.s.eid = trk_tb_p->eid;   
-
-  p_link = trk_tb_p->tracking_table[ROZOFS_SLNK];
-  if (p_link == NULL)
-  {
-    errno = ENOTSUP;
-    goto error;
-  }  
-   /*
-   ** allocate the inode
-   */
-   ret = exp_metadata_allocate_inode(p_link,&fake_inode_link,ROZOFS_SLNK,link_slice);
-   if (ret < 0)
-   { 
-    goto error;
-   }
-   link_allocated = 1;
-   /*
-   ** write the link value
-   */
-   int len = strlen(link);
-   ret = exp_metadata_write_attributes(p_link,&fake_inode_link,link,len+1);
-   if (ret < 0)
-   {
-    goto error;
-   }
-   /*
-   ** update the inode with the reference of the block allocated for storing the link value
-   */
-   global_attr_p->s.i_link_name = fake_inode_link.fid[1];
-   ret = exp_metadata_write_attributes(p,fake_inode,global_attr_p,sizeof(ext_mattr_t));
-   if (ret < 0)
-   {  
-     goto error;
-   }   
-   return 0;
-
-error:
-   if (inode_allocated)
-   {
-     exp_attr_delete(trk_tb_p,global_attr_p->s.attrs.fid);           
-   }
-   if (link_allocated)
-   {
-     memcpy(fid,&fake_inode_link,sizeof(fid_t));
-     exp_attr_delete(trk_tb_p,fid);           
-   }
-   return -1;
-}
 
 
 /*
@@ -980,7 +847,7 @@ int exp_xattr_block_create(export_tracking_table_t *trk_tb_p,lv2_entry_t *entry,
    /*
    ** write the extended attribute block  on disk
    */
-   ret = exp_metadata_write_attributes(p,&fake_inode,xattr_p,ROZOFS_XATTR_BLOCK_SZ);
+   ret = exp_metadata_write_attributes(p,&fake_inode,xattr_p,ROZOFS_XATTR_BLOCK_SZ, 0 /* not sync */);
    if (ret < 0)
    {
      return -1;
@@ -1020,7 +887,7 @@ int export_lv2_write_xattr(export_tracking_table_t *trk_tb_p,lv2_entry_t *entry)
    /*
    ** read the attributes from disk
    */
-   ret = exp_metadata_write_attributes(p,&fake_inode,entry->extended_attr_p,ROZOFS_XATTR_BLOCK_SZ);
+   ret = exp_metadata_write_attributes(p,&fake_inode,entry->extended_attr_p,ROZOFS_XATTR_BLOCK_SZ, 0 /* not sync */);
    if (ret < 0)
    { 
      return -1;
@@ -1077,7 +944,7 @@ int exp_trash_entry_create(export_tracking_table_t *trk_tb_p,uint32_t slice,void
    /*
    ** write the metadata on disk
    */
-   ret = exp_metadata_write_attributes(p,&fake_inode,global_attr_p,sizeof(rmfentry_disk_t));
+   ret = exp_metadata_write_attributes(p,&fake_inode,global_attr_p,sizeof(rmfentry_disk_t),1 /* sync */);
   if (ret < 0)
   {
     return -1;
@@ -1133,7 +1000,7 @@ int exp_recycle_entry_create(export_tracking_table_t *trk_tb_p,uint32_t slice,vo
    /*
    ** write the metadata on disk
    */
-   ret = exp_metadata_write_attributes(p,&fake_inode,global_attr_p,sizeof(recycle_disk_t));
+   ret = exp_metadata_write_attributes(p,&fake_inode,global_attr_p,sizeof(recycle_disk_t), 1 /* sync */);
   if (ret < 0)
   {
     return -1;
