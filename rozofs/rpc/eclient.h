@@ -29,6 +29,25 @@
 #include "sclient.h"
 #include "eproto.h"
 
+typedef enum _mstorage_cnf_status_t {
+  mstorage_cnf_idle,
+  mstorage_cnf_already_done,
+  mstorage_cnf_get_ports,
+  mstorage_cnf_add_lbg,
+  mstorage_cnf_done
+} mstorage_cnf_status_t;
+
+static inline int mstorage_cnf_status2string(char * string, mstorage_cnf_status_t status) {
+  switch(status) {
+    case mstorage_cnf_idle: return sprintf(string,"IDLE");
+    case mstorage_cnf_already_done: return sprintf(string,"ALREADY DONE");
+    case mstorage_cnf_get_ports: return sprintf(string,"GET PORTS");
+    case mstorage_cnf_add_lbg: return sprintf(string,"ADD LBG");
+    case mstorage_cnf_done: return sprintf(string,"DONE");
+  }
+  return sprintf(string,"%d",status);
+}
+
 typedef struct mstorage {
     char host[ROZOFS_HOSTNAME_MAX];
 	int  site;
@@ -40,6 +59,9 @@ typedef struct mstorage {
     int     single_storio;
     int     thread_started;   /**< asserted to 1 when the connect_storage is started */
     sid_t sids_nb;
+    mstorage_cnf_status_t cnf_status;
+    uint32_t              cnf_count;
+    int                   error;
     list_t list;
 } mstorage_t;
 

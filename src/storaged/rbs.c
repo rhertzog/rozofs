@@ -65,7 +65,7 @@ char * get_rebuild_directory_name(int rebuildRef) {
   return rebuild_directory_name;
 }
 char rebuild_sid_directory_name[FILENAME_MAX];
-char * get_rebuild_sid_directory_name(int rebuildRef, int cid, int sid) {
+char * get_rebuild_sid_directory_name(int rebuildRef, int cid, int sid, rbs_file_type_e ftype) {
   char * pChar = rebuild_sid_directory_name;
   pChar += rozofs_string_append(pChar,common_config.storage_temporary_dir);
   pChar += rozofs_string_append(pChar,"/rbs.");
@@ -73,7 +73,9 @@ char * get_rebuild_sid_directory_name(int rebuildRef, int cid, int sid) {
   pChar += rozofs_string_append(pChar,"/cid");
   pChar += rozofs_u32_append(pChar,cid);  
   pChar += rozofs_string_append(pChar,"_sid");
-  pChar += rozofs_u32_append(pChar,sid);  
+  pChar += rozofs_u32_append(pChar,sid); 
+  pChar += rozofs_string_append(pChar,"_");  
+  pChar += rozofs_u32_append(pChar,ftype);   
   return rebuild_sid_directory_name;
 }
 

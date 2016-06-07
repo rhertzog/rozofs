@@ -100,7 +100,7 @@ storcli_lbg_sup_conf_t *storcli_sup_getObjRef()
   @retval 0 success
   @retval -1 error
 */
-int storcli_sup_send_lbg_port_configuration(void *mstorage)
+int storcli_sup_send_lbg_port_configuration(mstorage_t *mstorage)
 {
   int nBytes;
   uint32_t  response;
@@ -119,6 +119,7 @@ int storcli_sup_send_lbg_port_configuration(void *mstorage)
     /*
     **  message not sent
     */
+    mstorage->error = errno;
     severe("storcli_sup_send_lbg_port_configuration : %s",strerror(errno));
     return -1;
   }
@@ -134,6 +135,7 @@ int storcli_sup_send_lbg_port_configuration(void *mstorage)
     /*
     **  something wrong : (BUG)
     */
+    mstorage->error = errno;
     severe("storcli_sup_send_lbg_port_configuration : %s",strerror(errno));
     return -1;
   }

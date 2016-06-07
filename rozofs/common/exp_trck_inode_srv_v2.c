@@ -919,6 +919,7 @@ int exp_metadata_release_inode(exp_trck_top_header_t *top_hdr_p,rozofs_inode_t *
     @param attr_sz: size of the attributes
     @param max_attr_sz: size of the attributes on disk (must be greater or equal to attr_sz)
     @param read: assert to 1 for reading
+    @param sync: whether to force sync on disk of attributes
 
     
     @retval 0 on success
@@ -926,7 +927,7 @@ int exp_metadata_release_inode(exp_trck_top_header_t *top_hdr_p,rozofs_inode_t *
     
 */
 int fdl_access_count=10;
-int exp_trck_rw_attributes(char *root_path,rozofs_inode_t *inode,void *attr_p,int attr_sz,int max_attr_sz,int read)
+int exp_trck_rw_attributes(char *root_path,rozofs_inode_t *inode,void *attr_p,int attr_sz,int max_attr_sz,int read, int sync)
 {
    int fd = -1;
    ssize_t count;
@@ -973,7 +974,16 @@ int exp_trck_rw_attributes(char *root_path,rozofs_inode_t *inode,void *attr_p,in
    */
    off_t attr_offset = real_idx*max_attr_sz+sizeof(exp_trck_file_header_t);
    if (read) count = pread(fd,attr_p,attr_sz, attr_offset);
-   else count = pwrite(fd,attr_p,attr_sz, attr_offset);		         
+   else {
+     count = pwrite(fd,attr_p,attr_sz, attr_offset);
+     /*
+     ** sync data on disk immeditely if requested 
+     ** and allowed
+     */
+     if ((sync) && (!common_config.disable_sync_attributes)){
+       fdatasync(fd);
+     } 
+   }	         
    if (count != attr_sz)
    {
      CLOSE_CONTROL(__LINE__);
@@ -996,13 +1006,14 @@ int exp_trck_rw_attributes(char *root_path,rozofs_inode_t *inode,void *attr_p,in
     @param inode: address of the inode
     @param attr_p: pointer to the attribute array
     @param attr_sz: size of the attributes
+    @param sync: whether to force sync on disk of attributes
 
     
     @retval 0 on success
     @retval -1 on error
     
 */
-int exp_metadata_write_attributes(exp_trck_top_header_t *top_hdr_p,rozofs_inode_t *inode,void *attr_p,int attr_sz)
+int exp_metadata_write_attributes(exp_trck_top_header_t *top_hdr_p,rozofs_inode_t *inode,void *attr_p,int attr_sz, int sync)
 {
    exp_trck_header_memory_t  *main_trck_p;
 
@@ -1023,7 +1034,7 @@ int exp_metadata_write_attributes(exp_trck_top_header_t *top_hdr_p,rozofs_inode_
    */
    expt_set_bit(top_hdr_p->trck_inode_p,inode->s.usr_id,inode->s.file_id);
    
-   return exp_trck_rw_attributes(main_trck_p->root_path,inode,attr_p,attr_sz,main_trck_p->max_attributes_sz,0);
+   return exp_trck_rw_attributes(main_trck_p->root_path,inode,attr_p,attr_sz,main_trck_p->max_attributes_sz,0,sync);
 }
 
 
@@ -1038,13 +1049,14 @@ int exp_metadata_write_attributes(exp_trck_top_header_t *top_hdr_p,rozofs_inode_
     @param inode: address of the inode
     @param attr_p: pointer to the attribute array
     @param attr_sz: size of the attributes
+    @param sync: whether to force sync on disk of attributes
 
     
     @retval 0 on success
     @retval -1 on error
     
 */
-int exp_metadata_create_attributes_burst(exp_trck_top_header_t *top_hdr_p,rozofs_inode_t *inode,void *attr_p,int attr_sz)
+int exp_metadata_create_attributes_burst(exp_trck_top_header_t *top_hdr_p,rozofs_inode_t *inode,void *attr_p,int attr_sz, int sync)
 {
    exp_trck_header_memory_t  *main_trck_p;
    int fd = -1;
@@ -1099,7 +1111,7 @@ int exp_metadata_create_attributes_burst(exp_trck_top_header_t *top_hdr_p,rozofs
 
 
    
-   return exp_trck_rw_attributes(main_trck_p->root_path,inode,attr_p,attr_sz,main_trck_p->max_attributes_sz,0);
+   return exp_trck_rw_attributes(main_trck_p->root_path,inode,attr_p,attr_sz,main_trck_p->max_attributes_sz,0,sync);
 }
 
 /*
@@ -1135,7 +1147,7 @@ int exp_metadata_read_attributes(exp_trck_top_header_t *top_hdr_p,rozofs_inode_t
       errno = EFBIG;
       return -1;
    }
-   return exp_trck_rw_attributes(main_trck_p->root_path,inode,attr_p,attr_sz,main_trck_p->max_attributes_sz,1);
+   return exp_trck_rw_attributes(main_trck_p->root_path,inode,attr_p,attr_sz,main_trck_p->max_attributes_sz,1,0/* No sync*/);
 }
 
 /*

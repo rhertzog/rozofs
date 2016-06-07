@@ -1025,9 +1025,7 @@ void storcli_lbg_cnx_sup_periodic(void *ns)
 */
 int storcli_lbg_cnx_sup_tmr_init(uint32_t period_ms)
 {
-    struct timer_cell * timer_cell = NULL;
-    int i;
-    
+    struct timer_cell * timer_cell = NULL;    
 
     /*
     ** charging timer periodic launching

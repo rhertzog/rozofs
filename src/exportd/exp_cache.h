@@ -227,10 +227,11 @@ lv2_entry_t *export_lookup_fid_th(export_tracking_table_t *trk_tb_p,lv2_cache_t 
  *
    @param trk_tb_p: export attributes tracking table
    @param entry: the entry used
+   @param sync: whether to force sync on disk of attributes
  
    @return: 0 on success otherwise -1
  */
-int export_lv2_write_attributes(export_tracking_table_t *trk_tb_p,lv2_entry_t *entry);
+int export_lv2_write_attributes(export_tracking_table_t *trk_tb_p,lv2_entry_t *entry,int sync);
 /*
 **__________________________________________________________________
 */

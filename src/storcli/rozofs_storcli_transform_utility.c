@@ -164,6 +164,7 @@ void rozofs_storcli_transform_update_headers(rozofs_storcli_projection_ctx_t *pr
 */
 inline int rozofs_storcli_transform_inverse_check_timestamp_tb(rozofs_storcli_projection_ctx_t *prj_ctx_p,  
                                        uint8_t layout,
+				       uint8_t  bsize,
                                        uint32_t block_idx, 
                                        uint8_t *prj_idx_tb_p,
                                        uint64_t *timestamp_p,
@@ -322,8 +323,7 @@ inline int rozofs_storcli_transform_inverse_check_timestamp_tb(rozofs_storcli_pr
     // Let's tell the block is empty
 
     *timestamp_p     = 0;
-    #warning Works only with 4K blocks
-    *effective_len_p = ROZOFS_BSIZE_BYTES(0);
+    *effective_len_p = ROZOFS_BSIZE_BYTES(bsize);
     *corrupted_blocks = *corrupted_blocks + 1;
     // info("Bloc %d Said to be empty",block_idx);      
     return 0;
@@ -339,6 +339,7 @@ inline int rozofs_storcli_transform_inverse_check_timestamp_tb(rozofs_storcli_pr
 */
 inline int rozofs_storcli_transform_inverse_check(rozofs_storcli_projection_ctx_t *prj_ctx_p,  
                                        uint8_t layout,
+				       uint8_t bsize,
                                        uint32_t block_idx, 
                                        uint8_t *prj_idx_tb_p,
                                        uint64_t *timestamp_p,
@@ -467,6 +468,7 @@ inline int rozofs_storcli_transform_inverse_check(rozofs_storcli_projection_ctx_
     */
     ret =  rozofs_storcli_transform_inverse_check_timestamp_tb( prj_ctx_p,  
                                         layout,
+					bsize,
                                         block_idx, 
                                         prj_idx_tb_p,
                                         timestamp_p,
@@ -492,7 +494,7 @@ inline int rozofs_storcli_transform_inverse_check(rozofs_storcli_projection_ctx_
   @return: the length written on success, -1 otherwise (errno is set)
 */
  int rozofs_storcli_transform_inverse_check_for_thread(rozofs_storcli_projection_ctx_t *prj_ctx_p,  
-                                       uint8_t layout,
+                                       uint8_t layout, uint8_t bsize,
                                        uint32_t first_block_idx, 
                                        uint32_t number_of_blocks, 
                                        rozofs_storcli_inverse_block_t *block_ctx_p,
@@ -515,7 +517,7 @@ inline int rozofs_storcli_transform_inverse_check(rozofs_storcli_projection_ctx_
 	  */
           continue;        
         }
-        ret =  rozofs_storcli_transform_inverse_check(prj_ctx_p,layout,
+        ret =  rozofs_storcli_transform_inverse_check(prj_ctx_p,layout, bsize,
                                                       block_idx, &rozofs_storcli_prj_idx_table[block_idx*ROZOFS_SAFE_MAX_STORCLI],
                                                       &block_ctx_p[block_idx].timestamp,
                                                       &block_ctx_p[block_idx].effective_length,

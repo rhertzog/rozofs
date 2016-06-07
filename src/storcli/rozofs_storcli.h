@@ -1565,7 +1565,7 @@ typedef struct _storcli_rw_error_record_t {
   int32_t     line;     /**< Line where the error has been traced */
   int         error;    /**< The error encountered */
   uint64_t    offset;   /**< Offset of the operation in the file */
-  uint64_t    ts;       /**< Time stamp in second */
+  time_t      ts;       /**< Time stamp in second */
   int         size;     /**< Size of the operation */
   fid_t       fid;      /**< File id on which the operation took place */
   uint16_t    opcode;   /**< Operation */ 

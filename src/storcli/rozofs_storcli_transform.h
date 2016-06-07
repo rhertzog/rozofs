@@ -270,7 +270,7 @@ int  rozofs_storcli_transform_get_read_len_in_bytes(rozofs_storcli_inverse_block
   @return: the length written on success, -1 otherwise (errno is set)
 */
 int rozofs_storcli_transform_inverse_check_for_thread(rozofs_storcli_projection_ctx_t *prj_ctx_p,  
-                                       uint8_t layout,
+                                       uint8_t layout, uint8_t bsize,
                                        uint32_t first_block_idx, 
                                        uint32_t number_of_blocks, 
                                        rozofs_storcli_inverse_block_t *block_ctx_p,
