@@ -2379,6 +2379,258 @@ void rozofs_ll_release_defer(void *ns,void *param)
 }
 
 
+
+
+
+
+
+/*
+**___________________________R E S I Z E_________________________________
+*/
+
+
+
+
+
+
+
+
+/**
+*  metadata update -> need to update the file size
+
+ Under normal condition the service ends by calling : fuse_reply_entry
+ Under error condition it calls : fuse_reply_err
+
+ @param req: pointer to the fuse request context (must be preserved for the transaction duration
+ @param parent : inode parent provided by rozofsmount
+ @param name : name to search in the parent directory
+ 
+ @retval none
+*/
+void export_force_write_block_cbk(void *this,void *param)
+{
+  epgw_mattr_ret_t ret ;
+  struct rpc_msg  rpc_reply;
+
+
+  int status;
+  uint8_t  *payload;
+  void     *recv_buf = NULL;   
+  XDR       xdrs;    
+  int      bufsize;
+  xdrproc_t decode_proc = (xdrproc_t)xdr_epgw_mattr_ret_t;
+  rozofs_fuse_save_ctx_t *fuse_ctx_p;
+  errno = 0;
+  int trc_idx;
+  ientry_t *ie = 0;
+
+  GET_FUSE_CTX_P(fuse_ctx_p,param);    
+  RESTORE_FUSE_PARAM(param,trc_idx);
+
+  rpc_reply.acpted_rply.ar_results.proc = NULL;
+  /*
+  ** get the pointer to the transaction context:
+  ** it is required to get the information related to the receive buffer
+  */
+  rozofs_tx_ctx_t      *rozofs_tx_ctx_p = (rozofs_tx_ctx_t*)this;     
+  /*    
+  ** get the status of the transaction -> 0 OK, -1 error (need to get errno for source cause
+  */
+  status = rozofs_tx_get_status(this);
+  if (status < 0)
+  {
+     /*
+     ** something wrong happened
+     */
+     errno = rozofs_tx_get_errno(this);  
+     goto error; 
+  }
+  /*
+  ** get the pointer to the receive buffer payload
+  */
+  recv_buf = rozofs_tx_get_recvBuf(this);
+  if (recv_buf == NULL)
+  {
+     /*
+     ** something wrong happened
+     */
+     errno = EFAULT;  
+     goto error;         
+  }
+  payload  = (uint8_t*) ruc_buf_getPayload(recv_buf);
+  payload += sizeof(uint32_t); /* skip length*/
+  /*
+  ** OK now decode the received message
+  */
+  bufsize = rozofs_tx_get_small_buffer_size();
+  xdrmem_create(&xdrs,(char*)payload,bufsize,XDR_DECODE);
+  /*
+  ** decode the rpc part
+  */
+  if (rozofs_xdr_replymsg(&xdrs,&rpc_reply) != TRUE)
+  {
+   TX_STATS(ROZOFS_TX_DECODING_ERROR);
+   errno = EPROTO;
+   goto error;
+  }
+  /*
+  ** ok now call the procedure to encode the message
+  */
+  memset(&ret,0, sizeof(ret));                    
+  if (decode_proc(&xdrs,&ret) == FALSE)
+  {
+     TX_STATS(ROZOFS_TX_DECODING_ERROR);
+     errno = EPROTO;
+     xdr_free((xdrproc_t) decode_proc, (char *) &ret);
+     goto error;
+  }   
+  /*
+  **  This gateway do not support the required eid 
+  */    
+  if (ret.status_gw.status == EP_FAILURE_EID_NOT_SUPPORTED) {    
+
+      /*
+      ** Do not try to select this server again for the eid
+      ** but directly send to the exportd
+      */
+      expgw_routing_expgw_for_eid(&fuse_ctx_p->expgw_routing_ctx, ret.hdr.eid, EXPGW_DOES_NOT_SUPPORT_EID);       
+
+      xdr_free((xdrproc_t) decode_proc, (char *) &ret);    
+
+      /* 
+      ** Attempt to re-send the request to the exportd and wait being
+      ** called back again. One will use the same buffer, just changing
+      ** the xid.
+      */
+      status = rozofs_expgateway_resend_routing_common(rozofs_tx_ctx_p, NULL,param); 
+      if (status == 0)
+      {
+        /*
+        ** do not forget to release the received buffer
+        */
+        ruc_buf_freeBuffer(recv_buf);
+        recv_buf = NULL;
+        return;
+      }           
+      /*
+      ** Not able to resend the request
+      */
+      errno = EPROTO; /* What else ? */
+      goto error;
+
+  }
+
+
+
+  if (ret.status_gw.status == EP_FAILURE) {
+      errno = ret.status_gw.ep_mattr_ret_t_u.error;
+      xdr_free((xdrproc_t) decode_proc, (char *) &ret);    
+      goto error;
+  }
+
+  /*
+  ** Update eid free quota
+  */
+  eid_set_free_quota(ret.free_quota);
+
+
+  /*
+  ** Update cache entry
+  */
+  ie = get_ientry_by_fid((unsigned char*) ret.status_gw.ep_mattr_ret_t_u.attrs.fid);
+  if (ie) {
+    /*
+    ** update the attributes in the ientry
+    */
+    rozofs_ientry_update(ie,(mattr_t *)&ret.status_gw.ep_mattr_ret_t_u.attrs);  
+    //ie->file_extend_running = 0;
+  }
+
+  xdr_free((xdrproc_t) decode_proc, (char *) &ret);    
+//out:
+
+error:
+  /*
+  ** release the transaction context and the fuse context
+  */
+  rozofs_trc_rsp(srv_rozofs_ll_ioctl,0/*ino*/,NULL,(errno==0)?0:1,trc_idx);
+  STOP_PROFILING_NB(param,rozofs_ll_ioctl);
+  rozofs_fuse_release_saved_context(param);
+  if (rozofs_tx_ctx_p != NULL) rozofs_tx_free_from_ptr(rozofs_tx_ctx_p);    
+  if (recv_buf != NULL) ruc_buf_freeBuffer(recv_buf);   
+  return;
+}
+/**
+*  metadata update -> need to update the file size
+
+ Under normal condition the service ends by calling : fuse_reply_entry
+ Under error condition it calls : fuse_reply_err
+
+ @param req: pointer to the fuse request context (must be preserved for the transaction duration
+ @param parent : inode parent provided by rozofsmount
+ @param name : name to search in the parent directory
+ 
+ @retval none
+*/
+int export_force_write_block_asynchrone(void *fuse_ctx_p,  ientry_t *ientry, uint64_t from, uint64_t to) 
+{
+    epgw_write_block_arg_t arg;
+    int                    ret;        
+
+    int trc_idx = rozofs_trc_req_io(srv_rozofs_ll_ioctl, ientry->inode, ientry->fid, to,0);
+    SAVE_FUSE_PARAM(fuse_ctx_p,trc_idx);
+    /*
+    ** insert the site number in the argument
+    */
+    arg.hdr.gateway_rank = rozofs_get_site_number(); 
+//    severe("FDL site_number %d",arg.hdr.gateway_rank);
+    /*
+    ** fill up the structure that will be used for creating the xdr message
+    */    
+    arg.arg_gw.eid = exportclt.eid;
+    memcpy(arg.arg_gw.fid, ientry->fid, sizeof (fid_t));
+    arg.arg_gw.bid = 0;
+    arg.arg_gw.nrb = 1;
+    arg.arg_gw.length = 0; //buf_flush_len;
+    arg.arg_gw.offset = to; //buf_flush_offset;
+    arg.arg_gw.geo_wr_start = from;
+    arg.arg_gw.geo_wr_end   = to;
+    /*
+    ** now initiates the transaction towards the remote end
+    */
+    ret = rozofs_expgateway_send_routing_common(arg.arg_gw.eid,ientry->fid,EXPORT_PROGRAM, EXPORT_VERSION,
+                              EP_WRITE_BLOCK,(xdrproc_t) xdr_epgw_write_block_arg_t,(void *)&arg,
+                              export_force_write_block_cbk,fuse_ctx_p); 
+    return ret;  
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 /**
 *  metadata update -> need to update the file size
 

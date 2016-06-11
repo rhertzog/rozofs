@@ -101,6 +101,7 @@ extern rozofs_disk_thread_ctx_t rozofs_disk_thread_ctx_tb[];
 
 typedef enum _storio_disk_thread_request_e {
   STORIO_DISK_THREAD_READ=1,
+  STORIO_DISK_THREAD_RESIZE,
   STORIO_DISK_THREAD_WRITE,
   STORIO_DISK_THREAD_TRUNCATE,
   STORIO_DISK_THREAD_WRITE_REPAIR,

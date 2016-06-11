@@ -21,6 +21,14 @@
 
 #include <rozofs/rozofs.h>
 
+
+/*
+** Constant for file resizing
+*/
+#define ROZOFS_RESIZEA 0x20524553495A4541LL
+#define ROZOFS_RESIZEM 0x20524553495A454DLL
+
+
 /** API meta attributes functions.
  */
 

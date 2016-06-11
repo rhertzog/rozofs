@@ -355,7 +355,7 @@ out:
 */
 void rozofs_ll_setattr_cbk(void *this,void *param); 
 void rozofs_ll_truncate_cbk(void *this,void *param); 
-
+void rozofs_resize(fuse_req_t req, ientry_t *ie, void *buffer_p, int trc_idx) ;
 
 void rozofs_ll_setattr_nb(fuse_req_t req, fuse_ino_t ino, struct stat *stbuf,
         int to_set, struct fuse_file_info *fi) 
@@ -397,6 +397,26 @@ void rozofs_ll_setattr_nb(fuse_req_t req, fuse_ino_t ino, struct stat *stbuf,
         errno = ENOENT;
         goto error;
     }
+    
+    
+    /*
+    ** W A R N I N G
+    **
+    ** This awfull trick is to recompute the file size from the read size on the
+    ** storages in case the export is not up to date after a switchover
+    **
+    ** W A R N I N G
+    **
+    ** This request will require resources on the STOTCLI side while it has
+    ** been read from fuse because EXPORT side resources are available !!!!!
+    ** The xon/xoff mechanism can not be used with FUSE kernel module
+    **
+    */
+    if ((to_set & FUSE_SET_ATTR_ATIME) && (to_set & FUSE_SET_ATTR_ATIME)
+    &&  (attr.mtime == ROZOFS_RESIZEM)  && (attr.atime == ROZOFS_RESIZEA)) {
+       return rozofs_resize(req, ie, buffer_p, trc_idx); 
+    }
+    
     /*
     ** address the case of the file truncate: update the size of the ientry
     ** when the file is truncated

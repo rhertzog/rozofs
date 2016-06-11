@@ -2038,6 +2038,222 @@ out:
     if (fd != -1) close(fd);
     return status;
 }
+    
+int storage_resize(storage_t * st, storio_device_mapping_t * fidCtx, uint8_t layout, uint32_t bsize, sid_t * dist_set,
+        uint8_t spare, fid_t fid, bin_t * bins, uint32_t * nb_blocks, uint32_t * last_block_size, int * is_fid_faulty) {
+
+    int status = -1;
+    char path[FILENAME_MAX];
+    int fd = -1;
+    size_t nb_read = 0;
+    size_t length_to_read = 0;
+    off_t bins_file_offset = 0;
+    uint16_t rozofs_msg_psize;
+    uint16_t rozofs_disk_psize;
+    int                       storage_slice;
+    uint64_t    crc32_errors[3]; 
+    uint8_t * device = fidCtx->device;
+    int result;
+    int chunk;
+    struct stat buf; 
+    rozofs_stor_bins_hdr_t * hdr = (rozofs_stor_bins_hdr_t *) bins;
+    
+    dbg("%d/%d Resize", st->cid, st->sid);
+
+    // No specific fault on this FID detected
+    *is_fid_faulty = 0;  
+    path[0]=0;
+    *nb_blocks = 0;
+    *last_block_size = 0;
+
+    /*
+    ** Retrieve the projection size in the message 
+    ** and the projection size on disk
+    */
+    storage_get_projection_size(spare, st->sid, layout, bsize, dist_set,
+                                &rozofs_msg_psize, &rozofs_disk_psize); 
+    
+    /*
+    ** When device array is not given, one has to read the header file on disk
+    */
+    if (device[0] == ROZOFS_UNKNOWN_CHUNK) {
+      rozofs_stor_bins_file_hdr_t file_hdr;
+      STORAGE_READ_HDR_RESULT_E read_hdr_res;  
+      
+      read_hdr_res = storage_read_header_file(
+              st,       // cid/sid context
+              fid,      // FID we are looking for
+	      spare,    // Whether the storage is spare for this FID
+	      &file_hdr,// Returned header file content
+              0 );      // do not update header file when not the same recycling value
+
+
+      /*
+      ** Header files are unreadable
+      */
+      if (read_hdr_res == STORAGE_READ_HDR_ERRORS) {
+	*is_fid_faulty = 1; 
+	errno = EIO;
+	goto out;
+      }
+      
+      /*
+      ** Header files does not exist
+      */      
+      if (read_hdr_res == STORAGE_READ_HDR_NOT_FOUND) {
+        errno = ENOENT;
+        goto out;  
+      } 
+      
+      /*
+      ** Header files has not the requested recycling value.
+      ** The requested file does not exist.
+      */      
+      if (read_hdr_res == STORAGE_READ_HDR_OTHER_RECYCLING_COUNTER) {
+        /*
+	** Update the FID context in order to make it fit with the disk content
+	** Copy recycling counter value as well as chunk distribution
+	*/
+	fidCtx->recycle_cpt = rozofs_get_recycle_from_fid(file_hdr.v0.fid);
+	memcpy(device,file_hdr.v0.device,ROZOFS_STORAGE_MAX_CHUNK_PER_FILE);
+        errno = ENOENT;
+        goto out;  
+      } 
+      
+      /*
+      ** Update recycle counter in FID context when relevant
+      */
+      if (fidCtx->recycle_cpt != rozofs_get_recycle_from_fid(file_hdr.v0.fid)) {
+        fidCtx->recycle_cpt = rozofs_get_recycle_from_fid(file_hdr.v0.fid); 
+      } 
+
+      /* 
+      ** The header file has been read
+      */
+      memcpy(device,file_hdr.v0.device,ROZOFS_STORAGE_MAX_CHUNK_PER_FILE);  
+    }
+    
+    /* 
+    ** Get the last chunk number
+    */
+    for (chunk = ROZOFS_STORAGE_MAX_CHUNK_PER_FILE-1; chunk>=0; chunk--) {
+      if (device[chunk] == ROZOFS_EOF_CHUNK)     continue;
+      if (device[chunk] == ROZOFS_UNKNOWN_CHUNK) continue;
+      if (device[chunk] == ROZOFS_EMPTY_CHUNK)   continue;
+      break;
+    }
+    
+    if (chunk < 0) {
+      errno = ENOENT;
+      goto out;  
+    } 
+     
+    /*
+    ** Build the chunk full path
+    */
+    storage_slice = rozofs_storage_fid_slice(fid);
+    storage_build_chunk_full_path(path, st->root, device[chunk], spare, storage_slice, fid,chunk);
+
+    // Open bins file
+    fd = open(path, ROZOFS_ST_NO_CREATE_FILE_FLAG, ROZOFS_ST_BINS_FILE_MODE_RO);
+    if (fd < 0) {
+    
+        // Something definitively wrong on device
+        if (errno != ENOENT) {
+          storio_fid_error(fid, device[chunk], chunk, 0, 0,"open resize"); 		
+	  storage_error_on_device(st,device[chunk]); 
+	  goto out;
+	}
+	
+        // If device id was not given as input, the file path has been deduced from 
+	// the header files and so should exist. This is an error !!!
+        storio_fid_error(fid, device[chunk], chunk, 0, 0,"open resize"); 			  
+	errno = EIO; // Data file is missing !!!
+	*is_fid_faulty = 1;
+	storage_error_on_device(st,device[chunk]); 
+	goto out;
+    }	
+
+	       
+    // Compute the offset and length to write
+    if (fstat(fd, &buf)<0) {
+       storio_fid_error(fid, device[chunk], chunk, 0, 0,"open resize"); 			  
+       errno = EIO; // Data file is missing !!!
+       *is_fid_faulty = 1;
+       storage_error_on_device(st,device[chunk]);
+       goto out;        
+    }
+
+
+    *nb_blocks = buf.st_size/rozofs_disk_psize;
+    if (*nb_blocks == 0) {
+        errno = ENOENT;
+        goto out;  
+    }   
+    *nb_blocks = (*nb_blocks) - 1;
+    
+    bins_file_offset = (*nb_blocks) * rozofs_disk_psize;
+    length_to_read   = rozofs_disk_psize;
+
+    //dbg("read %s bid %d nb %d",path,bid,nb_proj);
+    
+    /*
+    ** Reading the projection directly as they will be sent in message
+    */
+    nb_read = pread(fd, bins, length_to_read, bins_file_offset);       
+    
+    // Check error
+    if (nb_read == -1) {
+        storio_fid_error(fid, device[chunk], chunk, *nb_blocks, 1,"resize"); 			
+        severe("pread failed: %s", strerror(errno));
+	storage_error_on_device(st,device[chunk]);  
+	// A fault probably localized to this FID is detected   
+	*is_fid_faulty = 1;   		
+        goto out;
+    }
+
+    // Check the length read
+    if (nb_read != length_to_read) {
+        char fid_str[37];
+        rozofs_uuid_unparse(fid, fid_str);
+        severe("storage_read failed (FID: %s layout %d bsize %d chunk %d bid %d): read inconsistent length %d not modulo of %d",
+	       fid_str,layout,bsize,chunk, (int) (*nb_blocks),(int)nb_read,rozofs_disk_psize);
+	goto out;
+    }
+
+    /*
+    ** check the crc32c for each projection block
+    */
+    uint32_t crc32 = fid2crc32((uint32_t *)fid)+(*nb_blocks);
+    memset(crc32_errors,0,sizeof(crc32_errors));
+           
+    result = storio_check_crc32((char*)bins,
+                        	1,
+                		rozofs_disk_psize,
+				&st->crc_error,
+				crc32,
+				crc32_errors);
+    if (result!=0) { 
+      storio_fid_error(fid, device[chunk], chunk, (*nb_blocks), result,"read crc32"); 		     
+      if (result>1) storage_error_on_device(st,device[chunk]); 
+       errno = EIO; // Data file is missing !!!
+       *is_fid_faulty = 1;
+       storage_error_on_device(st,device[chunk]);
+       goto out;       
+    }	  
+
+    if (hdr->s.timestamp == 0) {
+      *last_block_size = ROZOFS_BSIZE_BYTES(bsize);
+    }
+    else if (hdr->s.effective_length<=ROZOFS_BSIZE_BYTES(bsize)) {
+      *last_block_size = hdr->s.effective_length;      
+    }
+    status = 0;
+
+out:
+    if (fd != -1) close(fd);
+    return status;
+}
 
 
 int storage_truncate(storage_t * st, storio_device_mapping_t * fidCtx, uint8_t layout, uint32_t bsize, sid_t * dist_set,
