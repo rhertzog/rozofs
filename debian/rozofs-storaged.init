@@ -10,14 +10,14 @@
 #                    provides the rozofs-storaged server functionality.
 ### END INIT INFO
 
-# Author: Fizians S.A.S. <devel@rozofs.com>
+# Author: Rozo Systems S.A.S. <devel@rozofs.com>
 
 # PATH should only include /usr/* if it runs after the mountnfs.sh script
 PATH=/sbin:/usr/sbin:/bin:/usr/bin
-DESC=storaged            # Introduce a short description here
-NAME=storaged     # Introduce the short server's name here
-DAEMON=/usr/bin/storaged # Introduce the server's location here
-DAEMON_ARGS=""           # Arguments to run the daemon with
+DESC="rozofs-storaged service"        # Introduce a short description here
+NAME=storaged                         # Introduce the short server's name here
+DAEMON=/usr/bin/storaged              # Introduce the server's location here
+DAEMON_ARGS=""                        # Arguments to run the daemon with
 PIDFILE=/var/run/launcher_${NAME}.pid
 SCRIPTNAME=$0
 LAUNCHER=/usr/bin/rozolauncher
@@ -39,40 +39,56 @@ LAUNCHER=/usr/bin/rozolauncher
 # Enable core files
 ulimit -c unlimited
 
-status () {
+if [ -t 0 ] ; then
+  # Be verbose when called from a terminal
+  VERBOSE=yes
+fi
 
-    if [ -f $PIDFILE ];
-    then 
-      exit 0
-    fi   
-    
-    exit 3
+# Get uid
+_uid=$(id -u)
+
+#
+# Function that check if user has sufficient privilege
+#
+do_check_uid()
+{
+  # user had insufficient privilege
+  if [ ${_uid} -ne 0 ] ; then
+    [ "$VERBOSE" != no ] && log_progress_msg "(User has insufficient privilege)"
+    [ "$VERBOSE" != no ] && log_end_msg 4
+    exit 4
+  fi
 }
+
 #
 # Function that starts the daemon/service
 #
 do_start()
 {
-    # 1rst check the configuration
-    $DAEMON $DAEMON_ARGS -C
-    case "$?" in
-    
-      # Configuration is valid. 
-      # Let's run through rozolauncher.
-      "0"){
-         $LAUNCHER start $PIDFILE $DAEMON $DAEMON_ARGS &
-         return 0
-      };;
-      
-      # Configuration is invalid. 
-      # Return an error.
-      *) {
-	 echo "Inconsistant configuration !!!"
-	 echo "Check log files."
-	 return 3      
-      };;
-      
-    esac    
+  res=0
+  # Check if running
+  status_of_proc -p ${PIDFILE} "$DAEMON" rozofs-storaged >/dev/null 2>&1
+
+  case "$?" in
+      0) return 1;;
+  esac
+
+  # Check the configuration
+  $DAEMON $DAEMON_ARGS -C
+  case "$?" in
+      "0")
+          # Configuration is valid.
+          # Let's run through rozolauncher.
+          $LAUNCHER start $PIDFILE $DAEMON $DAEMON_ARGS
+          return 0 ;;
+      *)
+          # Configuration is invalid.
+          # Return an error.
+          if [ "$VERBOSE" != no ] ; then
+            log_progress_msg "(inconsistent configuration file, see logs)"
+          fi
+          return 3 ;;
+  esac
 }
 
 #
@@ -80,38 +96,58 @@ do_start()
 #
 do_stop()
 {
-    $LAUNCHER stop $PIDFILE
-    return 0
-}
+  res=0
+  # Check if running
+  status_of_proc -p ${PIDFILE} "$DAEMON" rozofs-storaged >/dev/null 2>&1
 
+  case "$?" in
+      3) res=1;;
+  esac
+
+  # Always try to stop
+  $LAUNCHER stop $PIDFILE
+
+  return $res
+}
 
 case "$1" in
   start|reload|restart|force-reload)
-    [ "$VERBOSE" != no ] && log_daemon_msg "$1 $DESC " "$NAME"
-    do_start
-    res=$?
-    case "$res" in
-        0) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
-        *) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
-    esac
-    exit $res
-    ;;
+        [ "$VERBOSE" != no ] && log_daemon_msg "Starting $DESC" "$NAME"
+        do_check_uid
+        do_start
+        res=$?
+        case "$res" in
+          0) [ "$VERBOSE" != no ] && log_end_msg 0
+             return 0 ;;
+          1) [ "$VERBOSE" != no ] && log_progress_msg "(already started)"
+             [ "$VERBOSE" != no ] && log_end_msg 0
+             return 0 ;;
+          *) [ "$VERBOSE" != no ] && log_end_msg 1
+             return 1 ;;
+        esac
+        ;;
   stop)
-    [ "$VERBOSE" != no ] && log_daemon_msg "Stopping $DESC" "$NAME"
-    do_stop
-    res=$?
-    case "$res" in
-        0) [ "$VERBOSE" != no ] && log_end_msg 0 ;;
-        *) [ "$VERBOSE" != no ] && log_end_msg 1 ;;
-    esac
-    exit $res
-    ;;
-  status) status;;
-
+        [ "$VERBOSE" != no ] && log_daemon_msg "Stopping $DESC" "$NAME"
+        do_check_uid
+        do_stop
+        res=$?
+        case "$res" in
+          0) [ "$VERBOSE" != no ] && log_end_msg 0
+             return 0 ;;
+          1) [ "$VERBOSE" != no ] && log_progress_msg "(already stopped)"
+             [ "$VERBOSE" != no ] && log_end_msg 0
+             return 0 ;;
+          *) [ "$VERBOSE" != no ] && log_end_msg 1
+             return 1 ;;
+        esac
+        ;;
+  status)
+        status_of_proc -p ${PIDFILE} "$DAEMON" rozofs-storaged && exit 0 || exit $?
+        ;;
   *)
-    echo "Usage: $SCRIPTNAME {start|stop|status|restart}" >&2
-    exit 3
-    ;;
+        echo "Usage: ${SCRIPTNAME} {start|stop|status|restart}" >&2
+        exit 3
+        ;;
 esac
 
-:
+exit $?
