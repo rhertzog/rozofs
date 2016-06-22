@@ -118,12 +118,12 @@ case "$1" in
         res=$?
         case "$res" in
           0) [ "$VERBOSE" != no ] && log_end_msg 0
-             return 0 ;;
+             exit 0 ;;
           1) [ "$VERBOSE" != no ] && log_progress_msg "(already started)"
              [ "$VERBOSE" != no ] && log_end_msg 0
-             return 0 ;;
+             exit 0 ;;
           *) [ "$VERBOSE" != no ] && log_end_msg 1
-             return 1 ;;
+             exit 1 ;;
         esac
         ;;
   stop)
@@ -133,12 +133,12 @@ case "$1" in
         res=$?
         case "$res" in
           0) [ "$VERBOSE" != no ] && log_end_msg 0
-             return 0 ;;
+             exit 0 ;;
           1) [ "$VERBOSE" != no ] && log_progress_msg "(already stopped)"
              [ "$VERBOSE" != no ] && log_end_msg 0
-             return 0 ;;
+             exit 0 ;;
           *) [ "$VERBOSE" != no ] && log_end_msg 1
-             return 1 ;;
+             exit 1 ;;
         esac
         ;;
   status)
