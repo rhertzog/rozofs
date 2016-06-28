@@ -733,7 +733,25 @@ int rozofs_sorcli_send_rq_common(uint32_t lbg_id,uint32_t timeout_sec, uint32_t 
 
 #endif
 
+/*
+**__________________________________________________________________________
+*/
+/**
+* send a success read reply
+  That API fill up the common header with the SP_READ_RSP opcode
+  insert the transaction_id associated with the inittial request transaction id
+  insert a status OK
+  insert the length of the data payload
+  
+  In case of a success it is up to the called function to release the xmit buffer
+  
+  @param p : pointer to the root transaction context used for the read
+  
+  @retval none
 
+*/
+
+void rozofs_storcli_resize_reply_success(rozofs_storcli_ctx_t *p, uint32_t nb_blocks, uint32_t last_block_size);
 /*
 **__________________________________________________________________________
 */
@@ -1524,7 +1542,19 @@ void rozofs_storcli_truncate_timeout(rozofs_storcli_ctx_t *working_ctx_p);
  */
 
 void rozofs_storcli_write_timeout(rozofs_storcli_ctx_t *working_ctx_p) ;
+/*
+**__________________________________________________________________________
+*/
+/**
+*  Call back function call upon a success rpc, timeout or any other rpc failure
+*
+ @param this : pointer to the transaction context
+ @param param: pointer to the associated rozofs_fuse_context
+ 
+ @return none
+ */
 
+void rozofs_storcli_resize_timeout(rozofs_storcli_ctx_t *working_ctx_p) ;
 /*
 **____________________________________________________
 ** Corrupted block read information

@@ -1401,6 +1401,8 @@ out:
   if (isZero==0) *p ='/';
   return status;
 }
+int storage_resize(storage_t * st, storio_device_mapping_t * fidCtx, uint8_t layout, uint32_t bsize, sid_t * dist_set,
+        uint8_t spare, fid_t fid, bin_t * bins, uint32_t * nb_blocks, uint32_t * last_block_size, int * is_fid_faulty);
 /*
 ** Create sub directories structure of a storage node
 **  

@@ -75,7 +75,9 @@ struct stcpp_profiler_t {
     uint64_t    repair_prj[3];
     uint64_t    repair_prj_tmo[2];
     uint64_t    repair_prj_err[2];
-    
+    uint64_t    resize[2];    
+    uint64_t    resize_prj[2];    
+    uint64_t    resize_prj_err[2];    
     uint16_t    io_process_ports[32];
 };
 

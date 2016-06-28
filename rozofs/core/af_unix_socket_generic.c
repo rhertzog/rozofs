@@ -793,22 +793,44 @@ int af_unix_socket_family_create (char *basename_p, int base_instance,int nb_ins
 */
 #define QLEN_FILE "/proc/sys/net/unix/max_dgram_qlen"
 int af_unix_socket_set_datagram_socket_len(int len) {
-  char new_value[32];
+  char value[64];
   int fd;
   int ret = 0;
+  int old_value;
   
   if ((fd=open(QLEN_FILE, O_RDWR)) < 0) {
     severe("set_datagram_socket_len(%d) open(%s) %s", len, QLEN_FILE,strerror(errno));
     return 1;
   } 
   
-  sprintf(new_value,"%d",len);
+  /*
+  ** Read old value
+  */
+  if (read(fd, &value, 64) < 0) {
+    severe("read(%s) %s",QLEN_FILE,strerror(errno));
+    goto out;
+  }
   
-  if (write (fd, &new_value, strlen(new_value)) < 0) {
+   /*
+   ** Check whether new value is greater
+   */
+  if (sscanf(value,"%d",&old_value) == 1) {
+    /*
+    ** Value is already big enough
+    */
+    if (old_value >= len) goto out; 
+  }
+   
+  /*
+  ** Set new value
+  */
+  sprintf(value,"%d",len);
+  if (write (fd, &value, strlen(value)) < 0) {
     severe("set_datagram_socket_len(%d) write(%s) %s", len,QLEN_FILE, strerror(errno));
     ret = 1;
-  } 
-  
+  }
+   
+out:  
   close(fd);
   return ret;
 }

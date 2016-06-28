@@ -260,6 +260,9 @@ void show_profiler(char * argv[], uint32_t tcpRef, void *bufRef) {
     SHOW_PROFILER_PROBE_COUNT(delete_prj_tmo);
     SHOW_PROFILER_PROBE_COUNT(delete_prj_err);
     
+    SHOW_PROFILER_PROBE_COUNT(resize);
+    SHOW_PROFILER_PROBE_COUNT(resize_prj);
+    SHOW_PROFILER_PROBE_COUNT(resize_prj_err);
     if (argv[1] != NULL)
     {
       if (strcmp(argv[1],"reset")==0) {
@@ -295,6 +298,11 @@ void show_profiler(char * argv[], uint32_t tcpRef, void *bufRef) {
 	RESET_PROFILER_PROBE_BYTE(delete_prj);
 	RESET_PROFILER_PROBE(delete_prj_tmo);
 	RESET_PROFILER_PROBE(delete_prj_err);  
+    
+	RESET_PROFILER_PROBE(resize);
+	RESET_PROFILER_PROBE(resize_prj);
+	RESET_PROFILER_PROBE(resize_prj_err);
+	
 	pChar += sprintf(pChar,"Reset Done\n");  
 	gprofiler.uptime = this_time;  
       }

@@ -420,6 +420,127 @@ static inline void storio_disk_read(rozofs_disk_thread_ctx_t *thread_ctx_p,stori
 /*__________________________________________________________________________
 */
 /**
+*  Resize file from daa length
+
+  @param thread_ctx_p: pointer to the thread context
+  @param msg         : address of the message received
+  
+  @retval: none
+*/
+static inline void storio_disk_resize(rozofs_disk_thread_ctx_t *thread_ctx_p,storio_disk_thread_msg_t * msg) {
+  struct timeval     timeDay;
+  unsigned long long timeBefore, timeAfter;
+  storage_t *st = 0;
+  sp_read_arg_t          * args;
+  rozorpc_srv_ctx_t      * rpcCtx;
+  sp_read_ret_t            ret;
+  int                      is_fid_faulty;
+  storio_device_mapping_t * fidCtx;
+     
+  gettimeofday(&timeDay,(struct timezone *)0);  
+  timeBefore = MICROLONG(timeDay);
+
+  ret.status = SP_FAILURE;      
+	          
+  /*
+  ** update statistics
+  */
+  thread_ctx_p->stat.read_count++;
+  
+  rpcCtx = msg->rpcCtx;
+  args   = (sp_read_arg_t*) ruc_buf_getPayload(rpcCtx->decoded_arg);
+
+  fidCtx = storio_device_mapping_ctx_retrieve(msg->fidIdx);
+  if (fidCtx == NULL) {
+    ret.sp_read_ret_t_u.error = EIO;
+    severe("Bad FID ctx index %d",msg->fidIdx); 
+    storio_encode_rpc_response(rpcCtx,(char*)&ret);  
+    thread_ctx_p->stat.read_error++ ;   
+    storio_send_response(thread_ctx_p,msg,-1);
+    return;
+  }  
+
+  // Get the storage for the couple (cid;sid)
+  if ((st = storaged_lookup(args->cid, args->sid)) == 0) {
+    ret.sp_read_ret_t_u.error = errno;
+    storio_encode_rpc_response(rpcCtx,(char*)&ret);  
+    thread_ctx_p->stat.read_badCidSid++ ;   
+    storio_send_response(thread_ctx_p,msg,-1);
+    return;
+  }
+  
+  // Check whether this is exactly the same FID
+  // This is to handle the case when the read request has been serialized
+  // After serialization, the recycling counter may not be the same !!!
+  if (fidCtx->device[0] != ROZOFS_UNKNOWN_CHUNK) {
+    if (rozofs_get_recycle_from_fid(args->fid) != fidCtx->recycle_cpt) {
+      // This is not the same recycling counter, so not the same file
+      ret.sp_read_ret_t_u.error = ENOENT;
+      storio_encode_rpc_response(rpcCtx,(char*)&ret); 
+      thread_ctx_p->stat.read_nosuchfile++ ;          
+      storio_send_response(thread_ctx_p,msg,-1);
+      return;
+    }
+  }  
+    
+  /*
+  ** set the pointer to the bins
+  */
+  char *pbuf = ruc_buf_getPayload(rpcCtx->xmitBuf);
+  pbuf += rpcCtx->position;     
+  /*
+  ** clear the length of the bins and set the pointer where data must be returned
+  */  
+  ret.sp_read_ret_t_u.rsp.bins.bins_val = pbuf;
+  ret.sp_read_ret_t_u.rsp.bins.bins_len = 0;
+#if 0 // for future usage with distributed cache 
+  /*
+  ** clear the optimization array
+  */
+  ret.sp_read_ret_t_u.rsp.optim.optim_val = (char*)sp_optim;
+  ret.sp_read_ret_t_u.rsp.optim.optim_len = 0;
+#endif   
+
+
+  // Lookup for the device id for this FID
+  // Read projections
+  if (storage_resize(st, fidCtx, args->layout, args->bsize,(sid_t *) args->dist_set, args->spare,
+            (unsigned char *) args->fid, (bin_t*) pbuf,
+	    & ret.sp_read_ret_t_u.rsp.filler1, 
+	    & ret.sp_read_ret_t_u.rsp.filler2, 
+	    &is_fid_faulty) != 0) 
+  {
+    ret.sp_read_ret_t_u.error = errno;
+    if (errno == ENOENT)    thread_ctx_p->stat.read_nosuchfile++;
+    else if (!args->spare)  thread_ctx_p->stat.read_error++;
+    else                    thread_ctx_p->stat.read_error_spare++;
+    if (is_fid_faulty) {
+      storio_register_faulty_fid(thread_ctx_p->thread_idx,
+				 args->cid,
+				 args->sid,
+				 (uint8_t*)args->fid);
+    }     
+    storio_encode_rpc_response(rpcCtx,(char*)&ret);
+    storio_send_response(thread_ctx_p,msg,-1);
+    return;
+  }  
+ 
+  ret.status = SP_SUCCESS;  
+  msg->size = 0;        
+  storio_encode_rpc_response(rpcCtx,(char*)&ret);  
+  thread_ctx_p->stat.read_Byte_count += ret.sp_read_ret_t_u.rsp.bins.bins_len;
+  storio_send_response(thread_ctx_p,msg,0);
+
+  /*
+  ** Update statistics
+  */
+  gettimeofday(&timeDay,(struct timezone *)0);  
+  timeAfter = MICROLONG(timeDay);
+  thread_ctx_p->stat.read_time +=(timeAfter-timeBefore);  
+}
+/*__________________________________________________________________________
+*/
+/**
 *  Write data to a file
 
   @param thread_ctx_p: pointer to the thread context
@@ -1160,6 +1281,10 @@ void *storio_disk_thread(void *arg) {
       case STORIO_DISK_THREAD_READ:
         storio_disk_read(ctx_p,&msg);
         break;
+	
+      case STORIO_DISK_THREAD_RESIZE:
+        storio_disk_resize(ctx_p,&msg);
+        break;	
 	
       case STORIO_DISK_THREAD_WRITE:
         storio_disk_write(ctx_p,&msg);

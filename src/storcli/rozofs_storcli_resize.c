@@ -53,12 +53,14 @@
 
 DECLARE_PROFILING(stcpp_profiler_t);
 
-uint64_t  corrupted_log_filter=0;
+
+extern uint64_t  corrupted_log_filter;
 
 /*
 ** Buffer to trace read/write errors
 */
-storcli_rw_err_t storcli_rw_error = { 0 };
+extern storcli_rw_err_t storcli_rw_error;
+
 
 /*
 **__________________________________________________________________________
@@ -87,8 +89,8 @@ extern uint32_t rozofs_storcli_allocate_read_seqnum();
 /**
 * Local prototypes
 */
-void rozofs_storcli_read_req_processing_cbk(void *this,void *param) ;
-void rozofs_storcli_read_req_processing(rozofs_storcli_ctx_t *working_ctx_p);
+void rozofs_storcli_resize_req_processing_cbk(void *this,void *param) ;
+void rozofs_storcli_resize_req_processing(rozofs_storcli_ctx_t *working_ctx_p);
 
 
 
@@ -97,6 +99,42 @@ void rozofs_storcli_read_req_processing(rozofs_storcli_ctx_t *working_ctx_p);
 *      LOCAL FUNCTIONS
 **_________________________________________________________________________
 */
+
+
+
+/*
+**_________________________________________________________________________
+*      PUBLIC FUNCTIONS
+**_________________________________________________________________________
+*/
+
+
+/*
+**__________________________________________________________________________
+*/
+/**
+* The purpose of that function is to return TRUE if there is atlbg_in_distribution least one projection
+   for which we expect a response from a storage
+  
+  @param layout : layout association with the file
+  @param prj_cxt_p: pointer to the projection context (working array)
+  
+  @retval number of received projection
+*/
+static inline int rozofs_storcli_check_resize_in_progress_projections(uint8_t layout,rozofs_storcli_projection_ctx_t *prj_cxt_p)
+{
+  /*
+  ** Get the rozofs_inverse and rozofs_forward value for the layout
+  */
+  uint8_t   rozofs_safe = rozofs_get_rozofs_safe(layout);
+  int i;
+  
+  for (i = 0; i <rozofs_safe; i++,prj_cxt_p++)
+  {
+    if (prj_cxt_p->prj_state == ROZOFS_PRJ_READ_IN_PRG) return 1;
+  }
+  return 0;
+}
 /*
 **__________________________________________________________________________
 */
@@ -109,7 +147,7 @@ void rozofs_storcli_read_req_processing(rozofs_storcli_ctx_t *working_ctx_p);
   
   @retval number of received projection
 */
-static inline int rozofs_storcli_rebuild_check(uint8_t layout,rozofs_storcli_projection_ctx_t *prj_cxt_p)
+static inline int rozofs_storcli_resize_check(uint8_t layout,rozofs_storcli_projection_ctx_t *prj_cxt_p)
 {
   /*
   ** Get the rozofs_inverse and rozofs_forward value for the layout
@@ -133,362 +171,11 @@ static inline int rozofs_storcli_rebuild_check(uint8_t layout,rozofs_storcli_pro
   }
   return received;
 }
-
-/*
-**__________________________________________________________________________
-*/
-/**
-* The purpose of that function is to return TRUE if there is atlbg_in_distribution least one projection
-   for which we expect a response from a storage
-  
-  @param layout : layout association with the file
-  @param prj_cxt_p: pointer to the projection context (working array)
-  
-  @retval number of received projection
-*/
-static inline int rozofs_storcli_check_read_in_progress_projections(uint8_t layout,rozofs_storcli_projection_ctx_t *prj_cxt_p)
-{
-  /*
-  ** Get the rozofs_inverse and rozofs_forward value for the layout
-  */
-  uint8_t   rozofs_safe = rozofs_get_rozofs_safe(layout);
-  int i;
-  
-  for (i = 0; i <rozofs_safe; i++,prj_cxt_p++)
-  {
-    if (prj_cxt_p->prj_state == ROZOFS_PRJ_READ_IN_PRG) return 1;
-  }
-  return 0;
-}
-
-
-
-/*
-**_________________________________________________________________________
-*      PUBLIC FUNCTIONS
-**_________________________________________________________________________
-*/
-
-
-
 /*
 **__________________________________________________________________________
 */
 
-/**
-* callback for sending a response to a read ta remote entity
-
- potential failure case:
-  - socket_ref is out of range
-  - connection is down
-  
- @param buffer : pointer to the ruc_buffer that cointains the response
- @param socket_ref : index of the scoket context with the caller is remode, non significant for local caller
- @param user_param_p : pointer to a user opaque parameter (non significant for a remote access)
- 
- @retval 0 : successfully submitted to the transport layer
- @retval < 0 error, the caller is intended to release the buffer
- */
-int rozofs_storcli_remote_rsp_cbk(void *buffer,uint32_t socket_ref,void *user_param_p)
-{
-#ifndef TEST_STORCLI_TEST
-    return af_unix_generic_send_stream_with_idx((int)socket_ref,buffer);  
-#else
-    return test_af_unix_generic_send_stream_with_idx((int)socket_ref,buffer);  
-#endif
-}
-void rozofs_storcli_resize_req_processing(rozofs_storcli_ctx_t *working_ctx_p);
-/*
-**__________________________________________________________________________
-*/
-/**
-  Initial read request
-    
-  @param socket_ctx_idx: index of the TCP connection
-  @param recv_buf: pointer to the ruc_buffer that contains the message
-  @param rozofs_storcli_remote_rsp_cbk: callback for sending out the response
-  @param user_param : pointer to a user opaque parameter (non significant for a remote access)
-  @param do_not_queue: when asserted, the request in not inserted in the serialization hash table
- 
-   @retval : TRUE-> xmit ready event expected
-  @retval : FALSE-> xmit  ready event not expected
-*/
-void rozofs_storcli_read_req_init(uint32_t  socket_ctx_idx, 
-                                  void *recv_buf,
-                                  rozofs_storcli_resp_pf_t rozofs_storcli_remote_rsp_cbk,
-                                  void *user_param,
-                                  uint32_t do_not_queue)
-{
-   rozofs_rpc_call_hdr_with_sz_t    *com_hdr_p;
-   rozofs_storcli_ctx_t *working_ctx_p = NULL;
-   uint32_t  msg_len;  /* length of the rpc messsage including the header length */
-   int      len;       /* effective length of application message               */
-   uint8_t  *pmsg;     /* pointer to the first available byte in the application message */
-   rozofs_rpc_call_hdr_t   hdr;   /* structure that contains the rpc header in host format */
-   storcli_read_arg_t     *storcli_read_rq_p = NULL ;
-   
-   uint32_t header_len;
-   XDR xdrs;
-   int errcode = EINVAL;
-   /*
-   ** allocate a context for the duration of the read
-   */
-   working_ctx_p = rozofs_storcli_alloc_context();
-   if (working_ctx_p == NULL)
-   {
-     /*
-     ** that situation MUST not occur since there the same number of receive buffer and working context!!
-     */
-     severe("out of working read/write saved context");
-     errcode = ENOMEM;
-     goto failure;
-
-   }
-   /*
-   ** no bytes since lenngth is unknown
-   */
-   STORCLI_START_NORTH_PROF(working_ctx_p,read,0);
-   
-   storcli_read_rq_p = &working_ctx_p->storcli_read_arg;
-   memset(storcli_read_rq_p,0,sizeof(storcli_read_arg_t));  /* FDL do we really need it ???? */
-   /*
-   ** Get the full length of the message and adjust it the the length of the applicative part (RPC header+application msg)
-   */
-   msg_len = ruc_buf_getPayloadLen(recv_buf);
-   msg_len -=sizeof(uint32_t);
-   
-   /*
-   ** save the reference of the received socket since it will be needed for sending back the
-   ** response
-   */
-   working_ctx_p->socketRef    = socket_ctx_idx;
-   working_ctx_p->recv_buf     = recv_buf;
-   working_ctx_p->response_cbk = rozofs_storcli_remote_rsp_cbk;
-   working_ctx_p->user_param   = user_param;
-   /*
-   ** Get the payload of the receive buffer and set the pointer to array that describes the read request
-   */
-   com_hdr_p  = (rozofs_rpc_call_hdr_with_sz_t*) ruc_buf_getPayload(recv_buf);  
-   memcpy(&hdr,&com_hdr_p->hdr,sizeof(rozofs_rpc_call_hdr_t));
-   /*
-   ** swap the rpc header
-   */
-   scv_call_hdr_ntoh(&hdr);
-   
-   pmsg = rozofs_storcli_set_ptr_on_nfs_call_msg((char*)&com_hdr_p->hdr,&header_len);
-   if (pmsg == NULL)
-   {
-     errcode = EFAULT;
-     goto failure;
-
-   }
-  /*
-  ** map the memory on the first applicative RPC byte available and prepare to decode:
-  ** notice that we will not call XDR_FREE since the application MUST
-  ** provide a pointer for storing the file handle
-  */
-  len = msg_len - header_len;    
-  xdrmem_create(&xdrs,(char*)pmsg,len,XDR_DECODE); 
-     
-   /*
-   ** store the source transaction id needed for the reply
-   */
-   working_ctx_p->src_transaction_id = hdr.hdr.xid;
-   /*
-   ** decode the RPC message of the read request
-   */
-   if (xdr_storcli_read_arg_t(&xdrs,storcli_read_rq_p) == FALSE)
-   {
-      /*
-      ** decoding error
-      */
-      errcode = EFAULT;
-      severe("rpc read request decoding error");
-      goto failure;
-      
-   }
-   /*
-   ** allocate a large buffer request where read data will be copied for inverse transform
-   */
-   working_ctx_p->xmitBuf = ruc_buf_getBuffer(ROZOFS_STORCLI_NORTH_LARGE_POOL);
-   if (working_ctx_p->xmitBuf == NULL)
-   {
-     /*
-     ** that situation MUST not occur since there the same number of receive buffer and working context!!
-     */
-     errcode = ENOMEM;
-     severe("out of read buffer");
-     goto failure;
-   }
-   /*
-   ** Now set the pointer to the data payload
-   */
-   /*
-   ** generate a fake RPC reply
-   */
-   {
-     char *pbuf = ruc_buf_getPayload(working_ctx_p->xmitBuf);
-     int position;
-      /*
-      ** now get the current position in the buffer for loading the first byte of the bins 
-      */  
-      position =  sizeof(uint32_t); /* length header of the rpc message */
-      position += rozofs_storcli_get_min_rpc_reply_hdr_len();
-      position += sizeof(uint32_t);   /* length of the storage status field */
-      position += (3*sizeof(uint32_t));   /* length of the alignment field (FDL) */
-      position += sizeof(uint32_t);   /* length of the bins len field */
-      pbuf +=position;      
-      working_ctx_p->data_read_p        = pbuf;
-   }
-   /**
-   *  check the presence of the shared memory buffer
-   *  the storcli detects that the rozofsmount has provided a shared memory when
-   *  the "spare" field contains a 'S'. However the storcli might decide to ignore it
-   *   if it fails to setup the shared memory
-   */
-   if (storcli_read_rq_p->spare =='S')
-   {
-     /*
-     ** check the presence of the shared memory on storcli
-     */
-     if (storcli_rozofsmount_shared_mem[SHAREMEM_IDX_READ].active == 1)
-     {
-       /*
-       ** set data_read_p to point to the array where data will be returned
-       */
-       uint8_t *pbase = (uint8_t*)storcli_rozofsmount_shared_mem[SHAREMEM_IDX_READ].data_p;
-       uint32_t buf_offset = storcli_read_rq_p->proj_id*storcli_rozofsmount_shared_mem[SHAREMEM_IDX_READ].buf_sz;
-       uint32_t *pbuffer = (uint32_t*) (pbase + buf_offset);
-       pbuffer[1] = 0; /** bin_len */
-       working_ctx_p->data_read_p  = (char*)&pbuffer[4096/4];
-       working_ctx_p->shared_mem_p = pbuffer;  
-     }   
-   }
-   /*
-   ** Allocate a sequence for the context. The goal of the seqnum is to detect late
-   ** rpc response. In fact when the system trigger parallel RPC requests, all the rpc requests
-   ** are tight to the working context allocated for the read. Upon receiving a rpc resposne, first
-   ** the xid of the rpc response MUST match with the current transaction context allocated to handle
-   ** the rpc transaction, and second point, in order to retrieve the working context that from
-   ** which the transaction has be been triggered, the system stores the reference of the 
-   ** working context in the transaction context. However saving the context address in the 
-   ** transaction context is not enough since we might received a late rpc reply while the
-   ** working context has been release and re-allocate for a new read or write request. So
-   ** the system might process a wrong rpc reply that is not related to the current read
-   ** associated with the working context.
-   ** To avoid such issue, the system associated a sequence number (seqnum) that is stored in
-   ** working context as well as any transction contexts associated with that working context
-   ** (store as an opaque parameter in the transaction context). By this way, the system 
-   ** can correlate the RPC reply with the working context by checking the seqnum of the
-   ** working context and the seqnum of the transaction context.
-   */
-   working_ctx_p->read_seqnum        = rozofs_storcli_allocate_read_seqnum();
-   /*
-   ** set now the working variable specific for handling the read
-   */
-   int i;
-   for (i = 0; i < ROZOFS_SAFE_MAX_STORCLI; i++)
-   {
-     working_ctx_p->prj_ctx[i].prj_state = ROZOFS_PRJ_READ_IDLE;
-     working_ctx_p->prj_ctx[i].prj_buf   = NULL;   
-     working_ctx_p->prj_ctx[i].bins       = NULL;   
-     ROZOFS_BITMAP64_ALL_RESET(working_ctx_p->prj_ctx[i].crc_err_bitmap);
-   }
-   working_ctx_p->cur_nmbs2read = 0;  /**< relative index of the starting nmbs */
-   working_ctx_p->cur_nmbs = 0;
-   working_ctx_p->redundancyStorageIdxCur = 0;
-   /*
-   ** clear the table that keep tracks of the blocks that have been transformed
-   */
-   for (i = 0; i < ROZOFS_MAX_BLOCK_PER_MSG; i++)
-   {
-     working_ctx_p->block_ctx_table[i].state = ROZOFS_BLK_TRANSFORM_REQ;
-   }
-
-   /*
-   ** Prepare for request serialization
-   */
-   memcpy(working_ctx_p->fid_key, storcli_read_rq_p->fid, sizeof (sp_uuid_t));
-   working_ctx_p->opcode_key = STORCLI_READ;
-
-
-   /*
-   ** Resize service
-   */
-   if ((storcli_read_rq_p->bid == 0) && (storcli_read_rq_p->nb_proj == 0)) {  
-      rozofs_storcli_resize_req_processing(working_ctx_p);
-      return;
-   }
-
-   /*
-   ** check the case of an internal request
-   */
-   if (do_not_queue == STORCLI_DO_NOT_QUEUE )
-   {
-      rozofs_storcli_read_req_processing(working_ctx_p);
-      return;
-
-   }
-   {
-     int ret;
-     ret = stc_rng_insert((void*)working_ctx_p,
-                           STORCLI_READ,working_ctx_p->fid_key,
-			   storcli_read_rq_p->bid,storcli_read_rq_p->nb_proj,
-			   &working_ctx_p->sched_idx);
-     if (ret == 0)
-     {
-       /*
-       ** there is a current request that is processed with the same fid and there is a collision
-       */
-       return;    
-     }   		
-
-     /*
-     ** no request pending with that fid, so we can process it right away
-     */
-      rozofs_storcli_read_req_processing(working_ctx_p);
-      return;
-   }
-
-
-    /*
-    **_____________________________________________
-    **  Exception cases
-    **_____________________________________________
-    */      
-       
-
-    /*
-    ** there was a failure while attempting to allocate a memory ressource.
-    */
-
-failure:
-     /*
-     ** send back the response with the appropriated error code. 
-     ** note: The received buffer (rev_buf)  is
-     ** intended to be released by this service in case of error or the TCP transmitter
-     ** once it has been passed to the TCP stack.
-     */
-     rozofs_storcli_reply_error_with_recv_buf(socket_ctx_idx,recv_buf,user_param,rozofs_storcli_remote_rsp_cbk,errcode);
-     /*
-     ** check if the root context was allocated. Free it if is exist
-     */
-     if (working_ctx_p != NULL) 
-     {  
-         STORCLI_STOP_NORTH_PROF(working_ctx_p,read,0);
-        /*
-        ** remove the reference to the recvbuf to avoid releasing it twice
-        */
-        working_ctx_p->recv_buf   = NULL;
-        rozofs_storcli_release_context(working_ctx_p);
-     }
-     return;
-}
-/*
-**__________________________________________________________________________
-*/
-
-void rozofs_storcli_read_req_processing(rozofs_storcli_ctx_t *working_ctx_p)
+void rozofs_storcli_resize_req_processing(rozofs_storcli_ctx_t *working_ctx_p)
 {
 
   storcli_read_arg_t *storcli_read_rq_p;
@@ -510,8 +197,13 @@ void rozofs_storcli_read_req_processing(rozofs_storcli_ctx_t *working_ctx_p)
   uint8_t local_storage_idx;
   int     j;
 
-     
+  STORCLI_ERR_PROF(resize);
+
   storcli_read_rq_p = (storcli_read_arg_t*)&working_ctx_p->storcli_read_arg;
+     
+  storcli_read_rq_p->bid = 0;
+  storcli_read_rq_p->nb_proj = 0;
+     
   /*
   ** compute the number of blocks with the same distribution starting
   ** from the current block index
@@ -529,6 +221,7 @@ void rozofs_storcli_read_req_processing(rozofs_storcli_ctx_t *working_ctx_p)
   ** bid+cur_nmbs block id.
   ** dist_iterator points to the last distribution that matches
   */
+#if 0
   if (nb_projections2read == 0) 
   {
     /*
@@ -536,7 +229,7 @@ void rozofs_storcli_read_req_processing(rozofs_storcli_ctx_t *working_ctx_p)
     */
     goto end ;
   }  
-  
+#endif  
   /*
   ** Rotate the distribution set for using all the first forward storages
   */ 
@@ -658,7 +351,7 @@ void rozofs_storcli_read_req_processing(rozofs_storcli_ctx_t *working_ctx_p)
     ** we must have  rozofs_inverse storages in the distribution vector !!
     */
     error = EINVAL;
-    STORCLI_ERR_PROF(read_sid_miss);
+    STORCLI_ERR_PROF(resize_prj_err);
     storcli_trace_error(__LINE__,error, working_ctx_p);     
     goto fatal;  
   }  
@@ -678,7 +371,7 @@ void rozofs_storcli_read_req_processing(rozofs_storcli_ctx_t *working_ctx_p)
       ** Out of storage !!-> too many storage down
       */
       error = EIO;
-      STORCLI_ERR_PROF(read_sid_miss);      
+      STORCLI_ERR_PROF(resize_prj_err);
       storcli_trace_error(__LINE__,error, working_ctx_p);     
       goto fatal;
     }  
@@ -743,11 +436,11 @@ retry:
      request->bid = bid+cur_nmbs;
      request->nb_proj  = nb_projections2read;
      uint32_t  lbg_id = rozofs_storcli_lbg_prj_get_lbg(working_ctx_p->lbg_assoc_tb,prj_cxt_p[projection_id].stor_idx);
-     STORCLI_START_NORTH_PROF((&working_ctx_p->prj_ctx[projection_id]),read_prj,0);
+     STORCLI_START_NORTH_PROF((&working_ctx_p->prj_ctx[projection_id]),resize_prj,0);
      /*
      ** assert by anticipation the expected state for the projection. It might be possible
      ** that the state would be changed at the time rozofs_sorcli_send_rq_common() by 
-     ** rozofs_storcli_read_req_processing_cbk() ,if we get a tcp disconnection without 
+     ** rozofs_storcli_resize_req_processing_cbk() ,if we get a tcp disconnection without 
      ** any other TCP connection up in the lbg.
      ** In that case the state of the projection is changed to ROZOFS_PRJ_READ_ERROR
      **
@@ -767,7 +460,7 @@ retry:
                                           working_ctx_p->read_seqnum,
                                          (uint32_t)projection_id,
                                          0,
-                                         rozofs_storcli_read_req_processing_cbk,
+                                         rozofs_storcli_resize_req_processing_cbk,
                                          (void*)working_ctx_p);
      working_ctx_p->read_ctx_lock--;
      ruc_buf_inuse_decrement(xmit_buf);
@@ -780,8 +473,8 @@ retry:
        **
        */
        warning("FDL error on send to lbg %d",lbg_id);
-       STORCLI_ERR_PROF(read_prj_err);       
-       STORCLI_STOP_NORTH_PROF(&working_ctx_p->prj_ctx[projection_id],read_prj,0);
+       STORCLI_ERR_PROF(resize_prj_err);       
+       STORCLI_STOP_NORTH_PROF(&working_ctx_p->prj_ctx[projection_id],resize_prj,0);
        prj_cxt_p[projection_id].prj_state = ROZOFS_PRJ_READ_ERROR;
        prj_cxt_p[projection_id].errcode = errno;
        if (rozofs_storcli_select_storage_idx (working_ctx_p,rozofs_safe,projection_id) < 0)
@@ -790,7 +483,7 @@ retry:
          ** Out of storage !!-> too many storages are down
          ** release the allocated xmit buffer and then reply with appropriated error code
          */ 
-         STORCLI_ERR_PROF(read_sid_miss); 
+         STORCLI_ERR_PROF(resize_prj_err); 
          severe("FDL error on send: EIO returned");
          error = EIO;
          ruc_buf_freeBuffer(xmit_buf);
@@ -818,7 +511,7 @@ retry:
          ** Out of storage !!-> too many storages are down
          ** release the allocated xmit buffer and then reply with appropriated error code
          */
-         STORCLI_ERR_PROF(read_sid_miss); 
+         STORCLI_ERR_PROF(resize_prj_err); 
          severe("FDL error on send: EIO returned");
          error = EIO;
          ruc_buf_freeBuffer(xmit_buf);
@@ -863,7 +556,6 @@ fatal:
      rozofs_storcli_release_context(working_ctx_p);  
      return;  
 
-end:
      /*
      ** That case should not append here since the contol is done of the projection reception after rebuilding
      ** the rozofs block. That situation might after a read of 0 block is requested!!
@@ -892,7 +584,7 @@ end:
   @retval < 0 : context has been released
 */
 
-int rozofs_storcli_read_projection_retry(rozofs_storcli_ctx_t *working_ctx_p,uint8_t projection_id,int same_storage_retry_acceptable)
+int rozofs_storcli_resize_projection_retry(rozofs_storcli_ctx_t *working_ctx_p,uint8_t projection_id,int same_storage_retry_acceptable)
 {
     uint8_t   rozofs_safe;
     uint8_t   layout;
@@ -1008,11 +700,11 @@ int rozofs_storcli_read_projection_retry(rozofs_storcli_ctx_t *working_ctx_p,uin
      request->nb_proj  = working_ctx_p->nb_projections2read;
      uint32_t  lbg_id = rozofs_storcli_lbg_prj_get_lbg(working_ctx_p->lbg_assoc_tb,prj_cxt_p[projection_id].stor_idx);
 
-     STORCLI_START_NORTH_PROF(&working_ctx_p->prj_ctx[projection_id],read_prj,0);
+     STORCLI_START_NORTH_PROF(&working_ctx_p->prj_ctx[projection_id],resize_prj,0);
      /*
      ** assert by anticipation the expected state for the projection. It might be possible
      ** that the state would be changed at the time rozofs_sorcli_send_rq_common() by 
-     ** rozofs_storcli_read_req_processing_cbk() ,if we get a tcp disconnection without 
+     ** rozofs_storcli_resize_req_processing_cbk() ,if we get a tcp disconnection without 
      ** any other TCP connection up in the lbg.
      ** In that case the state of the projection is changed to ROZOFS_PRJ_READ_ERROR
      */
@@ -1026,7 +718,7 @@ int rozofs_storcli_read_projection_retry(rozofs_storcli_ctx_t *working_ctx_p,uin
                                           working_ctx_p->read_seqnum,
                                          (uint32_t)projection_id,
                                          0,
-                                         rozofs_storcli_read_req_processing_cbk,
+                                         rozofs_storcli_resize_req_processing_cbk,
                                          (void*)working_ctx_p);
 
     working_ctx_p->read_ctx_lock--;
@@ -1038,8 +730,8 @@ int rozofs_storcli_read_projection_retry(rozofs_storcli_ctx_t *working_ctx_p,uin
       ** attempt to select a new storage
       **
       */
-      STORCLI_ERR_PROF(read_prj_err);       
-      STORCLI_STOP_NORTH_PROF(&working_ctx_p->prj_ctx[projection_id],read_prj,0);
+      STORCLI_ERR_PROF(resize_prj_err);       
+      STORCLI_STOP_NORTH_PROF(&working_ctx_p->prj_ctx[projection_id],resize_prj,0);
       prj_cxt_p[projection_id].prj_state = ROZOFS_PRJ_READ_ERROR;
       prj_cxt_p[projection_id].errcode = errno;
       /*
@@ -1103,7 +795,7 @@ reject:
      ** that situation can occur because of some anticipation introduced by the read
      ** guard timer mechanism
      */
-     if (rozofs_storcli_check_read_in_progress_projections(layout,working_ctx_p->prj_ctx) == 0)
+     if (rozofs_storcli_check_resize_in_progress_projections(layout,working_ctx_p->prj_ctx) == 0)
      {
        if (line) {   
          storcli_trace_error(line,error,working_ctx_p);     
@@ -1141,7 +833,83 @@ fatal:
 /*
 **__________________________________________________________________________
 */
-/**
+
+typedef struct _storcli_resize_rsp_t {
+  uint32_t       nb_blocks;
+  uint32_t       last_block_size;
+  uint32_t       count;
+} storcli_resize_rsp_t;
+
+
+inline int rozofs_storcli_get_file_size(rozofs_storcli_projection_ctx_t *prj_ctx_p,  
+                                       uint8_t    layout,
+				       uint32_t * nb_blocks_ret,
+				       uint32_t * last_block_size_ret)
+{
+    uint8_t                prj_ctx_idx;
+    uint8_t                rozofs_storcli_next_free_idx = 0;    
+    storcli_resize_rsp_t   rsp_tbl[ROZOFS_SAFE_MAX_STORCLI];
+    storcli_resize_rsp_t * p;
+    int                    entry;
+    uint32_t               nb_blocks;
+    uint32_t               last_block_size;
+    uint8_t rozofs_safe    = rozofs_get_rozofs_safe(layout);
+    uint8_t rozofs_inverse = rozofs_get_rozofs_inverse(layout);
+     
+    for (prj_ctx_idx = 0; prj_ctx_idx < rozofs_safe; prj_ctx_idx++)
+    {
+      if (prj_ctx_p[prj_ctx_idx].prj_state != ROZOFS_PRJ_READ_DONE)
+      {
+        /*
+        ** that projection context does not contain valid data, so skip it
+        */
+        continue;      
+      } 
+      
+      nb_blocks       = prj_ctx_p[prj_ctx_idx].timestamp >> 32;
+      last_block_size = prj_ctx_p[prj_ctx_idx].timestamp & 0xFFFFFFLL;
+      
+      if (rozofs_storcli_next_free_idx == 0)
+      {
+        /*
+        ** first entry
+        */
+	p = &rsp_tbl[0];
+        p->nb_blocks       = nb_blocks;	
+        p->last_block_size = last_block_size;
+        p->count           = 1;
+        rozofs_storcli_next_free_idx++;
+        continue;      
+      }
+            
+      /*
+      ** more than 1 entry in the timestamp table
+      */
+      p = &rsp_tbl[0];
+      for (entry = 0; entry < rozofs_storcli_next_free_idx;entry++,p++)
+      {
+        if ((p->nb_blocks != nb_blocks) || (p->last_block_size != last_block_size)) continue;
+        p->count++;
+        if (p->count == rozofs_inverse) return 0;
+	break;
+      }
+      /*
+      ** that timestamp does not exist, so create an entry for it
+      */
+      if (entry == rozofs_storcli_next_free_idx) {
+        p = &rsp_tbl[entry];
+        p->nb_blocks       = nb_blocks;	
+        p->last_block_size = last_block_size;
+        p->count           = 1;
+        rozofs_storcli_next_free_idx++;
+      }
+    }
+    return -1;
+}
+
+/*
+**__________________________________________________________________________
+*
 *  Call back function call upon a success rpc, timeout or any other rpc failure
 *
  @param this : pointer to the transaction context
@@ -1150,7 +918,7 @@ fatal:
  @return none
  */
 
-void rozofs_storcli_read_req_processing_cbk(void *this,void *param) 
+void rozofs_storcli_resize_req_processing_cbk(void *this,void *param) 
 {
    uint32_t   seqnum;
    uint32_t   projection_id;
@@ -1167,13 +935,12 @@ void rozofs_storcli_read_req_processing_cbk(void *this,void *param)
    sp_status_ret_t   rozofs_status;
    int error = 0;
    struct rpc_msg  rpc_reply;
-   uint16_t rozofs_max_psize_in_msg = 0;
-   uint32_t nb_projection_blocks_returned = 0;
    bin_t   *bins_p;
    uint64_t raw_file_size;
    int bins_len = 0;
    int lbg_id;
-   uint32_t corrupted_blocks = 0;
+   uint32_t    nb_blocks       = 0;
+   uint32_t    last_block_size = 0;
    /*
    ** take care of the rescheduling of the pending frames
    */
@@ -1184,10 +951,8 @@ void rozofs_storcli_read_req_processing_cbk(void *this,void *param)
    storcli_read_rq_p = (storcli_read_arg_t*)&working_ctx_p->storcli_read_arg;
    
    uint8_t layout         = storcli_read_rq_p->layout;
-   uint32_t bsize         = storcli_read_rq_p->bsize;   
    uint8_t rozofs_safe    = rozofs_get_rozofs_safe(layout);
    uint8_t rozofs_inverse = rozofs_get_rozofs_inverse(layout);
-   rozofs_max_psize_in_msg= rozofs_get_max_psize_in_msg(layout,bsize);
     /*
     ** get the sequence number and the reference of the projection id form the opaque user array
     ** of the transaction context
@@ -1245,11 +1010,11 @@ void rozofs_storcli_read_req_processing_cbk(void *this,void *param)
        if (errno == ETIME)
        {
          storcli_lbg_cnx_sup_increment_tmo(lbg_id);
-         STORCLI_ERR_PROF(read_prj_tmo);
+         STORCLI_ERR_PROF(resize_prj_err);
        }
        else
        {
-         STORCLI_ERR_PROF(read_prj_err);
+         STORCLI_ERR_PROF(resize_prj_err);
        }       
        same_storage_retry_acceptable = 1;
        goto retry_attempt; 
@@ -1264,7 +1029,7 @@ void rozofs_storcli_read_req_processing_cbk(void *this,void *param)
        /*
        ** something wrong happened
        */
-       STORCLI_ERR_PROF(read_prj_err);       
+       STORCLI_ERR_PROF(resize_prj_err);       
        errno = EFAULT;  
        goto fatal;         
     }
@@ -1286,7 +1051,7 @@ void rozofs_storcli_read_req_processing_cbk(void *this,void *param)
       */
       if (rozofs_xdr_replymsg(&xdrs,&rpc_reply) != TRUE)
       {
-       STORCLI_ERR_PROF(read_prj_err);       
+       STORCLI_ERR_PROF(resize_prj_err);       
        TX_STATS(ROZOFS_TX_DECODING_ERROR);
        errno = EPROTO;
         error = 1;
@@ -1298,7 +1063,7 @@ void rozofs_storcli_read_req_processing_cbk(void *this,void *param)
       if (xdr_sp_status_ret_t(&xdrs,&rozofs_status)!= TRUE)
       {
        errno = EPROTO;
-       STORCLI_ERR_PROF(read_prj_err);       
+       STORCLI_ERR_PROF(resize_prj_err);       
         error = 1;
         break;    
       }
@@ -1308,31 +1073,39 @@ void rozofs_storcli_read_req_processing_cbk(void *this,void *param)
       if ( rozofs_status.status != SP_SUCCESS )
       {
         errno = rozofs_status.sp_status_ret_t_u.error;
-        if (errno == ENOENT) {
-          STORCLI_ERR_PROF(read_prj_enoent); 	
-	}
-	else {
-          STORCLI_ERR_PROF(read_prj_err); 
+        if (errno != ENOENT) {
+          STORCLI_ERR_PROF(resize_prj_err); 
 	}      
         error = 1;
         break;    
       }
       {
 	int alignment;
-	int k;
 	/*
 	** skip the alignment
 	*/
-	for (k=0; k<3; k++) {
+	//for (k=0; k<3; k++) {
           if (xdr_int(&xdrs, &alignment) != TRUE)
 	  {
             errno = EPROTO;
-            STORCLI_ERR_PROF(read_prj_err);       
+            STORCLI_ERR_PROF(resize_prj_err);       
             error = 1;
             break;          
 	  }
-	}
-	if (error==1) break;
+          if (xdr_int(&xdrs, (int*)&nb_blocks) != TRUE)
+	  {
+            errno = EPROTO;
+            STORCLI_ERR_PROF(resize_prj_err);       
+            error = 1;
+            break;          
+	  }	
+          if (xdr_int(&xdrs, (int*)&last_block_size) != TRUE)
+	  {
+            errno = EPROTO;
+            STORCLI_ERR_PROF(resize_prj_err);       
+            error = 1;
+            break;          
+	  }	    
       }
 
       /*
@@ -1341,7 +1114,7 @@ void rozofs_storcli_read_req_processing_cbk(void *this,void *param)
       if (xdr_int(&xdrs, &bins_len) != TRUE)
       {
         errno = EPROTO;
-        STORCLI_ERR_PROF(read_prj_err);       
+        STORCLI_ERR_PROF(resize_prj_err);       
         error = 1;
         break;          
       }
@@ -1356,25 +1129,6 @@ void rozofs_storcli_read_req_processing_cbk(void *this,void *param)
       position += ((bins_len+(sizeof(uint32_t)-1))/sizeof(uint32_t))*sizeof(uint32_t);
       xdr_setpos(&xdrs,position);      
       xdr_uint64_t(&xdrs,&raw_file_size);
-      /*
-      ** The system MUST always returns a length that is a multiple of a projection block size
-      */
-      nb_projection_blocks_returned = bins_len / rozofs_max_psize_in_msg;
-      if ((bins_len % rozofs_max_psize_in_msg) != 0) 
-      {
-          errno = EPROTO;
-          STORCLI_ERR_PROF(read_prj_err);       
-          error = 1;
-          severe("bad bins len %d  projection sz :%d\n",bins_len,rozofs_max_psize_in_msg);
-          break;          
-      }
-      if (nb_projection_blocks_returned > working_ctx_p->nb_projections2read)
-      {
-         severe("More blocks than expected %d %d",nb_projection_blocks_returned, working_ctx_p->nb_projections2read);
-          STORCLI_ERR_PROF(read_prj_err);       
-          errno = EPROTO;
-          error = 1;      
-      }
       break;
     }
     /*
@@ -1410,12 +1164,15 @@ void rozofs_storcli_read_req_processing_cbk(void *this,void *param)
        goto retry_attempt;    	 
     }
 
+    working_ctx_p->prj_ctx[projection_id].timestamp = nb_blocks;
+    working_ctx_p->prj_ctx[projection_id].timestamp <<= 32;
+    working_ctx_p->prj_ctx[projection_id].timestamp += last_block_size;
 
     /*
     ** set the pointer to the read context associated with the projection for which a response has
     ** been received
     */
-    STORCLI_STOP_NORTH_PROF(&working_ctx_p->prj_ctx[projection_id],read_prj,bins_len);
+    STORCLI_STOP_NORTH_PROF(&working_ctx_p->prj_ctx[projection_id],resize_prj,bins_len);
     read_prj_work_p = &working_ctx_p->prj_ctx[projection_id];
     /*
     ** save the reference of the receive buffer that contains the projection data in the root transaction context
@@ -1423,16 +1180,11 @@ void rozofs_storcli_read_req_processing_cbk(void *this,void *param)
     read_prj_work_p->prj_buf = recv_buf;
     read_prj_work_p->prj_state = ROZOFS_PRJ_READ_DONE;
     read_prj_work_p->bins = bins_p;
-    /*
-    ** Go through the bins and copy the each block header in the projection context
-    */
-    rozofs_storcli_transform_update_headers(read_prj_work_p,layout,bsize,
-                    nb_projection_blocks_returned,working_ctx_p->nb_projections2read,raw_file_size);
 
     /*
     ** OK now check if we have enough projection to rebuild the initial message
     */
-    ret = rozofs_storcli_rebuild_check(layout,working_ctx_p->prj_ctx);
+    ret = rozofs_storcli_resize_check(layout,working_ctx_p->prj_ctx);
     if (ret <rozofs_inverse)
     {
       /*
@@ -1474,97 +1226,17 @@ void rozofs_storcli_read_req_processing_cbk(void *this,void *param)
     /*
     ** check if we can proceed with transform inverse
     */
-    corrupted_blocks = 0;
-    ret = rozofs_storcli_transform_inverse_check_for_thread(working_ctx_p->prj_ctx,
-                                     layout, bsize,
-                                     working_ctx_p->cur_nmbs2read,
-                                     working_ctx_p->nb_projections2read,
-                                     working_ctx_p->block_ctx_table,
-                                     &working_ctx_p->effective_number_of_blocks,
-				     &working_ctx_p->rozofs_storcli_prj_idx_table[0],
-				     &corrupted_blocks);				     
-
-
-    /*
-    ** There are some corrupted blocks !!!!
-    ** These blocks are replaced by empty blocks. What else ?
-    */
-    if (corrupted_blocks) {
-
-      /*
-      ** Count number of corrupted blocks read
-      */
-      STORCLI_ERR_COUNT_PROF(read_blk_corrupted, corrupted_blocks);
-
-      /*
-      ** Log the error, but no more than one every 60 seconds
-      */
-      if (corrupted_log_filter < rozofs_get_ticker_us()) {
-	char msg[80];
-	char * pChar = msg;
-	
-	/* 
-	* Next log in 60 secs 
-	*/
-	corrupted_log_filter = rozofs_get_ticker_us() + 60000000; 
-	
-	/*
-	** Format and send the log
-	*/
-	pChar += rozofs_u32_append(pChar,corrupted_blocks);
-	pChar += rozofs_string_append(pChar," blocs corrupted in FID ");
-	rozofs_uuid_unparse(storcli_read_rq_p->fid, pChar);
-	pChar += 36;
-	pChar += rozofs_string_append(pChar," within blocks [");
-	pChar += rozofs_u32_append(pChar,working_ctx_p->cur_nmbs2read);
-	pChar += rozofs_string_append(pChar,"..");
-	pChar += rozofs_u32_append(pChar,working_ctx_p->cur_nmbs2read+working_ctx_p->effective_number_of_blocks-1);
-	pChar += rozofs_string_append(pChar,"]");
-	severe("%s",msg);
-      }
-
-      /*
-      ** Log FID in the corrupted FID table
-      */
-      uint8_t  * fid;
-      int        idx;
-      storcli_one_corrupted_fid_ctx * pCtx = storcli_fid_corrupted.ctx;	
-      // Search for this FID in the table
-      for (idx=0; idx<STORCLI_MAX_CORRUPTED_FID_NB; idx++,pCtx++) {
-        fid = (uint8_t  *)pCtx->fid;
-        if (memcmp(fid,storcli_read_rq_p->fid,16)==0) {
-	  pCtx->count++;
-	  break;
-	}  
-      }
-      // Insert this FID in the table
-      if (idx == STORCLI_MAX_CORRUPTED_FID_NB) {
-	pCtx = &storcli_fid_corrupted.ctx[storcli_fid_corrupted.nextIdx];
-	fid = pCtx->fid;
-        memcpy(fid,storcli_read_rq_p->fid,16);
-	pCtx->count = 1;
-	storcli_fid_corrupted.nextIdx++;
-	if (storcli_fid_corrupted.nextIdx>=STORCLI_MAX_CORRUPTED_FID_NB) {
-	  storcli_fid_corrupted.nextIdx = 0;
-	}
-      }
-      
-      /*
-      ** In case we must not tolerate corrupted block,
-      ** just return an EIO.
-      */
-      if (noReadFaultTolerant) {
-        ret = -1;
-      }	
-    }
-    
+    ret = rozofs_storcli_get_file_size(working_ctx_p->prj_ctx, 
+                                       layout,
+				       &nb_blocks,
+				       &last_block_size);
     if (ret < 0)
     {
       /*
       ** check if we have some read request pending. If it is the case wait for the 
       ** response of the request pending, otherwise attempt to read one more
       */
-      if (rozofs_storcli_check_read_in_progress_projections(layout,
+      if (rozofs_storcli_check_resize_in_progress_projections(layout,
          working_ctx_p->prj_ctx) != 0) {
 	 rozofs_tx_free_from_ptr(this);
 	 return;
@@ -1579,7 +1251,7 @@ void rozofs_storcli_read_req_processing_cbk(void *this,void *param)
          ** there are no enough valid storages to be able to rebuild the initial message
          */
          severe("FDL error on send: EIO returned");
-         STORCLI_ERR_PROF(read_prj_err);       
+         STORCLI_ERR_PROF(resize_prj_err);       
          error = EIO;
          storcli_trace_error(__LINE__,error, working_ctx_p);            
          goto io_error;
@@ -1593,53 +1265,13 @@ void rozofs_storcli_read_req_processing_cbk(void *this,void *param)
         * do not forget to release the context of the transaction
        */
        rozofs_tx_free_from_ptr(this);
-       rozofs_storcli_read_projection_retry(working_ctx_p,projection_id,0);   
+       rozofs_storcli_resize_projection_retry(working_ctx_p,projection_id,0);   
        return;     
     }
     /*
     ** we have all the projections with the good timestamp so proceed with
     ** the inverse transform
     */
-
-
-    if (working_ctx_p->effective_number_of_blocks != 0)
-    {
-      /*
-      **  check if Mojette threads are enable , if the length is greater than the threshold
-      **  and there is no read request pending then use them
-      */
-      int blocklen = working_ctx_p->effective_number_of_blocks*ROZOFS_BSIZE_BYTES(bsize);
-      if ((rozofs_stcmoj_thread_read_enable) && (blocklen >rozofs_stcmoj_thread_len_threshold)&&
-          (rozofs_storcli_check_read_in_progress_projections(layout,working_ctx_p->prj_ctx) == 0)) 
-      {
-	ret = rozofs_stcmoj_thread_intf_send(STORCLI_MOJETTE_THREAD_INV,working_ctx_p,0);
-	if (ret < 0) 
-	{
-           errno = EPROTO;
-           storcli_trace_error(__LINE__,errno,working_ctx_p);            
-	   goto io_error;
-	}
-	/*
-	** release the transaction context
-	*/
-        rozofs_tx_free_from_ptr(this);
-	return;   
-      }
-      STORCLI_START_KPI(storcli_kpi_transform_inverse);
-      rozofs_storcli_transform_inverse(working_ctx_p->prj_ctx,
-                                       layout, bsize,
-                                       working_ctx_p->cur_nmbs2read,
-                                       working_ctx_p->effective_number_of_blocks,
-                                       working_ctx_p->block_ctx_table,
-                                       working_ctx_p->data_read_p,
-                                       &working_ctx_p->effective_number_of_blocks,
-				       &working_ctx_p->rozofs_storcli_prj_idx_table[0]);
-    }
-    else
-    {
-      STORCLI_START_KPI(storcli_kpi_transform_inverse);    
-    }
-    STORCLI_STOP_KPI(storcli_kpi_transform_inverse,0);
 
     /*
     ** now the inverse transform is finished, release the allocated ressources used for
@@ -1667,25 +1299,12 @@ void rozofs_storcli_read_req_processing_cbk(void *this,void *param)
       /*
       ** attempt to read block with the next distribution
       */
-      return rozofs_storcli_read_req_processing(working_ctx_p);        
+      return rozofs_storcli_resize_req_processing(working_ctx_p);        
     } 
-    /*
-    ** check for auto-repair because of potential crc error: not needed
-    ** for the case of the internal read
-    */
-    if (storcli_read_rq_p->spare != 0)
-    {
-      int ret = rozofs_storcli_check_repair(working_ctx_p,rozofs_safe);  
-      if (ret != 0)
-      {
-         rozofs_tx_free_from_ptr(this);      
-         rozofs_storcli_repair_req_init(working_ctx_p);
-	 return;
-      }
+
     
-    }
+    rozofs_storcli_resize_reply_success(working_ctx_p, nb_blocks, last_block_size);
     
-    rozofs_storcli_read_reply_success(working_ctx_p);
     /*
     ** release the root context and the transaction context
     */
@@ -1711,7 +1330,7 @@ fatal:
     /*
     ** unrecoverable error : mostly a bug!!
     */  
-    STORCLI_STOP_NORTH_PROF(&working_ctx_p->prj_ctx[projection_id],read_prj,0);
+    STORCLI_STOP_NORTH_PROF(&working_ctx_p->prj_ctx[projection_id],resize_prj,0);
     if(recv_buf!= NULL) ruc_buf_freeBuffer(recv_buf);       
     rozofs_tx_free_from_ptr(this);
     if (working_ctx_p->read_ctx_lock != 0) return;
@@ -1723,7 +1342,7 @@ retry_attempt:
     ** There was a read errr for that projection so attempt to find out another storage
     ** but first of all release the ressources related to the current transaction
     */
-    STORCLI_STOP_NORTH_PROF(&working_ctx_p->prj_ctx[projection_id],read_prj,0);
+    STORCLI_STOP_NORTH_PROF(&working_ctx_p->prj_ctx[projection_id],resize_prj,0);
 
     if(recv_buf!= NULL) ruc_buf_freeBuffer(recv_buf);       
     rozofs_tx_free_from_ptr(this);
@@ -1734,7 +1353,7 @@ retry_attempt:
     */
     if (working_ctx_p->read_ctx_lock != 0) return;
 
-    rozofs_storcli_read_projection_retry(working_ctx_p,projection_id,same_storage_retry_acceptable);
+    rozofs_storcli_resize_projection_retry(working_ctx_p,projection_id,same_storage_retry_acceptable);
     return;
 
 io_error:
@@ -1759,7 +1378,7 @@ wait_more_projection:
      ** that situation can occur because of some anticipation introduced by the read
      ** guard timer mechanism
      */
-    if (rozofs_storcli_check_read_in_progress_projections(layout,
+    if (rozofs_storcli_check_resize_in_progress_projections(layout,
             working_ctx_p->prj_ctx) == 0) {
         /*
          ** we fall in that case when we run out of storage
@@ -1798,7 +1417,7 @@ wait_more_projection:
  @return none
  */
 
-void rozofs_storcli_read_timeout(rozofs_storcli_ctx_t *working_ctx_p) 
+void rozofs_storcli_resize_timeout(rozofs_storcli_ctx_t *working_ctx_p) 
 {
     uint8_t   rozofs_safe;
     uint8_t   layout;
@@ -1811,19 +1430,12 @@ void rozofs_storcli_read_timeout(rozofs_storcli_ctx_t *working_ctx_p)
     int nb_received;
 
     storcli_read_rq_p = (storcli_read_arg_t*)&working_ctx_p->storcli_read_arg;
-    
-    /*
-    ** Resize case
-    */
-    if ((storcli_read_rq_p->bid == 0) && (storcli_read_rq_p->nb_proj == 0)) {
-       return rozofs_storcli_resize_timeout(working_ctx_p);
-    }
 
     layout         = storcli_read_rq_p->layout;
     rozofs_safe    = rozofs_get_rozofs_safe(layout);
     rozofs_inverse = rozofs_get_rozofs_inverse(layout);
 
-    nb_received = rozofs_storcli_rebuild_check(layout,working_ctx_p->prj_ctx);
+    nb_received = rozofs_storcli_resize_check(layout,working_ctx_p->prj_ctx);
     
     missing = rozofs_inverse - nb_received;
     
@@ -1844,7 +1456,7 @@ void rozofs_storcli_read_timeout(rozofs_storcli_ctx_t *working_ctx_p)
       */   
       projection_id = rozofs_inverse+ working_ctx_p->redundancyStorageIdxCur;
       working_ctx_p->redundancyStorageIdxCur++;  
-      ret = rozofs_storcli_read_projection_retry(working_ctx_p,projection_id,0);
+      ret = rozofs_storcli_resize_projection_retry(working_ctx_p,projection_id,0);
       if (ret < 0)
       {
         /*
@@ -1855,125 +1467,3 @@ void rozofs_storcli_read_timeout(rozofs_storcli_ctx_t *working_ctx_p)
     }    
     return;    
 }        
-
-
-#define ROZOFS_STORCLI_TIMER_BUCKET 2
-typedef struct _rozofs_storcli_read_clk_t
-{
-  uint32_t        bucket_cur;
-  ruc_obj_desc_t  bucket[ROZOFS_STORCLI_TIMER_BUCKET];  /**< link list of the context waiting on timer */
-} rozofs_storcli_read_clk_t;
-
-
-rozofs_storcli_read_clk_t  rozofs_storcli_read_clk;
-
-/*
-**____________________________________________________
-*/
-/**
-* start the read guard timer: must be called upon the reception of the first projection
-
-  @param p: read main context
-  
- @retval none
-*/
-void rozofs_storcli_start_read_guard_timer(rozofs_storcli_ctx_t  *p)
-{
-   rozofs_storcli_stop_read_guard_timer(p);
-   ruc_objInsertTail((ruc_obj_desc_t*)&rozofs_storcli_read_clk.bucket[rozofs_storcli_read_clk.bucket_cur],
-                    &p->timer_list);
-   
-
-}
-/*
-**____________________________________________________
-*/
-/**
-* stop the read guard timer
-
-  @param p: read main context
-  
- @retval none
-*/
-void rozofs_storcli_stop_read_guard_timer(rozofs_storcli_ctx_t  *p)
-{
-   ruc_objRemove(&p->timer_list);
-}
-
-/*
-**____________________________________________________
-*/
-/*
-  Periodic timer expiration
-  
-   @param param: Not significant
-*/
-static uint64_t ticker_count = 0;
-void rozofs_storcli_periodic_ticker(void * param) 
-{
-   ruc_obj_desc_t   *bucket_head_p;
-   rozofs_storcli_ctx_t   *read_ctx_p;
-   ruc_obj_desc_t  *timer;
-   int bucket_idx;
-   
-   ticker_count += 100;
-   if (ticker_count < ROZOFS_TMR_GET(TMR_PRJ_READ_SPARE)) return;
-   
-   ticker_count = 0;
-   
-   bucket_idx = rozofs_storcli_read_clk.bucket_cur;
-   bucket_idx = (bucket_idx+1)%ROZOFS_STORCLI_TIMER_BUCKET;
-   bucket_head_p = &rozofs_storcli_read_clk.bucket[bucket_idx];
-   rozofs_storcli_read_clk.bucket_cur = bucket_idx;
-
-
-    while  ((timer = ruc_objGetFirst(bucket_head_p)) !=NULL) 
-    {
-       read_ctx_p = (rozofs_storcli_ctx_t * )ruc_listGetAssoc(timer);
-       rozofs_storcli_stop_read_guard_timer(read_ctx_p); 
-       switch (read_ctx_p->opcode_key)
-       {
-	 case  STORCLI_READ:   
-           rozofs_storcli_read_timeout(read_ctx_p); 
-	   break;
-	 case  STORCLI_WRITE:   
-           rozofs_storcli_write_timeout(read_ctx_p); 
-	   break;
-	 case  STORCLI_TRUNCATE:   
-           rozofs_storcli_truncate_timeout(read_ctx_p); 
-	   break;
-	 default:   
-	   break;
-       }   
-    }          
-}
-/*
-**____________________________________________________
-*/
-/*
-  start a periodic timer to chech wether the export LBG is down
-  When the export is restarted its port may change, and so
-  the previous configuration of the LBG is not valid any more
-*/
-void rozofs_storcli_read_init_timer_module() {
-  struct timer_cell * periodic_timer;
-  int i;
-  
-  for (i = 0; i < ROZOFS_STORCLI_TIMER_BUCKET; i++)
-  {
-    ruc_listHdrInit(&rozofs_storcli_read_clk.bucket[i]);   
-  }
-  rozofs_storcli_read_clk.bucket_cur = 0;
-  
-  periodic_timer = ruc_timer_alloc(0,0);
-  if (periodic_timer == NULL) {
-    severe("no timer");
-    return;
-  }
-  ruc_periodic_timer_start (periodic_timer, 
-                            20,
- 	                        rozofs_storcli_periodic_ticker,
- 			                0);
-
-}
-

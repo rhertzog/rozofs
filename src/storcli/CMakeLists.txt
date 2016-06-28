@@ -39,6 +39,7 @@ add_executable(storcli
     rozofs_storcli_north_intf.c
     storcli_stub.c
     rozofs_storcli_read.c
+    rozofs_storcli_resize.c
     rozofs_storcli_rebuild_prj.c
     rozofs_storcli_reload_storage_config.c
     rozofs_storcli_reload_storage_config.h

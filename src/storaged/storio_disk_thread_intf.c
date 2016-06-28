@@ -502,7 +502,15 @@ void af_unix_disk_response(storio_disk_thread_msg_t *msg)
       storio_update_read_counter(tv.tv_sec,msg->size);        
       break;
     }  
-
+  
+    case STORIO_DISK_THREAD_RESIZE:
+    {
+      STOP_PROFILING_IO(read,msg->size);
+      update_read_detailed_counters(toc - tic);      
+      storio_update_read_counter(tv.tv_sec,msg->size);        
+      break;
+    }  
+    
     case STORIO_DISK_THREAD_WRITE:{
       STOP_PROFILING_IO(write,msg->size);
       update_write_detailed_counters(toc - tic);  

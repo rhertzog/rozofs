@@ -289,14 +289,27 @@ int main(int argc, char *argv[]) {
     nanosleep(&ts,NULL);
   }
  
-#if 0  
+#if 1
   /*
-  ** Let's daemonize 
+  ** Let's daemonize (only for storaged daemon)
   */
-  if (daemon(0, 0) != 0) {
-    fprintf(stderr, "daemon failed %s",strerror(errno));
-    return -1;
-  }     
+
+  char *daemon_name;
+  char exe_path[1024];
+  strcpy(exe_path, argv[3]);
+  daemon_name = basename(exe_path);
+
+  if ( strcmp(daemon_name, "storaged") == 0) {
+    #ifdef LAUNCHER_TRACE
+        info("daemonize launcher");
+    #endif
+    if (daemon(0, 0) != 0) {
+      #ifdef LAUNCHER_TRACE
+            severe("daemon failed %s", strerror(errno));
+      #endif
+      return -1;
+    }
+  }
 #endif
   
   /*

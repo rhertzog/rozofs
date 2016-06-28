@@ -973,6 +973,12 @@ void uma_dbg_addTopicAndMan(char                     * topic,
   char * my_topic = NULL;
   int    unic;
 
+
+  /*
+  ** Get the lock for multhread environment
+  */
+  pthread_mutex_lock(&uma_dbg_thread_mutex);
+
   if (uma_dbg_topic_initialized == FALSE) {
     /* Reset the topic table */
     for (idx=0; idx <UMA_DBG_MAX_TOPIC; idx++) {
@@ -989,20 +995,20 @@ void uma_dbg_addTopicAndMan(char                     * topic,
   length = strlen(topic);
   if (length == 0) {
     severe( "Bad topic length %d", length );
-    return;
+    goto out;
   }
   
   /* Check a place is left */
   if (uma_dbg_nb_topic == UMA_DBG_MAX_TOPIC) {
     severe( "Too much topic %d. Can not insert %s", UMA_DBG_MAX_TOPIC, topic );
-    return;    
+    goto out;  
   }
 
   /* copy the topic */
   my_topic = malloc(length + 1) ;
   if (my_topic == NULL) {
     severe( "Out of memory. Can not insert %s",topic );    
-    return;
+    goto out;
   }
   strcpy(my_topic, topic);
 
@@ -1017,7 +1023,7 @@ void uma_dbg_addTopicAndMan(char                     * topic,
     if (order == 0) {
       severe( "Trying to add topic %s that already exist", topic );
       free(my_topic);
-      return;
+      goto out;
     }
     
     /* Insert here */
@@ -1030,7 +1036,7 @@ void uma_dbg_addTopicAndMan(char                     * topic,
   uma_dbg_insert_topic(idx,my_topic,option,length, funct, man);
   uma_dbg_nb_topic++;
   
-  if (uma_dbg_nb_topic < 3) return; 
+  if (uma_dbg_nb_topic < 3) goto out; 
       
   idx  = 0; 
   unic = 1;
@@ -1046,7 +1052,13 @@ void uma_dbg_addTopicAndMan(char                     * topic,
 	if (uma_dbg_topic[idx].unic>uma_dbg_topic[idx].len) uma_dbg_topic[idx].unic = uma_dbg_topic[idx].len;
 	idx = next;
   }
-  uma_dbg_topic[idx].unic = unic;	  
+  uma_dbg_topic[idx].unic = unic;
+  
+out:
+  /*
+  ** Release the lock for multhread environment
+  */
+  pthread_mutex_unlock(&uma_dbg_thread_mutex);  	  
 
 }
 /*-----------------------------------------------------------------------------

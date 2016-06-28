@@ -724,7 +724,15 @@ void sp_read_1_svc_disk_thread(void * pt, rozorpc_srv_ctx_t *req_ctx_p) {
       }
     }  
     
-    req_ctx_p->opcode = STORIO_DISK_THREAD_READ;
+    /*
+    ** Case of the resize procedure
+    */
+    if ((read_arg_p->bid==0) && (read_arg_p->nb_proj==0)) {
+      req_ctx_p->opcode = STORIO_DISK_THREAD_RESIZE;
+    }
+    else { 
+      req_ctx_p->opcode = STORIO_DISK_THREAD_READ;
+    }
         
     /*
     ** If any request is already running, chain this request on the FID context
