@@ -762,8 +762,56 @@ Set the global cluster option stonith-enabled to true:
 
 **Testing your cluster configuration**
 
-You can testing your STONITH configuration by typing one of the following
-commands on one node:
+Now, you can testing your cluster configuration.
+
+Migrating `rozofs-exportd` resource:
+
+.. code-block:: bash
+
+  # Get current location of exportd-rozofs
+  crm resource status exportd-rozofs
+    resource exportd-rozofs is running on: node-1
+  # Migrate exportd-rozofs resource to node-2
+  crm resource migrate exportd-rozofs node-2
+  # Get current location of exportd-rozofs
+  crm resource status exportd-rozofs
+    resource exportd-rozofs is running on: node-2
+  # Very important, remove the new constraint
+  crm resource unmigrate exportd-rozofs
+
+Simulate `rozofs-exportd` failure:
+
+.. code-block:: bash
+
+  # Manually stop rozofs-exportd service
+  # on the node who the resource is currently running!
+  # (without using crm utility)
+  /etc/init.d/rozofs-exportd stop
+
+  # Check that the resource agent has restarted `rozofs-exportd` service.
+  crm_mon -rfn1
+
+  Node node-2: online
+          exportd-rozofs  (ocf::heartbeat:exportd) Started
+          p-ping:1        (ocf::pacemaker:ping) Started
+          p-fs-exportd    (ocf::heartbeat:Filesystem) Started
+          p-drbd-r0:1     (ocf::linbit:drbd) Master
+  Node node-1: online
+          p-ping:0        (ocf::pacemaker:ping) Started
+          p-drbd-r0:0     (ocf::linbit:drbd) Slave
+
+  Inactive resources:
+
+  Migration summary:
+  * Node node-2:
+     exportd-rozofs: migration-threshold=10 fail-count=1 last-failure='Tue Jun 28 08:55:46 2016'
+  * Node node-1:
+
+  Failed actions:
+      exportd-rozofs_monitor_10000 (node=node-2, call=22, rc=7, status=complete): not running
+
+
+Testing stonith:
 
 .. code-block:: bash
 
