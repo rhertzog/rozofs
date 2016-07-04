@@ -501,6 +501,19 @@ void rozofs_ll_setattr_nb(fuse_req_t req, fuse_ino_t ino, struct stat *stbuf,
       }	
     }
 
+       
+    /*
+    ** The size is not given as argument of settattr, 
+    ** nevertheless a size modification is pending or running.
+    ** The mtime_locked will prevent sending the write_block 
+    ** so let's send the size modification along with 
+    ** the other modified attributes.
+    */
+    if ((ie->file_extend_pending)||(ie->file_extend_running)) {
+      to_set |= FUSE_SET_ATTR_SIZE;
+      attr.size = ie->attrs.size;  
+    }	    
+
     /*
     ** This is a MTIME restoration 
     */
@@ -513,18 +526,6 @@ void rozofs_ll_setattr_nb(fuse_req_t req, fuse_ino_t ino, struct stat *stbuf,
       ** to the current time and cancal the mtime restoration.
       */      
       ie->mtime_locked = 1; 
-       
-      /*
-      ** The size is not given as argument of settattr, 
-      ** nevertheless a size modification is pending or running.
-      ** The mtime_locked will prevent sending the write_block 
-      ** so let's send the size modification along with 
-      ** the other modified attributes.
-      */
-      if ((ie->file_extend_pending)||(ie->file_extend_running)) {
-	to_set |= FUSE_SET_ATTR_SIZE;
-	attr.size = ie->attrs.size;  
-      }	
       
       /*
       ** Check whether any write is pending in some buffer open on this file by any application
