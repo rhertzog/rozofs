@@ -700,7 +700,7 @@ void uma_dbg_counters_reset(char * argv[], uint32_t tcpRef, void *bufRef) {
   char mybuffer[1024];
   char *pChar = mybuffer;
   
-  if ((argv[1] == NULL)||(strcmp(argv[1],"reset")!=0)) {  
+  if ((argv[1] == NULL)||(strcasecmp(argv[1],"reset")!=0)) {  
     uma_dbg_send(tcpRef, bufRef, TRUE, "counters requires \"reset\" as parameter\n");
     return; 
   }
@@ -957,7 +957,7 @@ int uma_dbg_differentiator(char * st1, char * st2) {
     
   while(*st1) {		
     if ((*st1==0) || (*st2==0)) return res;
-    if (*st1!=*st2) return res;
+    if (tolower(*st1) != tolower(*st2)) return res;
 	res++;
 	st1++;
 	st2++;
@@ -972,6 +972,10 @@ void uma_dbg_addTopicAndMan(char                     * topic,
   uint16_t length;
   char * my_topic = NULL;
   int    unic;
+  /*
+  ** Get the lock for multhread environment
+  */
+  pthread_mutex_lock(&uma_dbg_thread_mutex);
 
   if (uma_dbg_topic_initialized == FALSE) {
     /* Reset the topic table */
@@ -989,20 +993,20 @@ void uma_dbg_addTopicAndMan(char                     * topic,
   length = strlen(topic);
   if (length == 0) {
     severe( "Bad topic length %d", length );
-    return;
+    goto out;
   }
   
   /* Check a place is left */
   if (uma_dbg_nb_topic == UMA_DBG_MAX_TOPIC) {
     severe( "Too much topic %d. Can not insert %s", UMA_DBG_MAX_TOPIC, topic );
-    return;    
+    goto out;  
   }
 
   /* copy the topic */
   my_topic = malloc(length + 1) ;
   if (my_topic == NULL) {
     severe( "Out of memory. Can not insert %s",topic );    
-    return;
+    goto out;
   }
   strcpy(my_topic, topic);
 
@@ -1017,7 +1021,7 @@ void uma_dbg_addTopicAndMan(char                     * topic,
     if (order == 0) {
       severe( "Trying to add topic %s that already exist", topic );
       free(my_topic);
-      return;
+      goto out;
     }
     
     /* Insert here */
@@ -1030,7 +1034,7 @@ void uma_dbg_addTopicAndMan(char                     * topic,
   uma_dbg_insert_topic(idx,my_topic,option,length, funct, man);
   uma_dbg_nb_topic++;
   
-  if (uma_dbg_nb_topic < 3) return; 
+  if (uma_dbg_nb_topic < 3) goto out; 
       
   idx  = 0; 
   unic = 1;
@@ -1046,7 +1050,13 @@ void uma_dbg_addTopicAndMan(char                     * topic,
 	if (uma_dbg_topic[idx].unic>uma_dbg_topic[idx].len) uma_dbg_topic[idx].unic = uma_dbg_topic[idx].len;
 	idx = next;
   }
-  uma_dbg_topic[idx].unic = unic;	  
+  uma_dbg_topic[idx].unic = unic;
+  
+out:
+  /*
+  ** Release the lock for multhread environment
+  */
+  pthread_mutex_unlock(&uma_dbg_thread_mutex);  	  
 
 }
 /*-----------------------------------------------------------------------------
@@ -1127,7 +1137,7 @@ void uma_dbg_listTopic(uint32_t tcpCnxRef, void *bufRef, char * topic) {
   
     if (uma_dbg_topic[topicNum].option & UMA_DBG_OPTION_HIDE) continue;
 
-    if ((len == 0)||(strncmp(topic,uma_dbg_topic[topicNum].name, len) == 0)) {
+    if ((len == 0)||(strncasecmp(topic,uma_dbg_topic[topicNum].name, len) == 0)) {
 	  if (old) idx += uma_dbg_display_old_topic(topicNum, &p[idx]);
 	  else     idx += uma_dbg_display_new_topic(topicNum, &p[idx]);
     }
