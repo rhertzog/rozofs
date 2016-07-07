@@ -562,6 +562,8 @@ static inline void _rozofs_fuse_release_saved_context(void *buffer_p,int line)
 {
   rozofs_fuse_save_ctx_t *fuse_save_ctx_p;
 //  info("_rozofs_fuse_release_saved_context %d addr %p",line,buffer_p);
+
+  ruc_objRemove((ruc_obj_desc_t*)buffer_p);
   /*
   ** Get the payload of the buffer since it is that part that contains
   ** the fuse saved context

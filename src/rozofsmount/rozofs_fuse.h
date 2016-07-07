@@ -196,5 +196,37 @@ int rozofs_stat_start(void *args);
   @retval none
 */
  void rozofs_exit();
- 
+ struct rozofs_fuse_in_header {
+	uint32_t	len;
+	uint32_t	opcode;
+	uint64_t	unique;
+	uint64_t	nodeid;
+	uint32_t	uid;
+	uint32_t	gid;
+	uint32_t	pid;
+	uint32_t	padding;
+};
+
+/**
+* That function is intended to detect if the kernel has
+  provided the inode reference of the child. When it is done
+  the inode value follows the name of the object
+
+*/  
+static inline int rozofs_check_extra_inode_in_lookup(char *args,int *len)
+{
+   int local_len;
+   struct rozofs_fuse_in_header  *p;
+   /*
+   ** get the length of the input string
+   */
+   local_len = strlen(args);
+   *len = local_len;
+   //info("FDL local_len = %d",local_len);
+   
+   local_len +=1;
+   p= (struct rozofs_fuse_in_header*)(args - sizeof(struct rozofs_fuse_in_header));
+   local_len = (int)p->len - sizeof(struct rozofs_fuse_in_header) -local_len;
+   return local_len;
+}
 #endif

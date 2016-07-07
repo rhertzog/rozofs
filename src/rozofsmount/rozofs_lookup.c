@@ -303,6 +303,29 @@ void rozofs_ll_lookup_nb(fuse_req_t req, fuse_ino_t parent, const char *name)
     struct stat stbuf;
     int allocated = 0;
     int len_name;
+    fuse_ino_t child = 0;   
+    int  local_lookup_success = 0;
+    uint32_t lookup_flags=0;
+    int extra_length = 0;
+    fuse_ino_t ino = 0;
+    
+    extra_length = rozofs_check_extra_inode_in_lookup((char*)name, &len_name);
+    //info("FDL inargs %p extra %d",name,extra_length);
+    if (extra_length !=0)
+    {
+       uint8_t *pdata_p;
+       uint32_t *lookup_flags_p = (uint32_t*)&name[len_name+1];
+       lookup_flags =*lookup_flags_p;
+       if (extra_length > 4)
+       {
+         pdata_p = (uint8_t*)&name[len_name+1];
+	 pdata_p+=sizeof(uint32_t);
+	 fuse_ino_t *inode_p = (fuse_ino_t*)pdata_p;
+	 child = *inode_p;
+	 ino = child;
+	 //info("FDL inode is provided!! %s lookup %x inode %llx",name,lookup_flags,child);
+       }
+    }
     
     trc_idx = rozofs_trc_req_name(srv_rozofs_ll_lookup,parent,(char*)name);
     /*
@@ -319,6 +342,7 @@ void rozofs_ll_lookup_nb(fuse_req_t req, fuse_ino_t parent, const char *name)
     SAVE_FUSE_PARAM(buffer_p,parent);
     SAVE_FUSE_STRING(buffer_p,name);
     SAVE_FUSE_PARAM(buffer_p,trc_idx);
+    SAVE_FUSE_PARAM(buffer_p,ino);
     
 
     DEBUG("lookup (%lu,%s)\n", (unsigned long int) parent, name);
@@ -370,6 +394,29 @@ void rozofs_ll_lookup_nb(fuse_req_t req, fuse_ino_t parent, const char *name)
     /*
     ** now initiates the transaction towards the remote end
     */
+    
+    
+    /*
+    ** In case the EXPORT LBG is down ans we know this ientry, let's respond to
+    ** the requester with the current available information
+    */
+#if 1
+    if ((common_config.client_fast_reconnect) && (child != 0)) {
+      expgw_tx_routing_ctx_t routing_ctx; 
+      
+      if (expgw_get_export_routing_lbg_info(arg.arg_gw.eid,ie->fid,&routing_ctx) != 0) {
+         goto error;
+      }
+      if (north_lbg_get_state(routing_ctx.lbg_id[0]) != NORTH_LBG_UP) {
+	  if (!(nie = get_ientry_by_inode(child))) {
+              errno = ENOENT;
+              goto error;
+	  }
+	  goto success;        
+      }      
+    }  
+#endif         
+    
 #if 1
     ret = rozofs_expgateway_send_routing_common(arg.arg_gw.eid,ie->fid,EXPORT_PROGRAM, EXPORT_VERSION,
                               EP_LOOKUP,(xdrproc_t) xdr_epgw_lookup_arg_t,(void *)&arg,
@@ -380,8 +427,22 @@ void rozofs_ll_lookup_nb(fuse_req_t req, fuse_ino_t parent, const char *name)
                               EP_LOOKUP,(xdrproc_t) xdr_epgw_lookup_arg_t,(void *)&arg,
                               rozofs_ll_lookup_cbk,buffer_p); 
 #endif
-    if (ret < 0) goto error;
-    
+    if (ret < 0) {
+      /*
+      ** In case of fast reconnect mode let's respond with the previously knows 
+      ** parameters instead of failing
+      */
+      if (common_config.client_fast_reconnect) {
+        if (child != 0) {
+	  if (!(nie = get_ientry_by_inode(child))) {
+              errno = ENOENT;
+              goto error;
+	  }
+	  goto success;
+        }
+      }
+      goto error;
+    }
     /*
     ** no error just waiting for the answer
     */
@@ -431,6 +492,7 @@ lookup_objectmode:
       nie->nlookup   = 0;
     }   
 //    info("FDL %d mode %d  uid %d gid %d",allocated,nie->attrs.mode,nie->attrs.uid,nie->attrs.gid);
+success:
     memset(&fep, 0, sizeof (fep));
     mattr_to_stat(&nie->attrs, &stbuf,exportclt.bsize);
     stbuf.st_ino = nie->inode;
@@ -481,6 +543,7 @@ void rozofs_ll_lookup_cbk(void *this,void *param)
    ientry_t *pie = 0;
    mattr_t  pattrs;
    int errcode=0;
+   fuse_ino_t ino = 0;
     
    GET_FUSE_CTX_P(fuse_ctx_p,param);  
    /*
@@ -491,6 +554,7 @@ void rozofs_ll_lookup_cbk(void *this,void *param)
    rpc_reply.acpted_rply.ar_results.proc = NULL;
    RESTORE_FUSE_PARAM(param,req);
    RESTORE_FUSE_PARAM(param,trc_idx);
+   RESTORE_FUSE_PARAM(param,ino);
    RESTORE_FUSE_STRUCT_PTR(param,name);
     /*
     ** get the pointer to the transaction context:
@@ -506,7 +570,22 @@ void rozofs_ll_lookup_cbk(void *this,void *param)
        /*
        ** something wrong happened
        */
-       errno = rozofs_tx_get_errno(this);  
+       errno = rozofs_tx_get_errno(this); 
+       /*
+       ** In case of fast reconnect mode let's respond with the previously knows 
+       ** parameters instead of failing
+       */
+       if ((common_config.client_fast_reconnect)&&(errno==ETIME)) {
+         if (ino != 0) {
+	   if (!(nie = get_ientry_by_inode(ino))) {
+               errno = ENOENT;
+               goto error;
+	   }
+           memcpy(&attrs, &nie->attrs, sizeof (mattr_t));
+	   errno = EAGAIN;	   
+	   goto success;
+         }
+       }        
        goto error; 
     }
     /*
@@ -655,6 +734,7 @@ void rozofs_ll_lookup_cbk(void *this,void *param)
       ientry_update_parent(nie,pie->fid);
     }   
     
+success:    
     memset(&fep, 0, sizeof (fep));
     mattr_to_stat(&attrs, &stbuf,exportclt.bsize);
     stbuf.st_ino = nie->inode;

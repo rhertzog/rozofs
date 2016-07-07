@@ -1813,6 +1813,12 @@ int fuseloop(struct fuse_args *args, int fg) {
     ** init of the trace buffer
     */
     rozofs_trace_init(ROZOFS_TRACE_BUF_SZ);
+
+#if 0
+    rozofs_trace_enable();
+    rozofs_trace_init(200);
+#endif
+
     /*
     ** init of the xattribute filter
     */

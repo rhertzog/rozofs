@@ -105,6 +105,27 @@ uint64_t rozofs_max_getattr_duplicate = 0;
     /*
     ** now initiates the transaction towards the remote end
     */
+
+    /*
+    ** In case the EXPORT LBG is down and we know this ientry, let's respond to
+    ** the requester with the current available information
+    */
+    if (common_config.client_fast_reconnect) {
+      expgw_tx_routing_ctx_t routing_ctx; 
+      
+      if (expgw_get_export_routing_lbg_info(arg.arg_gw.eid,ie->fid,&routing_ctx) != 0) {
+         goto error;
+      }
+      if (north_lbg_get_state(routing_ctx.lbg_id[0]) != NORTH_LBG_UP) {
+        if (ie->attrs.mtime != 0) {
+	  mattr_to_stat(&ie->attrs, &stbuf, exportclt.bsize);
+	  stbuf.st_ino = ino; 
+	  rz_fuse_reply_attr(req, &stbuf, rozofs_tmr_get_attr());
+	  goto out;           
+	} 
+      }	     
+    }  
+
 #if 1
     ret = rozofs_expgateway_send_routing_common(arg.arg_gw.eid,ie->fid,EXPORT_PROGRAM, EXPORT_VERSION,
                               EP_GETATTR,(xdrproc_t) xdr_epgw_mfile_arg_t,(void *)&arg,
@@ -115,7 +136,21 @@ uint64_t rozofs_max_getattr_duplicate = 0;
                               EP_GETATTR,(xdrproc_t) xdr_epgw_mfile_arg_t,(void *)&arg,
                               rozofs_ll_getattr_cbk,buffer_p); 
 #endif
-    if (ret < 0) goto error;    
+    if (ret < 0) {
+      /*
+      ** In case of fast reconnect mode let's respond with the previously knows 
+      ** parameters instead of failing
+      */
+      if (common_config.client_fast_reconnect) {
+        if (ie->attrs.mtime != 0) {      
+	  mattr_to_stat(&ie->attrs, &stbuf, exportclt.bsize);
+	  stbuf.st_ino = ino; 
+	  rz_fuse_reply_attr(req, &stbuf, rozofs_tmr_get_attr());
+	  goto out;           
+	}
+      }	
+      goto error;    
+    }  
     /*
     ** no error just waiting for the answer: increment the pending counter of getattr
     */
@@ -186,6 +221,20 @@ void rozofs_ll_getattr_cbk(void *this,void *param)
        ** something wrong happened
        */
        errno = rozofs_tx_get_errno(this);  
+       /*
+       ** In case of fast reconnect mode let's respond with the previously knows 
+       ** parameters instead of failing
+       */
+       if ((common_config.client_fast_reconnect)&&(errno==ETIME)) {
+         ie = get_ientry_by_inode(ino);
+	 if ((ie != NULL) && (ie->attrs.mtime != 0)) { 
+ 	   mattr_to_stat(&ie->attrs, &stbuf, exportclt.bsize);
+	   stbuf.st_ino = ino; 
+	   rz_fuse_reply_attr(req, &stbuf, rozofs_tmr_get_attr());
+	   errno = EAGAIN;	   
+	   goto out; 
+	 }            
+       }       
        goto error; 
     }
     /*

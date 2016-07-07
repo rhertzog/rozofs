@@ -123,6 +123,22 @@ void rozofs_ll_open_nb(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi
     /*
     ** now initiates the transaction towards the remote end
     */
+
+    /*
+    ** In case the EXPORT LBG is down and we know this ientry, let's respond to
+    ** the requester with the current available information
+    */
+    if (common_config.client_fast_reconnect) {
+      expgw_tx_routing_ctx_t routing_ctx; 
+      
+      if (expgw_get_export_routing_lbg_info(arg.arg_gw.eid,ie->fid,&routing_ctx) != 0) {
+         goto error;
+      }
+      if (north_lbg_get_state(routing_ctx.lbg_id[0]) != NORTH_LBG_UP) {
+	goto short_cut;           
+      }      
+    } 
+
 #if 1
     ret = rozofs_expgateway_send_routing_common(arg.arg_gw.eid,ie->fid,EXPORT_PROGRAM, EXPORT_VERSION,
                               EP_GETATTR,(xdrproc_t) xdr_epgw_mfile_arg_t,(void *)&arg,
@@ -133,7 +149,37 @@ void rozofs_ll_open_nb(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi
                               rozofs_ll_open_cbk,buffer_p); 
 
 #endif
-    if (ret < 0) goto error;    
+    if (ret < 0) {
+      /*
+      ** In case of fast reconnect mode let's respond with the previously knows 
+      ** parameters instead of failing
+      */
+      if (common_config.client_fast_reconnect) {
+short_cut:
+	/*
+	** allocate a context for the file descriptor
+	*/
+	file = rozofs_file_working_var_init(ie,ie->fid);
+	if (rozofs_cache_mode == 1)
+           fi->direct_io = 1;
+	else
+	{
+          if (rozofs_cache_mode == 2)
+            fi->keep_cache = 1;
+	}
+	fi->fh = (unsigned long) file;
+	/*
+	** update the statistics
+	*/
+	rzkpi_file_stat_update(ie->pfid,(int)0,RZKPI_OPEN);
+	/*
+	** send back response to fuse
+	*/
+	fuse_reply_open(req, fi);
+	goto out;         
+      }
+      goto error;  
+    }    
     /*
     ** no error just waiting for the answer
     */
@@ -205,6 +251,39 @@ void rozofs_ll_open_cbk(void *this,void *param)
        ** something wrong happened
        */
        errno = rozofs_tx_get_errno(this);  
+       
+       if ((errno == ETIME) && (common_config.client_fast_reconnect)) {
+	 /*
+	 ** In case of fast reconnect mode let's respond with the previously knows 
+	 ** parameters instead of failing
+	 */
+	 if (!(ie = get_ientry_by_inode(ino))) {
+             errno = ENOENT;
+             goto error;
+	 }
+	 /*
+	 ** allocate a context for the file descriptor
+	 */
+	 file = rozofs_file_working_var_init(ie,ie->fid);
+	 if (rozofs_cache_mode == 1)
+            fi->direct_io = 1;
+	 else
+	 {
+           if (rozofs_cache_mode == 2)
+             fi->keep_cache = 1;
+	 }
+	 fi->fh = (unsigned long) file;
+	 /*
+	 ** update the statistics
+	 */
+	 rzkpi_file_stat_update(ie->pfid,(int)0,RZKPI_OPEN);
+	 /*
+	 ** send back response to fuse
+	 */
+	 fuse_reply_open(req, fi);
+	 errno = EAGAIN;
+	 goto out;         
+       }       
        goto error; 
     }
     /*
