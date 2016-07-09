@@ -503,18 +503,6 @@ void rozofs_ll_setattr_nb(fuse_req_t req, fuse_ino_t ino, struct stat *stbuf,
 
        
     /*
-    ** The size is not given as argument of settattr, 
-    ** nevertheless a size modification is pending or running.
-    ** The mtime_locked will prevent sending the write_block 
-    ** so let's send the size modification along with 
-    ** the other modified attributes.
-    */
-    if ((ie->file_extend_pending)||(ie->file_extend_running)) {
-      to_set |= FUSE_SET_ATTR_SIZE;
-      attr.size = ie->attrs.size;  
-    }	    
-
-    /*
     ** This is a MTIME restoration 
     */
     if (to_set & FUSE_SET_ATTR_MTIME) {  
@@ -526,7 +514,20 @@ void rozofs_ll_setattr_nb(fuse_req_t req, fuse_ino_t ino, struct stat *stbuf,
       ** to the current time and cancal the mtime restoration.
       */      
       ie->mtime_locked = 1; 
-      
+
+
+      /*
+      ** The size is not given as argument of settattr, 
+      ** nevertheless a size modification is pending or running.
+      ** The mtime_locked will prevent sending the write_block 
+      ** so let's send the size modification along with 
+      ** the other modified attributes.
+      */
+      if ((ie->file_extend_pending)||(ie->file_extend_running)) {
+	to_set |= FUSE_SET_ATTR_SIZE;
+	attr.size = ie->attrs.size;  
+      }	    
+
       /*
       ** Check whether any write is pending in some buffer open on this file by any application
       */
@@ -569,10 +570,12 @@ void rozofs_ll_setattr_nb(fuse_req_t req, fuse_ino_t ino, struct stat *stbuf,
     /*
     ** Request has been sent, and size modification has been added to the messages
     */
-    if (ie->file_extend_pending) {
-      ie->file_extend_running = 1;
-      ie->file_extend_pending = 0; 
-      ie->file_extend_size    = 0;        
+    if (ie->mtime_locked) {  
+      if (ie->file_extend_pending) {
+	ie->file_extend_running = 1;
+	ie->file_extend_pending = 0; 
+	ie->file_extend_size    = 0;        
+      }  
     }     
     /*
     ** no error just waiting for the answer
@@ -748,9 +751,11 @@ void rozofs_ll_setattr_cbk(void *this,void *param)
         goto error;
     }
     /*
-    ** clear the running flag
+    ** clear the running flag in case of a time modification
     */
-    ie->file_extend_running = 0;
+    if (ie->mtime_locked) {  
+      ie->file_extend_running = 0;
+    }
     /*
     ** update the attributes in the ientry
     */
