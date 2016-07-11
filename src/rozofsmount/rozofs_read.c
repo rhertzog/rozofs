@@ -1473,8 +1473,7 @@ void rozofs_ll_read_cbk(void *this,void *param)
         *   +---------------------------+  BUFSIZE
         *
         *  Flush the write data
-        *  partial merge of write and read data into the file descriptor buffer
-        *  some zero might be inserted between read_pos and write_from
+        *  and install read data in the buffer
         *
         */
         if (file->write_pos - next_read_from > file->export->bufsize)
@@ -1482,37 +1481,18 @@ void rozofs_ll_read_cbk(void *this,void *param)
           ROZOFS_WRITE_MERGE_STATS(RZ_FUSE_WRITE_7);
           rozofs_asynchronous_flush(fi);        
           /*
-          ** save in buf flush the section between write_from and write_pos
-          */
-          offset_end = next_read_from + file->export->bufsize;
-
-          len = offset_end - file->write_from;      
-          src_p =(uint8_t *)( file->buffer + (file->write_from- file->read_from));
-          memcpy(local_buf_flush,src_p,len);   
-          /*
           ** copy the received buffer in the file descriptor context
           */
           src_p = payload+position;
           dst_p = (uint8_t*)file->buffer;
           memcpy(dst_p,src_p,received_len);
           file->buf_read_wait = 0;
-          /*
-          ** insert 0 in the middle
-          */
-          dst_p += received_len;
-          len_zero = file->write_from- next_read_pos;
-          memset(dst_p,0,len_zero);
-          /**
-          * merge the with the buf flush
-          */
-          dst_p+= len_zero;
-          memcpy(dst_p,local_buf_flush,len); 
 
           file->write_pos  = 0;
           file->write_from = 0;
           file->read_from = next_read_from;
-          file->read_pos  = offset_end;	  
-          break;  
+          file->read_pos  = next_read_pos;	  
+          break; 
         }         
         /**
         *                          wr_f                  wr_p
@@ -1521,41 +1501,27 @@ void rozofs_ll_read_cbk(void *this,void *param)
         *   nxt_rd_f         nxt_rd_p
         *   +-----------------------------------------------+  BUFSIZE
         *
-        * no  Flush of the write data
-        *  full merge of write and read data into the file descriptor buffer
-        *  some zero might be inserted between read_pos and write_from
-        *
+        *  Flush the write data
+        *  and install read data in the buffer
         */
         /*
         ** save in buf flush the section between write_from and write_pos
         */
         ROZOFS_WRITE_MERGE_STATS(RZ_FUSE_WRITE_8);
-        offset_end = next_read_from + file->export->bufsize;
+          rozofs_asynchronous_flush(fi);        
+          /*
+          ** copy the received buffer in the file descriptor context
+          */
+          src_p = payload+position;
+          dst_p = (uint8_t*)file->buffer;
+          memcpy(dst_p,src_p,received_len);
+          file->buf_read_wait = 0;
 
-        len = file->write_pos - file->write_from;      
-        src_p =(uint8_t *)( file->buffer + (file->write_from- file->read_from));
-        memcpy(local_buf_flush,src_p,len);   
-        /*
-        ** copy the received buffer in the file descriptor context
-        */
-        src_p = payload+position;
-        dst_p = (uint8_t*)file->buffer;
-        memcpy(dst_p,src_p,received_len);
-        file->buf_read_wait = 0;
-        /*
-        ** insert 0 in the middle
-        */
-        dst_p += received_len;
-        len_zero = file->write_from- next_read_pos;
-        memset(dst_p,0,len_zero);
-        /**
-        * merge the with the buf flush
-        */
-        dst_p+= len_zero;
-        memcpy(dst_p,local_buf_flush,len); 
-
-        file->read_from = next_read_from;
-        file->read_pos  = file->write_pos;	  
+          file->write_pos  = 0;
+          file->write_from = 0;
+          file->read_from = next_read_from;
+          file->read_pos  = next_read_pos;	  
+	  
         break;   
       }   
       ROZOFS_WRITE_MERGE_STATS(RZ_FUSE_WRITE_9);
