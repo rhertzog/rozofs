@@ -972,11 +972,6 @@ void uma_dbg_addTopicAndMan(char                     * topic,
   uint16_t length;
   char * my_topic = NULL;
   int    unic;
-  /*
-  ** Get the lock for multhread environment
-  */
-  pthread_mutex_lock(&uma_dbg_thread_mutex);
-
 
   /*
   ** Get the lock for multhread environment
