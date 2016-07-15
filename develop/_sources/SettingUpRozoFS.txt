@@ -66,11 +66,11 @@ northbound of the ToR SAN switches
 
 .. figure:: pics/multi_link_1.png
    :align: center
-   :alt: 
+   :alt:
 
 .. figure:: pics/multi_link_2.png
    :align: center
-   :alt: 
+   :alt:
 
 LACP Configuration
 ~~~~~~~~~~~~~~~~~~
@@ -82,49 +82,137 @@ or different VLANs.
 
 .. figure:: pics/lacp.png
    :align: center
-   :alt: 
+   :alt:
 
 Preparing Nodes
 ===============
 
-Exportd Nodes
--------------
+Enable HA for RozoFS metadata servers
+-------------------------------------
 
-RozoFS must be combined with high-availability (HA) software to enable a
-complete storage failover solution. This chapter explain how setting up a
-complete metadata failover solution with DRBD and Pacemaker.
+RozoFS must be combined with a High-Availability (HA) software to enable a
+complete storage failover solution. Indeed, unlike storage data daemons
+(storaged), the exportd daemon can not be running on several nodes at the same
+time. So, if you want a High-available exportd server you need to replicate the
+metadata to another node and coordinate exportd actions between nodes.
 
-Metadata Replication with DRBD
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Rozo Systems made the choice to use these 3 softwares for the ``rozofs-exportd``
+service:
+
+ - `DRBD <http://www.drbd.org>`_ - a replicated storage solution mirroring the content of block devices between hosts
+
+ - `Corosync <http://corosync.github.io/corosync/>`_ - a Group Communication System
+
+ - `Pacemaker <http://clusterlabs.org/>`_ - an open source cluster resource manager (CRM)
+
+This chapter explain how setting up a complete RozoFS metadata failover with 2
+nodes.
+
+Prerequisites
+~~~~~~~~~~~~~
+
+The following section informs you about system requirements, and some
+prerequisites for setting up a High Availability ``rozofs-exportd`` service.
+It also includes recommendations for this setup.
+
+**Hardware requirements**
+
+The following list specifies hardware requirements:
+
+- At **least two Linux node**.
+
+- At **least two TCP/IP communication media** per node.
+
+- A `STONITH <https://en.wikipedia.org/wiki/STONITH>`_ mechanism. A **STONITH
+  device** is a power switch which the cluster uses to reset nodes that are
+  thought to be dead or behaving in a strange manner. This is the only reliable
+  way to ensure that no data corruption is performed
+  by nodes that hang and only appear to be dead.
+
+- **One empty data block device by node** (partition or complete hard disk,
+  Logical Volume LVM..) separate from OS Hard Disk.
+
+.. note::
+ For more information about STONITH device, see the
+ `Fencing and Stonith documentation <http://clusterlabs.org/doc/crm_fencing.html>`_.
+
+
+**Software requirements**
+
+- One Linux OS, Rozo Systems has only deployed this setup on the following OS:
+
+  - CentOS 6.5, 6.6 and 7
+
+  - Debian 7 and 8
+
+- Enable Network Time Protocol daemon: If nodes are not synchronized, log files
+  and cluster reports are very hard to analyze.
+
+**Other recommendations**
+
+For a useful High Availability setup, consider the following recommendations:
+
+- **Redundant Communication Paths**: it's strongly recommended to set up cluster
+  communication (corosync) via two or more redundant paths. This can be done
+  via:
+
+  - Network Device Bonding.
+
+  - A second communication channel in Corosync.
+
+- We strongly recommend **multiple STONITH devices per node**.
+
+The following diagram describes a ideal network configuration for a exportd HA
+setup:
+
+- DRBD and Corosync (Primary interface: ``ring 0``) use a bonding network device
+
+- A second network interface (``ring 1``) is used by corosync if the first interface failed.
+
+- 2 STONITH devices are used:
+
+  - One with the Light Out Management interface (ilo, idrac, IPMI...)
+
+  - One with a Switched PDU
+
+.. figure:: pics/exportd-HA-ideal-setup.png
+   :align: center
+
+Meta-data Replication with DRBD 8.4
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 **About DRBD**
 
-`DRBD <http://www.drbd.org/>`_ replicates data from the primary device to the
+DRBD replicates data from the primary device to the
 secondary device in a way which ensures that both copies of the data remain
 identical. Think of it as a networked RAID 1. It mirrors data in real-time, so
 its replication occurs continuously. Applications do not need to know that in
 fact their data is stored on different disks.
 
 .. note::
-    For more information, see the `DRBD website <http://www.drbd.org>`_.
+    For more information, see the
+    `DRBD 8.4 online documentation <http://www.drbd.org/en/doc/users-guide-84>`_.
 
-The following example uses two servers named *node1* and *node2*, and the
-DRBD resource named *r0*. It sets up *node1* as the primary node. Be sure to
+The following example uses two servers named ``node-1`` and ``node-2``, and the
+DRBD resource named ``r0``. Each node use the device ``/dev/sdd`` for low level
+device. It sets up ``node-1`` as the primary node. Be sure to
 modify the instructions relative to your own configuration.
 
 **Installing DRBD**
 
-For install DRBD with *apt*:
+On both servers, install DRBD packages
+
+For installing DRBD with *apt* :
 
 .. code-block:: bash
 
-    $ apt-get install drbd8-utils
+    apt-get install drbd8-utils
 
 For install DRBD with *yum*:
 
 .. code-block:: bash
 
-    $ yum install drbd kmod-drbd
+    yum install kmod-drbd84 drbd84-utils
 
 .. note::
     For more information about DRBD installation, see the
@@ -140,66 +228,126 @@ are two configuration files which are created:
 -  ``/etc/drbd.d/global_common.conf`` corresponds to the global configuration of
    DRBD.
 
-Create the file ``/etc/drbd.d/r0.res`` on *node1*, changes the lines according
-to your parameters, and save it:
+Create files ``/etc/drbd.d/global_common.conf`` and ``/etc/drbd.d/r0.res`` on
+``node-1``, changes the lines according to your parameters, and save them.
 
-::
+Examples of configuration files for DRBD 8.4:
 
-    resource r0 {
-      protocol C;
+.. code-block:: ini
+   :linenos:
+   :caption: /etc/drbd.d/global_common.conf
 
-      on node1 {
-        device     /dev/drbd0;
-        disk       /dev/mapper/vg01-exports;
-        address    192.168.1.1:7788;
-        meta-disk internal;
+    global {
+      usage-count no;
+    }
+
+    common {
+
+      handlers {
+          # handlers
+          pri-lost "/usr/lib/drbd/notify-pri-lost.sh; \
+                    /usr/lib/drbd/notify-emergency-reboot.sh; \
+                    echo b > /proc/sysrq-trigger ; \
+                    reboot -f";
+          pri-on-incon-degr "/usr/lib/drbd/notify-pri-on-incon-degr.sh; \
+                             /usr/lib/drbd/notify-emergency-reboot.sh; \
+                             echo b > /proc/sysrq-trigger; \
+                             reboot -f";
+          pri-lost-after-sb "/usr/lib/drbd/notify-pri-lost-after-sb.sh; \
+                             /usr/lib/drbd/notify-emergency-reboot.sh; \
+                             echo b > /proc/sysrq-trigger; \
+                             reboot -f";
+          fence-peer "/usr/lib/drbd/crm-fence-peer.sh";
+          after-resync-target "/usr/lib/drbd/crm-unfence-peer.sh";
+          split-brain "/usr/lib/drbd/notify-split-brain.sh root";
       }
 
-      on node2 {
-        device    /dev/drbd0;
-        disk      /dev/mapper/vg01-exports;
-        address   192.168.1.2:7788;
-        meta-disk internal;
+      disk {
+          on-io-error detach; # If a hard drive fails
+          # The handler is supposed to reach the other node over
+          # alternative communication paths and call 'drbdadm outdate res' there
+          fencing resource-only; # 2 rings should be configured in corosync
+          ## Tuning recommendations
+          al-extents 3389;
+      }
+
+      net {
+          verify-alg crc32c;
+          csums-alg crc32c;
+          rr-conflict call-pri-lost;
+          ### Automatic split brain recovery policies
+          after-sb-0pri discard-zero-changes ;
+          after-sb-1pri call-pri-lost-after-sb ;
+          after-sb-2pri call-pri-lost-after-sb ;
+          always-asbp;
+          ## Tuning recommendations
+          max-buffers 8000;
+          max-epoch-size 8000;
+          sndbuf-size 0;
+          unplug-watermark 16;
       }
     }
 
-This file configure a DRBD resource named *r0* which uses an underlying local
-disk named ``/dev/mapper/vg01-exports`` on both nodes *node1* and *node2*. In
-this example, we configure the resource to use internal metadata (means that
-DRBD stores its meta data on the same physical lower-level device as the actual
-production data) and it uses TCP port 7788 for its network connections, and
-binds to the IP addresses 192.168.1.1 and 192.168.1.2, respectively. This
-resource is configured to use fully synchronous replication (protocol C).
+.. code-block:: ini
+   :linenos:
+   :caption: /etc/drbd.d/r0.res
+   :emphasize-lines: 4-15
 
-Copy DRBD configuration files manually to the other node (*node2*):
+    resource r0 {
+
+      protocol C;
+      on node-1 {
+        device      /dev/drbd0; # Block device name
+        disk        /dev/sdd;   #  Lower level device
+        address     192.168.1.1:7788; # IP address:port for data transfer
+        meta-disk   internal;  # Meta-data are stored on lower level device
+      }
+      on node-2 {
+        device      /dev/drbd0;
+        disk        /dev/sdd;
+        address     192.168.1.2:7788;
+        meta-disk   internal;
+      }
+    }
+
+
+This file configure a DRBD resource named ``r0`` which uses an underlying local
+disk named ``/dev/sdd`` on both nodes ``node-1`` and ``node-2``.
+In this example, we configure the resource to use internal meta-data (means that
+DRBD stores its meta data on the same physical lower-level device as the actual
+production data) and it uses TCP port ``7788`` for its network connections, and
+binds to the IP addresses ``192.168.1.1`` and ``192.168.1.2``, respectively.
+This resource is configured to use fully synchronous replication (protocol C).
+
+Copy DRBD configuration files manually to the other node (``node-2``):
 
 .. code-block:: bash
 
-    $ scp /etc/drbd.d/* node2:/etc/drbd.d/
+    scp /etc/drbd.d/* node-2:/etc/drbd.d/
 
 **Enabling the DRBD resource**
 
 Each of the following steps must be completed on both nodes.
 
-Initializes the DRBD metadata :
+Initializes the DRBD meta-data:
 
 .. code-block:: bash
 
-    $ drbdadm -- --ignore-sanity-checks create-md r0
+    drbdadm -- --ignore-sanity-checks create-md r0
 
-Attach resource *r0* to the backing device, set the replication parameters and
-connect the resource to its peer :
-
-.. code-block:: bash
-
-    $ drbdadm up r0
-
-Start the resync process and put the device into the primary role (*node1* in
-this case) by entering the following command only on *node1*:
+Attach resource ``r0`` to the backing device, set the replication parameters and
+connect the resource to its peer:
 
 .. code-block:: bash
 
-    $ drbdadm --force primary r0
+    drbdadm up r0
+
+Start the resync process and put the device into the primary role (``node-1`` in
+this case) by entering the following command only on ``node-1``:
+
+.. code-block:: bash
+
+    drbdadm --force primary r0
 
 **Creating a file system**
 
@@ -207,58 +355,91 @@ Create desired file system on top of your DRBD device (for example *ext4*):
 
 .. code-block:: bash
 
-    $ mkfs.ext4 /dev/drbd0
+    mkfs.ext4 -b 4096 -i 4096 -I 128 /dev/drbd0
+
+**Testing the metadata filesystem**
 
 If the install and configuration procedures worked as expected, you are
 ready to run a basic test of the DRBD functionality. Create a mount
-point on *node1*, such as ``/srv/rozofs/exports``:
+point on ``node-1``, such as ``/srv/rozofs/exports``:
 
 .. code-block:: bash
 
-    $ mkdir -p /srv/rozofs/exports
+    mkdir -p /srv/rozofs/exports
 
 Mount the DRBD device:
 
 .. code-block:: bash
 
-    $ mount /dev/drbd0 /srv/rozofs/exports
+    mount /dev/drbd0 /srv/rozofs/exports
 
-Write a file:
+In the following section, we will configure the management of high availability
+with Pacemaker. So it will be necessary to have the rozofs-exportd
+configuration file on both servers and this file should be identical. For that
+we will move this configuration file to meta-data filesystem  and create
+symbolic links on each node.
+
+On ``node-1`` (the current primary node):
 
 .. code-block:: bash
 
-    $ echo “helloworld” > /srv/rozofs/exports/test
+    mv /etc/rozofs/export.conf /srv/rozofs/exports/export.conf
 
-Unmount the DRBD device:
+On ``node-1`` and ``node-2``:
 
 .. code-block:: bash
 
-    $ umount /srv/rozofs/exports
+    ln -sf /srv/rozofs/exports/export.conf /etc/rozofs/export.conf
+
+Unmount the DRBD device on ``node-1``:
+
+.. code-block:: bash
+
+    umount /srv/rozofs/exports
 
 To verify that synchronization is performed:
 
 .. code-block:: bash
 
-    $ cat /proc/drbd
-    version: 8.3.11 (api:88/proto:86-96)
-    srcversion: 41C52C8CD882E47FB5AF767
-     0: cs:Connected ro:Primary/Secondary ds:UpToDate/UpToDate C r-----
-        ns:3186507 nr:0 dw:3183477 dr:516201 al:4702 bm:163 lo:0 pe:0 ua:0
-        ap:0 ep:1 wo:f oos:0
+  cat /proc/drbd
+  version: 8.4.3 (api:1/proto:86-101)
+  srcversion: 1A9F77B1CA5FF92235C2213
+   0: cs:Connected ro:Primary/Secondary ds:UpToDate/UpToDate C r-----
+      ns:64 nr:0 dw:24 dr:93981 al:1 bm:5 lo:0 pe:0 ua:0 ap:0 ep:1 wo:f oos:0
 
-The two resources are now synchronized (*UpToDate*). The initial
+
+The two resources are now synchronized (``UpToDate``). The initial
 synchronization is performed, it is necessary to stop the DRBD service
 and remove the link for the initialization script not to start the
-service automatically DRBD. The service is now controlled by the
+service automatically DRBD. The service will be controlled by the
 Pacemaker service.
 
-Disable DRBD init script (depending on your distribution, here Debian
-example):
+Disable DRBD and rozofs-exportd init script on each meta-data node
+(depending on your distribution):
+
+Debian Wheezy, CentOS 6 (system V):
 
 .. code-block:: bash
 
-    $ /etc/init.d/drbd stop
-    $ insserv -vrf drbd
+    /etc/init.d/drbd stop
+    /etc/init.d/rozofs-exportd stop
+    insserv -vrf drbd rozofs-exportd
+
+Debian Jessie, CentOS 7 (systemd):
+
+.. code-block:: bash
+
+    systemctl stop rozofs-exportd drbd
+    systemctl disable rozofs-exportd drbd
+
+
+It's also necessary to create the DRBD device mountpoint directory on
+``node-2`` :
+
+.. code-block:: bash
+
+    mkdir -p /srv/rozofs/exports
+
 
 High Availability with Pacemaker
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -268,7 +449,8 @@ suitable for clusters of Linux machines. This tool can detect machine
 failures with a communication system based on an exchange of UDP packets
 and migrate services (resource) from one server to another.
 
-The configuration of Pacemaker can be done with the ``crm`` command. It
+The configuration of Pacemaker can be done with the
+`crmsh <http://crmsh.github.io/>`_ utility (Cluster Management Shell). It
 allows you to manage different resources and propagates changes on each
 server automatically. The creation of a resource is done with an entry
 named primitive in the configuration file. This primitive uses a script
@@ -276,23 +458,47 @@ corresponding to the application to be protected.
 
 In the case of the platform, Pacemaker manages the following resources:
 
--  exportd daemon;
-
--  The virtual IP address for the exportd service;
+-  rozofs-exportd service;
 
 -  Mounting the file system used to store meta-data;
 
--  DRBD resources (r0), roles (master or slave);
+-  DRBD resource (``r0``), roles (master or slave);
 
 -  Server connectivity.
 
 The following diagram describes the different resources configured and
-controlled via Pacemaker. In this case, two servers are configured and
-node1 is the master server.
+controlled via Pacemaker. In this case, 2 servers are configured and
+``node-1`` is the master server.
 
-.. figure:: pics/DRBD.png
-   :align: center
-   :alt: 
+.. image :: pics/pacemaker.png
+  :align: center
+
+
+.. note::
+   In our case we want setting up the cluster to move all the resources when
+   we don't have enough connectivity with the storaged nodes. Therefore we use
+   ping resource with the list of storaged nodes IP.
+
+
+**Installing Corosync and Pacemaker packages**
+
+On both servers, install the following packages:
+
+ - pacemaker
+
+ - crmsh
+
+ - corosync
+
+ - fence-agents, ipmitool (STONITH)
+
+ - resource-agents
+
+ - fping
+
+ - rozofs-exportd
+
+**Create Cluster Authorization Key**
 
 The first component to configure is Corosync. It manages the
 infrastructure of the cluster, i.e. the status of nodes and their
@@ -301,179 +507,317 @@ shared by all the machines in the cluster. The ``corosync-keygen``
 utility can be use to generate this key and then copy it to the other
 nodes.
 
-Create key on *node1*:
+Create key on ``node-1``:
 
 .. code-block:: bash
 
-    $ corosync-keygen
+    corosync-keygen
 
 Copy the key manually to the other node:
 
 .. code-block:: bash
 
-    $ scp /etc/corosync/authkey root@node2:/etc/corosync/authkey
+    scp /etc/corosync/authkey root@node-2:/etc/corosync/authkey
+
+**Configuring Corosync**
 
 Besides copying the key, you also have to modify the corosync
 configuration file which stored in ``/etc/corosync/corosync.conf``.
 
-Edit your ``corosync.conf`` with the following:
+Edit your ``corosync.conf`` with the following (example with **unicast** and
+**corosync version 2**):
 
-::
+.. code-block:: ini
+   :linenos:
+   :emphasize-lines: 14-26,36-49
+   :caption: /etc/corosync/corosync.conf
+   :name: corosync.conf
 
-    interface {
-       # The following values need to be set based on your environment
-       ringnumber: 1
-       bindnetaddr:192.168.1.0
-       mcastaddr: 226.94.1.2
-       mcastport: 5407
-       ttl: 255
+    totem {
+        version: 2
+
+        # How long before declaring a token lost (ms)
+        token: 6000
+        # How many token retransmits before forming a new configuration
+        token_retransmits_before_loss_const: 10
+
+        clear_node_high_bit: yes
+
+        # This specifies the mode of redundant ring
+        rrp_mode: passive
+
+        # The following values need to be set based on your environment
+        interface {
+            ringnumber: 0
+            bindnetaddr: 192.168.1.0
+            mcastport: 5405
+        }
+
+        interface {
+            ringnumber: 1
+            bindnetaddr: 192.168.2.0
+            mcastport: 5407
+        }
+        transport: udpu
+    }
+
+    quorum {
+        provider: corosync_votequorum
+        # Only valid with 2 nodes
+        expected_votes: 2
+        two_node: 1
+    }
+
+    nodelist {
+        node {
+            ring0_addr: 192.168.1.1
+            ring1_addr: 192.168.2.1
+            name: node-1
+            nodeid: 1
+        }
+        node {
+            ring0_addr: 192.168.1.2
+            ring1_addr: 192.168.2.2
+            name: node-2
+            nodeid: 2
+        }
+    }
+
+    logging {
+        fileline: off
+        to_stderr: no
+        to_logfile: no
+        #logfile: /var/log/corosync/corosync.log
+        to_syslog: yes
+        syslog_facility: daemon
+        debug: off
+        timestamp: on
+        logger_subsys {
+          subsys: QUORUM
+          debug: off
+        }
     }
 
 Copy the ``corosync.conf`` manually to the other node:
 
 .. code-block:: bash
 
-    $ scp /etc/corosync/corosync.conf root@node2:/etc/corosync/corosync.conf
+    scp /etc/corosync/corosync.conf root@node-2:/etc/corosync/corosync.conf
+
+
+By default, the Corosync service is disabled. On both servers, change that
+by editing ``/etc/default/corosync`` and change the value of START to yes if
+needed:
+
+.. code-block:: bash
+   :linenos:
+   :caption: /etc/default/corosync
+   :name: corosync
+
+   START=yes
+
+
+**Starting Corosync**
 
 Corosync is started as a regular system service. Depending on your
 distribution, it may ship with a LSB init script, an upstart job, or a
-systemd unit file. Either way, the service is usually named corosync:
+systemd unit file. Either way, the service is usually named corosync.
+
+Examples:
 
 .. code-block:: bash
 
-    $ /etc/init.d/corosync start
+    /etc/init.d/corosync start
+    service corosync start
+    start corosync
+    systemctl start corosync
 
-or:
-
-.. code-block:: bash
-
-    $ service corosync start
-
-or:
+You can now check the ring status manually with ``corosync-cfgtool``:
 
 .. code-block:: bash
 
-    $ start corosync
+  corosync-cfgtool -s
+  Printing ring status.
+  Local node ID 1
+  RING ID 0
+          id      = 192.168.1.1
+          status  = ring 0 active with no faults
+  RING ID 1
+          id      = 192.168.2.1
+          status  = ring 1 active with no faults
 
-or:
 
-.. code-block:: bash
-
-    $ systemctl start corosync
-
-You can now check the Corosync connectivity by typing the following command:
-
-.. code-block:: bash
-
-    $ crm_mon
-    ============
-    Last updated: Tue May 2 03:54:44 2013
-    Last change: Tue May 2 02:27:14 2013 via crmd on node1
-    Stack: openais
-    Current DC: node1 - partition with quorum
-    Version: 1.1.7-ee0730e13d124c3d58f00016c3376a1de5323cff
-    4 Nodes configured, 4 expected votes
-    0 Resources configured.
-    ============
-
-    Online: [ node1 node2 ]
+**Configuring Pacemaker**
 
 Once the Pacemaker cluster is set up and before configuring the
 different resources and constraints of the Pacemaker cluster, it is
-necessary to copy the OCF scripts for exportd on each server. The
-exportd script is enable to start, stop and monitor the exportd daemon.
+necessary to have the OCF scripts for exportd on each server. This script is
+enable to start, stop and monitor the exportd daemon. This script is installed
+by default with the rozofs-exportd package
+(``/usr/lib/ocf/resource.d/heartbeat/exportd``).
 
-Copy the OCF script manually to each node:
-
-.. code-block:: bash
-
-    $ scp exportd root@node1:/usr/lib/ocf/resource.d/heartbeat/exportd
-    $ scp exportd root@node1:/usr/lib/ocf/resource.d/heartbeat/exportd
-
-To set the cluster properties, start the crm shell and enter the
-following commands:
+To set the cluster properties, create cluster resources configuration file
+``crm.conf`` and changes the lines according to your parameters, and save it.
 
 .. code-block:: bash
 
-    $ configure property stonith-enabled=false
+  property stonith-enabled="false" no-quorum-policy="ignore"
 
-    $ configure property no-quorum-policy=ignore
+  rsc_defaults migration-threshold=10 failure-timeout=60
 
-    $ configure primitive p_ping ocf:pacemaker:ping \
-    params host_list="192.168.1.254" multiplier="100" dampen="5s" \
-    op monitor interval="5s"
+  primitive p-ping ocf:pacemaker:ping params  \
+  host_list="192.168.1.1 192.168.1.2 192.168.1.3 192.168.1.4" \
+  multiplier="100" dampen="5s" \
+  op start timeout="60" op monitor interval="5s" timeout="60"
 
-    $ configure clone c_ping p_ping meta interleave="true"
+  clone c-ping p-ping meta interleave="true"
 
-    $ configure primitive p_drbd_r0 ocf:linbit:drbd params drbd_resource="r0" \
-    op start timeout="240" \
-    op stop timeout="100" \
-    op notify interval="0" timeout="90" \
-    op monitor interval="10" timeout="20" role="Master" \
-    op monitor interval="20" timeout="20" role="Slave"
+  primitive p-drbd-r0 ocf:linbit:drbd params drbd_resource="r0" \
+  adjust_master_score="0 10 1000 10000" op start timeout="240" \
+  op stop timeout="100" op notify interval="0" timeout="90" \
+  op monitor interval="10" timeout="20" role="Master" \
+  op monitor interval="20" timeout="20" role="Slave"
 
-    $ configure ms ms_drbd_r0 p_drbd_r0 \
-    meta master-max="1" master-node-max="1" \
-    clone-max="2" clone-node-max="1" notify="true" \
-    globally-unique="false"
+  ms ms-drbd-r0 p-drbd-r0 meta master-max="1" master-node-max="1" \
+  clone-max="2" clone-node-max="1" notify="true" \
+  globally-unique="false" interleave="true"
 
-    $ configure location loc_ms_drbd_r0_needs_ping \
-    ms_drbd_r0 rule -inf: not_defined pingd or pingd lte 0
+  primitive p-fs-exportd ocf:heartbeat:Filesystem params device="/dev/drbd0" \
+  directory="/srv/rozofs/exports" fstype="ext4" options="user_xattr,noatime" \
+  op start timeout="60" op stop timeout="60" op monitor interval="10"
 
-    $ configure primitive p_vip_exportd ocf:heartbeat:IPaddr2 \
-    params ip="192.168.1.10" nic="eth0" cidr_netmask=24 \
-    op monitor interval="30s"
+  primitive exportd-rozofs ocf:heartbeat:exportd params  \
+  conffile="/etc/rozofs/export.conf" op monitor interval="10s"
 
-    $ configure primitive p_fs_exportd ocf:heartbeat:Filesystem \
-    params device="/dev/drbd0" directory="/srv/rozofs/exports" fstype="ext4" \
-    options="user_xattr,acl,noatime" \
-    op start timeout="60" \
-    op stop timeout="60" \
-    op monitor interval="10s" timeout="40s"
+  group grp-exportd p-fs-exportd exportd-rozofs
 
-    $ configure primitive exportd_rozofs ocf:heartbeat:exportd \
-    params conffile="/etc/rozofs/export.conf" \
-    op monitor interval="20s"
+  colocation c-grp-exportd-on-drbd-r0 inf: grp-exportd ms-drbd-r0:Master
 
-    $ configure group grp_exportd p_fs_exportd p_vip_exportd exportd_rozofs
+  order o-drbd-r0-before-grp-exportd inf: ms-drbd-r0:promote grp-exportd:start
 
-    $ configure colocation c_grp_exportd_on_drbd_rU \
-    inf: grp_exportd ms_drbd_r0:Master
+  location loc-ms-drbd-r0-needs-ping ms-drbd-r0 \
+  rule -inf: not_defined pingd or pingd lt 200
 
-    $ configure order o_drbd_rU_before_grp_exportd \
-    inf: ms_drbd_r0:promote grp_exportd:start
+Load this configuration with the following command:
 
-    $ configure location loc_prefer_grp_exportd_on_node1 \
-    grp_exportd 100: node1
+.. code-block:: bash
+
+   crm configure load replace crm.conf
+
 
 Once all the primitives and constraints are loaded, it is possible to
 check the correct operations of the cluster with the following command:
 
 .. code-block:: bash
 
-    $ crm_mon -1
+    crm_mon -1
 
-    ============
-    Last updated: Wed May 2 02:44:21 2013
-    Last change: Wed May 2 02:43:27 2013 via cibadmin on node1
-    Stack: openais
-    Current DC: node1 - partition with quorum
-    Version: 1.1.7-ee0730e13d124c3d58f00016c3376a1de5323cff
-    2 Nodes configured, 2 expected votes
-    5 Resources configured.
-    ============
+    Last updated: Mon Jun  6 09:46:39 2016
+    Last change: Wed Jun  1 15:14:04 2016 by root via cibadmin on node-2
+    Stack: corosync
+    Current DC: node-1 (version 1.1.14-70404b0) - partition with quorum
+    2 nodes and 6 resources configured
 
-    Online: [ node1 node2 ]
+    Online: [ node-1 node-2 ]
 
-     Master/Slave Set: ms_drbd_r0 [p_drbd_r0]
-         Masters: [ node1 ]
-         Slaves: [ node2 ]
-     Resource Group: grp_exportd
-         p_fs_exportd       (ocf::heartbeat:Filesystem):    Started node1
-         p_vip_exportd      (ocf::heartbeat:IPaddr2):       Started node1
-         exportd_rozofs     (ocf::heartbeat:exportd):       Started node1
-     Clone Set: c_ping [p_ping]
-         Started: [ node1 node2 ]
+     Resource Group: grp-exportd
+         p-fs-exportd       (ocf::heartbeat:Filesystem):    Started node-1
+         exportd-rozofs     (ocf::heartbeat:exportd):       Started node-1
+     Master/Slave Set: ms-drbd-r0 [p-drbd-r0]
+         Masters: [ node-1 ]
+         Slaves: [ node-2 ]
+     Clone Set: c-ping [p-ping]
+         Started: [ node-1 node-2 ]
+
+**Adding a STONITH resource (example with IPMI)**
+
+Before using STONITH with IPMI, you must configure the network used by the IPMI
+devices and the IPMI devices on each node.
+
+After doing this you can add the STONITH resources in the Pacemaker cluster
+configuration:
+
+.. code-block:: bash
+
+  crm configure primitive fence-node-1 stonith:fence_ipmilan params \
+  pcmk_host_list="node-1" ipaddr="192.168.100.1" \
+  login="login" passwd="passwd" lanplus="true" \
+  pcmk_reboot_action="off" op monitor interval="3600s"
+
+  crm configure location loc-fence-node-1 fence-node-1 -inf: node-1
+
+  crm configure primitive fence-node-2 stonith:fence_ipmilan params \
+  pcmk_host_list="node-2" ipaddr="192.168.100.2" \
+  login="login" passwd="passwd" lanplus="true" \
+  pcmk_reboot_action="off" op monitor interval="3600s"
+
+  crm configure location loc-fence-node-2 fence-node-2 -inf: node-2
+
+Set the global cluster option stonith-enabled to true:
+
+.. code-block:: bash
+
+  crm configure property stonith-enabled=true
+
+
+**Testing your cluster configuration**
+
+Now, you can testing your cluster configuration.
+
+Migrating `rozofs-exportd` resource:
+
+.. code-block:: bash
+
+  # Get current location of exportd-rozofs
+  crm resource status exportd-rozofs
+    resource exportd-rozofs is running on: node-1
+  # Migrate exportd-rozofs resource to node-2
+  crm resource migrate exportd-rozofs node-2
+  # Get current location of exportd-rozofs
+  crm resource status exportd-rozofs
+    resource exportd-rozofs is running on: node-2
+  # Very important, remove the new constraint
+  crm resource unmigrate exportd-rozofs
+
+Simulate `rozofs-exportd` failure:
+
+.. code-block:: bash
+
+  # Manually stop rozofs-exportd service
+  # on the node who the resource is currently running!
+  # (without using crm utility)
+  /etc/init.d/rozofs-exportd stop
+
+  # Check that the resource agent has restarted `rozofs-exportd` service.
+  crm_mon -rfn1
+
+  Node node-2: online
+          exportd-rozofs  (ocf::heartbeat:exportd) Started
+          p-ping:1        (ocf::pacemaker:ping) Started
+          p-fs-exportd    (ocf::heartbeat:Filesystem) Started
+          p-drbd-r0:1     (ocf::linbit:drbd) Master
+  Node node-1: online
+          p-ping:0        (ocf::pacemaker:ping) Started
+          p-drbd-r0:0     (ocf::linbit:drbd) Slave
+
+  Inactive resources:
+
+  Migration summary:
+  * Node node-2:
+     exportd-rozofs: migration-threshold=10 fail-count=1 last-failure='Tue Jun 28 08:55:46 2016'
+  * Node node-1:
+
+  Failed actions:
+      exportd-rozofs_monitor_10000 (node=node-2, call=22, rc=7, status=complete): not running
+
+
+Testing stonith:
+
+.. code-block:: bash
+
+  crm node fence <nodename>
+  killall -9 corosync
+
 
 Storaged Nodes
 --------------
@@ -644,4 +988,3 @@ Configuration file example (``storage.conf``) for one storaged daemon:
       {cid = 1; sid = 1; root = "/srv/rozofs/storages/storage_1-1";},
       {cid = 2; sid = 1; root = "/srv/rozofs/storages/storage_2-1";}
     );
-
