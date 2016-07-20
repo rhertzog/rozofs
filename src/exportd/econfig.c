@@ -850,6 +850,9 @@ static int load_exports_conf(econfig_t *ec, struct config_t *config) {
 
         md5 = "";
         if (config_setting_lookup_string(mfs_setting, EMD5, &md5) != CONFIG_FALSE) {
+	  warning("MD5 parameter is ignored");
+	  md5 = "";
+#if 0	  
           // Check md5 length
           if (strlen(md5) > MD5_LEN) {
               errno = EINVAL;
@@ -857,6 +860,7 @@ static int load_exports_conf(econfig_t *ec, struct config_t *config) {
                       i, MD5_LEN);
               goto out;
           }
+#endif	  
         }
 
         squota = 0;		
