@@ -132,11 +132,14 @@ rozofs.set_self_healing(1)
 # rozofs.dual_storcli()
 
 # Disable POSIX lock
-#rozofs.no_posix_lock
+#rozofs.no_posix_lock()
 
 # Disable BSD lock
-#rozofs.no_bsd_lock
+#rozofs.no_bsd_lock()
 
+
+# Client fast reconnect
+#rozofs.set_client_fast_reconnect()
 
 #-------------- NB devices
 devices    = 3

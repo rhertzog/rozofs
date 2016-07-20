@@ -527,16 +527,13 @@ class mount_point_class:
                
   def start(self):
     global rozofs
-    options="-o rozofsexporttimeout=24"
-    #options += " -o rozofsstoragetimeout=4"
-    options += " -o rozofsstorclitimeout=11" 
+    options="-o rozofsexporttimeout=60"
+    options += " -o rozofsstoragetimeout=25"
+    options += " -o rozofsstorclitimeout=35" 
     options += " -o rozofsnbstorcli=%s"%(rozofs.nb_storcli)
     options += " -o rozofsbufsize=256" 
-    options += " -o rozofsminreadsize=256"
-    options += " -o rozofsshaper=0"
     options += " -o rozofsrotate=3"
-    options += " -o rozofsattrtimeout=0,rozofsentrytimeoutms=0"
-    options += " -o bsdlock"
+    options += " -o rozofsattrtimeout=1,rozofsentrytimeout=1"
 #    options += "-o noReadFaultTolerant"
   
     options += " -o site=%s"%(self.site)
@@ -997,6 +994,7 @@ class rozofs_class:
     self.storaged_start_script = None
     self.device_automount = False
     self.site_number = 1
+    self.client_fast_reconnect = False
 
   def set_site_number(self,number): self.site_number = number      
   def set_device_automount(self): self.device_automount = True
@@ -1020,6 +1018,7 @@ class rozofs_class:
   def set_mojette_threads_threshold(self,threshold): self.mojette_threads_threshold = threshold
   def dual_storcli(self): self.nb_storcli = 2
   def set_file_distribution(self,val): self.file_distribution = val
+  def set_client_fast_reconnect(self): self.client_fast_reconnect = True
   def set_xfs(self,mb,allocsize=None):
     self.fstype       = "xfs"
     self.disk_size_mb = mb
@@ -1090,6 +1089,8 @@ class rozofs_class:
     print "device_self_healing_process = 2;"
     print "export_temporary_dir = \"/root/tmp/export\";"
     print "storage_temporary_dir = \"/root/tmp/storage\";"
+    if self.client_fast_reconnect == True: print "client_fast_reconnect = True;"
+
     os.system("mkdir -p /root/tmp/export; mkdir -p /root/tmp/storage;")
     
   def create_common_config(self):
