@@ -1484,8 +1484,8 @@ static void on_start() {
 
       if (!svc_register
               (exportd_svc, EXPORT_PROGRAM, EXPORT_VERSION, export_program_1,
-              IPPROTO_TCP)) {
-          fatal("can't register service %s", strerror(errno));
+                      IPPROTO_TCP)) {
+          fatal("can't register EXPORT_PROGRAM service in rpcbind");
       }
 
       SET_PROBE_VALUE(uptime, time(0));
@@ -1947,8 +1947,30 @@ int main(int argc, char *argv[]) {
     }
     if ( expgwc_non_blocking_conf.slave == 0)
     {
-    uma_dbg_record_syslog_name("exportd");
-    daemon_start("exportd",common_config.nb_core_file,EXPORTD_PID_FILE, on_start, on_stop, on_hup);
+        uma_dbg_record_syslog_name("exportd");
+
+        /*
+         * Check if rpcbind service is running
+         */
+        struct sockaddr_in addr;
+        struct pmaplist *plist = NULL;
+
+        get_myaddress(&addr);
+        plist = (struct pmaplist *) pmap_getmaps(&addr);
+        if (plist == NULL) {
+            fprintf(stderr,
+                    "failed to contact rpcbind service (%s)."
+                    " The rpcbind service must be started before.\n",
+                    strerror(errno));
+            severe(
+                    "Cannot start exportd: "
+                    "unable to contact rpcbind service (%s).\n",
+                    strerror(errno));
+            goto error;
+        }
+
+        daemon_start("exportd", common_config.nb_core_file, EXPORTD_PID_FILE,
+                on_start, on_stop, on_hup);
     }
     else
     {

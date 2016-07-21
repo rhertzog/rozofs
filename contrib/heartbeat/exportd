@@ -123,6 +123,53 @@ exportd_status() {
     return $OCF_NOT_RUNNING
 }
 
+start_rpcbind () { 
+
+    # Best effort: try to start rpcbind only
+    # if service or sysV rpcbind file is present
+
+    RPCBIND_INIT_SCRIPT="/etc/init.d/rpcbind"
+
+    # Check if systemd is used
+    if which systemctl > /dev/null 2>&1; then
+
+        systemctl is-active rpcbind > /dev/null
+        retVal=$?
+
+        if [ $retVal -ne 0 ]; then
+
+            ocf_log info "rpcbind is not running"
+
+            if systemctl list-unit-files | grep rpcbind > /dev/null; then
+                systemctl start rpcbind > /dev/null
+                if [ $? -ne 0 ]; then
+                    ocf_log err "Error. Could not start rpcbind service"
+                    exit $OCF_ERR_GENERIC
+                fi
+                ocf_log info "rpcbind service started (via systemctl)"
+            fi
+        fi
+
+    elif [ -x ${RPCBIND_INIT_SCRIPT} ]; then
+
+        ${RPCBIND_INIT_SCRIPT} status > /dev/null
+        retVal=$?
+
+        if [ $retVal -ne 0 ]; then
+
+            ocf_log info "rpcbind is not running"
+
+            ${RPCBIND_INIT_SCRIPT} start > /dev/null
+
+            if [ $? -ne 0 ]; then
+                ocf_log err "Error. Could not start rpcbind service"
+                exit $OCF_ERR_GENERIC
+            fi
+            ocf_log info "rpcbind service started (via sysV)"
+        fi
+    fi
+}
+
 exportd_start() {
     # if exportd is running return success
     exportd_status
@@ -142,6 +189,10 @@ exportd_start() {
     else
         COMMAND="exportd"
     fi
+
+    # Check and try to start rpcbind
+    # rpcbind service is mandatory for the exportd service 
+    start_rpcbind
 
     if [ -n "$OCF_RESKEY_conffile" ]; then
         COMMAND="$COMMAND --config $OCF_RESKEY_conffile"
