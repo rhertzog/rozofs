@@ -303,7 +303,8 @@ void storage_device_debug(char * argv[], uint32_t tcpRef, void *bufRef) {
   
   if ((argv[1] != NULL)&&(strcmp(argv[1],"reset")==0)) {
     storage_device_error_reset();
-    uma_dbg_send(tcpRef,bufRef,TRUE,"Device error counters have been reset");    
+    uma_dbg_send(tcpRef,bufRef,TRUE,"Device error counters have been reset");  
+    return;  
   } 
 
   st = NULL;
