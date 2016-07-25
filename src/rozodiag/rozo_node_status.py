@@ -748,27 +748,35 @@ class storcli(rozofs_module):
     if res == None:
       status = False
     else: 
-      error_count=int(0)     
+      error_count={}
       for line in res:
 	words=line.split()
 	if len(words) < 20:   continue
-	if words[0] == "cid": continue  
+	if words[0] == "cid": continue
 	if words[8] != "UP":
 	  self.ERROR("cid%d/sid%d unreachable on host %s"%(int(words[0]),int(words[2]),words[4]),"storaged_status")
-	  error_count=error_count+int(1)	    
-	  status = False 
+	  if not error_count.has_key(int(words[0])):
+            error_count[int(words[0])]=0
+	  error_count[int(words[0])]=error_count[int(words[0])] + 1
+	  status = False
           continue
 	if words[10] != "UP":
-	  status = False  	  
+	  status = False
 	  self.ERROR("cid%d/sid%d unreachable on host %s"%(int(words[0]),int(words[2]),words[4]),"storaged_status")
-	  error_count=error_count+int(1)	    	    
+	  if not error_count.has_key(int(words[0])):
+            error_count[int(words[0])]=0
+          error_count[int(words[0])]=error_count[int(words[0])] + 1
 	if words[12]!= "YES":
-	  sstatus = False  
+	  status = False
 	  self.ERROR("cid%d/sid%d unreachable on host %s"%(int(words[0]),int(words[2]),words[4]),"storaged_status")
-      	  error_count=error_count+int(1)
-      if error_count > int(2):
+      	  if not error_count.has_key(int(words[0])):
+            error_count[int(words[0])]=0
+          error_count[int(words[0])]=error_count[int(words[0])] + 1
+      for error_sid_nb in error_count.values():
+        if error_sid_nb >= int(2):
 	  self.CRITICAL("Too much cid/sid unreachable","storaged_status")
-            	    
+	  break
+
     return status
 
 #_______________________________________________
