@@ -2022,8 +2022,9 @@ retry:
 				       crc32_errors);      
     }
     if (result!=0) { 
+      errno = 0;
       storio_fid_error(fid, device[chunk], chunk, bid, result,"read crc32"); 		     
-      if (result>1) storage_error_on_device(st,device[chunk]); 
+      //if (result>1) storage_error_on_device(st,device[chunk]); 
     }	  
 
     // Update the length read
