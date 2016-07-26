@@ -1987,13 +1987,20 @@ retry:
     }
 
 
-    // Check the length read
+    /* 
+    ** The length read must be a multiple of the block size.
+    ** When this is not the case, it means that the last block has not been
+    ** written correctly on disk and is so incorrect.
+    ** Let's generate a CRC32 error to trigger a block repair
+    */
     if ((nb_read % rozofs_disk_psize) != 0) {
         char fid_str[37];
         rozofs_uuid_unparse(fid, fid_str);
         severe("storage_read failed (FID: %s layout %d bsize %d chunk %d bid %d): read inconsistent length %d not modulo of %d",
 	       fid_str,layout,bsize,chunk, (int) bid,(int)nb_read,rozofs_disk_psize);
-	nb_read = (nb_read / rozofs_disk_psize) * rozofs_disk_psize;
+	nb_read = (nb_read / rozofs_disk_psize);
+	nb_read += 1;
+	nb_read *= rozofs_disk_psize;
     }
 
     int nb_proj_effective;
