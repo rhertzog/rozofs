@@ -214,6 +214,7 @@ static inline char * format_status_file(char * pJSON) {
   uint64_t read=0;
   uint32_t listing=0;
   int json_offset=0;   
+  char     mystring[128];
   
   JSON_begin;
   
@@ -338,6 +339,18 @@ static inline char * format_status_file(char * pJSON) {
       JSON_end_element;   
 
     JSON_close_array;
+
+    JSON_open_array("tips");
+       sprintf(mystring,"storage_rebuild -id %d -pause",parameter.rebuildRef);
+       JSON_string_element(mystring);
+       sprintf(mystring,"storage_rebuild -id %d -resume",parameter.rebuildRef);
+       JSON_string_element(mystring);
+       sprintf(mystring,"storage_rebuild -id %d -abort",parameter.rebuildRef);    
+       JSON_string_element(mystring);       
+       sprintf(mystring,"storage_rebuild -id %d -list",parameter.rebuildRef);
+       JSON_string_element(mystring);       
+    JSON_close_array;
+
   JSON_end;
   
   return pJSON; 
@@ -878,21 +891,6 @@ void rbs_monitor_file_update(void) {
       severe("pwrite(%s) %s",path, strerror(errno));
     }
     close(fd);
-}
-void rbs_monitor_string_append( char *str) {
-  int fd = -1;
-  char * path = get_rebuild_status_file_name_to_use();
-  
-  if ((fd = open(path, O_WRONLY | O_APPEND, S_IRWXU | S_IROTH)) < 0) {
-    severe("can't open %s", path);
-    goto out;
-  }
-
-  /* Format the string */
-  dprintf(fd, "%s", str);
-
-out:
-  if (fd > 0) close(fd);
 }
 void rbs_monitor_update(char * new, int cid, int sid, rbs_file_type_e ftype) {
   char * pt = rebuild_status;
@@ -2677,32 +2675,12 @@ static inline int rebuild_storage_thread(rbs_stor_config_t *stor_confs) {
   }  	    
 
   REBUILD_MSG("Rebuild %d failed.",parameter.rebuildRef);      
-  rbs_monitor_update("failed",0,0,0);
-  {
-    char mystring[1024];
-    char * pChar = mystring;
-    
-    pChar += sprintf(pChar,"\nTo get the list of files that failed to rebuild,\nplease enter :\n  storage_rebuild -id %d -list\n",
-		     parameter.rebuildRef);
-    pChar += sprintf(pChar,"\nTo re-attempt the rebuild of remaining files,\nplease enter :\n  storage_rebuild -id %d -resume\n",
-		     parameter.rebuildRef); 
-    rbs_monitor_string_append(mystring);		     
-  } 		     
+  rbs_monitor_update("failed",0,0,0);		     
   return -1;
   
 paused:
   REBUILD_MSG("Rebuild %d paused.",parameter.rebuildRef);
   rbs_monitor_update("paused",0,0,0);
-  {
-    char mystring[1024];
-    char * pChar = mystring;
-    
-    pChar += sprintf(pChar,"\nTo get the list of files remaining to rebuild,\nplease enter :\n  storage_rebuild -id %d -list\n",
-		     parameter.rebuildRef);
-    pChar += sprintf(pChar,"\nTo re-attempt the rebuild of remaining files,\nplease enter :\n  storage_rebuild -id %d -resume\n",
-		     parameter.rebuildRef); 
-    rbs_monitor_string_append(mystring);     		     
-  }
   /*
   ** Save elpased delay in order 
   ** to reread it on resume
