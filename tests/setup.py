@@ -210,8 +210,9 @@ class sid_class:
   def create_path(self):
 
     if rozofs.device_automount == True: 
-      self.create_device("all")
-      return          
+      for h in self.host:
+        self.create_device("all",h)
+        return          
 
     for h in self.host:    
       root_path=self.get_root_path(h.number)   
