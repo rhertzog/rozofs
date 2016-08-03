@@ -584,6 +584,8 @@ void rozofs_ll_removexattr_nb(fuse_req_t req, fuse_ino_t ino, const char *name)
       goto error;
     }
     SAVE_FUSE_PARAM(buffer_p,req);
+    SAVE_FUSE_PARAM(buffer_p,trc_idx);
+    SAVE_FUSE_PARAM(buffer_p,ino);
     
     START_PROFILING_NB(buffer_p,rozofs_ll_removexattr);
 
@@ -765,6 +767,7 @@ void rozofs_ll_listxattr_nb(fuse_req_t req, fuse_ino_t ino, size_t size)
     int               ret;        
     void             *buffer_p = NULL;
     epgw_listxattr_arg_t arg;
+    int trc_idx = rozofs_trc_req_io(srv_rozofs_ll_listxattr,ino,NULL,size,0);
     /*
     ** allocate a context for saving the fuse parameters
     */
@@ -775,8 +778,10 @@ void rozofs_ll_listxattr_nb(fuse_req_t req, fuse_ino_t ino, size_t size)
       errno = ENOMEM;
       goto error;
     }
+    SAVE_FUSE_PARAM(buffer_p,ino);
     SAVE_FUSE_PARAM(buffer_p,req);
     SAVE_FUSE_PARAM(buffer_p,size);
+    SAVE_FUSE_PARAM(buffer_p,trc_idx);
     
     START_PROFILING_NB(buffer_p,rozofs_ll_listxattr);
 
@@ -794,8 +799,12 @@ void rozofs_ll_listxattr_nb(fuse_req_t req, fuse_ino_t ino, size_t size)
     */    
     arg.arg_gw.eid = exportclt.eid;
     memcpy(arg.arg_gw.fid,  ie->fid, sizeof (uuid_t));
-    arg.arg_gw.size = size;
-    
+    if (size == 0) {
+      arg.arg_gw.size = 8192;
+    }
+    else {
+      arg.arg_gw.size = size;
+    }  
     /*
     ** now initiates the transaction towards the remote end
     */
@@ -817,6 +826,7 @@ void rozofs_ll_listxattr_nb(fuse_req_t req, fuse_ino_t ino, size_t size)
 
 error:
     fuse_reply_err(req, errno);
+    rozofs_trc_rsp(srv_rozofs_ll_listxattr,ino,NULL,1,trc_idx);
     /*
     ** release the buffer if has been allocated
     */
@@ -847,10 +857,14 @@ void rozofs_ll_listxattr_cbk(void *this,void *param)
    xdrproc_t decode_proc = (xdrproc_t)xdr_epgw_listxattr_ret_t;
    uint64_t list_size = 0;
    size_t size=0;
+   int trc_idx;
+   fuse_ino_t ino;
 
    rpc_reply.acpted_rply.ar_results.proc = NULL;        
    RESTORE_FUSE_PARAM(param,req);
    RESTORE_FUSE_PARAM(param,size);
+   RESTORE_FUSE_PARAM(param,trc_idx);
+   RESTORE_FUSE_PARAM(param,ino);
     /*
     ** get the pointer to the transaction context:
     ** it is required to get the information related to the receive buffer
@@ -934,10 +948,14 @@ void rozofs_ll_listxattr_cbk(void *this,void *param)
     goto out;
 error:
     fuse_reply_err(req, errno);
+    rozofs_trc_rsp(srv_rozofs_ll_listxattr,ino,NULL,1,trc_idx);
+    
 out:
     /*
     ** release the transaction context and the fuse context
     */
+    errno = 0;
+    rozofs_trc_rsp_attr(srv_rozofs_ll_listxattr,ino,NULL,0,list_size,trc_idx);
     STOP_PROFILING_NB(param,rozofs_ll_listxattr);
     rozofs_fuse_release_saved_context(param);
     if (rozofs_tx_ctx_p != NULL) rozofs_tx_free_from_ptr(rozofs_tx_ctx_p);    
