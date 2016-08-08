@@ -90,7 +90,7 @@ typedef struct _common_config_global_t {
   // when the directory is already created 
   uint32_t    mkdir_ok_instead_of_eexist;
   // To activate workaround that make mknod respond OK instead of EEXIST
-  // when the file is already created 
+  // when the file is already created  
   uint32_t    mknod_ok_instead_of_eexist;
   // To disable synchronous write of attributes when set to True
   uint32_t    disable_sync_attributes;
@@ -155,6 +155,14 @@ typedef struct _common_config_global_t {
   char *      ssh_user;
   // Other ssh/scp parameter (such as key location) 
   char *      ssh_param;
+  // Fault duration in minutes before device selfhealing starts
+  uint32_t    device_selfhealing_delay;
+  // Allowed self healing modes
+  // spareOnly  only self repair on a spare disk
+  // relocate   also repair on remaining disks when no spare available
+  char *      device_selfhealing_mode;
+  // Export hostname required for selfhealing
+  char *      export_hosts;
 } common_config_t;
 
 extern common_config_t common_config;

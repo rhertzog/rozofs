@@ -85,12 +85,13 @@ static inline void xmalloc_stats_release(int n)
 #define xmalloc(n) xmalloc_internal(__FILE__,__LINE__,n) 
 void *xmalloc_internal(char * file, int line, size_t n);
 
+#define xstrdup(str) xstrdup_internal(__FILE__,__LINE__,(size_t)strlen(str),str)
+void *xstrdup_internal(char * file, int line, size_t n, char * src); 
+
 void xfree(void * p);
 
 void *xcalloc(size_t n, size_t s);
 
 void *xrealloc(void *p, size_t n);
-
-char *xstrdup(const char *p);
 
 #endif

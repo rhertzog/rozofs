@@ -34,6 +34,8 @@
 #include <fnmatch.h>
 #include <dirent.h>
 #include <sys/mount.h>
+#include <sys/resource.h>
+#include <mntent.h>
 
 #include <rozofs/rozofs.h>
 #include <rozofs/common/log.h>
@@ -47,6 +49,11 @@
 #include "storio_device_mapping.h"
 #include "storio_device_mapping.h"
 #include "storio_crc32.h"
+
+
+int      re_enumration_required=0; 
+time_t   storio_last_enumeration_date;
+
 
 
 /*
@@ -1235,9 +1242,7 @@ int storage_initialize(storage_t *st,
 		       const char *root, 
                        uint32_t device_number, 
 		       uint32_t mapper_modulo, 
-		       uint32_t mapper_redundancy,
-		       int      selfHealing,
-		       char   * export_hosts) {
+		       uint32_t mapper_redundancy) {
     int status = -1;
     int dev;
 
@@ -1261,8 +1266,6 @@ int storage_initialize(storage_t *st,
     st->mapper_modulo     = mapper_modulo;
     st->device_number     = device_number; 
     st->mapper_redundancy = mapper_redundancy;
-    st->selfHealing       = selfHealing; 
-    st->export_hosts      = export_hosts;
     st->share             = NULL;
     
     st->device_free.active = 0;
@@ -3012,42 +3015,276 @@ out:
     return status;
 }
 /*
+** ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+**
+**                Device enumeration and mounting
+**
+** ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+*/
+
+
+
+
+
+
+/*
+** Description of a RozoFS dedicated device
+*/
+typedef struct _storage_enumerated_device_t {
+  cid_t     cid;          // CID this device is dedicated to
+  sid_t     sid;          // SID this device is dedicated to
+  uint8_t   dev;          // Device number within the SID
+  char      name[32];     // Device name
+  time_t    date;         // Date of the mark file that gave cid/sid/device
+  
+  int       mounted:1;    // Is it mounted 
+  int       ext4:1;       // Is it ext4 (else xfs)
+  int       spare:1;      // Is it a spare drive (cid/sid/device are meaningless)
+} storage_enumerated_device_t;
+
+#define STORAGE_MAX_DEV_PER_NODE 255
+
+storage_enumerated_device_t * storage_enumerated_device_tbl[STORAGE_MAX_DEV_PER_NODE]={0};
+int                           storage_enumerated_device_nb=0;
+/*
  *_______________________________________________________________________
  *
- *  Try to mount the devices on the convenient path
+ * Try to find out a RozoFS mark file in a given directory
+ *
+ * @param dir       directory to search a mark file in
+ * @param pDev      device context to update information from mark file
+ *
+ *
+ * @retval 0 on success -1 when no mark file found
+ */
+int storage_check_device_mark_file(char * dir, storage_enumerated_device_t * pDev) {
+  DIR           * dp = NULL;
+  int             ret;
+  struct dirent   ep;
+  struct dirent * pep; 
+  struct stat     buf;
+  char            path[FILENAME_MAX];  
+  char          * pChar;
+  int             cid, sid, dev;
+  int             status = -1;
+  
+  /*
+  ** Check the directory is accessible
+  */
+  if (access(dir,F_OK)!=0) {
+    return -1;
+  }
+  
+  /*
+  ** Look for a spare mark in in the directory
+  */
+  pChar = path;
+  pChar += rozofs_string_append(pChar,dir);
+  *pChar = '/';
+  pChar ++;
+  pChar += rozofs_string_append(pChar,STORAGE_DEVICE_SPARE_MARK);    
+  if (stat(path,&buf) == 0) {
+    pDev->spare = 1;
+    pDev->date  = buf.st_mtime;
+    pDev->cid   = 0;
+    pDev->sid   = 0;
+    pDev->dev   = 0;
+    return 0;
+  }    
+
+  /*
+  ** Open the directory to read its content
+  */
+  if (!(dp = opendir(dir))) {
+    severe("opendir(%s) %s",dir,strerror(errno));
+    return -1;
+  }
+
+  /*
+  ** Look for some RozoFS mark file
+  */
+  while (readdir_r(dp,&ep,&pep) == 0) {
+
+    /*
+    ** end of directory
+    */
+    if (pep == NULL) break;
+
+    /*
+    ** Check whether this is a mark file
+    */
+    ret = rozofs_scan_mark_file(pep->d_name, &cid, &sid, &dev);
+    if (ret < 0) continue;
+    
+    /*
+    ** Mark file found
+    */
+    pChar = path;
+    pChar += rozofs_string_append(pChar,dir);
+    *pChar = '/';
+    pChar ++;
+    pChar += rozofs_string_append(pChar,pep->d_name);    
+   
+    /*
+    ** Get mark file modification date
+    */
+    if (stat(path, &buf)<0) continue;
+    
+    pDev->date  = buf.st_mtime;
+    pDev->cid   = cid;
+    pDev->sid   = sid;
+    pDev->dev   = dev;
+    pDev->spare = 0;
+    status      = 0;    
+    break;
+  }  
+
+  /*
+  ** Close directory
+  */ 
+  if (dp) {
+    closedir(dp);
+    dp = NULL;
+  }   
+  return status;
+} 
+/*
+ *_______________________________________________________________________
+ *
+ * Sort the enumerated devices in the following order:
+ * - 1rst the lowest cid,
+ * - then the lowest sid 
+ * - then the lowest device
+ * - then the latest mark files
+ *
+ */
+void storage_sort_enumerated_devices() {
+  int                           idx1, idx2;
+  storage_enumerated_device_t * pDev1;
+  storage_enumerated_device_t * pDev2;
+  int                           swap;
+  
+  /*
+  ** Order the table
+  ** Lower CID, then lower sid, then lower device
+  ** then latest date
+  */
+  
+  for (idx1=0; idx1<storage_enumerated_device_nb; idx1++) {
+  
+    pDev1 = storage_enumerated_device_tbl[idx1];
+  
+    for (idx2=idx1+1; idx2< storage_enumerated_device_nb; idx2++) {
+    
+      pDev2 = storage_enumerated_device_tbl[idx2];
+      
+      swap = 0;
+      
+      while (1) {
+	/* 
+	** Compare CID
+	*/     	 
+        if (pDev2->cid > pDev1->cid) break;
+	if (pDev2->cid < pDev1->cid) {
+	  swap = 1;
+	  break;
+	}
+	/* 
+	** Same CID. Compare SID
+	*/     	 
+        if (pDev2->sid > pDev1->sid) break;;
+        if (pDev2->sid < pDev1->sid) {
+	  swap = 1;
+	  break;
+	}
+	/* 
+	** Same CID/SID. Compare device
+	*/     	 	     	 	
+        if (pDev2->dev > pDev1->dev) break;
+        if (pDev2->dev < pDev1->dev) {
+	  swap = 1;
+	  break;
+	}     
+	/* 
+	** Same CID/SID/device. Compare mark file date
+	*/     	 	     	 	
+        if (pDev2->date < pDev1->date) {
+	  swap = 1;
+	  break;
+	} 		 	
+        break;
+      }
+      
+      if (swap) {	
+        storage_enumerated_device_tbl[idx1] = pDev2;
+        storage_enumerated_device_tbl[idx2] = pDev1;
+        pDev1 = pDev2;
+      }	
+    }
+  }
+} 
+/*
+ *_______________________________________________________________________
+ *
+ * Free the device list
+ */
+void storage_reset_enumerated_device_tbl() {
+  int                           idx;
+  storage_enumerated_device_t * pDev;
+  
+  for (idx=0; idx<storage_enumerated_device_nb; idx++) {
+  
+    pDev = storage_enumerated_device_tbl[idx];
+    if (pDev != NULL) {
+      xfree (pDev);
+    }  
+    storage_enumerated_device_tbl[idx] = NULL;
+  }
+  storage_enumerated_device_nb = 0;
+} 
+/*
+ *_______________________________________________________________________
+ *
+ * Enumerate every RozoFS device 
  *
  * @param workDir   A directory to use to temporary mount the available 
- *                  devices on in order to check their content.
- * @param count     Returns the number of devices that have been mounted
+ *                  devices on it in order to check their content.
+ * @param unmount   Whether the devices should all be umounted during the procedure
  */
-void storage_automount_devices(char * workDir, int * count) {
+ 
+#define CONT  { free(line); line = NULL; continue; }
+
+int storage_enumerate_devices(char * workDir, int unmount) {
   char            cmd[512];
   char            fdevice[128];
   char          * line;
   FILE          * fp=NULL;
   size_t          len;
-  char            devName[64];
   char            FStype[16];
   char          * pMount;
-  DIR           * dp = NULL;
-  int             cid,sid,device; 
   storage_t     * st;
   char          * pt, * pt2;
   int             ret;
-  struct dirent   ep;
-  struct dirent * pep; 
-      
-  *count = 0;
-      
+  storage_enumerated_device_t * pDev = NULL;  
+
+
+  storio_last_enumeration_date = time(NULL);
+
+  /*
+  ** Reset enumerated device table
+  */
+  storage_reset_enumerated_device_tbl();
+  
   /*
   ** Create the working directory to mount the devices on
   */
   if (access(workDir,F_OK)!=0) {
     if (mkpath(workDir,S_IRUSR | S_IWUSR | S_IXUSR)!=0) {
       severe("mkpath(%s) %s", workDir, strerror(errno));
-      return;
+      return storage_enumerated_device_nb;
     }
-  }
+  }      
+  
 
   /*
   ** Unmount the working directory, just in case
@@ -3062,7 +3299,7 @@ void storage_automount_devices(char * workDir, int * count) {
   pt += rozofs_string_append(pt,".dev");
   
   pt = cmd;
-  pt += rozofs_string_append(pt,"lsblk -ro KNAME,FSTYPE,MOUNTPOINT | awk '{print $1\":\"$2\":\"$3;}' > ");
+  pt += rozofs_string_append(pt,"lsblk -nro KNAME,FSTYPE,MOUNTPOINT | awk '{print $1\":\"$2\":\"$3;}' > ");
   pt += rozofs_string_append(pt,fdevice);
   if (system(cmd)==0) {}
   
@@ -3072,11 +3309,11 @@ void storage_automount_devices(char * workDir, int * count) {
   fp = fopen(fdevice,"r");
   if (fp == NULL) {
     severe("fopen(%s) %s", fdevice, strerror(errno)); 
-    return;   
+    return storage_enumerated_device_nb;   
   }
   
   /*
-  ** Loop on unmounted devices to check whether they are
+  ** Loop on devices to check whether they are
   ** dedicated to some RozoFS device usage
   */
   line = NULL;
@@ -3093,16 +3330,26 @@ void storage_automount_devices(char * workDir, int * count) {
     pt  = line;
     while ((*pt!=0)&&(*pt!=':')) pt++;
     if (*pt == 0) {
-      free(line);
-      line = NULL;
-      continue;
+      CONT;
     }
     *pt = 0;
+    
+    /*
+    ** Allocate a device information structure when no available
+    */
+    if (pDev == NULL) {
+      pDev = xmalloc(sizeof(storage_enumerated_device_t));
+      if (pDev == NULL) {
+	severe("Out of memory");
+	CONT;
+      }
+    }
+    memset(pDev,0,sizeof(storage_enumerated_device_t));
 
     /* 
     ** Recopy device name 
     */
-    sprintf(devName,"/dev/%s",line);
+    sprintf(pDev->name,"/dev/%s",line);
 
 
     pt++;
@@ -3114,9 +3361,7 @@ void storage_automount_devices(char * workDir, int * count) {
     while ((*pt!=0)&&(*pt!=':')) pt++;
     if (*pt == 0) {
       // Bad line !!!
-      free(line);
-      line = NULL;
-      continue;
+      CONT;
     }   
     *pt = 0;
 
@@ -3125,10 +3370,12 @@ void storage_automount_devices(char * workDir, int * count) {
     ** Recopy the FS type
     */
     strcpy(FStype,pt2);
-    if ((strcmp(FStype,"ext4")!=0) && (strcmp(FStype,"xfs")!=0)){
-      free(line);
-      line = NULL;
-      continue;
+    pDev->ext4 = 0;
+    if (strcmp(FStype,"ext4")==0) {
+      pDev->ext4 = 1;
+    }
+    else if (strcmp(FStype,"xfs")!=0){
+      CONT;
     }  
       
     /*
@@ -3140,102 +3387,140 @@ void storage_automount_devices(char * workDir, int * count) {
     *pt = 0;
 
     /*
-    ** Check file system is not yet mounted
+    ** If file system is mounted
     */
     if (*pMount != 0) {
-      free(line);
-      line = NULL;
-      continue;
-    }
     
-    free(line);
-    line = NULL;
-                
+      pDev->mounted = 1;
+    
+      /*
+      ** Read the mark file
+      */
+      if (storage_check_device_mark_file(pMount, pDev) < 0) {
+        CONT;
+      }
+      
+      /*
+      ** Spare should not be mounted 
+      */
+      if (pDev->spare) {
+        if (umount2(pMount,MNT_FORCE)==0) {
+	  pDev->mounted = 0;
+	}
+	/*
+	** Record device 
+	*/
+	storage_enumerated_device_tbl[storage_enumerated_device_nb++] = pDev;
+	pDev = NULL;
+        CONT;
+      }	   
+      
+      /*
+      ** Check CID/SID
+      */
+      st = storaged_lookup(pDev->cid, pDev->sid);
+      if (st == NULL) {
+        // Not mine
+        CONT;
+      }
+      
+      /*
+      ** Umount it when requested
+      */
+      if (unmount) {
+        if (umount2(pMount,MNT_FORCE)==0) {
+	  pDev->mounted = 0;
+	}
+	/*
+	** Record device 
+	*/
+	storage_enumerated_device_tbl[storage_enumerated_device_nb++] = pDev;
+	pDev = NULL;
+	CONT;
+      }
+      
+      /*
+      ** Check it is mounted at the right place 
+      */	          	
+      pt = cmd;
+      pt += rozofs_string_append(pt,st->root);
+      *pt++ = '/';
+      pt += rozofs_u32_append(pt,pDev->dev);
+      if (strcmp(cmd,pMount)!=0) {
+        if (umount2(pMount,MNT_FORCE)==0) {
+	  pDev->mounted = 0;
+	}
+      }	
+      storage_enumerated_device_tbl[storage_enumerated_device_nb++] = pDev;
+      pDev = NULL;     	
+      CONT;       
+    }
+    /*
+    ** If file system is not mounted
+    */
+                    
     /*
     ** Mount the file system on the working directory
     */
-    ret = mount(devName, 
-                workDir, 
-                FStype, 
+    ret = mount(pDev->name, workDir,  FStype, 
 		MS_NOATIME | MS_NODIRATIME , 
 		common_config.device_automount_option);
     if (ret != 0) {
       severe("mount(%s,%s,%s) %s",
-              devName,workDir,common_config.device_automount_option,
+              pDev->name,workDir,common_config.device_automount_option,
 	      strerror(errno));
-      continue;
+      CONT;
     }
     /*
-    ** Open mounted device
+    ** Read the mark file
     */
-    if (!(dp = opendir(workDir))) {
-      severe("opendir(%s) %s",workDir,strerror(errno));
-      continue;
-    }
-  
-    /*
-    ** Look for the cid/sid/dev mark file
-    */
-    cid = 0;
-    while (readdir_r(dp,&ep,&pep) == 0) {
-         
-      /*
-      ** end of directory
-      */
-      if (pep == NULL) break;
-
-      /*
-      ** Check whether this is a mark file
-      */
-      int ret = sscanf(pep->d_name,"storage_c%d_s%d_%d",&cid, &sid, &device);
-      if (ret == 3) break; // have found a mark file
-      cid = 0; // No correct mark file. Re-initialize the cid.
-    }  
-          
-    /*
-    ** Close directory
-    */ 
-    if (dp) {
-      closedir(dp);
-      dp = NULL;
-    }   
+    ret = storage_check_device_mark_file(workDir, pDev);
   
     /*
     ** unmount directory to remount it at the convenient place
     */
     if (umount2(workDir,MNT_FORCE)==-1) {}
-
-    /*
-    ** Check we are involved in this storage
-    */
-    if (cid == 0) continue; // not mine
-    st = storaged_lookup(cid, sid);
-    if (st == NULL) continue; // not mine
-
-    /*
-    ** Remount the device at the right place
-    */
-    pt = cmd;
-    pt += rozofs_string_append(pt,st->root);
-    *pt++ = '/';
-    pt += rozofs_u32_append(pt,device);
-
-    ret = mount(devName, 
-                cmd, 
-		FStype, 
-		MS_NOATIME | MS_NODIRATIME ,
-		common_config.device_automount_option);
-    if (ret != 0) {
-      severe("mount(%s,%s,%s) %s",
-              devName,cmd,common_config.device_automount_option, 
-	      strerror(errno));
-      continue;
+    
+    if (ret < 0) {
+      CONT;
     }
-    *count += 1;    	
-    info("%s mounted on %s",devName,cmd);
+
+    /*
+    ** Spare device
+    */
+    if (pDev->spare) {
+      /*
+      ** Record device 
+      */
+      storage_enumerated_device_tbl[storage_enumerated_device_nb++] = pDev;
+      pDev = NULL;
+      CONT;
+    }	   
+      
+
+    /*
+    ** Check CID/SID
+    */
+    st = storaged_lookup(pDev->cid, pDev->sid);
+    if (st == NULL) {
+      // Not mine
+      CONT;
+    }
+    
+    /*
+    ** Record device 
+    */
+    storage_enumerated_device_tbl[storage_enumerated_device_nb++] = pDev;
+    pDev = NULL;
+    CONT;
   }
- 
-  
+  /*
+  ** Free allocated structure that has not been used
+  */ 
+  if (pDev != NULL) {
+    free(pDev);
+    pDev = NULL;
+  }
   /*
   ** Close device file list
   */   
@@ -3254,4 +3539,473 @@ void storage_automount_devices(char * workDir, int * count) {
   ** Remove working directory
   */
   if (rmdir(workDir)==-1) {}
+  
+  /*
+  ** Order the table
+  */
+  storage_sort_enumerated_devices();
+  
+  return storage_enumerated_device_nb;
+  
+}
+/**
+ *_______________________________________________________________________
+ * Get the mount path a device is mounted on
+ * 
+ * @param dev the device
+ *
+ * @return: Null when not found, else the mount point path
+ */
+char * rozofs_get_device_mountpath(const char * dev) {
+  struct mntent  mnt_buff;
+  char           buff[512];
+  struct mntent* mnt_entry = NULL;
+  FILE* mnt_file_stream = NULL;
+
+  mnt_file_stream = setmntent("/proc/mounts", "r");
+  if (mnt_file_stream == NULL) {
+    severe("setmntent failed for file /proc/mounts %s \n", strerror(errno));
+    return NULL;
+  }
+
+  while ((mnt_entry = getmntent_r(mnt_file_stream,&mnt_buff,buff,512))) {
+    if (strcmp(dev, mnt_entry->mnt_fsname) == 0){
+      char *  result = xstrdup(mnt_entry->mnt_dir);
+      endmntent(mnt_file_stream);
+      return result;
+    }
+  }
+
+  endmntent(mnt_file_stream);
+  return NULL;
+}
+/**
+ *_______________________________________________________________________
+ * Check a given mount point is actually mounted
+ * 
+ * @param mount_path The mount point to check
+ *
+ * @return: 1 when mounted else 0
+ */
+int rozofs_check_mountpath(const char * mntpoint) {
+  struct mntent  mnt_buff;
+  char           buff[512];
+  struct mntent* mnt_entry = NULL;
+  FILE* mnt_file_stream = NULL;
+  char mountpoint_path[PATH_MAX];
+
+
+  if (!realpath(mntpoint, mountpoint_path)) {
+    severe("bad mount point %s: %s\n", mntpoint, strerror(errno));
+    return 0;
+  }
+
+  mnt_file_stream = setmntent("/proc/mounts", "r");
+  if (mnt_file_stream == NULL) {
+    severe("setmntent failed for file /proc/mounts %s \n", strerror(errno));
+    return 0;
+  }
+
+  while ((mnt_entry = getmntent_r(mnt_file_stream,&mnt_buff,buff,512))) {
+    if (strcmp(mntpoint, mnt_entry->mnt_dir) == 0){
+      endmntent(mnt_file_stream);
+      return 1;
+    }
+  }
+  endmntent(mnt_file_stream);
+
+
+  return 0;
+}
+/*
+ *_______________________________________________________________________
+ *
+ * Display enumerated devices
+ */
+void storage_show_enumerated_devices_man(char * pt) {
+  pt += rozofs_string_append(pt, "Display some information on each RozoFS enumerated devices.\n");
+}
+/*
+ *_______________________________________________________________________
+ *
+ * Display enumerated devices
+ */
+void storage_show_enumerated_devices(char * argv[], uint32_t tcpRef, void *bufRef) {
+  char                   * pChar = uma_dbg_get_buffer();
+  int                      idx1;
+  storage_enumerated_device_t * pDev1;
+  int                      first=1;
+  
+  if ((argv[1] != NULL) && (strcasecmp(argv[1],"again")==0)) {
+    re_enumration_required = 1;
+    pChar += rozofs_string_append(pChar,"re enumeration is to come\n");
+    uma_dbg_send(tcpRef,bufRef,TRUE,uma_dbg_get_buffer());     
+    return;
+  }
+
+  pChar += rozofs_string_append(pChar,"{\n");
+  pChar += rozofs_string_append(pChar,"  \"enumeration date\" : \"");  
+  pChar +=strftime(pChar, 20, "%Y-%m-%d %H:%M:%S", localtime(&storio_last_enumeration_date));
+  pChar += rozofs_string_append(pChar,"\",\n"); 
+      
+  
+  pChar += rozofs_string_append(pChar,"  \"enumerated devices\" : [\n");
+  
+  for (idx1=0; idx1<STORAGE_MAX_DEV_PER_NODE; idx1++) {
+  
+    pDev1 = storage_enumerated_device_tbl[idx1];
+    if (pDev1 == NULL) continue;
+    
+    if (first) {
+      first = 0;
+    }
+    else {
+      pChar += rozofs_string_append(pChar,",\n");
+    }    
+  
+    
+     
+    pChar += rozofs_string_append(pChar,"    { \"name\" : \"");
+    pChar += rozofs_string_append(pChar,pDev1->name);
+    pChar += rozofs_string_append(pChar,"\", \"date\" : \"");
+    pChar +=strftime(pChar, 20, "%Y-%m-%d %H:%M:%S", localtime(&pDev1->date));    
+    
+    if (pDev1->ext4) {
+      pChar += rozofs_string_append(pChar,"\", \"fs\" : \"ext4\",\n");
+    }
+    else {
+      pChar += rozofs_string_append(pChar,"\", \"fs\" : \"xfs\",\n");
+    }    
+    pChar += rozofs_string_append(pChar, "      \"role\" : \"");
+    if (pDev1->spare) {
+      pChar += rozofs_string_append(pChar, "spare\"");
+    }
+    else {
+      pChar += rozofs_u32_append(pChar,pDev1->cid);
+      pChar += rozofs_string_append(pChar, "/");
+      pChar += rozofs_u32_append(pChar,pDev1->sid);
+      pChar += rozofs_string_append(pChar, "/");
+      pChar += rozofs_u32_append(pChar,pDev1->dev);   
+      pChar += rozofs_string_append(pChar, "\"");
+    }    
+    if (pDev1->mounted) {
+      char * mnt;
+      pChar += rozofs_string_append(pChar,", \"mountpath\" : \"");
+      mnt = rozofs_get_device_mountpath(pDev1->name);
+      pChar += rozofs_string_append(pChar,mnt);
+      if (mnt) xfree(mnt);
+      pChar += rozofs_string_append(pChar,"\"");
+    }
+    else {
+      pChar += rozofs_string_append(pChar,", \"mountpath\" : \"Not mounted\"");
+    }
+    pChar += rozofs_string_append(pChar,"\n    }");
+  }
+  pChar += rozofs_string_append(pChar,"\n  ],\n");
+  
+  pChar += rozofs_string_append(pChar,"  \"device self healing\" : {\n");
+  pChar += rozofs_string_append(pChar,"    \"exportd\" \t: \"");
+  pChar += rozofs_string_append(pChar,common_config.export_hosts);
+  pChar += rozofs_string_append(pChar,"\",\n    \"mode\" \t: \"");
+  pChar += rozofs_string_append(pChar,common_config.device_selfhealing_mode);
+  pChar += rozofs_string_append(pChar,"\",\n    \"delay\" \t: ");
+  pChar += rozofs_u32_append(pChar,common_config.device_selfhealing_delay);
+  pChar += rozofs_string_append(pChar,"\n  }\n}\n");
+  uma_dbg_send(tcpRef,bufRef,TRUE,uma_dbg_get_buffer()); 
+} 
+/*
+ *_______________________________________________________________________
+ *
+ * Try to mount one device at the convenient path
+ *
+ * @param pDev   The device descriptor to mount
+ * 
+ * @retval 0 on success, -1 on failure
+ */
+int storage_mount_one_device(storage_enumerated_device_t * pDev) {
+  char                     cmd[512];
+  char                   * pt;        
+  char                   * pt2;        
+  storage_t              * st;
+  int                      ret;
+  int                      fd;
+   
+  /*
+  ** Lookup for the storage context
+  */    
+  st = storaged_lookup(pDev->cid, pDev->sid);
+  if (st == NULL) return -1; // not mine
+
+  /*
+  ** Get the storage mount root path 
+  */
+  pt = cmd;
+  pt += rozofs_string_append(pt,st->root);
+  
+  /*
+  ** Create root directory if no yet done
+  */
+  if (storage_create_dir(cmd)<0) {
+    return -1;
+  }
+  
+  /*
+  ** Get the device directory mount path
+  */
+  *pt++ = '/';
+  pt += rozofs_u32_append(pt,pDev->dev);
+  pt += rozofs_string_append(pt,"/");
+  
+  /* 
+  ** Device directory does not exist 
+  */
+  if ((access(cmd, F_OK) != 0)&&(errno==ENOENT)) {
+    /*
+    ** Create device directory
+    */
+    if (storage_create_dir(cmd)<0) {
+      return -1;
+    } 
+    /*
+    ** Put X file
+    */
+    char * pt2= pt;
+    pt2 += rozofs_string_append(pt2,"X");    
+    fd = creat(cmd,0755);
+    if (fd < 0) {
+      severe("creat(%s,0755) %s", cmd, strerror(errno));   
+    }    
+    else {
+      close(fd);   
+    }
+    *pt = 0;
+  }
+    
+  /*
+  ** Umount this directory, just in case
+  */
+  if (umount2(cmd,MNT_FORCE)==-1) {}   
+  
+  /*
+  ** Mount the device at this place
+  */
+  if (pDev->ext4) {
+    ret = mount(pDev->name, cmd, "ext4", 
+		MS_NOATIME | MS_NODIRATIME ,
+		common_config.device_automount_option);
+  }
+  else {
+    ret = mount(pDev->name, cmd, "xfs", 
+		MS_NOATIME | MS_NODIRATIME ,
+		common_config.device_automount_option);
+  }		  
+  if (ret != 0) {
+    severe("mount(\"%s\",\"%s\",\"%s\") %s",
+            pDev->name,cmd,common_config.device_automount_option, 
+	    strerror(errno));
+    return -1;
+  }
+  
+  /*
+  ** Check whether this is a replacement by a spare
+  */
+  if (pDev->spare) {
+          
+    /* 
+    ** Create the CID/SID/DEV mark file
+    */
+    pt2  = pt;
+    pt2 += sprintf(pt2,STORAGE_DEVICE_MARK_FMT, pDev->cid, pDev->sid, pDev->dev);    
+    fd = creat(cmd,0755);
+    if (fd < 0) {
+      severe("creat(%s,0755) %s", cmd, strerror(errno));
+      /*
+      ** Umount this directory
+      */
+      if (umount2(cmd,MNT_FORCE)==-1) {}   
+      return -1;     
+    }    
+    close(fd);
+
+    /* 
+    ** Create the rebuild required mark file
+    */
+    pt2  = pt;
+    pt2 += rozofs_string_append(pt2,STORAGE_DEVICE_REBUILD_REQUIRED_MARK);
+    fd = creat(cmd,0755);
+    if (fd < 0) {
+      severe("creat(%s,0755) %s", cmd, strerror(errno));   
+    }    
+    else {
+      close(fd);    
+    }
+    
+    /*
+    ** Remove spare mark
+    */
+    rozofs_string_append(pt,STORAGE_DEVICE_SPARE_MARK);
+    unlink(cmd);
+    
+    /*
+    ** This is no more a spare device
+    */
+    pDev->spare = 0;
+    * pt = 0;
+  }
+  
+  /*
+  ** Device is mounted now
+  */
+  pDev->mounted = 1;
+  info("%s mounted on %s",pDev->name,cmd);    
+  return 0;
+}  
+
+/*
+ *_______________________________________________________________________
+ *
+ * Try to find out a spare device to repair a failed device
+ *
+ * @param st   The storage context
+ * @param dev  The device number to replace
+ * 
+ * @retval 0 on success, -1 when no spare found
+ */
+int storage_replace_with_spare(storage_t * st, int dev) {
+  int                           idx;
+  storage_enumerated_device_t * pDev;
+ 
+  /*
+  ** Look for a spare device
+  */
+  for (idx=0; idx<storage_enumerated_device_nb; idx++) {
+  
+    pDev = storage_enumerated_device_tbl[idx];
+    if (pDev == NULL)   continue;
+    if (pDev->spare==0) continue;
+
+    /*
+    ** Mount this spare disk instead
+    */
+    pDev->cid   = st->cid;
+    pDev->sid   = st->sid;
+    pDev->dev   = dev;
+    
+    if (storage_mount_one_device(pDev) < 0) {
+      pDev->cid   = 0;
+      pDev->sid   = 0;
+      pDev->dev   = 0;
+      continue;
+    }
+       
+    return 0;
+  }  
+  return -1;
+}     
+/*
+ *_______________________________________________________________________
+ *
+ *  Try to mount every enumerated device at the rigth place
+ *
+ */
+int storage_mount_all_enumerated_devices() {
+  int                           idx;
+  storage_enumerated_device_t * pDev=NULL;
+  int                           last_cid=0;
+  int                           last_sid=0;
+  int                           last_dev=0;
+  int                           count = 0;
+ 
+  /*
+  ** Loop on every enumerated RozoFS devices
+  */
+  for (idx=0; idx<storage_enumerated_device_nb; idx++) {
+  
+    pDev = storage_enumerated_device_tbl[idx];
+    
+    /*
+    ** Do not mount spare device
+    */
+    if (pDev->spare) continue;
+    
+    /*
+    ** Check whether previous device has the same CID/SID/DEV in 
+    ** which case the previous one has the latest mark file and 
+    ** so was a spare that has replaced this one.
+    */
+    if ((last_cid == pDev->cid)
+    &&  (last_sid == pDev->sid)
+    &&  (last_dev == pDev->dev)) {
+      continue;
+    }
+    
+    last_cid = pDev->cid;
+    last_sid = pDev->sid;
+    last_dev = pDev->dev;
+    
+    /*
+    ** Already mounted
+    */
+    if (pDev->mounted) continue;
+
+    /*
+    ** Mount it
+    */
+    if (storage_mount_one_device(pDev)==0) {
+      count++;
+    }  
+  }
+  return count;
+}     
+/*
+ *_______________________________________________________________________
+ *
+ * Try to mount the devices on the convenient path
+ *
+ * @param workDir   A directory to use to temporary mount the available 
+ *                  devices on in order to check their content.
+ * @param storaged  Whether this is the storaged or storio process    
+ */
+int storage_enumerated_devices_registered = 0;
+int storage_process_automount_devices(char * workDir, int storaged) {
+
+  /*
+  ** Automount should be configured
+  */
+  if (!common_config.device_automount) return 0;  
+
+  /*
+  ** Register feature to debug if not yet done
+  */
+  if (storage_enumerated_devices_registered==0) {
+    storage_enumerated_devices_registered = 1;
+    uma_dbg_addTopicAndMan("enumeration", storage_show_enumerated_devices, storage_show_enumerated_devices_man, 0);
+  }
+  
+  /*
+  ** Enumerate the available RozoFS devices.
+  ** Storaged will umount every device, while storio will let
+  ** the correctly mounted devices in place.
+  */     
+  storage_enumerate_devices(workDir, storaged) ;
+  
+  /*
+  ** Mount the devices that have to
+  */
+  return storage_mount_all_enumerated_devices();  
+}
+/*
+ *_______________________________________________________________________
+ *
+ * Try to mount the devices on the convenient path
+ *
+ * @param workDir   A directory to use to temporary mount the available 
+ *                  devices on in order to check their content.
+ * @param count     Returns the number of devices that have been mounted
+ */
+void storaged_do_automount_devices(char * workDir, int * count) {
+  *count = storage_process_automount_devices(workDir,1);
+}
+void storio_do_automount_devices(char * workDir, int * count) {
+  *count = storage_process_automount_devices(workDir,0);
 }

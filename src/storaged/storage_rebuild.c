@@ -184,6 +184,7 @@ typedef struct _rbs_parameter_t {
   int      max_reloop;
   char   * output;
   int      clear;
+  int      clearOnly;
   int      resume;
   int      pause;
   int      abort;
@@ -453,6 +454,7 @@ void usage_display() {
     printf("   -l, --loop                \tNumber of reloop in case of error (default %d)\n",DEFAULT_REBUILD_RELOOP);
     printf("   -q, --quiet               \tDo not display messages\n");
     printf("   -C, --clear               \tClear the status of the device after it has been set OOS\n");
+    printf("   -K, --clearOnly           \tJustt clear the status of the device, but do not rebuild it\n");
     printf("   -o, --output=<file>       \tTo give the name of the rebuild status file (under %s/storage_rebuild)\n",DAEMON_PID_DIRECTORY);
     printf("   -id <id>                  \tIdentifier of a non completed rebuild.\n");
     printf("   -abort                    \tAbort a rebuild\n");
@@ -581,6 +583,10 @@ void parse_command(int argc, char *argv[], rbs_parameter_t * par) {
       continue;
     }  
 
+    if (IS_ARG(-K) || IS_ARG(--clearOnly)) {
+      par->clear = 2;     
+      continue;
+    }  
 
     if (IS_ARG(-q) || IS_ARG(--quiet)) {
       quiet = 1;     
@@ -737,6 +743,13 @@ void parse_command(int argc, char *argv[], rbs_parameter_t * par) {
       REBUILD_FAILED("--clear option requires --sid option too.");
       exit(EXIT_FAILURE);      
     }
+    /*
+    ** When clear is set device number must too
+    */    
+    if (par->rbs_device_number < 0) {
+      REBUILD_FAILED("--clear option requires --device option too.");
+      exit(EXIT_FAILURE);      
+    }    
   }
   
 }
@@ -1330,8 +1343,7 @@ int rbs_initialize(cid_t cid, sid_t sid, const char *storage_root,
     if (storage_initialize(storage_to_rebuild, cid, sid, storage_root,
 		dev,
 		dev_mapper,
-		dev_red,
-		-1,NULL) != 0)
+		dev_red) != 0)
         goto out;
 
     // Initialize the list of cluster(s)
@@ -1363,8 +1375,7 @@ static int storaged_initialize() {
                 sc->cid, sc->sid, sc->root,
 		sc->device.total,
 		sc->device.mapper,
-		sc->device.redundancy,
-		-1,NULL) != 0) {
+		sc->device.redundancy) != 0) {
             severe("can't initialize storage (cid:%d : sid:%d) with path %s",
                     sc->cid, sc->sid, sc->root);
             goto out;
@@ -3439,6 +3450,9 @@ int main(int argc, char *argv[]) {
       }
       
       REBUILD_MSG("cid %d sid %d device %d re-initialization",parameter.cid,parameter.sid,parameter.rbs_device_number);
+      if (parameter.clear==2) {
+        exit(EXIT_SUCCESS);
+      }
     }
        
     

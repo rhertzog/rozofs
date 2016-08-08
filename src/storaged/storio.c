@@ -145,9 +145,7 @@ static int storaged_initialize() {
                 sc->cid, sc->sid, sc->root, 
 		sc->device.total,
 		sc->device.mapper,
-		sc->device.redundancy,
-		storaged_config.selfHealing,
-		storaged_config.export_hosts) != 0) {
+		sc->device.redundancy) != 0) {
             severe("can't initialize storage (cid:%d : sid:%d) with path %s",
                     sc->cid, sc->sid, sc->root);
             goto out;

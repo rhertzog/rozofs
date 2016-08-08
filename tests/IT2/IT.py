@@ -1031,16 +1031,14 @@ def rebuild_one_dev() :
     dev=int(hid)%int(mapper_modulo)
     clean_rebuild_dir()    
     string="./setup.py sid %s %s rebuild -fg -d %s -o one_cid%s_sid%s_dev%s"%(cid,sid,dev,cid,sid,dev)
-    os.system("./setup.py sid %s %s device-delete %s"%(cid,sid,dev))
-    os.system("./setup.py sid %s %s device-create %s"%(cid,sid,dev))
+    os.system("./setup.py sid %s %s device-clear %s"%(cid,sid,dev))
     ret = cmd_returncode(string)
     if ret != 0:
       return ret
       
     if int(mapper_modulo) > 1:
       dev=(dev+1)%int(mapper_modulo)
-      os.system("./setup.py sid %s %s device-delete %s"%(cid,sid,dev))
-      os.system("./setup.py sid %s %s device-create %s"%(cid,sid,dev))
+      os.system("./setup.py sid %s %s device-clear %s"%(cid,sid,dev))
       ret = cmd_returncode("./setup.py sid %s %s rebuild -fg -d %s -o one_cid%s_sid%s_dev%s "%(cid,sid,dev,cid,sid,dev))
       if ret != 0:
 	return ret
@@ -1062,6 +1060,7 @@ def relocate_one_dev() :
 
   ret=1 
   modulo=1
+  selfHealing="No"
   for s in sids:
     
     if modulo == 3:
@@ -1087,20 +1086,29 @@ def relocate_one_dev() :
 	break;     
 
     # Check wether self healing is configured
-    string="./build/src/rozodiag/rozodiag -i localhost%s -T storio:%s -c device "%(hid,cid)
+    string="./build/src/rozodiag/rozodiag -i localhost%s -T storio:%s -c enu "%(hid,cid)
     parsed = shlex.split(string)
     cmd = subprocess.Popen(parsed, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     
     for line in cmd.stdout:
-      if "self-healing" in line:
+      if "mode" in line:
+        if "spareOnly" in line:
+  	  selfHealing="spareOnly"
+	  continue
+	if "relocate" in line:
+  	  selfHealing="relocate"  
+	  continue
+      if "delay" in line:
         words=line.split()
-	selfHealing=words[2]
-	break; 
+	delay=words[2]       
 
     clean_rebuild_dir()
+    
+    if selfHealing == "spareOnly": os.system("./setup.py spare")	      
      
     # No self healing configured. Ask for a rebuild with relocation	      
     if selfHealing == "No":
+      status="IS"
       syslog.syslog("No self healing => call relocate")	      
       ret = cmd_returncode("./setup.py sid %s %s rebuild -fg -d 0 -o reloc_cid%s_sid%s_dev0 "%(cid,sid,cid,sid))
       if ret != 0:
@@ -1118,7 +1126,11 @@ def relocate_one_dev() :
       
       while count != int(0):
 
-	if "OOS" in status:
+	if "OOS" == status:
+	  syslog.syslog("count %d device is %s"%(count,status))
+	  break    
+	      
+	if "IS" == status:
 	  syslog.syslog("count %d device is %s"%(count,status))
 	  break        
 
@@ -1146,7 +1158,7 @@ def relocate_one_dev() :
 	  try:
 	    if int(words[0]) != int(0):
 	      continue
-	    status=words[1]
+	    status=words[1].split()[0]
 	    break
 	  except:
 	    pass    
@@ -1160,11 +1172,14 @@ def relocate_one_dev() :
       if ret != 0:
 	return ret 
       
-    if selfHealing != "No":
+    if status == "OOS":
+      # Re create the device
       ret = os.system("./setup.py sid %s %s device-create 0"%(cid,sid))
-      ret = cmd_returncode("./setup.py sid %s %s rebuild -fg -d 0 -C -o clear_cid%s_sid%s_dev0 "%(cid,sid,cid,sid))
-      
-      
+      # re initialize it
+      ret = os.system("./setup.py sid %s %s rebuild -fg -d 0 -K"%(cid,sid))
+      time.sleep(11)
+      ret = os.system("./setup.py sid %s %s rebuild -fg -d 0"%(cid,sid))
+            
   if rebuildCheck == True:      
     ret = gruyere_reread()          
     return ret         
@@ -1184,8 +1199,7 @@ def rebuild_all_dev() :
 
     clean_rebuild_dir()
 
-    os.system("./setup.py sid %s %s device-delete all 1> /dev/null"%(cid,sid))
-    os.system("./setup.py sid %s %s device-create all 1> /dev/null"%(cid,sid))
+    os.system("./setup.py sid %s %s device-clear all 1> /dev/null"%(cid,sid))
     ret = cmd_returncode("./setup.py sid %s %s rebuild -fg -o all_cid%s_sid%s "%(cid,sid,cid,sid))
     if ret != 0:
       return ret
@@ -1220,8 +1234,7 @@ def rebuild_one_node() :
       cid=s.split('-')[1]
       sid=s.split('-')[2]
       
-      os.system("./setup.py sid %s %s device-delete all 1> /dev/null"%(cid,sid))
-      os.system("./setup.py sid %s %s device-create all 1> /dev/null"%(cid,sid))      
+      os.system("./setup.py sid %s %s device-clear all 1> /dev/null"%(cid,sid))
 
     clean_rebuild_dir()
     

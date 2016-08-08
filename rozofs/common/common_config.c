@@ -149,4 +149,22 @@ void show_common_config(char * argv[], uint32_t tcpRef, void *bufRef) {
 
 void common_config_read(char * fname) {
   common_config_generated_read(fname);
+
+
+  
+  /*
+  ** Add some consistency checks
+  */
+  
+  
+  /*
+  ** For self healing to be set, export host must be provided
+  */
+  if (strcasecmp(common_config.device_selfhealing_mode,"")!=0) {
+    if (strcasecmp(common_config.export_hosts,"")==0) {
+      severe("device_selfhealing_mode is \"%s\" while export_hosts is not defined -> set to \"\"",common_config.device_selfhealing_mode);
+      common_config.device_selfhealing_mode[0] = 0;
+    }
+  }
+  
 }

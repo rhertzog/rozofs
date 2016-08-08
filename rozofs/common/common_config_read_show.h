@@ -106,7 +106,7 @@ char *pChar = uma_dbg_get_buffer();
   pChar += rozofs_string_append(pChar,"// when the directory is already created \n");
   COMMON_CONFIG_SHOW_BOOL(mkdir_ok_instead_of_eexist,False);
   pChar += rozofs_string_append(pChar,"// To activate workaround that make mknod respond OK instead of EEXIST\n");
-  pChar += rozofs_string_append(pChar,"// when the file is already created \n");
+  pChar += rozofs_string_append(pChar,"// when the file is already created  \n");
   COMMON_CONFIG_SHOW_BOOL(mknod_ok_instead_of_eexist,False);
   pChar += rozofs_string_append(pChar,"// To disable synchronous write of attributes when set to True\n");
   COMMON_CONFIG_SHOW_BOOL(disable_sync_attributes,False);
@@ -175,6 +175,14 @@ char *pChar = uma_dbg_get_buffer();
   COMMON_CONFIG_SHOW_STRING(ssh_user,"root");
   pChar += rozofs_string_append(pChar,"// Other ssh/scp parameter (such as key location) \n");
   COMMON_CONFIG_SHOW_STRING(ssh_param,"");
+  pChar += rozofs_string_append(pChar,"// Fault duration in minutes before device selfhealing starts\n");
+  COMMON_CONFIG_SHOW_INT_OPT(device_selfhealing_delay,15,"0:10000");
+  pChar += rozofs_string_append(pChar,"// Allowed self healing modes\n");
+  pChar += rozofs_string_append(pChar,"// spareOnly  only self repair on a spare disk\n");
+  pChar += rozofs_string_append(pChar,"// relocate   also repair on remaining disks when no spare available\n");
+  COMMON_CONFIG_SHOW_STRING(device_selfhealing_mode,"spareOnly");
+  pChar += rozofs_string_append(pChar,"// Export hostname required for selfhealing\n");
+  COMMON_CONFIG_SHOW_STRING(export_hosts,"");
 
   uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
   return;
@@ -261,7 +269,7 @@ static inline void common_config_generated_read(char * fname) {
   // when the directory is already created  
   COMMON_CONFIG_READ_BOOL(mkdir_ok_instead_of_eexist,False);
   // To activate workaround that make mknod respond OK instead of EEXIST 
-  // when the file is already created  
+  // when the file is already created   
   COMMON_CONFIG_READ_BOOL(mknod_ok_instead_of_eexist,False);
   // To disable synchronous write of attributes when set to True 
   COMMON_CONFIG_READ_BOOL(disable_sync_attributes,False);
@@ -322,6 +330,14 @@ static inline void common_config_generated_read(char * fname) {
   COMMON_CONFIG_READ_STRING(ssh_user,"root");
   // Other ssh/scp parameter (such as key location)  
   COMMON_CONFIG_READ_STRING(ssh_param,"");
+  // Fault duration in minutes before device selfhealing starts 
+  COMMON_CONFIG_READ_INT_MINMAX(device_selfhealing_delay,15,0,10000);
+  // Allowed self healing modes 
+  // spareOnly  only self repair on a spare disk 
+  // relocate   also repair on remaining disks when no spare available 
+  COMMON_CONFIG_READ_STRING(device_selfhealing_mode,"spareOnly");
+  // Export hostname required for selfhealing 
+  COMMON_CONFIG_READ_STRING(export_hosts,"");
  
   config_destroy(&cfg);
 }

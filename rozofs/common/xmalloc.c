@@ -87,6 +87,28 @@ void *xmalloc_internal(char * file, int line, size_t n) {
 }
 /*__________________________________________________________________________
 */
+void *xstrdup_internal(char * file, int line, size_t n, char * src) {
+    void *p = 0;
+    if (xmalloc_size_table_p == NULL)
+    {
+      xmalloc_size_table_p = memalign(32,sizeof(xmalloc_stats_t)*XMALLOC_MAX_SIZE);
+      memset(xmalloc_size_table_p,0,sizeof(xmalloc_stats_t)*XMALLOC_MAX_SIZE);   
+      uma_dbg_addTopic("xmalloc", show_xmalloc); 
+    }
+
+    p = memalign(32,n+1);
+    check_memory(p);
+
+    if (xmalloc_stats_insert(malloc_usable_size(p))==traced_idx) {
+      info("%s:%d xstrdup(%d) -> %p",file,line,(int)n+1,p);
+    }
+    
+    memcpy(p,src,n);
+    ((char*)p)[n] = 0;
+    return p;
+}
+/*__________________________________________________________________________
+*/
 void xfree(void * p) {
     xmalloc_stats_release(malloc_usable_size(p));
     free(p);
@@ -107,11 +129,4 @@ void *xrealloc(void *p, size_t n) {
     return p;
 }
 
-char *xstrdup(const char *str) {
-    char *p;
-
-    p = strdup(str);
-    check_memory(p);
-    return p;
-}
 #endif

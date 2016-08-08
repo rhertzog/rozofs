@@ -24,16 +24,7 @@ Specifies list of IP(s) (or hostname(s)) and port(s) the storio process must lis
     In single storio mode, only one storio is started that listens on this port to service every configured cluster.
     In multiple storio mode, one storio is started per cluster that listen on this port + the cluster number to service the given cluster only.
 
-.SS self-healing (optional)
 
-Gives the delay in minutes before starting an automatic rebuild of a broken device by relocating the data on the remaining devices. The lowest possible value is 1. When self-healing is configured, the 
-.I export-hosts 
-parameter must be configured too. 
-
-.SS export-hosts
-
-This parameter is only needed when self healing is configured. It gives the list of addresses (or dns names) where exportd daemon is running. When securing the exportd thanks to virtual IP address only the virtual IP address is declared (i.e "192.168.10.1"). When no virtual IP address is used the list of "physical" IP addresses of each host securing the exportd must be given (i.e "192.168.10.1/192.168.20.1").
- 
 .SS storages (mandatory)
 
 It's the list of local storage managed by this storaged.
@@ -74,15 +65,15 @@ have some replica written on the devices following their main device.
             - must not be decreased.
 
 
+.SS self-healing and export-hosts : Deprecated !
+
+Check in rozofs.conf how to setup selhealing with RozoFS.
+
 .SH EXAMPLE
 .PP
 .nf
 .ta +3i
 # sample RozoFS storage configuration file
-
-self-healing = 10;
-export-hosts = "192.168.0.1/192.168.0.2";
-
 listen = (
     {addr = "192.168.1.1"; port = 41001; },
     {addr = "192.168.2.1"; port = 41001; }

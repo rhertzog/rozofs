@@ -61,17 +61,19 @@ struct blkio_info {
 };
 
 uint32_t STORIO_DEVICE_PERIOD=3;
-uint32_t storio_next_automount_attempt=0;
+extern time_t   storio_last_enumeration_date;
+extern int      re_enumration_required;
 
 
 
 /*_____________________________________
 ** Parameter of the relocate thread
 */
-typedef struct _storio_relocate_ctx_t {
+typedef struct _storio_rebuild_ctx_t {
   storage_t     * st;
   int             dev;
-} storio_relocate_ctx_t;
+  int             spare; // On spare disk or relocate on other devices
+} storio_rebuild_ctx_t;
 
 /*
 **____________________________________________________
@@ -84,9 +86,9 @@ typedef struct _storio_relocate_ctx_t {
 */
 extern char storaged_config_file[];
 extern char * storaged_hostname;
-void * storio_device_relocate_thread(void *arg) {
-  storio_relocate_ctx_t      *pRelocate = arg;
-  storage_device_ctx_t    *   pDev = &pRelocate->st->device_ctx[pRelocate->dev];
+void * storio_device_rebuild_thread(void *arg) {
+  storio_rebuild_ctx_t    * pRebuild = arg;
+  storage_device_ctx_t    * pDev = &pRebuild->st->device_ctx[pRebuild->dev];
   char            cmd[256];
   int             status;
   pid_t           pid;
@@ -98,22 +100,25 @@ void * storio_device_relocate_thread(void *arg) {
  
     pChar += rozofs_string_append(pChar,"storage_rebuild -fg --quiet -c ");
     pChar += rozofs_string_append(pChar,storaged_config_file);
-    pChar += rozofs_string_append(pChar," -R -l 4 -r ");
-    pChar += rozofs_string_append(pChar,pRelocate->st->export_hosts);
+    if (pRebuild->spare == 0) {
+      pChar += rozofs_string_append(pChar," -R ");
+    }   
+    pChar += rozofs_string_append(pChar," -l 6 -r ");
+    pChar += rozofs_string_append(pChar,common_config.export_hosts);
     pChar += rozofs_string_append(pChar," -p ");
     pChar += rozofs_u32_append(pChar,common_config.device_self_healing_process);
     pChar += rozofs_string_append(pChar," --sid ");
-    pChar += rozofs_u32_append(pChar,pRelocate->st->cid);
+    pChar += rozofs_u32_append(pChar,pRebuild->st->cid);
     *pChar++ ='/';
-    pChar += rozofs_u32_append(pChar,pRelocate->st->sid);
+    pChar += rozofs_u32_append(pChar,pRebuild->st->sid);
     pChar += rozofs_string_append(pChar," --device ");
-    pChar += rozofs_u32_append(pChar,pRelocate->dev);
+    pChar += rozofs_u32_append(pChar,pRebuild->dev);
     pChar += rozofs_string_append(pChar," -o selfhealing_cid");
-    pChar += rozofs_u32_append(pChar,pRelocate->st->cid);
+    pChar += rozofs_u32_append(pChar,pRebuild->st->cid);
     pChar += rozofs_string_append(pChar,"_sid");
-    pChar += rozofs_u32_append(pChar,pRelocate->st->sid);
+    pChar += rozofs_u32_append(pChar,pRebuild->st->sid);
     pChar += rozofs_string_append(pChar,"_dev");
-    pChar += rozofs_u32_append(pChar,pRelocate->dev);
+    pChar += rozofs_u32_append(pChar,pRebuild->dev);
     
     if (pHostArray[0] != NULL) {
       pChar += rozofs_string_append(pChar," -H ");
@@ -135,7 +140,12 @@ void * storio_device_relocate_thread(void *arg) {
   
   if ((ret == pid)&&(WEXITSTATUS(status)==0)) {
     /* Relocate is successfull. Let's put the device Out of service */
-    pDev->status = storage_device_status_oos;
+    if (pRebuild->spare == 0) {
+      pDev->status = storage_device_status_oos;
+    }
+    else {
+      pDev->status = storage_device_status_init;
+    }  
   }
   else {
     /* Relocate has failed. Let's retry later */
@@ -143,48 +153,51 @@ void * storio_device_relocate_thread(void *arg) {
     pDev->status   = storage_device_status_failed;
   }
   
-  free(pRelocate);
+  free(pRebuild);
   pthread_exit(NULL); 
 }
 /*
 **____________________________________________________
 **  Start a thread for relocation a device
 **  
-**  @param st  The storage context
-**  @param dev The device number to rebuild
+**  @param st    The storage context
+**  @param dev   The device number to rebuild
+**  @param spare Whether rebuild operates on spare disk or 
+**               relocate data on
 **   
 **  @retval 0 when the thread is succesfully started
 */
-int storio_device_relocate(storage_t * st, int dev) {
+int storio_device_rebuild(storage_t * st, int dev, int spare) {
   pthread_attr_t             attr;
   int                        err;
   pthread_t                  thrdId;
-  storio_relocate_ctx_t    * pRelocate;
+  storio_rebuild_ctx_t     * pRebuild;
 
-  if (st->export_hosts == NULL) {
-    severe("storio_device_relocate cid %d sid %d no export hosts",st->cid, st->sid);
+  if (common_config.export_hosts == NULL) {
+    severe("storio_device_rebuild cid %d sid %d no export hosts",st->cid, st->sid);
     return -1;
   }
   
-  pRelocate = malloc(sizeof(storio_relocate_ctx_t));
-  if (pRelocate == NULL) {
-    severe("storio_device_relocate malloc(%d) %s",(int)sizeof(storio_relocate_ctx_t), strerror(errno));
+  pRebuild = malloc(sizeof(storio_rebuild_ctx_t));
+  if (pRebuild == NULL) {
+    severe("storio_device_rebuild malloc(%d) %s",(int)sizeof(storio_rebuild_ctx_t), strerror(errno));
     return -1;
   }  
-  pRelocate->st  = st;
-  pRelocate->dev = dev;
+  pRebuild->st    = st;
+  pRebuild->dev   = dev;
+  pRebuild->spare = spare;
 
   err = pthread_attr_init(&attr);
   if (err != 0) {
-    severe("storio_device_relocate pthread_attr_init() %s",strerror(errno));
-    free(pRelocate);
+    severe("storio_device_rebuild pthread_attr_init() %s",strerror(errno));
+    free(pRebuild);
     return -1;
   }  
 
-  err = pthread_create(&thrdId,&attr,storio_device_relocate_thread,pRelocate);
+  err = pthread_create(&thrdId,&attr,storio_device_rebuild_thread,pRebuild);
   if (err != 0) {
-    severe("storio_device_relocate pthread_create() %s", strerror(errno));
-    free(pRelocate);
+    severe("storio_device_rebuild pthread_create() %s", strerror(errno));
+    free(pRebuild);
     return -1;
   }    
   
@@ -368,12 +381,9 @@ int storio_check_expcted_mounted_device(storage_t   * st, int dev) {
     
     // end of directory
     if (pep == NULL) goto out;
-    
-    // Check whether this is the expected file
-    if (strncmp(pep->d_name,"storage_c",strlen("storage_c")) != 0) continue;
-    
-    ret = sscanf(pep->d_name,"storage_c%d_s%d_%d",&cid, &sid, &device);
-    if (ret != 3) continue;
+        
+    ret = rozofs_scan_mark_file(pep->d_name, &cid, &sid, &device);
+    if (ret < 0) continue;
     
     if ((cid != st->cid) || (sid != st->sid) || (device != dev)) {   
       status = -1;
@@ -409,7 +419,7 @@ out:
 ** @param size   The size of the device
 ** @param bs     The block size of the FS of the device
 ** @param diagnostic A diagnostic of the problem on the device
-** @param relocate_allowed Wheteher relocation could take place
+** @param rebuild_required Wheteher rebuild should take place could take place
 **
 ** @retval -1 if device is failed, 0 when device is OK
 */
@@ -419,18 +429,18 @@ static inline int storio_device_monitor_get_free_space(storage_t   * st,
 						       uint64_t    * size, 
 						       uint64_t    * bs, 
 						       storage_device_diagnostic_e * diagnostic, 
-						       int         * relocate_allowed) {
+						       int         * rebuild_required) {
   struct statfs sfs;
   char          path[FILENAME_MAX];
   char        * pChar = path;
   uint64_t      threashold;
 
-  *relocate_allowed = 0;
+  *rebuild_required = 0;
     
   pChar += rozofs_string_append(pChar, st->root);
   *pChar++ ='/';
   pChar += rozofs_u32_append(pChar, dev); 
-  pChar += rozofs_string_append(pChar, "/");
+//  pChar += rozofs_string_append(pChar, "/");
   
   /*
   ** Check that the device is writable
@@ -442,7 +452,7 @@ static inline int storio_device_monitor_get_free_space(storage_t   * st,
     else {
       *diagnostic = DEV_DIAG_FAILED_FS;
     }    
-    *relocate_allowed = 1;
+    *rebuild_required = 1;
     return -1;
   }
 
@@ -451,7 +461,7 @@ static inline int storio_device_monitor_get_free_space(storage_t   * st,
   */
   if (statfs(path, &sfs) != 0) {
     *diagnostic = DEV_DIAG_FAILED_FS;    
-    *relocate_allowed = 1;
+    *rebuild_required = 1;
     return -1;
   }  
 
@@ -459,10 +469,10 @@ static inline int storio_device_monitor_get_free_space(storage_t   * st,
   ** Check we can see an X file. 
   ** This would mean that the device is not mounted
   */
-  rozofs_string_append(pChar, "X");
+  rozofs_string_append(pChar, "/X");
   if (access(path,F_OK) == 0) {
     *diagnostic = DEV_DIAG_UNMOUNTED;
-    *relocate_allowed = 1;
+    *rebuild_required = 1;
     return -1;
   }  
 
@@ -545,6 +555,75 @@ static inline uint64_t storio_device_monitor_error(storage_t * st) {
 }
 /*
 **____________________________________________________
+ * API to be called periodically to monitor errors on a period
+ *
+ * @param st: the storage to be initialized.
+ *
+ * @return a bitmask of the device having encountered an error
+ */
+void storio_monitor_automount() { 
+  char                     * p;
+  char                       rozofs_storio_path[PATH_MAX];
+  int                        count;
+  storage_t                * st;
+  uint32_t                   now = time(NULL);  
+
+
+  if (storio_last_enumeration_date + 60 > now) return;
+  
+  st = NULL;
+  st = storaged_next(st);
+  if (st == NULL) return;
+
+  /*
+  ** Attempt to find the missing devices and to mount them
+  */
+  p = rozofs_storio_path;
+  p += rozofs_string_append(p, st->root);
+  p += rozofs_string_append(p, "/mnt_test");  
+  
+  storio_do_automount_devices(rozofs_storio_path,&count);
+
+  /*
+  ** Some device has been mounted. Create sub directory structure when needed.
+  */
+  if (count!=0) {
+    storage_subdirectories_create(st);	
+    while ((st = storaged_next(st)) != NULL) {
+      storage_subdirectories_create(st);	
+    }    
+  } 
+
+}   
+/*
+**____________________________________________________
+ * API to be called periodically to monitor errors on a period
+ *
+ * @param st: the storage to be initialized.
+ *
+ * @return a bitmask of the device having encountered an error
+ */
+void storio_monitor_enumerate() { 
+  char                     * p;
+  char                       rozofs_storio_path[PATH_MAX];
+  int                        count;
+  storage_t                * st;
+ 
+  st = NULL;
+  st = storaged_next(st);
+  if (st == NULL) return;
+
+  /*
+  ** Attempt to find the missing devices and to mount them
+  */
+  p = rozofs_storio_path;
+  p += rozofs_string_append(p, st->root);
+  p += rozofs_string_append(p, "/mnt_test");  
+  
+  storio_do_automount_devices(rozofs_storio_path, &count); 
+}   
+/*
+**____________________________________________________
 **  Device monitoring 
 ** 
 **  @param allow_disk_spin_down  whether disk spin down 
@@ -556,15 +635,22 @@ void storio_device_monitor(uint32_t allow_disk_spin_down) {
   storage_t   * st;
   storage_device_ctx_t *pDev;
   int           max_failures;
-  int           rebuilding;
+  int           rebuild_allowed = 1;
   storage_share_t *share;
   uint64_t      bfree=0;
   uint64_t      bmax=0;
   uint64_t      bsz=0;   
   uint64_t      sameStatus=0;
   int           activity;
-  int           relocate_allowed=0;
+  int           rebuild_required=0;
   uint32_t      now = time(NULL);
+       
+       
+  if (re_enumration_required) {
+    storio_monitor_enumerate();
+    re_enumration_required = 0;
+  }
+         
        
   /*
   ** Loop on every storage managed by this storio
@@ -580,36 +666,36 @@ void storio_device_monitor(uint32_t allow_disk_spin_down) {
       share->monitoring_period = STORIO_DEVICE_PERIOD;
     }  
 
-    if (st->selfHealing == -1) {
-      /* No self healing configured */
-      max_failures = -1;
-      rebuilding   = 1; /* Prevents going on rebuilding */
-    }
-    else {
-      
-     if (st->selfHealing < 0) {
-	/* To speed up tests. Not for normal usage */
-	max_failures = 1;
+    /*
+    ** Compute the maximium number of failures before self healing
+    */
+    max_failures = (common_config.device_selfhealing_delay  * 60)/STORIO_DEVICE_PERIOD;
+    if (max_failures == 0) max_failures = 1;
+
+    /*
+    ** Check whether some device is already in rebuild
+    */
+    rebuild_allowed = 1;   
+    /*
+    ** Export hosts must be configured for the auto repair to occur
+    */
+    if (common_config.export_hosts[0] == 0) {
+       rebuild_allowed = 0;
+    } 
+    /*
+    ** No more than one rebuild at a time
+    */
+    else for (dev = 0; dev < st->device_number; dev++) {
+      pDev = &st->device_ctx[dev];
+      if (pDev->status == storage_device_status_relocating) {
+	rebuild_allowed = 0; /* No more than 1 rebuild at a time */
+	break;
       }
-      else {    
-        /*
-        ** Compute the maximium number of failures before relocation
-        */
-        max_failures = (st->selfHealing * 60)/STORIO_DEVICE_PERIOD;
-      }
-    
-      /*
-      ** Check whether some device is already in relocating status
-      */
-      rebuilding = 0;       
-      for (dev = 0; dev < st->device_number; dev++) {
-	pDev = &st->device_ctx[dev];
-	if (pDev->status == storage_device_status_relocating) {
-	  rebuilding = 1; /* No more than 1 rebuild at a time */
-	  break;
-	}
-      }             
-    }  
+      if (pDev->status == storage_device_status_rebuilding) {
+	rebuild_allowed = 0; /* No more than 1 rebuild at a time */
+	break;
+      }	
+    }              
     
     /*
     ** Collect errors on devices
@@ -631,51 +717,18 @@ void storio_device_monitor(uint32_t allow_disk_spin_down) {
     /*
     ** Check whether some devices need to be mounted or unmounted now
     */
-    while (common_config.device_automount) {
-      int count=0; // Number of mounted devices
-      
-      if (storio_next_automount_attempt > now) break;
-      
+    if (common_config.device_automount) {
+            
       /*
       ** Loop on devices to find one that requires to be mounted
       */
       for (dev = 0; dev < st->device_number; dev++) {
 	if ((st->device_ctx[dev].diagnostic == DEV_DIAG_UNMOUNTED)
 	||  (st->device_ctx[dev].diagnostic == DEV_DIAG_INVERTED_DISK)) {
-	  char                     * p;
-	  char                       rozofs_storio_path[PATH_MAX];
-
-          /*
-	  ** Attempt to find the missing devices and to mount them
-	  */
-	  p = rozofs_storio_path;
-	  p += rozofs_string_append(p, st->root);
-	  p += rozofs_string_append(p, "/mnt_test");  
-          storage_automount_devices(rozofs_storio_path,&count);
-	  
-	  /*
-	  ** Mount has not been successfull. Let's retry later but not immediatly
-	  */
-	  if (count==0) {
-
-	    /* Next automount attempt in 3 minutes */
-	    storio_next_automount_attempt = now + 180; 
-
-	    if (st->selfHealing > 0) {
-	      /* Self healing is configured. Better retry before auto rebuild */
-	      storio_next_automount_attempt = now + 59;
-	    }
-	    break;
-	  } 
-	  
-	  /*
-	  ** Some device has been mounted. Create sub directory structure when needed.
-	  */
-          storage_subdirectories_create(st);	     
+	  storio_monitor_automount();
           break;
 	}
       }
-      break;
     }
         
     for (dev = 0; dev < st->device_number; dev++) {
@@ -720,7 +773,8 @@ void storio_device_monitor(uint32_t allow_disk_spin_down) {
         /*
 	** Wait for the end of the relocation to re initialize the device
 	*/
-        if (pDev->status != storage_device_status_relocating) {
+        if ((pDev->status != storage_device_status_relocating)
+	&&  (pDev->status != storage_device_status_rebuilding)) {
 	  pDev->action = STORAGE_DEVICE_NO_ACTION;
 	  pDev->status = storage_device_status_init;
 	}
@@ -775,7 +829,7 @@ void storio_device_monitor(uint32_t allow_disk_spin_down) {
             }
 	  } 	  
 	  
-	  if (storio_device_monitor_get_free_space(st, dev, &bfree, &bmax, &bsz, &pDev->diagnostic,&relocate_allowed) != 0) {
+	  if (storio_device_monitor_get_free_space(st, dev, &bfree, &bmax, &bsz, &pDev->diagnostic,&rebuild_required) != 0) {
 	    /*
 	    ** The device is failing !
 	    */
@@ -808,7 +862,7 @@ void storio_device_monitor(uint32_t allow_disk_spin_down) {
 	  ** Check whether the access to the device is still granted
 	  ** and get the number of free blocks
 	  */
-	  if (storio_device_monitor_get_free_space(st, dev, &bfree, &bmax, &bsz, &pDev->diagnostic, &relocate_allowed) != 0) {
+	  if (storio_device_monitor_get_free_space(st, dev, &bfree, &bmax, &bsz, &pDev->diagnostic, &rebuild_required) != 0) {
 	    /*
 	    ** The device is failing !
 	    */
@@ -825,7 +879,7 @@ void storio_device_monitor(uint32_t allow_disk_spin_down) {
 	  ** Check whether the access to the device is still granted
 	  ** and get the number of free blocks
 	  */
-	  if (storio_device_monitor_get_free_space(st, dev, &bfree, &bmax, &bsz, &pDev->diagnostic,&relocate_allowed) != 0) {
+	  if (storio_device_monitor_get_free_space(st, dev, &bfree, &bmax, &bsz, &pDev->diagnostic,&rebuild_required) != 0) {
 	    /*
 	    ** Still failed
 	    */	
@@ -835,17 +889,38 @@ void storio_device_monitor(uint32_t allow_disk_spin_down) {
 	    ** is relocating on this storage and failure threashold
 	    ** has been crossed, relocation should take place
 	    */
-	    if ((rebuilding==0) && (relocate_allowed) && (pDev->failure >= max_failures)) {
-	      /*
-	      ** Let's start self healing
+	    if ((rebuild_allowed) && (rebuild_required) && (pDev->failure > max_failures)) {
+              /*
+	      ** Re-enumerate devices
 	      */
-	      pDev->status = storage_device_status_relocating;
-	      if (storio_device_relocate(st,dev) == 0) {
-	        rebuilding = 1; /* On rebuild at a time */
-	      }	
-	      else {
-	        pDev->status = storage_device_status_failed;	        
+	      storio_monitor_enumerate();
+	      /*
+	      ** Let's 1rst find a spare device
+	      */
+	      if (storage_replace_with_spare(st,dev) == 0) {
+	        pDev->status = storage_device_status_rebuilding;
+		if (storio_device_rebuild(st,dev,1) == 0) {
+	          rebuild_allowed = 0; /* On rebuild at a time */
+		}	
+		else {
+	          pDev->status = storage_device_status_failed;	        
+		}
+		break;	        
 	      }
+	      	      
+	    
+	      /*
+	      ** Let's relocate on other devices if allowed
+	      */
+	      if (strcmp(common_config.device_selfhealing_mode,"relocate")==0) {	        
+	        pDev->status = storage_device_status_relocating;
+	        if (storio_device_rebuild(st,dev,0) == 0) {
+	          rebuild_allowed = 0; /* On rebuild at a time */
+	        }	
+	        else {
+	          pDev->status = storage_device_status_failed;	        
+	        }
+	      }	
 	    }
 	    break;
 	  }
@@ -858,7 +933,8 @@ void storio_device_monitor(uint32_t allow_disk_spin_down) {
 	  break;
 
 
-	case storage_device_status_relocating:  
+	case storage_device_status_relocating:
+	case storage_device_status_rebuilding:  
 	  break;
 
 	case storage_device_status_oos:
@@ -901,8 +977,7 @@ void storio_device_monitor(uint32_t allow_disk_spin_down) {
     /*
     ** Switch active and passive records
     */
-    st->device_free.active = passive; 
-
+    st->device_free.active = passive;     
   }              
 }
 /*
@@ -914,6 +989,11 @@ void storio_device_monitor(uint32_t allow_disk_spin_down) {
 void * storio_device_monitor_thread(void * param) {
 
   uma_dbg_thread_add_self("Device monitor");
+
+  /*
+  ** First enumeration
+  */
+  storio_monitor_automount();
 
   /*
   ** Never ending loop
@@ -946,7 +1026,7 @@ int storio_device_mapping_monitor_thread_start() {
   ** 1rst call to monitoring function, and access to the disk 
   ** to get the disk free space 
   */
-  storio_device_monitor(FALSE);;
+  storio_device_monitor(FALSE);
 
   /*
   ** Start monitoring thread

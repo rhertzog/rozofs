@@ -1599,6 +1599,7 @@ out:
 /*
 **___________________________________________________________
 */
+extern int      re_enumration_required;
 
 void sp_clear_error_1_svc_disk_thread(void * pt, rozorpc_srv_ctx_t *req_ctx_p) {
     static sp_status_ret_t    ret;
@@ -1635,6 +1636,11 @@ void sp_clear_error_1_svc_disk_thread(void * pt, rozorpc_srv_ctx_t *req_ctx_p) {
       goto error;
     }  
 
+    /*
+    ** On reinit, for re-enumeration
+    */
+    re_enumration_required = 1;
+    
     /*
     ** All devices are to be processd
     */

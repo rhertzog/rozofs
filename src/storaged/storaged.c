@@ -142,8 +142,7 @@ static int storaged_initialize() {
                 sc->cid, sc->sid, sc->root,
 		sc->device.total,
 		sc->device.mapper,
-		sc->device.redundancy,
-		-1,NULL) != 0) {
+		sc->device.redundancy) != 0) {
             severe("can't initialize storage (cid:%d : sid:%d) with path %s",
                     sc->cid, sc->sid, sc->root);
             goto out;
@@ -214,7 +213,7 @@ void storaged_automount_devices() {
   /*
   ** Try to mount the devices
   */
-  storage_automount_devices(rozofs_storaged_path,&count);  
+  storaged_do_automount_devices(rozofs_storaged_path,&count);  
 }
 char storage_process_filename[NAME_MAX];
 
@@ -409,7 +408,7 @@ int main(int argc, char *argv[]) {
 
     // Get the path name of the storaged executable
     if (strcmp("storaged",argv[0]) != 0) {
-      exe_path_name = strdup(argv[0]);
+      exe_path_name = xstrdup(argv[0]);
       exe_path_name = dirname(exe_path_name);
     }
     else {

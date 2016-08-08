@@ -329,17 +329,10 @@ void storage_device_debug(char * argv[], uint32_t tcpRef, void *bufRef) {
     		          
     pChar += rozofs_string_append(pChar,"\n    device_number     = ");
     pChar += rozofs_u32_append(pChar,st->device_number);
-    
-    if (st->selfHealing == -1) {
-      pChar += rozofs_string_append(pChar,"\n    self-healing      = No\n");
-    }  
-    else {
-      pChar += rozofs_string_append(pChar,"\n    self-healing      = ");
-      pChar += rozofs_u32_append(pChar, st->selfHealing);
-      pChar += rozofs_string_append(pChar," min (");
-      pChar += rozofs_u32_append(pChar, (st->selfHealing * 60)/STORIO_DEVICE_PERIOD);
-      pChar += rozofs_string_append(pChar," failures)\n");
-    }  
+    pChar += rozofs_string_append(pChar,"\n    self-healing-mode  = ");
+    pChar += rozofs_string_append(pChar, common_config.device_selfhealing_mode);
+    pChar += rozofs_string_append(pChar,"\n    self-healing-delay = ");
+    pChar += rozofs_u32_append(pChar,common_config.device_selfhealing_delay);
       
     pChar += rozofs_string_append(pChar,"\n    device | status | failures |    blocks    |    errors    | diagnostic      |  monitor | inactive | last activity\n");
     pChar += rozofs_string_append(pChar,"    _______|________|__________|______________|______________|_________________|__________|__________|_______________\n");

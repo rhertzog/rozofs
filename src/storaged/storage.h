@@ -40,11 +40,24 @@
 
 
 /*
-** The mark that should be present on a disk that requires to
-** be rebuilt
+** The mark that should be present on a RozoFS device
 */
+// Device requires a rebuild or is being rebuilt
 #define STORAGE_DEVICE_REBUILD_REQUIRED_MARK "PREPARING_DISK"
-
+// Device is a spare disk
+#define STORAGE_DEVICE_SPARE_MARK            "rozofs_spare"
+// Device is dedicated to a given device of a given CID/SID
+#define STORAGE_DEVICE_MARK_BEGIN            "storage_c"
+#define STORAGE_DEVICE_MARK_END              "%d_s%d_%d"
+#define STORAGE_DEVICE_MARK_FMT              STORAGE_DEVICE_MARK_BEGIN STORAGE_DEVICE_MARK_END
+// Search which device is encoded inside mark file name
+static inline int rozofs_scan_mark_file(char * name, int * cid, int * sid, int * dev) { 
+  if (strncmp(name,STORAGE_DEVICE_MARK_BEGIN,strlen(STORAGE_DEVICE_MARK_BEGIN)) != 0) return -1;
+  name += strlen(STORAGE_DEVICE_MARK_BEGIN);
+  int ret = sscanf(name,STORAGE_DEVICE_MARK_END, cid,  sid, dev);
+  if (ret != 3) return -1;
+  return 0;
+}
 #define ROZOFS_MAX_DISK_THREADS  32
 
 /* Storage config to be configured in cfg file */
@@ -121,6 +134,7 @@ typedef enum _storage_device_status_e {
   storage_device_status_is,
   storage_device_status_degraded,
   storage_device_status_relocating,
+  storage_device_status_rebuilding,
   storage_device_status_failed,
   storage_device_status_oos
 } storage_device_status_e;
@@ -130,8 +144,9 @@ static inline char * storage_device_status2string(storage_device_status_e status
     case storage_device_status_undeclared: return "NONE";
     case storage_device_status_init:       return "INIT";
     case storage_device_status_is:         return "IS";
-    case storage_device_status_degraded:    return "DEG";
+    case storage_device_status_degraded:   return "DEG";
     case storage_device_status_relocating: return "RELOC";
+    case storage_device_status_rebuilding: return "REBUILD";
     case storage_device_status_failed:     return "FAILED";
     case storage_device_status_oos:        return "OOS";
     default:                               return "???";
@@ -235,8 +250,6 @@ typedef struct storage {
     uint32_t mapper_modulo; // Last device number that contains the fid to device mapping
     uint32_t device_number; // Number of devices to receive the data for this sid
     uint32_t mapper_redundancy; // Mapping file redundancy level
-    int      selfHealing;
-    char  *  export_hosts; /* For self healing purpose */
     storage_device_free_blocks_t device_free;    // available blocks on devices
     storage_device_errors_t      device_errors;  // To monitor errors on device
     storage_device_ctx_t         device_ctx[STORAGE_MAX_DEVICE_NB]; 
@@ -742,15 +755,11 @@ char *storage_map_projection(fid_t fid, char *path);
  * @param device_number: number of device for data storage
  * @param mapper_modulo: number of device for device mapping
  * @param mapper_redundancy: number of mapping device
- * @param selfHealing The delay in min before repairing a device
- *                    -1 when no self-healing
- * @param export_hosts The export hosts list for self healing purpose 
  *
  * @return: 0 on success -1 otherwise (errno is set)
  */
 int storage_initialize(storage_t *st, cid_t cid, sid_t sid, const char *root,
-                       uint32_t device_number, uint32_t mapper_modulo, uint32_t mapper_redundancy,
-		       int selfHealing, char * export_hosts);
+                       uint32_t device_number, uint32_t mapper_modulo, uint32_t mapper_redundancy);
 
 /** Release a storage
  *
@@ -1250,6 +1259,54 @@ int storage_list_bins_files_to_rebuild(storage_t * st, sid_t sid,  uint8_t * dev
         uint8_t * spare, uint16_t * slice, uint64_t * cookie,
         bins_file_rebuild_t ** children, uint8_t * eof);
 
+
+/*
+*______________________________________________________________________
+* Create a directory, recursively creating all the directories on the path 
+* when they do not exist
+*
+* @param directory_path   The directory path
+* @param mode             The rights
+*
+* retval 0 on success -1 else
+*/
+static inline int mkpath(char * directory_path, mode_t mode) {
+  char* p;
+  int  isZero=1;
+  int  status = -1;
+    
+  p = directory_path;
+  p++; 
+  while (*p!=0) {
+  
+    while((*p!='/')&&(*p!=0)) p++;
+    
+    if (*p==0) {
+      isZero = 1;
+    }  
+    else {
+      isZero = 0;      
+      *p = 0;
+    }
+    
+    if (access(directory_path, F_OK) != 0) {
+      if (mkdir(directory_path, mode) != 0) {
+	severe("mkdir(%s) %s", directory_path, strerror(errno));
+        goto out;
+      }      
+    }
+    
+    if (isZero==0) {
+      *p ='/';
+      p++;
+    }       
+  }
+  status = 0;
+  
+out:
+  if (isZero==0) *p ='/';
+  return status;
+}
 /*
  ** Create a directory if it does not yet exist
   @param path : path toward the directory
@@ -1269,7 +1326,8 @@ static inline int storage_create_dir(char *path) {
   if (mkdir(path, ROZOFS_ST_DIR_MODE) == 0) return 0;
   
   /* Someone else has just created the directory */ 
-  if (errno == EEXIST) return 0;		
+  if (errno == EEXIST) return 0;	
+  	
 
   /* Unhandled error on directory creation */
   return -1;
@@ -1354,53 +1412,6 @@ static inline void storio_pid_file(char * pidfile, char * storaged_hostname, int
 
 }
 
-/*
-*______________________________________________________________________
-* Create a directory, recursively creating all the directories on the path 
-* when they do not exist
-*
-* @param directory_path   The directory path
-* @param mode             The rights
-*
-* retval 0 on success -1 else
-*/
-static inline int mkpath(char * directory_path, mode_t mode) {
-  char* p;
-  int  isZero=1;
-  int  status = -1;
-    
-  p = directory_path;
-  p++; 
-  while (*p!=0) {
-  
-    while((*p!='/')&&(*p!=0)) p++;
-    
-    if (*p==0) {
-      isZero = 1;
-    }  
-    else {
-      isZero = 0;      
-      *p = 0;
-    }
-    
-    if (access(directory_path, F_OK) != 0) {
-      if (mkdir(directory_path, mode) != 0) {
-	severe("mkdir(%s) %s", directory_path, strerror(errno));
-        goto out;
-      }      
-    }
-    
-    if (isZero==0) {
-      *p ='/';
-      p++;
-    }       
-  }
-  status = 0;
-  
-out:
-  if (isZero==0) *p ='/';
-  return status;
-}
 int storage_resize(storage_t * st, storio_device_mapping_t * fidCtx, uint8_t layout, uint32_t bsize, sid_t * dist_set,
         uint8_t spare, fid_t fid, bin_t * bins, uint32_t * nb_blocks, uint32_t * last_block_size, int * is_fid_faulty);
 /*
@@ -1418,7 +1429,19 @@ int storage_subdirectories_create(storage_t *st);
  *                  devices on in order to check their content.
  * @param count     Returns the number of devices that have been mounted
  */
-void storage_automount_devices(char * workDir, int * count);
+void storaged_do_automount_devices(char * workDir, int * count);
+void storio_do_automount_devices(char * workDir, int * count);
+/*
+ *_______________________________________________________________________
+ *
+ * Try to find out a spare device to repair a failed device
+ *
+ * @param st   The storage context
+ * @param dev  The device number to replace
+ * 
+ * @retval 0 on success, -1 when no spare found
+ */
+int storage_replace_with_spare(storage_t * st, int dev);
 /*
 ** Reset memory log off encountered errors
 */
@@ -1435,5 +1458,24 @@ uint32_t storio_device_mapping_allocate_device(storage_t * st);
 **  
 */
 void rozofs_storage_device_subdir_create(char * root, int dev);
+
+/**
+ *_______________________________________________________________________
+ * Get the mount path a device is mounted on
+ * 
+ * @param dev the device
+ *
+ * @return: Null when not found, else the mount point path
+ */
+char * rozofs_get_device_mountpath(const char * dev) ;
+/**
+ *_______________________________________________________________________
+ * Check a given mount point is actually mounted
+ * 
+ * @param mount_path The mount point to check
+ *
+ * @return: 1 when mounted else 0
+ */
+int rozofs_check_mountpath(const char * mntpoint);
 #endif
 

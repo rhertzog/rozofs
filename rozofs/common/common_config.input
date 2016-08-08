@@ -108,7 +108,7 @@ STRING 	storage storage_temporary_dir		"/tmp"
 // when the directory is already created 
 BOOL	export mkdir_ok_instead_of_eexist	False
 // To activate workaround that make mknod respond OK instead of EEXIST
-// when the file is already created 
+// when the file is already created  
 BOOL	export mknod_ok_instead_of_eexist	False
 // Port to be used for ssh or scp 
 INT     storage ssh_port 	0
@@ -120,3 +120,12 @@ STRING  storage ssh_param 	""
 BOOL	client client_fast_reconnect	        False
 // To disable synchronous write of attributes when set to True
 BOOL	export disable_sync_attributes	        False
+// Fault duration in minutes before device selfhealing starts
+INT     storage device_selfhealing_delay        15 0:10000
+// Allowed self healing modes
+// spareOnly  only self repair on a spare disk
+// relocate   also repair on remaining disks when no spare available
+STRING  storage device_selfhealing_mode        "spareOnly"
+// Export hostname required for selfhealing
+STRING  storage export_hosts                   ""
+

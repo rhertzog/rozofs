@@ -120,8 +120,6 @@ file is ignored and can even be omitted. All the pathes are automatically create
 .TP
 .SS device_automount_option
 This parameter provides an optionnal mount option that should be supported by the lowlevel file system.
-.SS device_self_healing_process
-This parameter sets the number of rebuilder processes that run in parallel in case of an automatic rebuild for selfhealing purpose. This is also the default number of rebuilder processes for operator rebuild commands.
 .SS mkdir_ok_instead_of_eexist
 When set to True this parameter makes the export respond OK instead of EEXIST on a directory creation while the directory already exist. 
 This enables concurrent processes to all execute mkdir at the same time without getting any error. 
@@ -140,6 +138,32 @@ This parameter gives extra options to be used by ssh or scp ( -i <keypath> for i
 When set to True, the rozofsmount updates some of its timers in order to reconnect to the exportd as fast as possible.
 .SS disable_sync_attributes
 When set to True it disables synchonous write of the attributes.
+.SS device_selfhealing_mode
+The self-healing mode is a string that can take the following values:
+
+           - ""
+             No automatic device rebuild can take place.
+ 
+           -
+.B spareOnly
+             Failed devices are automatically rebuilt on a spare disk when one is available. 
+ 
+           -
+.B relocate
+             Identical to "spareOnly" while some spare device is available.
+             When no more spare device is available, files of failed devices are automatically relocated on remaining devices of the same sid.
+
+For self-healing to be active, the 
+.B export-hosts 
+parameter must be configured too.
+.SS device_selfhealing_delay
+Gives the delay in minutes before starting an automatic rebuild of a failed device. The lowest possible value is 1.  
+.SS device_self_healing_process
+This parameter sets the number of rebuilder processes that run in parallel in case of an automatic rebuild for self-healing purpose. This is also the default number of rebuilder processes for operator rebuild commands.
+.SS export-hosts 
+This parameter is only needed when self-healing is configured. It gives the list of addresses (or dns names) where exportd daemon is running. When securing the exportd thanks to virtual IP address only the virtual IP address is declared (i.e "192.168.10.1"). When no virtual IP address is used the list of "physical" IP addresses of each host securing the exportd must be given (i.e "192.168.10.1/192.168.20.1").
+ 
+
 .SH EXAMPLE
 .PP
 .nf

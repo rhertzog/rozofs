@@ -99,15 +99,15 @@ int sconfig_read(sconfig_t *config, const char *fname, int cluster_id) {
     struct config_setting_t *stor_settings = 0;
     struct config_setting_t *ioaddr_settings = 0;
     int i = 0;
-    const char              *char_value = NULL;    
+//    const char              *char_value = NULL;    
 #if (((LIBCONFIG_VER_MAJOR == 1) && (LIBCONFIG_VER_MINOR >= 4)) \
                || (LIBCONFIG_VER_MAJOR > 1))
     int port;
-    int devices, mapper, redundancy, selfHealing;
+    int devices, mapper, redundancy;
     
 #else
     long int port;
-    long int devices, mapper, redundancy, selfHealing;
+    long int devices, mapper, redundancy;
 #endif      
     DEBUG_FUNCTION;
 
@@ -123,27 +123,7 @@ int sconfig_read(sconfig_t *config, const char *fname, int cluster_id) {
     /*
     ** Check whether self-healing is configured 
     */
-    config->selfHealing  = -1;
     config->export_hosts = NULL;
-    selfHealing = -1;
-
-    if (config_lookup_int(&cfg, SSELF_HEALING, &selfHealing)) {
-        if ((selfHealing > 0)||(selfHealing==-2)) {
-            /*
-             ** Export hosts list has to be configured too
-             */
-            if (config_lookup_string(&cfg, SEXPORT_HOSTS, &char_value)) {
-                config->selfHealing = selfHealing;
-                config->export_hosts = strdup(char_value);
-            } else {
-                severe("%s must be configured along with %s", SEXPORT_HOSTS,
-                        SSELF_HEALING);
-            }
-        } else {
-            severe("%s value must be greater than 0", SSELF_HEALING);
-            selfHealing = -1;
-        }
-    }
 
     if (!(ioaddr_settings = config_lookup(&cfg, SIOLISTEN))) {
         errno = ENOKEY;
