@@ -93,12 +93,12 @@ void * storaged_decoded_rpc_buffer_pool = NULL;
   }\
   *pChar++ = ' ';\
   pChar += rozofs_string_padded_append(pChar,16, rozofs_left_alignment,#the_probe);\
-  pChar += rozofs_string_append(pChar," |");\
-  pChar += rozofs_u64_padded_append(pChar,13, rozofs_right_alignment,the_profiler.the_probe[P_COUNT]);\
-  pChar += rozofs_string_append(pChar," |");\
-  pChar += rozofs_u64_padded_append(pChar,13, rozofs_right_alignment,rate);\
-  pChar += rozofs_string_append(pChar," |");\
-  pChar += rozofs_u64_padded_append(pChar,13, rozofs_right_alignment,cpu);\
+  pChar += rozofs_string_append(pChar," | ");\
+  pChar += rozofs_u64_padded_append(pChar,15, rozofs_right_alignment,the_profiler.the_probe[P_COUNT]);\
+  pChar += rozofs_string_append(pChar," | ");\
+  pChar += rozofs_u64_padded_append(pChar,12, rozofs_right_alignment,rate);\
+  pChar += rozofs_string_append(pChar," | ");\
+  pChar += rozofs_u64_padded_append(pChar,12, rozofs_right_alignment,cpu);\
   pChar += rozofs_string_append(pChar," |\n");\
 }
 
@@ -108,30 +108,6 @@ void * storaged_decoded_rpc_buffer_pool = NULL;
       the_profiler.the_probe[P_ELAPSE] = 0;\
     }
     
-#define sp_display_io_probe(the_profiler, the_probe)\
-    {\
-        uint64_t rate;\
-        uint64_t cpu;\
-        uint64_t throughput;\
-        if ((the_profiler.the_probe[P_COUNT] == 0) || (the_profiler.the_probe[P_ELAPSE] == 0) ){\
-            cpu = rate = throughput = 0;\
-        } else {\
-            rate = (the_profiler.the_probe[P_COUNT] * 1000000 / the_profiler.the_probe[P_ELAPSE]);\
-            cpu = the_profiler.the_probe[P_ELAPSE] / the_profiler.the_probe[P_COUNT];\
-            throughput = (the_profiler.the_probe[P_BYTES] / 1024 /1024 * 1000000 / the_profiler.the_probe[P_ELAPSE]);\
-        }\
-  *pChar++ = ' ';\
-  pChar += rozofs_string_padded_append(pChar,17, rozofs_left_alignment,#the_probe);\
-  pChar += rozofs_string_append(pChar," |");\
-  pChar += rozofs_u64_padded_append(pChar,13, rozofs_right_alignment,the_profiler.the_probe[P_COUNT]);\
-  pChar += rozofs_string_append(pChar," |");\
-  pChar += rozofs_u64_padded_append(pChar,13, rozofs_right_alignment,rate);\
-  pChar += rozofs_string_append(pChar," |");\
-  pChar += rozofs_u64_padded_append(pChar,13, rozofs_right_alignment,cpu);\
-  pChar += rozofs_string_append(pChar," |");\
-  pChar += rozofs_u64_padded_append(pChar,13, rozofs_right_alignment,throughput);\
-  pChar += rozofs_string_append(pChar," |\n");\
-}
 
 static char * show_profile_storaged_master_display_help(char * pChar) {
   pChar += rozofs_string_append(pChar,"usage:\nprofiler reset       : reset statistics\nprofiler             : display statistics\n");  
@@ -161,8 +137,8 @@ static void show_profile_storaged_master_display(char * argv[], uint32_t tcpRef,
     pChar += rozofs_string_append(pChar, " IO process(es)\n");
 
     // Print header for operations profiling values for storaged
-    pChar += rozofs_string_append(pChar, "                  |    CALL      | RATE(msg/s)  |   CPU(us)    |\n");
-    pChar += rozofs_string_append(pChar, "------------------+--------------+--------------+--------------+\n");
+    pChar += rozofs_string_append(pChar, "                  |      CALL       | RATE(msg/s)  |   CPU(us)    |\n");
+    pChar += rozofs_string_append(pChar, "------------------+-----------------+--------------+--------------+\n");
 
     // Print master storaged process profiling values
     sp_display_probe(gprofiler, stat);
