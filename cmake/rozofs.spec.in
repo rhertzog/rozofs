@@ -130,6 +130,7 @@ mkdir -p %{buildroot}%{_unitdir}
 %{__cp} redhat/rozofs-storaged.service %{buildroot}%{_unitdir}/rozofs-storaged.service
 %{__cp} redhat/rozofs-manager-agent.service %{buildroot}%{_unitdir}/rozofs-manager-agent.service
 %{__cp} redhat/rozofs-geomgr.service %{buildroot}%{_unitdir}/rozofs-geomgr.service
+%{__cp} redhat/rozofs-rozofsmount.service %{buildroot}%{_unitdir}/rozofs-rozofsmount.service
 %else
 #install init script (sysVinit)
 mkdir -p %{buildroot}%{_initrddir}
@@ -209,7 +210,10 @@ mkdir -p %{buildroot}%{_initrddir}
 %{_bindir}/rozo_repquota.sh
 %{_bindir}/rozo_mount_cleanup.sh
 %{_bindir}/rozo_distributionCheck.py
-
+%{_bindir}/rozofsmount_wrapper
+%if 0%{?rhel} >= 7
+%{_unitdir}/rozofs-rozofsmount.service
+%endif
 /sbin/mount.rozofs
 #%if 0%{?rhel} < 7
 #%{_initrddir}/rozofs-rozofsmount
@@ -294,6 +298,17 @@ fi
 %endif
 
 %if 0%{?rhel} >= 7
+%post rozofsmount
+%systemd_post rozofs-rozofsmount.service
+
+%preun rozofsmount
+%systemd_preun rozofs-rozofsmount.service
+
+%postun rozofsmount
+%systemd_postun rozofs-rozofsmount.service
+%endif
+
+%if 0%{?rhel} >= 7
 %post manager-agent
 %systemd_post rozofs-manager-agent.service
 
@@ -312,6 +327,9 @@ fi
 %endif
 
 %changelog
+
+* Fri Aug 12 2016 RozoFS <devel@rozofs.org> 2.1.alpha16-1
+- Added rozofs-rozofsmount unit file
 
 * Thu Apr 23 2015 RozoFS <devel@rozofs.org> 2.0.alpha20-1
 - Added directive %config(noreplace) for configuration files
