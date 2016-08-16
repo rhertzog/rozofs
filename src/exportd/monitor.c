@@ -78,7 +78,7 @@ void export_rebalance_cluster_stats(int cluster_idx,uint16_t cluster_id,uint16_t
 {
    if (export_rebalance_vol_stat_p == NULL) return;
    
-   info("FDL sizeof cluster file %u",sizeof(export_vol_cluster_stat2_t));
+   //info("FDL sizeof cluster file %u",sizeof(export_vol_cluster_stat2_t));
    if (cluster_idx>= ROZOFS_CLUSTERS_MAX) 
    {
       severe("cluster index is out of range %d (cid=%d)",cluster_idx,cluster_id);
