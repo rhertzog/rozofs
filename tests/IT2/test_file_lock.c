@@ -484,7 +484,7 @@ int do_bsd_test(int count) {
 }
 int loop_test_process() {
   int count=0; 
-  int ret;
+  int ret=0;
 
   sprintf(MYFILENAME,"%s.%d", FILENAME, getpid());  
   if (create_file(MYFILENAME,FILE_SIZE)<0) return -1;
@@ -493,9 +493,10 @@ int loop_test_process() {
     count++; 
     if (bsd) ret = do_bsd_test(count);
     else     ret = do_posix_test(count);
-    if(ret != 0) return ret;
+    if(ret != 0) break;
   }
-  return 0;
+  unlink(MYFILENAME);
+  return ret;
 }  
 void free_result(void) {
   struct shmid_ds   ds;

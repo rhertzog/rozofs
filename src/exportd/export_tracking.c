@@ -47,7 +47,7 @@
 #include <rozofs/core/rozofs_string.h>
 #include <rozofs/core/uma_dbg_api.h>
 #include <rozofs/core/rozofs_cpu.h>
-
+#include <rozofs/core/rozofs_flock.h>
 #include "config.h"
 #include "export.h"
 #include "cache.h"
@@ -6421,7 +6421,7 @@ out:
     STOP_PROFILING(export_getxattr);
 
     return status;
-}
+}	       
 /*
 **______________________________________________________________________________
 */
@@ -6441,11 +6441,12 @@ int export_set_file_lock(export_t *e, fid_t fid, ep_lock_t * lock_requested, ep_
     rozofs_file_lock_t * lock_elt;
     rozofs_file_lock_t * new_lock;
     int                  overlap=0;
+    char                 string[256];
 
     START_PROFILING(export_set_file_lock);
-
     if (!(lv2 = EXPORT_LOOKUP_FID(e->trk_tb_p,e->lv2_cache, fid))) {
-        severe("export_set_lock failed: %s", strerror(errno));
+	flock_request2string(string,fid,lock_requested);
+        severe("EXPORT_LOOKUP_FID set %s - %s", string, strerror(errno));
         goto out;
     }
 
@@ -6606,11 +6607,12 @@ int export_get_file_lock(export_t *e, fid_t fid, ep_lock_t * lock_requested, ep_
     lv2_entry_t *lv2 = 0;
     rozofs_file_lock_t *lock_elt;
     list_t * p;
+    char                 string[256];
 
     START_PROFILING(export_get_file_lock);
-
     if (!(lv2 = EXPORT_LOOKUP_FID(e->trk_tb_p,e->lv2_cache, fid))) {
-        severe("export_get_lock failed: %s", strerror(errno));
+	flock_request2string(string,fid,lock_requested);
+        severe("EXPORT_LOOKUP_FID get %s - %s", string, strerror(errno));
         goto out;
     }
 
@@ -6677,11 +6679,17 @@ int export_clear_owner_file_lock(export_t *e, fid_t fid, ep_lock_t * lock_reques
     lv2_entry_t *lv2 = 0;
     list_t * p;
     rozofs_file_lock_t *lock_elt;
+    char                 string[256];
     
     START_PROFILING(export_clearowner_flock);
-
     if (!(lv2 = EXPORT_LOOKUP_FID(e->trk_tb_p,e->lv2_cache, fid))) {
-        severe("EXPORT_LOOKUP_FID failed: %s", strerror(errno));
+	if (errno==ENOENT) {
+	  /* File does not exist. Just respond SUCCESS */
+	  status = 0;
+	  goto out;
+	}	
+	flock_request2string(string,fid,lock_requested);
+        severe("EXPORT_LOOKUP_FID clear %s - %s", string, strerror(errno));
         goto out;
     }
     
