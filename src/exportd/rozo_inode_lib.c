@@ -36,8 +36,14 @@
 #define DIRENT_ROOT_FILE_IDX_MASK ((1<<DIRENT_ROOT_FILE_IDX_SHIFT)-1)
 #define DIRENT_ROOT_FILE_IDX_MAX   (1 << DIRENT_ROOT_FILE_IDX_SHIFT)
 
+/**
+* Globals
+*/
 int fdl_debug = 0;
 int verbose_mode = 1;
+uint64_t rozo_lib_current_file_id = 0;  /**< current file in use for inode tracking            */
+int      rozo_lib_current_user_id = 0;  /**< current slice directory in use for inode tracking */
+int      rozo_lib_stop_var        = 0;        /**< assert to one for stopping the inode reading      */
 /*
 ** prototypes
 */
@@ -1782,8 +1788,8 @@ void rz_set_verbose_mode(int mode)
    
    @retval
 */
-int rz_scan_all_inodes(void *export,int type,int read,check_inode_pf_t callback_fct,void *param,
-                       check_inode_pf_t callback_trk_fct,void *param_trk)
+int rz_scan_all_inodes_from_context(void *export,int type,int read,check_inode_pf_t callback_fct,void *param,
+                       check_inode_pf_t callback_trk_fct,void *param_trk,scan_index_context_t *index_ctx_p)
 {
    int ret=0;
    export_t *e;
@@ -1800,10 +1806,19 @@ int rz_scan_all_inodes(void *export,int type,int read,check_inode_pf_t callback_
    int   file_count = 0;
    uint8_t *metadata_buf_p = NULL;
    struct stat stat;
+   int start_with_context = 0;
    
+   rozo_lib_stop_var = 0;
    e = export;
    
     inode_metadata_p = e->trk_tb_p->tracking_table[type];
+    if (index_ctx_p != NULL)
+    {
+       rozo_lib_current_user_id = index_ctx_p->user_id;
+       rozo_lib_current_file_id = index_ctx_p->file_id;
+       start_with_context = 1;
+    
+    }
     /*
     ** allocate memory to store the metadata
     */
@@ -1819,16 +1834,26 @@ int rz_scan_all_inodes(void *export,int type,int read,check_inode_pf_t callback_
    /*
    ** go through  all the slices of the export
    */
-   for (user_id = 0; user_id < EXP_TRCK_MAX_USER_ID; user_id++)
+   for (user_id = rozo_lib_current_user_id; user_id < EXP_TRCK_MAX_USER_ID; user_id++,rozo_lib_current_user_id++)
    {
      inode.s.usr_id = user_id;
-     file_id = 0;
+     if (start_with_context)
+     {
+       file_id = inode_metadata_p->entry_p[user_id]->entry.first_idx;
+       if (file_id >= rozo_lib_current_file_id) rozo_lib_current_file_id = file_id;
+       else file_id = rozo_lib_current_file_id;
+       start_with_context = 0;
+     }
+     else
+     {
+       file_id = inode_metadata_p->entry_p[user_id]->entry.first_idx;
+       rozo_lib_current_file_id = file_id;
+     }
      /*
      ** get the information related to the main tracking file: that file contains the
      ** first and last attribute file indexes
      */     
-     for (file_id = inode_metadata_p->entry_p[user_id]->entry.first_idx;
-          file_id <= inode_metadata_p->entry_p[user_id]->entry.last_idx;file_id++)
+     for (;file_id <= inode_metadata_p->entry_p[user_id]->entry.last_idx;file_id++,rozo_lib_current_file_id++)
      {
 
 //         printf("user_id %d file_id %d \n",user_id,file_id);
@@ -1915,6 +1940,10 @@ int rz_scan_all_inodes(void *export,int type,int read,check_inode_pf_t callback_
 		  // sprintf(bufall,"%s/%s\n",parent_name,get_fname(e,child_name,&ext_attr.s.fname,ext_attr.s.pfid));
                   // printf("%s",bufall);
 		 }
+		 /*
+		 ** Check if you should stop the scanning of the inode
+		 */
+		 if (rozo_lib_stop_var) goto out;
 	      }
 	      else
 	      {
@@ -1926,6 +1955,7 @@ int rz_scan_all_inodes(void *export,int type,int read,check_inode_pf_t callback_
      }   
    }
 //   printf("type %d\n",type);
+out:
    if (verbose_mode)
    {
       perf_stop(&stop);
@@ -1942,6 +1972,31 @@ int rz_scan_all_inodes(void *export,int type,int read,check_inode_pf_t callback_
    return ret;
 
 }
+/*
+**_______________________________________________________________________________
+*/
+/**
+*  scan of the inode of a given type:
+   
+   @param export: pointer to the export context
+   @param type: type of the inode to search for
+   @param read : assert to one if inode attributes must be read
+   @param callback_fct : optional callback function, NULL if none
+   @param fd : file descriptor if output must be flushed in a file, -1 otherwise
+   @param callback_trk_fct : optional callback function associated with the tracking file, NULL if none
+   
+   @retval
+*/
+int rz_scan_all_inodes(void *export,int type,int read,check_inode_pf_t callback_fct,void *param,
+                       check_inode_pf_t callback_trk_fct,void *param_trk)
+{
+   return  rz_scan_all_inodes_from_context(export,type,read,callback_fct,param,
+                       callback_trk_fct,param_trk,NULL);
+
+}	
+/*
+**_______________________________________________________________________________
+*/
 /**
 *  API to get the pathname of the objet: @rozofs_uuid@<FID_parent>/<child_name>
 
@@ -1983,6 +2038,7 @@ char *rozo_get_parent_child_path(void *exportd,void *inode_p,char *buf)
       get_fname(e,&buf[offset+1],&inode_attr_p->s.fname,inode_attr_p->s.pfid);
     return buf;
 }
+	       
  /*
  **___________________________________________________________________________
  **

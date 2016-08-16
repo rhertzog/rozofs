@@ -34,6 +34,10 @@ extern "C" {
 #include <string.h>
 
 
+extern uint64_t rozo_lib_current_file_id;  /**< current file in use for inode tracking            */
+extern int      rozo_lib_current_user_id;  /**< current slice directory in use for inode tracking */
+extern int      rozo_lib_stop_var;        /**< assert to one for stopping the inode reading      */
+
 
 struct perf {
 	struct timeval tv;
@@ -103,6 +107,67 @@ typedef struct _scan_export_intf_t
    int error;
 
 } scan_export_intf_t;
+
+typedef struct _scan_index_context_t
+{
+    uint64_t file_id; /**< file_id from which we should start  */
+    int      user_id; /**< index of the tracking directory     */
+} scan_index_context_t;
+/*
+**______________________________________________________________________________
+*/
+/**
+*   Save the current context of the inode tracking in progress
+
+    @param context_p: pointer to the area with the current indexes are saved
+    
+    @retval none
+*/
+static inline void rozo_lib_save_index_context(scan_index_context_t *context_p)
+{
+   context_p->file_id = rozo_lib_current_file_id;
+   context_p->user_id = rozo_lib_current_user_id;
+
+}
+/*
+**______________________________________________________________________________
+*/
+/**
+*   Reset the tracking indexes (force the scanning to start from beginning)
+
+    @param none
+    
+    @retval none
+*/
+static inline void rozo_lib_reset_index_context(scan_index_context_t *context_p)
+{
+   context_p->file_id = 0;
+   context_p->user_id = 0;
+}
+/*
+**______________________________________________________________________________
+*/
+/**
+*   API to stop the scanning of the inode
+*/
+static inline void rozo_lib_stop_scanning()
+{
+  rozo_lib_stop_var = 1;
+}
+/*
+**______________________________________________________________________________
+*/
+/**
+*   API to stop the scanning of the inode
+
+    @param none
+    retval 0: scan has not been stopped by application
+    retval 1: scan has  been stopped by application
+*/
+static inline int rozo_lib_is_scanning_stopped()
+{
+  return (rozo_lib_stop_var == 1)?1:0;
+}
 /*
 **______________________________________________________________________________
 */
@@ -137,6 +202,21 @@ typedef int (*check_inode_pf_t)(void *export,void *inode,void *p);
 */
 int rz_scan_all_inodes(void *export,int type,int read,check_inode_pf_t callback_fct,void *param,
                        check_inode_pf_t callback_trk_fct,void *param_trk);
+/**
+*  scan of the inode of a given type from a given starting point:
+   
+   @param export: pointer to the export context
+   @param type: type of the inode to search for
+   @param read : assert to one if inode attributes must be read
+   @param callback_fct : optional callback function, NULL if none
+   @param fd : file descriptor if output must be flushed in a file, -1 otherwise
+   @param callback_trk_fct : optional callback function associated with the tracking file, NULL if none
+   @param index_ctx_p : optional context that contains the starting indexes, NULL if none
+   
+   @retval
+*/
+int rz_scan_all_inodes_from_context(void *export,int type,int read,check_inode_pf_t callback_fct,void *param,
+                       check_inode_pf_t callback_trk_fct,void *param_trk,scan_index_context_t *index_ctx_p);
 /*
 **_______________________________________________________________________________
 */
