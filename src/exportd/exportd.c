@@ -743,7 +743,7 @@ static void *export_tracking_thread(void *v) {
  *_______________________________________________________________________
  */
 static void *monitoring_thread(void *v) {
-    struct timespec ts = {2, 0};
+    struct timespec ts = {30, 0};
     list_t *p;
 
     uma_dbg_thread_add_self("Monitor");

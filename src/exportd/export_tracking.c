@@ -6117,8 +6117,19 @@ static inline int set_rozofs_xattr(export_t *e, lv2_entry_t *lv2, char * value,i
   ** Is this a nlink change 
   */  
   if (sscanf(p," nlink = %d", &valint) == 1) {
-    if (lv2->attributes.s.attrs.size != valint) {
+    if (lv2->attributes.s.attrs.nlink != valint) {
       lv2->attributes.s.attrs.nlink = valint;
+      /*
+      ** Save new distribution on disk
+      */
+      return export_lv2_write_attributes(e->trk_tb_p,lv2,0/* No sync */);
+
+    }
+    return 0;
+  }
+  if (sscanf(p," size = %d", &valint) == 1) {
+    if (lv2->attributes.s.attrs.size != valint) {
+      lv2->attributes.s.attrs.size = valint;
       /*
       ** Save new distribution on disk
       */
