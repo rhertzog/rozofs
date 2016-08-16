@@ -667,7 +667,7 @@ void rozofs_resize_cbk(void *this,void *param)
   }
   mattr_to_stat(&ie->attrs, &o_stbuf, exportclt.bsize);
   o_stbuf.st_ino = ino;
-  rz_fuse_reply_attr(req, &o_stbuf, rozofs_tmr_get_attr()); 
+  rz_fuse_reply_attr(req, &o_stbuf, rozofs_tmr_get_attr(0)); 
   goto out;
   
   

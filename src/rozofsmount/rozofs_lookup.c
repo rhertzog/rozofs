@@ -85,7 +85,7 @@ static inline uint32_t dentry_hash(fuse_ino_t parent,char *name) {
     @retval 1 : found
     @retval 0: not found
 */
-int rozofs_lookup_insert_queue(void *buffer,fuse_ino_t parent, const char *name,fuse_req_t req,int trc_idx)
+int rozofs_lookup_insert_queue(void *buffer,fuse_ino_t parent, const char *name,fuse_req_t req,int trc_idx,int lookup_flags)
 {
    ruc_obj_desc_t   * phead;
    ruc_obj_desc_t   * elt;
@@ -113,6 +113,7 @@ int rozofs_lookup_insert_queue(void *buffer,fuse_ino_t parent, const char *name,
       {
          fuse_save_ctx_p->lookup_tb[fuse_save_ctx_p->lkup_cpt].req = req;
          fuse_save_ctx_p->lookup_tb[fuse_save_ctx_p->lkup_cpt].trc_idx = trc_idx;
+         fuse_save_ctx_p->lookup_tb[fuse_save_ctx_p->lkup_cpt].flags = lookup_flags;
 	 fuse_save_ctx_p->lkup_cpt++;
 	 return 1;
       }
@@ -308,9 +309,9 @@ void rozofs_ll_lookup_nb(fuse_req_t req, fuse_ino_t parent, const char *name)
     uint32_t lookup_flags=0;
     int extra_length = 0;
     fuse_ino_t ino = 0;
+    int trace_flag = 0;
     
     extra_length = rozofs_check_extra_inode_in_lookup((char*)name, &len_name);
-    //info("FDL inargs %p extra %d",name,extra_length);
     if (extra_length !=0)
     {
        uint8_t *pdata_p;
@@ -323,11 +324,11 @@ void rozofs_ll_lookup_nb(fuse_req_t req, fuse_ino_t parent, const char *name)
 	 fuse_ino_t *inode_p = (fuse_ino_t*)pdata_p;
 	 child = *inode_p;
 	 ino = child;
-	 //info("FDL inode is provided!! %s lookup %x inode %llx",name,lookup_flags,child);
        }
     }
-    
-    trc_idx = rozofs_trc_req_name(srv_rozofs_ll_lookup,parent,(char*)name);
+    trace_flag = lookup_flags;
+    if (ino != 0) {trace_flag |=(1<<31);}
+    trc_idx = rozofs_trc_req_name_flags(srv_rozofs_ll_lookup,parent,(char*)name,(int)(trace_flag));
     /*
     ** allocate a context for saving the fuse parameters
     */
@@ -343,6 +344,7 @@ void rozofs_ll_lookup_nb(fuse_req_t req, fuse_ino_t parent, const char *name)
     SAVE_FUSE_STRING(buffer_p,name);
     SAVE_FUSE_PARAM(buffer_p,trc_idx);
     SAVE_FUSE_PARAM(buffer_p,ino);
+    SAVE_FUSE_PARAM(buffer_p,lookup_flags);
     
 
     DEBUG("lookup (%lu,%s)\n", (unsigned long int) parent, name);
@@ -376,7 +378,7 @@ void rozofs_ll_lookup_nb(fuse_req_t req, fuse_ino_t parent, const char *name)
     ** Queue the request and attempt to check if there is already the same
     ** request queued
     */
-    if (rozofs_lookup_insert_queue(buffer_p,parent,name,req,trc_idx)== 1)
+    if (rozofs_lookup_insert_queue(buffer_p,parent,name,req,trc_idx,lookup_flags)== 1)
     {
       /*
       ** There is already a pending request, so nothing to send to the export
@@ -412,6 +414,7 @@ void rozofs_ll_lookup_nb(fuse_req_t req, fuse_ino_t parent, const char *name)
               errno = ENOENT;
               goto error;
 	  }
+	  mattr_to_stat(&nie->attrs, &stbuf,exportclt.bsize);
 	  goto success;        
       }      
     }  
@@ -438,6 +441,7 @@ void rozofs_ll_lookup_nb(fuse_req_t req, fuse_ino_t parent, const char *name)
               errno = ENOENT;
               goto error;
 	  }
+	  mattr_to_stat(&nie->attrs, &stbuf,exportclt.bsize);
 	  goto success;
         }
       }
@@ -491,14 +495,15 @@ lookup_objectmode:
       nie->attrs.gid = 0;
       nie->nlookup   = 0;
     }   
+    mattr_to_stat(&nie->attrs, &stbuf,exportclt.bsize);
+
 //    info("FDL %d mode %d  uid %d gid %d",allocated,nie->attrs.mode,nie->attrs.uid,nie->attrs.gid);
 success:
     memset(&fep, 0, sizeof (fep));
-    mattr_to_stat(&nie->attrs, &stbuf,exportclt.bsize);
     stbuf.st_ino = nie->inode;
     fep.ino = nie->inode;    
-    fep.attr_timeout = rozofs_tmr_get_attr();
-    fep.entry_timeout = rozofs_tmr_get_entry();
+    fep.attr_timeout = rozofs_tmr_get_attr(rozofs_is_directory_inode(nie->inode));
+    fep.entry_timeout = rozofs_tmr_get_entry(rozofs_is_directory_inode(nie->inode));
     memcpy(&fep.attr, &stbuf, sizeof (struct stat));
     nie->nlookup++;
 
@@ -676,8 +681,8 @@ void rozofs_ll_lookup_cbk(void *this,void *param)
 	  memset(&fep, 0, sizeof (fep));
 	  errcode = errno;
 	  fep.ino = 0;
-	  fep.attr_timeout = rozofs_tmr_get_attr();
-	  fep.entry_timeout = rozofs_tmr_get_entry();
+	  fep.attr_timeout = rozofs_tmr_get_attr(0);
+	  fep.entry_timeout = rozofs_tmr_get_entry(0);
 	  rz_fuse_reply_entry(req, &fep);
 	  /*
 	  ** OK now let's check if there was some other lookup request for the same
@@ -733,7 +738,7 @@ void rozofs_ll_lookup_cbk(void *this,void *param)
       pie->timestamp = rozofs_get_ticker_us();
       ientry_update_parent(nie,pie->fid);
     }   
-    
+
 success:    
     memset(&fep, 0, sizeof (fep));
     mattr_to_stat(&attrs, &stbuf,exportclt.bsize);
@@ -755,8 +760,8 @@ success:
     }
     stbuf.st_size = nie->attrs.size;
 
-    fep.attr_timeout = rozofs_tmr_get_attr();
-    fep.entry_timeout = rozofs_tmr_get_entry();
+    fep.attr_timeout = rozofs_tmr_get_attr(rozofs_is_directory_inode(nie->inode));
+    fep.entry_timeout = rozofs_tmr_get_entry(rozofs_is_directory_inode(nie->inode));
     memcpy(&fep.attr, &stbuf, sizeof (struct stat));
     nie->nlookup++;
 

@@ -72,6 +72,9 @@ typedef struct rozofsmnt_conf {
     unsigned attr_timeout_ms;
     unsigned entry_timeout;
     unsigned entry_timeout_ms;
+    unsigned entry_dir_timeout_ms;
+    unsigned attr_dir_timeout_ms;
+
     unsigned symlink_timeout;
     unsigned shaper;
     unsigned rotate;
@@ -306,6 +309,26 @@ static inline void del_ientry(ientry_t * ie) {
       ie->symlink_target = NULL;
     }
     free(ie);    
+}
+
+/**
+*   That function returns 1 when the inode is associated with a directory
+
+    @param ino: inode returned to fuse
+    
+    @retval 1: inode is a directory
+    @retval 0: other inode type
+*/
+static inline int rozofs_is_directory_inode(fuse_ino_t ino)
+{
+    rozofs_inode_t fake_id;
+
+    fake_id.fid[1]=ino;
+    if ((ROZOFS_DIR_FID == fake_id.s.key) || (ROZOFS_DIR == fake_id.s.key))
+    {
+      return 1;
+    }
+    return 0;
 }
 
 static inline ientry_t *get_ientry_by_inode(fuse_ino_t ino) {

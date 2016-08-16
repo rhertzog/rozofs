@@ -54,6 +54,12 @@ typedef enum
   TMR_FUSE_ENTRY_CACHE,           /**< entry cache timeout for fuse               default 10 s */
   TMR_FUSE_ENTRY_CACHE_MS,        /**< entry cache timeout for fuse               default 10 s */
   /*
+  ** timer related to dirent cache (directory case)
+  */
+  TMR_FUSE_ATTR_DIR_CACHE_MS,            /**< directory attribute cache timeout for fuse    */
+  TMR_FUSE_ENTRY_DIR_CACHE_MS,           /**< directory entry cache timeout for fuse        */
+
+  /*
   ** dirent cache timer
   */
   
@@ -140,9 +146,15 @@ static inline uint32_t rozofs_tmr_get(int timer_id)
 /**
 *  Get the attribute cache timer for FUSE
 
+  @param dir: assert to 1 when the inode is a directory
 */
-static inline double rozofs_tmr_get_attr()
+static inline double rozofs_tmr_get_attr(int dir)
 {
+  if (dir)
+  {
+    return ((double) rozofs_timer_conf[TMR_FUSE_ATTR_DIR_CACHE_MS].cur_val)/1000;
+  }
+     
   if (rozofs_timer_conf[TMR_FUSE_ATTR_CACHE].cur_val != 0) {
     return (double) rozofs_timer_conf[TMR_FUSE_ATTR_CACHE].cur_val;
   }
@@ -151,29 +163,71 @@ static inline double rozofs_tmr_get_attr()
   }
   return 0;
 }
+
+/*__________________________________________________________________________
+*/
+/**
+*  Get the attribute cache timer for FUSE
+
+*/
+static inline int rozofs_tmr_get_attr_ms()
+{
+  if (rozofs_timer_conf[TMR_FUSE_ATTR_CACHE].cur_val != 0) {
+    return  rozofs_timer_conf[TMR_FUSE_ATTR_CACHE].cur_val*1000;
+  }
+  if (rozofs_timer_conf[TMR_FUSE_ATTR_CACHE_MS].cur_val != 0) {
+    return  rozofs_timer_conf[TMR_FUSE_ATTR_CACHE_MS].cur_val;
+  }
+  return 0;
+}
 /*__________________________________________________________________________
 */
 /**
 *  Get the attribute cache timer in micro sec to compare to the IE timestamp
 
+  @param dir: assert to 1 when the inode is a directory
+
 */
-static inline uint64_t rozofs_tmr_get_attr_us()
+static inline uint64_t rozofs_tmr_get_attr_us(int dir)
 {
-  return (uint64_t) (rozofs_tmr_get_attr()*1000000);
+  return (uint64_t) (rozofs_tmr_get_attr(dir)*1000000);
 }
 /*__________________________________________________________________________
 */
 /**
 *  Get the entry cache timer for FUSE
 
+  @param dir: assert to 1 when the inode is a directory
+
 */
-static inline double rozofs_tmr_get_entry()
+static inline double rozofs_tmr_get_entry(int dir)
 {
+  if (dir)
+  {
+    return ((double) rozofs_timer_conf[TMR_FUSE_ENTRY_DIR_CACHE_MS].cur_val)/1000;
+  }
   if (rozofs_timer_conf[TMR_FUSE_ENTRY_CACHE].cur_val != 0) {
     return (double) rozofs_timer_conf[TMR_FUSE_ENTRY_CACHE].cur_val;
   }
   if (rozofs_timer_conf[TMR_FUSE_ENTRY_CACHE_MS].cur_val != 0) {
     return ((double) rozofs_timer_conf[TMR_FUSE_ENTRY_CACHE_MS].cur_val)/1000;
+  }
+  return 0;
+}
+
+/*__________________________________________________________________________
+*/
+/**
+*  Get the entry cache timer for FUSE
+
+*/
+static inline int rozofs_tmr_get_entry_ms()
+{
+  if (rozofs_timer_conf[TMR_FUSE_ENTRY_CACHE].cur_val != 0) {
+    return rozofs_timer_conf[TMR_FUSE_ENTRY_CACHE].cur_val*1000;
+  }
+  if (rozofs_timer_conf[TMR_FUSE_ENTRY_CACHE_MS].cur_val != 0) {
+    return  rozofs_timer_conf[TMR_FUSE_ENTRY_CACHE_MS].cur_val;
   }
   return 0;
 }

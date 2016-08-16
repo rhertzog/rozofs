@@ -122,6 +122,7 @@ typedef struct file {
     uint64_t         off_wr_start;    /**< geo replication :write offset start  */
     uint64_t         off_wr_end;      /**< geo replication :write offset end  */
     int              pending_read_count; 
+    int              open_flags;     /**< flags given at opening time */
 #if 0
     char *buffer;
     int buf_write_wait;

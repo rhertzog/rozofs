@@ -78,7 +78,9 @@ typedef struct _rozofs_fuse_conf_t
 typedef struct _rozofs_fuse_lookup_entry_t
 {
   fuse_req_t req;
+  fuse_ino_t ino;
   int        trc_idx;
+  int        flags;
 } rozofs_fuse_lookup_entry_t;
 
 /**
@@ -98,6 +100,7 @@ typedef struct _rozofs_fuse_save_ctx_t
    fuse_ino_t ino;  /**< fuse inode input argument  */
    fuse_ino_t parent;
    int  len;       /**< length of name (without \0) */
+   int  lookup_flags;
    char *name;
    fuse_ino_t newparent;
    char *newname;
@@ -196,6 +199,8 @@ int rozofs_stat_start(void *args);
   @retval none
 */
  void rozofs_exit();
+
+
  struct rozofs_fuse_in_header {
 	uint32_t	len;
 	uint32_t	opcode;
@@ -206,6 +211,11 @@ int rozofs_stat_start(void *args);
 	uint32_t	pid;
 	uint32_t	padding;
 };
+
+#define ROZOFS_LOOKUP_OPEN   0x100
+#define ROZOFS_LOOKUP_CREATE 0x200
+#define ROZOFS_LOOKUP_EXCL   0x400
+#define ROZOFS_LOOKUP_RENAME_TARGET 0x800
 
 /**
 * That function is intended to detect if the kernel has
@@ -222,11 +232,34 @@ static inline int rozofs_check_extra_inode_in_lookup(char *args,int *len)
    */
    local_len = strlen(args);
    *len = local_len;
-   //info("FDL local_len = %d",local_len);
    
    local_len +=1;
    p= (struct rozofs_fuse_in_header*)(args - sizeof(struct rozofs_fuse_in_header));
    local_len = (int)p->len - sizeof(struct rozofs_fuse_in_header) -local_len;
    return local_len;
 }
+
+/**
+* That function is intended to detect if the kernel has
+  provided the inode reference of the child. When it is done
+  the inode value follows the name of the object
+
+*/  
+static inline int rozofs_check_extra_flags_in_lookup(char *args,int *len)
+{
+   int local_len;
+   struct rozofs_fuse_in_header  *p;
+   /*
+   ** get the length of the input string
+   */
+   local_len = strlen(args);
+   *len = local_len;
+   
+   local_len +=1;
+   p= (struct rozofs_fuse_in_header*)(args - sizeof(struct rozofs_fuse_in_header));
+   local_len = (int)p->len - sizeof(struct rozofs_fuse_in_header) -local_len;
+   if (local_len >= sizeof(unsigned int)) return 1;
+   return 0;
+}
+
 #endif

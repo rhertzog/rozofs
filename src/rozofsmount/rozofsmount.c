@@ -187,10 +187,14 @@ static void usage() {
                             rozofs_tmr_get(TMR_FUSE_ATTR_CACHE));
     fprintf(stderr, "    -o rozofsattrtimeoutms=N\tdefine timeout (ms) for which file/directory attributes are cached (default: %ds)\n",
                             rozofs_tmr_get(TMR_FUSE_ATTR_CACHE_MS));
+    fprintf(stderr, "    -o rozofsattrdirtimeoutms=N\tdefine timeout (ms) for which directory attributes are cached (default: %ds)\n",
+                            rozofs_tmr_get(TMR_FUSE_ATTR_DIR_CACHE_MS));
     fprintf(stderr, "    -o rozofsentrytimeout=N\tdefine timeout (s) for which name lookups will be cached (default: %ds)\n",
                             rozofs_tmr_get(TMR_FUSE_ENTRY_CACHE));
     fprintf(stderr, "    -o rozofsentrytimeoutms=N\tdefine timeout (ms) for which name lookups will be cached (default: %ds)\n",
                             rozofs_tmr_get(TMR_FUSE_ENTRY_CACHE_MS));
+    fprintf(stderr, "    -o rozofsentrydirtimeoutms=N\tdefine timeout (ms) for which directory name lookups will be cached (default: %ds)\n",
+                            rozofs_tmr_get(TMR_FUSE_ENTRY_DIR_CACHE_MS));
     fprintf(stderr, "    -o rozofssymlinktimeout=N\tdefine timeout (ms) for which symlink targets will be cached (default: %dms)\n",
                             rozofs_tmr_get(TMR_LINK_CACHE));
     fprintf(stderr, "    -o debug_port=N\t\tdefine the base debug port for rozofsmount (default: none)\n");
@@ -244,8 +248,10 @@ static struct fuse_opt rozofs_opts[] = {
     MYFS_OPT("rozofsstorclitimeout=%u", storcli_timeout, 0),
     MYFS_OPT("rozofsattrtimeout=%u", attr_timeout, 0),
     MYFS_OPT("rozofsattrtimeoutms=%u", attr_timeout_ms, 0),
+    MYFS_OPT("rozofsattrdirtimeoutms=%u", attr_dir_timeout_ms, 0),
     MYFS_OPT("rozofsentrytimeout=%u", entry_timeout, 0),
     MYFS_OPT("rozofsentrytimeoutms=%u", entry_timeout_ms, 0),
+    MYFS_OPT("rozofsentrydirtimeoutms=%u", entry_dir_timeout_ms, 0),
     MYFS_OPT("rozofssymlinktimeout=%u", symlink_timeout, 0),
     MYFS_OPT("debug_port=%u", dbg_port, 0),
     MYFS_OPT("instance=%u", instance, 0),
@@ -1206,13 +1212,18 @@ void show_trc_fuse_buffer(char * pChar)
 	  case rozofs_trc_type_def:
             pChar+=sprintf(pChar,"%s\n",str);
 	    break;
-
+	  case rozofs_trc_type_def_flags:
+            pChar+=sprintf(pChar,"%s (0%o)\n",str,p->flags);
+	    break;
 	  case rozofs_trc_type_io:
             pChar+=sprintf(pChar,"%s %8llu/%d\n",str,(unsigned long long int)p->par.io.off,(int)p->par.io.size);
 	    break;	
 	  case rozofs_trc_type_name:
             pChar+=sprintf(pChar,"%s\n",p->par.name.name);
 	    break;	
+	  case rozofs_trc_type_name_flags:
+            pChar+=sprintf(pChar,"%s (0x%x)\n",p->par.name.name, p->flags);
+	    break;
 	  case rozofs_trc_type_setattr:
 	    pChar+=sprintf(pChar,"%s ", str);
 	    if (p->par.setattr.to_set&FUSE_SET_ATTR_SIZE) {
@@ -1333,6 +1344,7 @@ void man_trc_fuse(char * pt) {
 void show_trc_fuse(char * argv[], uint32_t tcpRef, void *bufRef) {
     char *pChar = uma_dbg_get_buffer();
     int   new_val;   
+    int ret;
      
     if (argv[1] != NULL)
     {
@@ -1368,8 +1380,8 @@ void show_trc_fuse(char * argv[], uint32_t tcpRef, void *bufRef) {
 	    uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
 	    return;	  	  
 	  }
-	  new_val = (int) strtol(argv[2], (char **) NULL, 10);   
-	  if (errno != 0) {
+          ret = sscanf(argv[2],"%d",&new_val);  
+	  if (ret != 1) {
             pChar += sprintf(pChar, "bad value %s\n",argv[2]);
 	    pChar = show_trc_fuse_help(pChar);
 	    uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
@@ -2065,6 +2077,8 @@ int main(int argc, char *argv[]) {
     conf.min_read_size = ROZOFS_BSIZE_BYTES(ROZOFS_BSIZE_MIN)/1024;
     conf.max_write_pending = ROZOFS_BSIZE_BYTES(ROZOFS_BSIZE_MIN)/1024; /*  */ 
     conf.attr_timeout = -1;
+    conf.entry_dir_timeout_ms= -1;
+    conf.attr_dir_timeout_ms= -1;
     conf.attr_timeout_ms = -1;
     conf.entry_timeout = -1;
     conf.entry_timeout_ms = -1;
@@ -2281,6 +2295,24 @@ int main(int argc, char *argv[]) {
                   " revert to default setting");
         }
     }
+    if (conf.entry_dir_timeout_ms ==-1)
+    {
+      rozofs_tmr_configure(TMR_FUSE_ENTRY_DIR_CACHE_MS,rozofs_tmr_get_entry_ms());    
+    }
+    else
+    {
+      rozofs_tmr_configure(TMR_FUSE_ENTRY_DIR_CACHE_MS,conf.entry_dir_timeout_ms);        
+    }
+    
+    if (conf.attr_dir_timeout_ms ==-1)
+    {
+      rozofs_tmr_configure(TMR_FUSE_ATTR_DIR_CACHE_MS,rozofs_tmr_get_attr_ms());    
+    }
+    else
+    {
+      rozofs_tmr_configure(TMR_FUSE_ATTR_DIR_CACHE_MS,conf.attr_dir_timeout_ms);        
+    }
+
 
         
     if (fuse_version() < 28) {

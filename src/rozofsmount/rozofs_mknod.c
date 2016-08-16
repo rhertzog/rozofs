@@ -315,8 +315,8 @@ void rozofs_ll_mknod_cbk(void *this,void *param)
     if (nie->attrs.size < stbuf.st_size) nie->attrs.size = stbuf.st_size;
     stbuf.st_size = nie->attrs.size;
         
-    fep.attr_timeout = rozofs_tmr_get_attr();
-    fep.entry_timeout = rozofs_tmr_get_entry();
+    fep.attr_timeout = rozofs_tmr_get_attr(0);
+    fep.entry_timeout = rozofs_tmr_get_entry(0);
     memcpy(&fep.attr, &stbuf, sizeof (struct stat));
     nie->nlookup++;
     

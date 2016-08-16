@@ -56,7 +56,7 @@ void rozofs_ll_create_nb(fuse_req_t req, fuse_ino_t parent, const char *name,
 
     int    ret;
     void *buffer_p = NULL;
-    int trc_idx = rozofs_trc_req_name(srv_rozofs_ll_create,parent,(char*)name);
+    int trc_idx = rozofs_trc_req_name_flags(srv_rozofs_ll_create,parent,(char*)name,fi->flags);
     /*
     ** allocate a context for saving the fuse parameters
     */
@@ -312,8 +312,8 @@ void rozofs_ll_create_cbk(void *this,void *param)
     if (nie->attrs.size < stbuf.st_size) nie->attrs.size = stbuf.st_size;
     stbuf.st_size = nie->attrs.size;
         
-    fep.attr_timeout =  rozofs_tmr_get_attr();
-    fep.entry_timeout = rozofs_tmr_get_attr(); 
+    fep.attr_timeout =  rozofs_tmr_get_attr(0);
+    fep.entry_timeout = rozofs_tmr_get_entry(0); 
     memcpy(&fep.attr, &stbuf, sizeof (struct stat));
     nie->nlookup++;
     
@@ -324,7 +324,10 @@ void rozofs_ll_create_cbk(void *this,void *param)
     ** allocate a context for the file descriptor
     */
     file = rozofs_file_working_var_init(nie,nie->fid);
-    
+    /*
+    ** save the opening flags
+    */
+    file->open_flags = fi->flags;    
     fi->fh = (unsigned long) file;    
       
     rz_fuse_reply_create(req, &fep,fi);

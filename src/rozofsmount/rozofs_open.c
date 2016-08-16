@@ -61,8 +61,7 @@ void rozofs_ll_open_nb(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi
     file_t *file = NULL;
     errno = 0;
 
-
-    int trc_idx = rozofs_trc_req(srv_rozofs_ll_open,ino,NULL);
+    int trc_idx = rozofs_trc_req_flags(srv_rozofs_ll_open,ino,NULL,fi->flags);
     /*
     ** allocate a context for saving the fuse parameters
     */
@@ -91,7 +90,7 @@ void rozofs_ll_open_nb(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi
     ** a transaction with the exportd
     */
     if ((rozofs_mode == 1) ||
-       ((ie->timestamp+rozofs_tmr_get_attr_us()) > rozofs_get_ticker_us()))
+       ((ie->timestamp+rozofs_tmr_get_attr_us(rozofs_is_directory_inode(ino))) > rozofs_get_ticker_us()))
     {
       /*
       ** allocate a context for the file descriptor
@@ -104,6 +103,11 @@ void rozofs_ll_open_nb(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi
         if (rozofs_cache_mode == 2)
           fi->keep_cache = 1;
       }
+      /*
+      ** save the opening flags
+      */
+      file->open_flags = fi->flags;
+
       fi->fh = (unsigned long) file;
       /*
       ** update the statistics
@@ -167,6 +171,10 @@ short_cut:
           if (rozofs_cache_mode == 2)
             fi->keep_cache = 1;
 	}
+	/*
+	** save the opening flags
+	*/
+	file->open_flags = fi->flags;
 	fi->fh = (unsigned long) file;
 	/*
 	** update the statistics
@@ -273,6 +281,7 @@ void rozofs_ll_open_cbk(void *this,void *param)
              fi->keep_cache = 1;
 	 }
 	 fi->fh = (unsigned long) file;
+         file->open_flags = fi->flags;
 	 /*
 	 ** update the statistics
 	 */
@@ -404,6 +413,7 @@ void rozofs_ll_open_cbk(void *this,void *param)
         fi->keep_cache = 1;
     }
     fi->fh = (unsigned long) file;
+    file->open_flags = fi->flags;
     /*
     ** update the statistics
     */

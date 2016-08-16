@@ -54,7 +54,7 @@ uint64_t rozofs_max_getattr_duplicate = 0;
     struct stat stbuf;
     int trc_idx;
     errno = 0;
-    uint64_t attr_us = rozofs_tmr_get_attr_us();
+    uint64_t attr_us = rozofs_tmr_get_attr_us(rozofs_is_directory_inode(ino));
 
 
     trc_idx = rozofs_trc_req(srv_rozofs_ll_getattr,ino,NULL);
@@ -94,7 +94,7 @@ uint64_t rozofs_max_getattr_duplicate = 0;
     {
       mattr_to_stat(&ie->attrs, &stbuf, exportclt.bsize);
       stbuf.st_ino = ino; 
-      rz_fuse_reply_attr(req, &stbuf, rozofs_tmr_get_attr());
+      rz_fuse_reply_attr(req, &stbuf, rozofs_tmr_get_attr(rozofs_is_directory_inode(ino)));
       goto out;   
     }
     /*
@@ -120,7 +120,7 @@ uint64_t rozofs_max_getattr_duplicate = 0;
         if (ie->attrs.mtime != 0) {
 	  mattr_to_stat(&ie->attrs, &stbuf, exportclt.bsize);
 	  stbuf.st_ino = ino; 
-	  rz_fuse_reply_attr(req, &stbuf, rozofs_tmr_get_attr());
+	  rz_fuse_reply_attr(req, &stbuf, rozofs_tmr_get_attr(rozofs_is_directory_inode(ino)));
 	  goto out;           
 	} 
       }	     
@@ -145,7 +145,7 @@ uint64_t rozofs_max_getattr_duplicate = 0;
         if (ie->attrs.mtime != 0) {      
 	  mattr_to_stat(&ie->attrs, &stbuf, exportclt.bsize);
 	  stbuf.st_ino = ino; 
-	  rz_fuse_reply_attr(req, &stbuf, rozofs_tmr_get_attr());
+	  rz_fuse_reply_attr(req, &stbuf, rozofs_tmr_get_attr(rozofs_is_directory_inode(ino)));
 	  goto out;           
 	}
       }	
@@ -230,7 +230,7 @@ void rozofs_ll_getattr_cbk(void *this,void *param)
 	 if ((ie != NULL) && (ie->attrs.mtime != 0)) { 
  	   mattr_to_stat(&ie->attrs, &stbuf, exportclt.bsize);
 	   stbuf.st_ino = ino; 
-	   rz_fuse_reply_attr(req, &stbuf, rozofs_tmr_get_attr());
+	   rz_fuse_reply_attr(req, &stbuf, rozofs_tmr_get_attr(rozofs_is_directory_inode(ino)));
 	   errno = EAGAIN;	   
 	   goto out; 
 	 }            
@@ -355,7 +355,7 @@ void rozofs_ll_getattr_cbk(void *this,void *param)
     */
     //if (ie->pending_getattr_cnt>=0) ie->pending_getattr_cnt--;
 
-    rz_fuse_reply_attr(req, &stbuf, rozofs_tmr_get_attr());
+    rz_fuse_reply_attr(req, &stbuf, rozofs_tmr_get_attr(rozofs_is_directory_inode(ino)));
     goto out;
 error:
     fuse_reply_err(req, errno);
@@ -835,7 +835,7 @@ void rozofs_ll_setattr_cbk(void *this,void *param)
     */
     o_stbuf.st_size = ie->attrs.size;
 
-    rz_fuse_reply_attr(req, &o_stbuf, rozofs_tmr_get_attr());
+    rz_fuse_reply_attr(req, &o_stbuf, rozofs_tmr_get_attr(rozofs_is_directory_inode(ino)));
 
     goto out;
 error:

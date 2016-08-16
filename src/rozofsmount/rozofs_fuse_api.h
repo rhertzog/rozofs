@@ -57,6 +57,8 @@ typedef enum {
    rozofs_trc_type_attr,
    rozofs_trc_type_flock,
    rozofs_trc_type_setattr,
+   rozofs_trc_type_name_flags,
+   rozofs_trc_type_def_flags,
 } rozofs_trc_type_e;
 
 
@@ -119,6 +121,7 @@ typedef struct _rozofs_trace_t
 {
   rozofs_trace_hdr_t hdr;; /**< service identifier  */
   int      errno_val;
+  int      flags;         /**< use by open & lookup  */
   uint64_t ts;
   fuse_ino_t ino;  /**< operation inode        */
   union
@@ -193,6 +196,38 @@ static inline int rozofs_trc_req(int service,fuse_ino_t ino,fid_t fid)
      p->hdr.s.trc_type  = rozofs_trc_type_def;
      p->hdr.s.index = rozofs_trc_index++;
      p->ino= ino;
+     if (fid != NULL) 
+     {
+        memcpy(p->par.def.fid,fid,sizeof(fid_t)); 
+	p->hdr.s.fid = 1;
+     }   
+     rozofs_trc_wr_idx++;
+     if (rozofs_trc_wr_idx >= rozofs_trc_last_idx) 
+     {
+        rozofs_trc_wr_idx= 0;
+	rozofs_trc_buf_full = 1;
+     }
+   }
+   return (int) p->hdr.s.index;
+}
+
+/*
+**____________________________________________________
+*/
+static inline int rozofs_trc_req_flags(int service,fuse_ino_t ino,fid_t fid,int flags)
+{
+   rozofs_trace_t *p;
+   if (rozofs_trc_enabled == 0) return 0;
+   {
+     p = &rozofs_trc_buffer[rozofs_trc_wr_idx];
+     p->hdr.u32 = 0;
+     p->ts = ruc_rdtsc();
+     p->hdr.s.service_id = service;
+     p->hdr.s.req = 1;
+     p->hdr.s.trc_type  = rozofs_trc_type_def_flags;
+     p->hdr.s.index = rozofs_trc_index++;
+     p->ino= ino;
+     p->flags = flags;
      if (fid != NULL) 
      {
         memcpy(p->par.def.fid,fid,sizeof(fid_t)); 
@@ -321,6 +356,36 @@ static inline int rozofs_trc_req_name(int service,fuse_ino_t ino,char *name)
      p->hdr.s.trc_type  = rozofs_trc_type_name;
      p->hdr.s.index = rozofs_trc_index++;
      p->ino= ino;     
+     p->flags= 0;     
+     if (name != NULL) 
+     {
+        memset(p->par.name.name,0,sizeof(rozofs_trc_name_t));
+        memcpy(p->par.name.name,name,sizeof(rozofs_trc_name_t)-1); 
+     }
+     rozofs_trc_wr_idx++;
+     if (rozofs_trc_wr_idx >= rozofs_trc_last_idx) 
+     {
+        rozofs_trc_wr_idx= 0;
+	rozofs_trc_buf_full = 1;
+     }
+   }
+   return (int) p->hdr.s.index;
+}
+
+static inline int rozofs_trc_req_name_flags(int service,fuse_ino_t ino,char *name,int flags)
+{
+   rozofs_trace_t *p;
+   if (rozofs_trc_enabled == 0) return 0;
+   {
+     p = &rozofs_trc_buffer[rozofs_trc_wr_idx];
+     p->hdr.u32 = 0;
+     p->ts = ruc_rdtsc();
+     p->hdr.s.service_id = service;
+     p->hdr.s.req = 1;
+     p->hdr.s.trc_type  = rozofs_trc_type_name_flags;
+     p->hdr.s.index = rozofs_trc_index++;
+     p->ino= ino;     
+     p->flags= flags;     
      if (name != NULL) 
      {
         memset(p->par.name.name,0,sizeof(rozofs_trc_name_t));
@@ -562,8 +627,10 @@ static inline void _rozofs_fuse_release_saved_context(void *buffer_p,int line)
 {
   rozofs_fuse_save_ctx_t *fuse_save_ctx_p;
 //  info("_rozofs_fuse_release_saved_context %d addr %p",line,buffer_p);
-
-  ruc_objRemove((ruc_obj_desc_t*)buffer_p);
+  /*
+  ** remove the buffer from any list where it can be queued
+  */
+  ruc_objRemove((ruc_obj_desc_t *) buffer_p);
   /*
   ** Get the payload of the buffer since it is that part that contains
   ** the fuse saved context
