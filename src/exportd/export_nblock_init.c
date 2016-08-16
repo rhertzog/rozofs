@@ -88,14 +88,14 @@ void * decoded_rpc_buffer_pool = NULL;
   if (prof->probe[P_COUNT]) {\
     *pChar++ = ' ';\
     pChar += rozofs_string_padded_append(pChar, 25, rozofs_left_alignment, #probe);\
-    *pChar++ = '|';\
+    *pChar++ = '|';*pChar++ = ' ';\
     pChar += rozofs_u64_padded_append(pChar, 16, rozofs_right_alignment, prof->probe[P_COUNT]);\
-    *pChar++ = ' '; *pChar++ = '|'; \
-    pChar += rozofs_u64_padded_append(pChar, 10, rozofs_right_alignment, prof->probe[P_COUNT]?prof->probe[P_ELAPSE]/prof->probe[P_COUNT]:0);\
-    *pChar++ = ' '; *pChar++ = '|'; \
+    *pChar++ = ' '; *pChar++ = '|'; *pChar++ = ' ';\
+    pChar += rozofs_u64_padded_append(pChar, 9, rozofs_right_alignment, prof->probe[P_COUNT]?prof->probe[P_ELAPSE]/prof->probe[P_COUNT]:0);\
+    *pChar++ = ' '; *pChar++ = '|'; *pChar++ = ' ';\
     pChar += rozofs_u64_padded_append(pChar, 19, rozofs_right_alignment, prof->probe[P_ELAPSE]);\
-    *pChar++ = ' '; *pChar++ = '|'; \
-    pChar += rozofs_string_padded_append(pChar, 16, rozofs_right_alignment, " ");\
+    *pChar++ = ' '; *pChar++ = '|'; *pChar++ = ' ';\
+    pChar += rozofs_string_padded_append(pChar, 15, rozofs_right_alignment, " ");\
     *pChar++ = '\n';\
     *pChar = 0;\
   }
@@ -104,14 +104,14 @@ void * decoded_rpc_buffer_pool = NULL;
   if (prof->probe[P_COUNT]) {\
     *pChar++ = ' ';\
     pChar += rozofs_string_padded_append(pChar, 25, rozofs_left_alignment, #probe);\
-    *pChar++ = '|';\
+    *pChar++ = '|';*pChar++ = ' ';\
     pChar += rozofs_u64_padded_append(pChar, 16, rozofs_right_alignment, prof->probe[P_COUNT]);\
-    *pChar++ = ' '; *pChar++ = '|'; \
-    pChar += rozofs_u64_padded_append(pChar, 10, rozofs_right_alignment, prof->probe[P_COUNT]?prof->probe[P_ELAPSE]/prof->probe[P_COUNT]:0);\
-    *pChar++ = ' '; *pChar++ = '|'; \
+    *pChar++ = ' '; *pChar++ = '|'; *pChar++ = ' ';\
+    pChar += rozofs_u64_padded_append(pChar, 9, rozofs_right_alignment, prof->probe[P_COUNT]?prof->probe[P_ELAPSE]/prof->probe[P_COUNT]:0);\
+    *pChar++ = ' '; *pChar++ = '|'; *pChar++ = ' ';\
     pChar += rozofs_u64_padded_append(pChar, 19, rozofs_right_alignment, prof->probe[P_ELAPSE]);\
-    *pChar++ = ' '; *pChar++ = '|'; \
-    pChar += rozofs_u64_padded_append(pChar, 16, rozofs_right_alignment, prof->probe[P_BYTES]);\
+    *pChar++ = ' '; *pChar++ = '|'; *pChar++ = ' ';\
+    pChar += rozofs_u64_padded_append(pChar, 15, rozofs_right_alignment, prof->probe[P_BYTES]);\
     *pChar++ = '\n';\
     *pChar = 0;\
   }
@@ -136,7 +136,7 @@ char * show_profiler_one(char * pChar, uint32_t eid) {
     // Compute uptime for storaged process
     pChar += rozofs_string_append(pChar, "_______________________ EID = ");
     pChar += rozofs_u32_append(pChar,eid);
-    pChar += rozofs_string_append(pChar, " _______________________ \n   procedure              |     count       |  time(us) | cumulated time(us) |     bytes       |\n--------------------------+-----------------+-----------+--------------------+-----------------+\n");
+    pChar += rozofs_string_append(pChar, " _______________________ \n   procedure              |      count       |  time(us) |  cumulated time(us) |     bytes       |\n--------------------------+------------------+-----------+---------------------+-----------------+\n");
     SHOW_PROFILER_PROBE(ep_mount);
     SHOW_PROFILER_PROBE(ep_umount);
     SHOW_PROFILER_PROBE(ep_statfs);

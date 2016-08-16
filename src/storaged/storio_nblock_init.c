@@ -103,15 +103,16 @@ DECLARE_PROFILING(spp_profiler_t);
 	*pChar++ = ' ';\
 	pChar += rozofs_string_padded_append(pChar, 17, rozofs_left_alignment, #the_probe);\
 	*pChar++ = '|'; \
-	pChar += rozofs_u64_padded_append(pChar, 13, rozofs_right_alignment, the_profiler.the_probe[P_COUNT]);\
-	*pChar++ = ' ';*pChar++ = '|';\
-	pChar += rozofs_u64_padded_append(pChar, 13, rozofs_right_alignment, rate);\
-	*pChar++ = ' ';*pChar++ = '|';\
-	pChar += rozofs_u64_padded_append(pChar, 13, rozofs_right_alignment, cpu);\
-	*pChar++ = ' ';*pChar++ = '|';\
-	pChar += rozofs_u64_padded_append(pChar, 13, rozofs_right_alignment, the_profiler.the_probe[P_BYTES]);\
-	*pChar++ = ' ';*pChar++ = '|';\
-	pChar += rozofs_u64_padded_append(pChar, 17, rozofs_right_alignment, throughput);\
+	*pChar++ = ' '; \
+	pChar += rozofs_u64_padded_append(pChar, 15, rozofs_right_alignment, the_profiler.the_probe[P_COUNT]);\
+	*pChar++ = ' ';*pChar++ = '|'; *pChar++ = ' ';\
+	pChar += rozofs_u64_padded_append(pChar, 12, rozofs_right_alignment, rate);\
+	*pChar++ = ' ';*pChar++ = '|';*pChar++ = ' ';\
+	pChar += rozofs_u64_padded_append(pChar, 12, rozofs_right_alignment, cpu);\
+	*pChar++ = ' ';*pChar++ = '|';*pChar++ = ' ';\
+	pChar += rozofs_u64_padded_append(pChar, 20, rozofs_right_alignment, the_profiler.the_probe[P_BYTES]);\
+	*pChar++ = ' ';*pChar++ = '|';*pChar++ = ' ';\
+	pChar += rozofs_u64_padded_append(pChar, 16, rozofs_right_alignment, throughput);\
 	*pChar++ = ' ';*pChar++ = '|';\
 	pChar += rozofs_eol(pChar); \
     }
@@ -149,8 +150,8 @@ static void show_profile_storaged_io_display(char * argv[], uint32_t tcpRef, voi
     pChar += sprintf(pChar, "GPROFILER version %s uptime =  %d days, %2.2d:%2.2d:%2.2d\n", gprofiler.vers,days, hours, mins, secs);
 
     // Print header for operations profiling values for storaged
-    pChar += rozofs_string_append(pChar, "                  |    CALL      | RATE(msg/s)  |   CPU(us)    |   COUNT(B)   | THROUGHPUT(MB/s) |\n");
-    pChar += rozofs_string_append(pChar, "------------------+--------------+--------------+--------------+--------------+------------------+\n");
+    pChar += rozofs_string_append(pChar, "                  |      CALL       | RATE(msg/s)  |   CPU(us)    |        COUNT(B)      | THROUGHPUT(MB/s) |\n");
+    pChar += rozofs_string_append(pChar, "------------------+-----------------+--------------+--------------+----------------------+------------------+\n");
 
 
     // Print master storaged process profiling values
