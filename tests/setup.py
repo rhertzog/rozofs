@@ -244,9 +244,23 @@ class sid_class:
   def delete_device(self,device,h):
     if device == "all":
       for dev in range(self.cid.dev_total): self.delete_device(dev,h)
-    else:	
+    else:
       self.delete_device_file(device,h)
-      path=self.get_root_path(h.number)+"/%s"%(device) 
+
+      path=self.get_root_path(h.number)+"/%s" % (device)
+
+      # Avoid to remove mark files if we use automount feature
+      if rozofs.device_automount == True:
+          subdirs = [ path + '/bins_0' , path + '/bins_1', path + "/hdr_0", path + "/hdr_1"]
+          for dir in subdirs:
+              try:
+                shutil.rmtree(dir)
+                syslog.syslog("%s deleted" % (dir))
+              except:
+                syslog.syslog("%s delete failed" % (dir))      
+                pass
+          return
+
       try: 
         shutil.rmtree(path)
         syslog.syslog("%s deleted"%(path))      
