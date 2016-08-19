@@ -94,6 +94,8 @@ typedef struct _common_config_global_t {
   uint32_t    mknod_ok_instead_of_eexist;
   // To disable synchronous write of attributes when set to True
   uint32_t    disable_sync_attributes;
+  // Minimum delay between the deletion request and the effective projections deletion
+  uint32_t    deletion_delay;
 
   /*
   ** client scope configuration elements

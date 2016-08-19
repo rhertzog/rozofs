@@ -1009,6 +1009,7 @@ class rozofs_class:
     self.site_number = 1
     self.spare_device_nb = 0
     self.client_fast_reconnect = False
+    self.deletion_delay = None
 
   def set_site_number(self,number): self.site_number = number      
   def set_device_automount(self): self.device_automount = True
@@ -1039,6 +1040,7 @@ class rozofs_class:
     self.fstype       = "xfs"
     self.disk_size_mb = mb
     self.allocsize    = allocsize
+  def set_deletion_delay(self,deletion_delay): self.deletion_delay = deletion_delay; 
     
   def set_ext4(self,mb,spare=0):
     self.fstype = "ext4"
@@ -1182,12 +1184,17 @@ class rozofs_class:
     display_config_int("device_selfhealing_delay",rozofs.device_selfhealing_delay)
     display_config_string("device_selfhealing_mode",rozofs.device_selfhealing_mode)
     display_config_string("export_hosts",exportd.export_host)
+    if self.deletion_delay != None :
+      display_config_int("deletion_delay",self.deletion_delay)
+      
     if self.client_fast_reconnect == True: display_config_bool("client_fast_reconnect",True)
     os.system("mkdir -p /root/tmp/export; mkdir -p /root/tmp/storage;")
     
   def create_common_config(self):
-    os.remove('/usr/local/etc/rozofs/rozofs.conf');
-    os.remove('/etc/rozofs/rozofs.conf');
+    try: os.remove('/usr/local/etc/rozofs/rozofs.conf');
+    except:pass
+    try: os.remove('/etc/rozofs/rozofs.conf');
+    except:pass    
     save_stdout = sys.stdout
     sys.stdout = open("/usr/local/etc/rozofs/rozofs.conf","wr")
     self.display_common_config()

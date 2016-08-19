@@ -122,6 +122,7 @@ typedef struct rmfentry {
     ///< initial sids of storage nodes target for this file.
     sid_t current_dist_set[ROZOFS_SAFE_MAX];
     ///< current sids of storage nodes target for this file.
+    time_t   time; //< Time when the effective deletion can occur
     list_t list; ///<  pointer for extern list.
 } rmfentry_t;
 

@@ -162,6 +162,8 @@ Gives the delay in minutes before starting an automatic rebuild of a failed devi
 This parameter sets the number of rebuilder processes that run in parallel in case of an automatic rebuild for self-healing purpose. This is also the default number of rebuilder processes for operator rebuild commands.
 .SS export-hosts 
 This parameter is only needed when self-healing is configured. It gives the list of addresses (or dns names) where exportd daemon is running. When securing the exportd thanks to virtual IP address only the virtual IP address is declared (i.e "192.168.10.1"). When no virtual IP address is used the list of "physical" IP addresses of each host securing the exportd must be given (i.e "192.168.10.1/192.168.20.1").
+.SS deletion_delay 
+Minimum delay in seconds between the FID unlink in the export and the actual projections removal on the storage nodes.
  
 
 .SH EXAMPLE

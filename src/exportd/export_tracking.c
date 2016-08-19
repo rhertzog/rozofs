@@ -2938,6 +2938,30 @@ int exp_delete_file(export_t * e, lv2_entry_t *lvl2)
     exp_attr_delete(trk_tb_p,rozofs_attr_p->s.attrs.fid);
     return 0;        
 }  
+ 
+/*
+**__________________________________________________________________
+*/
+/** Allocate a rmfentry_t structure to chain the deletion job
+ *
+ * @param trash_entry     The disk context of removed file
+ * 
+ * @return: the address of the allocated structure
+ */
+rmfentry_t * export_alloc_rmentry(rmfentry_disk_t * trash_entry) {
+  rmfentry_t *rmfe = xmalloc(sizeof (rmfentry_t));
+  export_rm_bins_pending_count++;
+  memcpy(rmfe->fid, trash_entry->fid, sizeof (fid_t));
+  rmfe->cid = trash_entry->cid;
+  memcpy(rmfe->initial_dist_set, trash_entry->initial_dist_set,
+          sizeof (sid_t) * ROZOFS_SAFE_MAX);
+  memcpy(rmfe->current_dist_set, trash_entry->current_dist_set,
+          sizeof (sid_t) * ROZOFS_SAFE_MAX);
+  memcpy(rmfe->trash_inode,trash_entry->trash_inode,sizeof(fid_t));
+  list_init(&rmfe->list);
+  rmfe->time = time(NULL)+common_config.deletion_delay;
+  return rmfe;
+}
 /*
 **__________________________________________________________________
 */
@@ -3094,16 +3118,8 @@ int export_unlink_multiple(export_t * e, fid_t parent, char *name, fid_t fid,mat
       /*
       ** Preparation of the rmfentry
       */
-      rmfentry_t *rmfe = xmalloc(sizeof (rmfentry_t));
-      export_rm_bins_pending_count++;
-      memcpy(rmfe->fid, trash_entry.fid, sizeof (fid_t));
-      rmfe->cid = trash_entry.cid;
-      memcpy(rmfe->initial_dist_set, trash_entry.initial_dist_set,
-              sizeof (sid_t) * ROZOFS_SAFE_MAX);
-      memcpy(rmfe->current_dist_set, trash_entry.current_dist_set,
-              sizeof (sid_t) * ROZOFS_SAFE_MAX);
-      memcpy(rmfe->trash_inode,trash_entry.trash_inode,sizeof(fid_t));
-      list_init(&rmfe->list);
+      rmfentry_t *rmfe = export_alloc_rmentry(&trash_entry);
+      
       /* Acquire lock on bucket trash list
       */
       if ((errno = pthread_rwlock_wrlock
@@ -3378,16 +3394,8 @@ void export_unlink_duplicate_fid(export_t * e,lv2_entry_t  *plv2,fid_t parent, f
      /*
      ** Preparation of the rmfentry
      */
-     rmfentry_t *rmfe = xmalloc(sizeof (rmfentry_t));
-     export_rm_bins_pending_count++;
-     memcpy(rmfe->fid, trash_entry.fid, sizeof (fid_t));
-     rmfe->cid = trash_entry.cid;
-     memcpy(rmfe->initial_dist_set, trash_entry.initial_dist_set,
-             sizeof (sid_t) * ROZOFS_SAFE_MAX);
-     memcpy(rmfe->current_dist_set, trash_entry.current_dist_set,
-             sizeof (sid_t) * ROZOFS_SAFE_MAX);
-     memcpy(rmfe->trash_inode,trash_entry.trash_inode,sizeof(fid_t));
-     list_init(&rmfe->list);
+     rmfentry_t *rmfe = export_alloc_rmentry(&trash_entry);
+
      /* Acquire lock on bucket trash list
      */
      if ((errno = pthread_rwlock_wrlock
@@ -3634,16 +3642,8 @@ int export_unlink(export_t * e, fid_t parent, char *name, fid_t fid,mattr_t * pa
         	/*
 		** Preparation of the rmfentry
 		*/
-        	rmfentry_t *rmfe = xmalloc(sizeof (rmfentry_t));
-		export_rm_bins_pending_count++;
-        	memcpy(rmfe->fid, trash_entry.fid, sizeof (fid_t));
-        	rmfe->cid = trash_entry.cid;
-        	memcpy(rmfe->initial_dist_set, trash_entry.initial_dist_set,
-                	sizeof (sid_t) * ROZOFS_SAFE_MAX);
-        	memcpy(rmfe->current_dist_set, trash_entry.current_dist_set,
-                	sizeof (sid_t) * ROZOFS_SAFE_MAX);
-        	memcpy(rmfe->trash_inode,trash_entry.trash_inode,sizeof(fid_t));
-        	list_init(&rmfe->list);
+                rmfentry_t *rmfe = export_alloc_rmentry(&trash_entry);
+
         	/* Acquire lock on bucket trash list
 		*/
         	if ((errno = pthread_rwlock_wrlock
@@ -4124,8 +4124,9 @@ char *export_rm_bins_stats(char *pChar)
    uint64_t new_count;   
    pChar += sprintf(pChar,"Trash thread period         : %d seconds\n",RM_BINS_PTHREAD_FREQUENCY_SEC);
    pChar += sprintf(pChar,"trash rate                  : %d\n",export_limit_rm_files);   
-   pChar += sprintf(pChar,"trash limit                 : %llu\n",(unsigned long long int)export_rm_bins_threshold_high);   
-      
+   pChar += sprintf(pChar,"trash limit                 : %llu\n",(unsigned long long int)export_rm_bins_threshold_high);         
+   pChar += sprintf(pChar,"trash delay                 : %llu\n",(unsigned long long int)common_config.deletion_delay);   
+
    new_ticks = rdtsc();
    new_count = export_rm_bins_done_count;
    
@@ -4169,6 +4170,7 @@ static inline int export_rm_bucket(export_t * e, list_t * connexions, int bucket
   rmfentry_t * entry;
 //  cid_t        cid;
   list_t      * p, *n;
+  time_t        now;
 
   /*
   ** Initialize the working lists
@@ -4188,6 +4190,7 @@ static inline int export_rm_bucket(export_t * e, list_t * connexions, int bucket
     severe("pthread_rwlock_unlock failed: %s", strerror(errno));
   }
 
+  now = time(NULL);
 
   /*
   ** get every entry
@@ -4199,7 +4202,16 @@ static inline int export_rm_bucket(export_t * e, list_t * connexions, int bucket
 
     // Nb. of bins files removed for this file
     sid_count = 0;
-
+    
+    // Not yet time to delete this file
+    if ((entry->time) && (entry->time >= now)) {
+      /*
+      ** Put this entry in the failed list
+      */
+      list_push_back(&failed, &entry->list);
+      continue;
+    }
+    
     // For each storage associated with this file
     for (i = 0; i < safe; i++) {
 
@@ -4267,7 +4279,7 @@ static inline int export_rm_bucket(export_t * e, list_t * connexions, int bucket
       */
       export_rm_bins_done_count++;
       export_rmbins_remove_from_tracking_file(e,entry); 
-      free(entry);
+      xfree(entry);
     }
     else {
       /*
@@ -5127,16 +5139,8 @@ int export_rename(export_t *e, fid_t pfid, char *name, fid_t npfid,
         		/*
 			** Preparation of the rmfentry
 			*/
-        		rmfentry_t *rmfe = xmalloc(sizeof (rmfentry_t));
-			export_rm_bins_pending_count++;
-        		memcpy(rmfe->fid, trash_entry.fid, sizeof (fid_t));
-        		rmfe->cid = trash_entry.cid;
-        		memcpy(rmfe->initial_dist_set, trash_entry.initial_dist_set,
-                		sizeof (sid_t) * ROZOFS_SAFE_MAX);
-        		memcpy(rmfe->current_dist_set, trash_entry.current_dist_set,
-                		sizeof (sid_t) * ROZOFS_SAFE_MAX);
-        		memcpy(rmfe->trash_inode,trash_entry.trash_inode,sizeof(fid_t));
-                        list_init(&rmfe->list);
+			rmfentry_t *rmfe = export_alloc_rmentry(&trash_entry);
+			
                         /*
                         ** Acquire lock on bucket trash list
 			*/

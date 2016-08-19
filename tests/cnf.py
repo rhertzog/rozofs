@@ -88,6 +88,9 @@ rozofs.set_alloc_mb(0);
 # Change number of core files
 # rozofs.set_nb_core_file(1);
 
+# Minimum delay in sec between remove and effective deletion
+rozofs.set_deletion_delay(12)
+
 # Enable FID recycling
 #rozofs.set_fid_recycle(10)
 #--------------STORIO GENERAL
@@ -147,7 +150,7 @@ mapper     = 3
 redundancy = 2
 
 # Nb cluster per volume
-nbclusters = 1
+nbclusters = 3
 
 # default is to have one mount point per site
 clients_nb = rozofs.site_number
@@ -156,7 +159,7 @@ clients_nb = rozofs.site_number
 setLayout(1)
 
 # Define number of Host 
-vol = setVolumeHosts(4)
+vol = setVolumeHosts(8)
 addExport(vol,1)
 addExport(vol,0)
 

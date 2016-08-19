@@ -72,7 +72,8 @@ int export_load_rmfentry(export_t * e)
    exp_trck_top_header_t *tracking_trash_p; 
    exp_trck_header_memory_t *slice_hdr_p;
    exp_trck_file_header_t tracking_buffer;
-   rmfentry_t *rmfe;      
+   rmfentry_t *rmfe;   
+   time_t      when = time(NULL)+common_config.deletion_delay;   
    /*
    ** get the pointer to the tracking context associated with the 
    ** export
@@ -139,7 +140,7 @@ int export_load_rmfentry(export_t * e)
 	  */
             for(;;)
 	    {
-              rmfe = malloc(sizeof (rmfentry_t));
+              rmfe = xmalloc(sizeof (rmfentry_t));
 	      if (rmfe == NULL)
 	      {
 		 /*
@@ -164,6 +165,7 @@ int export_load_rmfentry(export_t * e)
                     sizeof (sid_t) * ROZOFS_SAFE_MAX);
             memcpy(rmfe->trash_inode,trash_entry.trash_inode,sizeof(fid_t));
             list_init(&rmfe->list);
+	    rmfe->time = when;
 	    /*
 	    **  Compute hash value for this fid
 	    */

@@ -110,6 +110,8 @@ char *pChar = uma_dbg_get_buffer();
   COMMON_CONFIG_SHOW_BOOL(mknod_ok_instead_of_eexist,False);
   pChar += rozofs_string_append(pChar,"// To disable synchronous write of attributes when set to True\n");
   COMMON_CONFIG_SHOW_BOOL(disable_sync_attributes,False);
+  pChar += rozofs_string_append(pChar,"// Minimum delay between the deletion request and the effective projections deletion\n");
+  COMMON_CONFIG_SHOW_INT(deletion_delay,0);
 
   /*
   ** client scope configuration elements
@@ -273,6 +275,8 @@ static inline void common_config_generated_read(char * fname) {
   COMMON_CONFIG_READ_BOOL(mknod_ok_instead_of_eexist,False);
   // To disable synchronous write of attributes when set to True 
   COMMON_CONFIG_READ_BOOL(disable_sync_attributes,False);
+  // Minimum delay between the deletion request and the effective projections deletion 
+  COMMON_CONFIG_READ_INT(deletion_delay,0);
   /*
   ** client scope configuration elements
   */

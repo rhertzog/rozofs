@@ -128,4 +128,6 @@ INT     storage device_selfhealing_delay        15 0:10000
 STRING  storage device_selfhealing_mode        "spareOnly"
 // Export hostname required for selfhealing
 STRING  storage export_hosts                   ""
+// Minimum delay between the deletion request and the effective projections deletion
+INT     export deletion_delay 	0           
 
