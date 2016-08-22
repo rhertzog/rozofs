@@ -2270,6 +2270,16 @@ get_next_collidx:
                 hash_entry_idx++;
                 continue;
             }
+
+            /*
+            ** something wrong that must not occur !!!
+            ** A dentry is allocated but no chunk has been allocated
+            */
+ 	        if (hash_entry_p->nb_chunk==0) {
+                hash_entry_idx++;
+                continue;
+	        }
+		     
             /*
              ** OK, now, get the pointer to the name array
              */
