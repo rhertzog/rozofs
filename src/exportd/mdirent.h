@@ -1398,7 +1398,7 @@ static inline int dirent_getnext_chunk(int first_chunk, uint8_t *p,
  */
 static inline int dirent_allocate_chunks_with_alignment(uint8_t nb_chunks,
         uint32_t alignment, uint8_t *p, int last_chunk) {
-    uint8_t chunk_u8_idx;
+    uint16_t chunk_u8_idx;
     int chunk_idx = 0;
     int next_chunk_idx = 0;
     int start_idx = -1;
