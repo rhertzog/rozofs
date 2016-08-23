@@ -2062,6 +2062,16 @@ int main(int argc, char *argv[]) {
     if (chdir("/")!=0) {
     }
 
+    /*
+    ** Set PATH env. variable if it doesn't exist (useful for mounting a
+    ** rozofs mountpoint thanks mount utility when execs are under /usr/local)
+    */
+    char * path = getenv("PATH");
+    if (path == NULL) {
+        path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
+        setenv("PATH", path, 0);
+    }
+
     memset(&conf, 0, sizeof (conf));
     /*
     ** init of the shared memory data structure
