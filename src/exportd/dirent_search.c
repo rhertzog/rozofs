@@ -306,9 +306,10 @@ reloop:
              {
                /*
                ** something wrong that must not occur
+	       ** Skip this invalid element
                */
-               DIRENT_SEVERE("dirent_cache_search_hash_entry: pointer does not exist at line %d\n",__LINE__);
-               return NULL;
+               hash_bucket_p      = &hash_entry_cur_p->next;
+               continue;	       
              }
              /*
              ** check if the entry match with name
