@@ -725,7 +725,7 @@ class Platform(object):
 
         # find a cluster id
         cids = [c.cid for v in econfig[Role.EXPORTD].volumes.values()
-                      for c in v.clusters.values()]
+                for c in v.clusters.values()]
         if len(cids) != 0:
             cid = max(cids) + 1
         else:
@@ -749,22 +749,24 @@ class Platform(object):
             # configure the storaged
             sconfig = self._nodes[h].get_configurations(Role.STORAGED)
 
+            # CRC options are now managed by the rozofs.conf file
+            # only deal with existent config.
             # Check if a storage is already configured for this node
             # If no storage configured crc32 activation is forced
-            if len(sconfig[Role.STORAGED].storages) == 0:
-                if sconfig[Role.STORAGED].crc32c_check is None:
-                    sconfig[Role.STORAGED].crc32c_check = True
-                if sconfig[Role.STORAGED].crc32c_generate is None:
-                    sconfig[Role.STORAGED].crc32c_generate = True
-                if sconfig[Role.STORAGED].crc32c_hw_forced is None:
-                    sconfig[Role.STORAGED].crc32c_hw_forced = True
+            # if len(sconfig[Role.STORAGED].storages) == 0:
+            #     if sconfig[Role.STORAGED].crc32c_check is None:
+            #         sconfig[Role.STORAGED].crc32c_check = True
+            #     if sconfig[Role.STORAGED].crc32c_generate is None:
+            #         sconfig[Role.STORAGED].crc32c_generate = True
+            #     if sconfig[Role.STORAGED].crc32c_hw_forced is None:
+            #         sconfig[Role.STORAGED].crc32c_hw_forced = True
 
-            sconfig[Role.STORAGED].storages[(cid, sid)] = StorageConfig(cid,
-                                                                        sid,
-                                                                        "%s/storage_%d_%d" % (STORAGES_ROOT, cid, sid),
-                                                                        dev_t,
-                                                                        dev_m,
-                                                                        dev_r)
+            sconfig[Role.STORAGED].storages[(cid, sid)] = StorageConfig(
+                cid, sid, "%s/storage_%d_%d" % (STORAGES_ROOT, cid, sid),
+                dev_t,
+                dev_m,
+                dev_r)
+
             self._nodes[h].set_configurations(sconfig)
 
             # add the storage to the cluster
@@ -834,7 +836,6 @@ class Platform(object):
         if hquota:
             if not hquota[0].isdigit():
                 raise Exception("Invalid hquota format: %s." % hquota)
-
 
             for c in hquota:
                 if not c.isdigit():
