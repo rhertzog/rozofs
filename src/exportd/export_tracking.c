@@ -5281,7 +5281,11 @@ int export_rename(export_t *e, fid_t pfid, char *name, fid_t npfid,
       exp_store_fname_in_inode(&lv2_to_rename->attributes.s.fname,newname,&fid_name_info);           
     
     }
-    
+    /*
+    ** update the parent fid of the inode that has been rename
+    */
+    memcpy(&lv2_to_rename->attributes.s.pfid,npfid,sizeof(fid_t));
+        
     // Write attributes of renamed file
     if (export_lv2_write_attributes(e->trk_tb_p,lv2_to_rename) != 0)
         goto out;
