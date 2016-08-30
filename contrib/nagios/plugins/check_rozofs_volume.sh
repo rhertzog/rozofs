@@ -308,9 +308,8 @@ grep --quiet "Failed" $SYNCHRO
 STATUS=$?
 if [ ${STATUS} -eq 0 ]
 then
-  DETAILS=`$awk '/Failed/ {f=1}f' | grep --invert-match Failed`
-  COUNT=`$awk '/Failed/ {f=1}f' | grep --invert-match --count Failed`
-  display_output $STATE_CRITICAL "${COUNT} failed action(s): ${DETAILS}"
+  DETAILS=`awk '/Failed/ {f=1}f' $SYNCHRO | grep --invert-match Failed`
+  display_output $STATE_CRITICAL "Failed action(s): ${DETAILS}"
 fi
 
 
