@@ -2338,6 +2338,8 @@ lv2_entry_t *  export_get_recycled_inode(export_t *e,fid_t pfid,ext_mattr_t *ext
   
  * @return: 0 on success -1 otherwise (errno is set)
  */
+#define ROZOFS_SLICE "@rozofs_slice@"
+
 int export_mknod(export_t *e,uint32_t site_number,fid_t pfid, char *name, uint32_t uid,
         uint32_t gid, mode_t mode, mattr_t *attrs,mattr_t *pattrs) {
     int status = -1;
@@ -2454,9 +2456,21 @@ int export_mknod(export_t *e,uint32_t site_number,fid_t pfid, char *name, uint32
        }         
     }
     /*
-    ** get the slice of the parent
+    ** get the slice in the name
     */
-    exp_trck_get_slice(pfid,&pslice);
+    if (strncmp(name,ROZOFS_SLICE,strlen(ROZOFS_SLICE)) == 0) {
+      /*
+      ** Slice is provided
+      */
+      char * pt = name + strlen(ROZOFS_SLICE);
+      sscanf(pt,"%d", &pslice);  
+    }
+     /*
+     ** get the slice of the parent
+     */
+    else {
+      exp_trck_get_slice(pfid,&pslice);
+    }
     /*
     ** copy the parent fid of the regular file
     */
@@ -6044,14 +6058,20 @@ out:
   if (fdp != -1) close(fdp);
   return status;    
 }
-static inline int set_rozofs_xattr(export_t *e, lv2_entry_t *lv2, char * value,int length) {
-  char       * p=value;
+static char buf_xattr[1024];
+
+static inline int set_rozofs_xattr(export_t *e, lv2_entry_t *lv2, char * input_buf,int length) {
+  char       * p;
   int          idx,jdx;
   int          new_cid;
   int          new_sids[ROZOFS_SAFE_MAX]; 
   uint8_t      rozofs_safe;
   int          valint=-1;
-
+  char * value=buf_xattr;
+  
+  p=value;
+  memcpy(buf_xattr,input_buf,length);
+  buf_xattr[length]=0;
   /*
   ** Is this a backup mode change : 0: no backup/ 1: backup file of this directory only/ 2: backup recursive
   */  

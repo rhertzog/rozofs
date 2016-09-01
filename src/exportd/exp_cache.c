@@ -1033,7 +1033,7 @@ int exp_create_one_attributes_tracking_context(export_tracking_table_t *tab_p,in
    sprintf(pathname,"%s/%s",root_path,name);
    if (access(pathname, F_OK) == -1) 
    {
-    if (errno == ENOENT) 
+    if ((errno == ENOENT) && (create)) 
     {
       /*
       ** create the directory

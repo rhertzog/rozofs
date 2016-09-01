@@ -41,6 +41,12 @@ ROZOFS_SERVICE_PORT_RANGE_DESC_T rozofs_service_port_range[ROZOFS_SERVICE_PORT_M
     .name         = "rozofs_export_geo_replica",
     .service      = "Export master geo-replication",
   },
+  [ROZOFS_SERVICE_PORT_REBALANCE_DIAG] = {
+    .defaultValue = 53020,
+    .rangeSize    = NB_REBALANCING+1,
+    .name         = "rozofs_rebalance",
+    .service      = "Rozofs re-balancing diagnostic",
+  },
    
   [ROZOFS_SERVICE_PORT_MOUNT_DIAG] = {
     .defaultValue = 50003,

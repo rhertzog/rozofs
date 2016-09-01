@@ -37,7 +37,7 @@ extern "C" {
 extern uint64_t rozo_lib_current_file_id;  /**< current file in use for inode tracking            */
 extern int      rozo_lib_current_user_id;  /**< current slice directory in use for inode tracking */
 extern int      rozo_lib_stop_var;        /**< assert to one for stopping the inode reading      */
-
+extern int      rozo_lib_current_inode_idx; /**< current inode index in current file             */
 
 struct perf {
 	struct timeval tv;
@@ -112,6 +112,7 @@ typedef struct _scan_index_context_t
 {
     uint64_t file_id; /**< file_id from which we should start  */
     int      user_id; /**< index of the tracking directory     */
+    int      inode_idx; /**< current file index           */
 } scan_index_context_t;
 /*
 **______________________________________________________________________________
@@ -127,6 +128,7 @@ static inline void rozo_lib_save_index_context(scan_index_context_t *context_p)
 {
    context_p->file_id = rozo_lib_current_file_id;
    context_p->user_id = rozo_lib_current_user_id;
+   context_p->inode_idx = rozo_lib_current_inode_idx;
 
 }
 /*
@@ -142,7 +144,8 @@ static inline void rozo_lib_save_index_context(scan_index_context_t *context_p)
 static inline void rozo_lib_reset_index_context(scan_index_context_t *context_p)
 {
    context_p->file_id = 0;
-   context_p->user_id = 0;
+   context_p->user_id = 0;   
+   context_p->inode_idx = 0;
 }
 /*
 **______________________________________________________________________________
@@ -297,6 +300,20 @@ char *get_fname(void *e,char *bufout,void *fname,fid_t pfid);
    @param mode: set to 0 to clear the verbose mode
 */
 void rz_set_verbose_mode(int mode);
+
+/*
+**__________________________________________________
+*/
+/**
+   Release the memory allocated to deal with an exportd
+   
+   @param none
+   
+   @retval 0 on success
+   @retval < 0 on error
+*
+*/
+int rozo_lib_export_release();
 #ifdef __cplusplus
 }
 #endif

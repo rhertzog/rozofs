@@ -30,33 +30,13 @@
 #include <malloc.h>
 #include "export_track_change.h"
 
-#define EXP_TRK_FREE(p)  exp_trk_free((uint64_t*)p,__LINE__);
-#define EXP_TRK_MALLOC(length)  exp_trk_malloc((int)length,__LINE__);
-
 
 //static char pathname[1024];
-uint64_t exp_trk_malloc_size;
+int64_t exp_trk_malloc_size;
 int open_count;
 int close_count;
 #define CLOSE_CONTROL(val) /*{ if(close_count >= open_count) {printf("bad_close %d\n",val);} else {close_count++;}};*/
 
-
-static inline void exp_trk_free(uint64_t *p, int line) {
-    uint64_t size;
-    p -= 1;
-    size = *p;
-    exp_trk_malloc_size -= size;
-    free(p);
-}
-static inline void *exp_trk_malloc(int size, int line) {
-    uint64_t *p;
-
-    p = memalign(32,size + 8);
-    if (p == NULL )
-        printf("Out of memory at line %d\n", line);
-    exp_trk_malloc_size += (uint64_t) size;
-    return p + 1;
-}
 
 /*
 **__________________________________________________________________
@@ -1505,11 +1485,15 @@ exp_trck_top_header_t *exp_trck_top_allocate(char *name,char *root_path,uint16_t
    strcpy(top_hdr_p->root_path,root_path);
    top_hdr_p->max_attributes_sz = max_attributes_sz;
    top_hdr_p->create_flag = create_flag;
-   /*
-   ** allocare a context for inode type tracking
-   */
-   sprintf(full_path,"%s/%s",root_path,name);
-   top_hdr_p->trck_inode_p = expt_alloc_context(root_path);
+   
+   if (create_flag)
+   {
+     /*
+     ** allocare a context for inode type tracking
+     */
+     sprintf(full_path,"%s/%s",root_path,name);
+     top_hdr_p->trck_inode_p = expt_alloc_context(root_path);
+   }
    return top_hdr_p; 
 }
 

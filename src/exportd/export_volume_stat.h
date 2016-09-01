@@ -28,6 +28,7 @@ typedef struct _export_vol_sid_in_cluster_t
    uint16_t  state;                /**< state of the storage                          */
    uint16_t free_percent;          /**< pourcentage of available space                */
    uint16_t rebalance_state;       /**< rebalance state                               */
+   uint8_t host_rank;              /**< host rank                                     */
    uint8_t  hostname[ROZOFS_HOSTNAME_MAX];         /**< hostname or hostname list     */
    uint64_t total_size_bytes;     /**< sid total size in bytes        */
    uint64_t free_size_bytes;      /**< sid free size in bytes         */
@@ -47,10 +48,11 @@ typedef struct _export_vol_cluster_stat_t
 
 typedef struct _export_vol_cluster_stat2_t
 {
-   uint16_t cluster_id;      /**< cluster identifier              */
-   uint16_t nb_sid;         /**< number of sid in the cluster     */
-   uint64_t total_size_bytes;     /**< cluster total size in bytes          */
-   uint64_t free_size_bytes;      /**< cluster free size in bytes           */
+   uint16_t cluster_id;      /**< cluster identifier                           */
+   uint16_t nb_host;         /**< number of different hosts in the cluster     */
+   uint16_t nb_sid;         /**< number of sid in the cluster                  */
+   uint64_t total_size_bytes;     /**< cluster total size in bytes             */
+   uint64_t free_size_bytes;      /**< cluster free size in bytes              */
    export_vol_sid_in_cluster_t  sid_tab[SID_MAX];
 } export_vol_cluster_stat2_t;
 

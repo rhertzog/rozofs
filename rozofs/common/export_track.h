@@ -25,6 +25,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <malloc.h>
 #if 0
 #define severe printf
 #define fatal printf
@@ -110,8 +111,8 @@ typedef struct _exp_trck_top_header_t
    exp_trck_header_memory_t *entry_p[EXP_TRCK_MAX_USER_ID];
    void *trck_inode_p;  /**< memory structure used for inode tracking */
 } exp_trck_top_header_t;
- 
-extern uint64_t exp_trk_malloc_size;  
+
+extern int64_t exp_trk_malloc_size; 
 /*
 **__________________________________________________________________
 */
@@ -137,7 +138,7 @@ exp_trck_top_header_t *exp_trck_top_allocate(char *name,char *root_path,uint16_t
 /**
 *  Get the current allocated size
 */
-static inline uint64_t exp_trk_get_memory()
+static inline int64_t exp_trk_get_memory()
 {
   return exp_trk_malloc_size;
 
@@ -422,5 +423,30 @@ static inline int exp_metadata_inode_is_del_pending(fid_t fid)
    if(fake_inode->s.del!=0) return 1;
    return 0;
 }
+
+#define EXP_TRK_FREE(p)  exp_trk_free((uint64_t*)p,__LINE__);
+#define EXP_TRK_MALLOC(length)  exp_trk_malloc((int)length,__LINE__);
+static inline void exp_trk_free(uint64_t *p, int line) {
+    uint64_t size;
+    p -= 1;
+    size = *p;
+    exp_trk_malloc_size -= size;
+    free(p);
+}
+static inline void *exp_trk_malloc(int size, int line) {
+    uint64_t *p;
+
+    p = memalign(32,size + 8);
+    if (p == NULL )
+    {
+        printf("Out of memory at line %d\n", line);
+	return NULL;
+    }
+    exp_trk_malloc_size += (uint64_t) size;
+    *p = size;
+    return p + 1;
+}
+
+
 
 #endif

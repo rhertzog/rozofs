@@ -43,6 +43,8 @@ int fdl_debug = 0;
 int verbose_mode = 1;
 uint64_t rozo_lib_current_file_id = 0;  /**< current file in use for inode tracking            */
 int      rozo_lib_current_user_id = 0;  /**< current slice directory in use for inode tracking */
+int      rozo_lib_current_inode_idx = 0; /**< current inode index in current file             */
+
 int      rozo_lib_stop_var        = 0;        /**< assert to one for stopping the inode reading      */
 /*
 ** prototypes
@@ -1317,7 +1319,7 @@ int export_scan_from_dir(scan_export_intf_t *intf_p)
   ** init of dirent stuff
   */
   //dirent_cache_level0_initialize();
-  dirent_wbcache_init();
+  //dirent_wbcache_init();
   dirent_wbcache_disable();
   /*
   ** fill up the export structure
@@ -1816,6 +1818,7 @@ int rz_scan_all_inodes_from_context(void *export,int type,int read,check_inode_p
     {
        rozo_lib_current_user_id = index_ctx_p->user_id;
        rozo_lib_current_file_id = index_ctx_p->file_id;
+       rozo_lib_current_inode_idx = index_ctx_p->inode_idx;
        start_with_context = 1;
     
     }
@@ -1843,11 +1846,13 @@ int rz_scan_all_inodes_from_context(void *export,int type,int read,check_inode_p
        if (file_id >= rozo_lib_current_file_id) rozo_lib_current_file_id = file_id;
        else file_id = rozo_lib_current_file_id;
        start_with_context = 0;
+        
      }
      else
      {
        file_id = inode_metadata_p->entry_p[user_id]->entry.first_idx;
        rozo_lib_current_file_id = file_id;
+       rozo_lib_current_inode_idx = 0;
      }
      /*
      ** get the information related to the main tracking file: that file contains the
@@ -1898,10 +1903,12 @@ int rz_scan_all_inodes_from_context(void *export,int type,int read,check_inode_p
 	 inode.s.file_id = file_id;
 	 if (read)
 	 {
-	   for (i = 0; i < EXP_TRCK_MAX_INODE_PER_FILE; i++)
+	   for (i = rozo_lib_current_inode_idx; i < EXP_TRCK_MAX_INODE_PER_FILE; i++)
 	   {
               inode.s.idx = i;
 	      inode.s.key = type;
+	      rozo_lib_current_inode_idx = i+1;
+
 	      if (tracking_buffer.inode_idx_table[i] == 0xffff) continue;
 	      ret = exp_trck_read_attributes_from_buffer((char*)metadata_buf_p,tracking_buffer.inode_idx_table[i],&ext_attr,sizeof(ext_attr));
 	      if (ret < 0)
@@ -1949,9 +1956,9 @@ int rz_scan_all_inodes_from_context(void *export,int type,int read,check_inode_p
 	      {
 	         match = 1;
 	      }
-	   }
+	   }	   
+	   rozo_lib_current_inode_idx = 0;
 	 }
-
      }   
    }
 //   printf("type %d\n",type);
@@ -2083,8 +2090,8 @@ void *rz_inode_lib_init(char *root_path)
   /*
   ** init of dirent stuff
   */
-  dirent_cache_level0_initialize();
-  dirent_wbcache_init();
+//  dirent_cache_level0_initialize();
+//  dirent_wbcache_init();
   dirent_wbcache_disable();
   /*
   ** fill up the export structure
@@ -2189,4 +2196,60 @@ void rozofs_get_file_distribution(void *inode_p,rozofs_file_distribution_t *p)
    {
      p->sids[i] = inode_attr_p->s.attrs.sids[i];
    }
+}
+
+
+/*
+**__________________________________________________
+*/
+/**
+   Release the memory allocated to deal with an exportd
+   
+   @param none
+   
+   @retval 0 on success
+   @retval < 0 on error
+*
+*/
+int rozo_lib_export_release()
+{
+   int i,k;   
+   export_tracking_table_t *trk_tb_p;
+   exp_trck_top_header_t *tracking_table_p;
+   exp_trck_header_memory_t *entry_p;
+   
+   if (fake_export_p == NULL) return 0;
+   trk_tb_p = fake_export_p->trk_tb_p;
+   if ( fake_export_p->trk_tb_p == NULL)return 0;
+   
+   
+   for (i=0; i < ROZOFS_MAXATTR; i++)
+   {
+      tracking_table_p = trk_tb_p->tracking_table[i];
+      if (tracking_table_p == NULL) continue;
+      trk_tb_p->tracking_table[i] = NULL;
+      for (k= 0; k < EXP_TRCK_MAX_USER_ID;k++)
+      {
+        entry_p = tracking_table_p->entry_p[k];
+        if (entry_p == NULL) continue;
+	if (entry_p->tracking_file_hdr_p != NULL) EXP_TRK_FREE(entry_p->tracking_file_hdr_p);
+	EXP_TRK_FREE(entry_p);
+      }
+      if (tracking_table_p->trck_inode_p != NULL) free(tracking_table_p->trck_inode_p);
+      EXP_TRK_FREE(tracking_table_p);
+   }
+
+   /*
+   ** free the fake exportd
+   */
+   free(fake_export_p);
+   fake_export_p = NULL;
+   /*
+   ** free the tracking table
+   */   
+   if (export_tracking_table[0]!= NULL) {
+    free(export_tracking_table[0]);
+    export_tracking_table[0] = NULL;
+  }
+   return 0;	
 }

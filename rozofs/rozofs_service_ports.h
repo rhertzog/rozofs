@@ -32,6 +32,7 @@
 #define NB_STORIO  255
 #define NB_GEOCLI   30
 #define NB_EXPORT_SLAVE 8
+#define NB_REBALANCING 4
 
 typedef enum rozofs_service_port_range_e {
 
@@ -42,6 +43,7 @@ typedef enum rozofs_service_port_range_e {
   ROZOFS_SERVICE_PORT_STORAGED_DIAG,
   ROZOFS_SERVICE_PORT_STORAGED_MPROTO,
   ROZOFS_SERVICE_PORT_GEOMGR_DIAG,
+  ROZOFS_SERVICE_PORT_REBALANCE_DIAG,
 
   ROZOFS_SERVICE_PORT_MAX
   
@@ -152,6 +154,13 @@ static inline uint16_t rozofs_get_service_port_geocli_diag(int idx) {
 }
 static inline uint16_t rozofs_get_service_port_geocli_storcli_diag(int idx,int s) {
   return rozofs_get_service_port_geomgr_diag()+ 1 + (3*idx) + s;
+}
+
+/*
+** Re-balancing ports
+*/
+static inline uint16_t rozofs_get_service_port_rebalancing_diag(int idx) {
+  return rozofs_get_service_port(ROZOFS_SERVICE_PORT_REBALANCE_DIAG)+idx;
 }
 /*
 **__________________________________________________________________________

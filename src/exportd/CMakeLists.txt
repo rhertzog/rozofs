@@ -229,6 +229,15 @@ add_executable(rozo_clusterstats
     rozo_clusterstats.c  
 )
 target_link_libraries(rozo_clusterstats rozofs_inode rozofs ${PTHREAD_LIBRARY} ${UUID_LIBRARY} ${CONFIG_LIBRARY})
+#________________________________________________________
+add_executable(rozo_rebalance
+    rozo_rebalance.c  
+    rozo_rebalance_nblock_init.c
+    econfig.c      
+    rozofs_mover.c  
+    rozofs_mover.h
+)
+target_link_libraries(rozo_rebalance rozofs_inode rozofs ${PTHREAD_LIBRARY} ${UUID_LIBRARY} ${CONFIG_LIBRARY})
 
 
 #________________________________________________________
