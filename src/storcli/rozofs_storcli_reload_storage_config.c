@@ -208,7 +208,7 @@ fatal:
  *
  * @param exportd_context_p: pointer to the exportd Master data structure
  */
-#define CONF_CONNECTION_THREAD_TIMESPEC  2
+#define CONF_CONNECTION_THREAD_TIMESPEC  180
 
 void *storcli_exportd_config_supervision_thread(void *exportd_context_p) {
 
@@ -244,7 +244,7 @@ void *storcli_exportd_config_supervision_thread(void *exportd_context_p) {
     arg_poll.gateway_rank = 0; /* NS */
 
     status = -1;
-    retry = 0;   
+    retry = clt->retries-1;   
     ret_poll_p = NULL; 
     STORCLI_CONF_STATS_INC(storcli_conf_ctx_p,poll_counter);
     while ((retry++ < clt->retries) &&
@@ -298,7 +298,7 @@ void *storcli_exportd_config_supervision_thread(void *exportd_context_p) {
     ** so reload it
     */
     status = -1;
-    retry = 0; 
+    retry = clt->retries-1; 
     ret_conf_p = NULL;   
     STORCLI_CONF_STATS_INC(storcli_conf_ctx_p,conf_counter);
     while ((retry++ < clt->retries) &&

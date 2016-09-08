@@ -806,6 +806,14 @@ int rozofs_storcli_get_export_config(storcli_conf *conf) {
         mclient_release(&mclt);
     }
     /*
+    ** Release connection and change the export timeout according to the configuration
+    */
+    rpcclt_release(&exportclt.rpcclt);
+    exportclt.timeout.tv_usec = 0;
+    exportclt.timeout.tv_sec  = 60;
+
+        
+    /*
     ** start the exportd configuration polling thread
     */
     rozofs_storcli_start_exportd_config_supervision_thread(&exportclt);
