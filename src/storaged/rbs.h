@@ -106,11 +106,12 @@ char * get_rebuild_sid_directory_name(int rebuildRef, int cid, int sid, rbs_file
 ** list rebuilder processes
 */
 typedef struct _rbs_storage_config_t {
-  char          config_file[PATH_MAX];
   char          export_hostname[ROZOFS_HOSTNAME_MAX];
-  int           site;
-  storage_t     storage;
-  uint8_t       device; 
+  int           site;  // export_hostname + site : enables to get cluster desription from exportd
+//  storage_t     storage;
+  cid_t         cid;
+  sid_t         sid;
+//  uint8_t       device; 
   rbs_file_type_e ftype;
 } rbs_storage_config_t;
 
@@ -127,7 +128,7 @@ static inline int rbs_write_storage_config_file(int rebuildRef, rbs_storage_conf
   /*
   ** storage config file name
   */
-  dir = get_rebuild_sid_directory_name(rebuildRef,st->storage.cid,st->storage.sid, st->ftype);
+  dir = get_rebuild_sid_directory_name(rebuildRef,st->cid,st->sid, st->ftype);
   pChar += rozofs_string_append(pChar,dir);
   pChar += rozofs_string_append(pChar,"/storage.conf");
 
@@ -173,7 +174,7 @@ static inline rbs_storage_config_t * rbs_read_storage_config_file(char *path, rb
   */
   fd = open(filename, O_RDONLY);
   if (fd < 0) {
-	severe("open(%s) for writing %s\n",filename,strerror(errno));
+	severe("open(%s) for reading %s\n",filename,strerror(errno));
 	return NULL;
   }
   /*

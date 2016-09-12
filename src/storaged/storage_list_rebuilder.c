@@ -41,6 +41,7 @@
 #include <sys/vfs.h>
 #include <malloc.h>
 
+
 #include <rozofs/rozofs_srv.h>
 #include <rozofs/common/log.h>
 #include <rozofs/common/xmalloc.h>
@@ -56,9 +57,7 @@
 #include <rozofs/core/rozofs_fid_string.h>
 
 #include "config.h"
-#include "sconfig.h"
 #include "storage.h"
-#include "sconfig.h"
 #include "rbs.h"
 #include "rbs_eclient.h"
 #include "rbs_sclient.h"
@@ -74,12 +73,9 @@ char        statFilename[FILENAME_MAX];
  
 static rbs_storage_config_t storage_config;
 
-sconfig_t   sconfig;
 uint8_t prj_id_present[ROZOFS_SAFE_MAX];
 int         quiet=0;
 
-storage_t storaged_storages[STORAGES_MAX_BY_STORAGE_NODE] = { { 0 } };
-uint16_t storaged_nrstorages = 0;
 
 char                command[1];
 char              * fid2rebuild_string=NULL;
@@ -95,6 +91,12 @@ int sigusr_received=0;
 rpcclt_t   rpcclt_export;
   
 rbs_file_type_e ftype = rbs_file_type_all;
+
+/*
+** Just because storage.h needs it
+*/
+storage_t storaged_storages[0];
+uint16_t  storaged_nrstorages=0;
   
 /*__________________________________________________________________________
 */
@@ -103,95 +105,6 @@ void rbs_cath_sigusr(int sig){
   signal(SIGUSR1, rbs_cath_sigusr);  
 }
 
-static int storaged_initialize() {
-    int status = -1;
-    list_t *p = NULL;
-    DEBUG_FUNCTION;
-
-    /* Initialize rozofs constants (redundancy) */
-    rozofs_layout_initialize();
-
-    storaged_nrstorages = 0;
-
-    storaged_nb_io_processes = 1;
-    
-    storio_nb_threads = common_config.nb_disk_thread;
-
-    storaged_nb_ports = sconfig.io_addr_nb;
-
-    /* For each storage on configuration file */
-    list_for_each_forward(p, &sconfig.storages) {
-        storage_config_t *sc = list_entry(p, storage_config_t, list);
-        /* Initialize the storage */
-        if (storage_initialize(storaged_storages + storaged_nrstorages++,
-                sc->cid, sc->sid, sc->root,
-		sc->device.total,
-		sc->device.mapper,
-		sc->device.redundancy) != 0) {
-            severe("can't initialize storage (cid:%d : sid:%d) with path %s",
-                    sc->cid, sc->sid, sc->root);
-            goto out;
-        }
-    }
-
-    status = 0;
-out:
-    return status;
-}
-
-
-
-/*
-**____________________________________________________
-*/
-/*
-  Allocate a device for a file
-  
-   @param st: storage context
-*/
-uint32_t storio_device_mapping_allocate_device(storage_t * st) {
-  struct statfs sfs;
-  int           dev;
-  uint64_t      max=0;
-  int           choosen_dev=0;
-  char          path[FILENAME_MAX];  
-  
-  for (dev = 0; dev < st->device_number; dev++) {
-    char * pChar = path;
-    pChar += rozofs_string_append(pChar,st->root);
-    *pChar++ = '/';
-    pChar += rozofs_u32_append(pChar,dev);
-    *pChar++ = '/';  
-    *pChar = 0;  
-               
-    if (statfs(path, &sfs) != -1) {
-      if (sfs.f_bfree > max) {
-        max         = sfs.f_bfree;
-	choosen_dev = dev;
-      }
-    }
-  }  
-  return choosen_dev;
-}
-
-static void storaged_release() {
-    DEBUG_FUNCTION;
-    int i;
-    list_t *p, *q;
-
-    for (i = 0; i < storaged_nrstorages; i++) {
-        storage_release(&storaged_storages[i]);
-    }
-    storaged_nrstorages = 0;
-
-    // Free config
-
-    list_for_each_forward_safe(p, q, &sconfig.storages) {
-
-        storage_config_t *s = list_entry(p, storage_config_t, list);
-        free(s);
-    }
-}
 
 typedef struct rbs_error_t {
   uint64_t spare_start;
@@ -242,7 +155,7 @@ typedef enum _rbs_exe_code_e {
   RBS_EXE_BROKEN
 } RBS_EXE_CODE_E;
 
-RBS_EXE_CODE_E rbs_restore_one_spare_entry(storage_t       * st, 
+RBS_EXE_CODE_E rbs_restore_one_spare_entry(rbs_storage_config_t * st, 
                                            uint8_t           layout,
                                 	   int               local_idx, 
 			        	   int               relocate,
@@ -601,7 +514,7 @@ out:
         memset(&working_ctx, 0, sizeof (working_ctx));
 	
 
-RBS_EXE_CODE_E rbs_restore_one_rb_entry(storage_t       * st, 
+RBS_EXE_CODE_E rbs_restore_one_rb_entry(rbs_storage_config_t * st, 
                                         uint8_t           layout,
                         		int               local_idx, 
 					int               relocate,
@@ -859,26 +772,6 @@ int storaged_rebuild_list(char * fid_list, char * statFilename) {
       goto error;
   }  
 
-
-  // Initialize the list of storage config
-  if (sconfig_initialize(&sconfig) != 0) {
-      severe("Can't initialize storaged config: %s.\n",strerror(errno));
-      goto error;
-  }
-  
-  // Read the configuration file
-  if (sconfig_read(&sconfig, storage_config.config_file,0) != 0) {
-      severe("Failed to parse storage configuration file %s : %s.\n",storage_config.config_file,strerror(errno));
-      goto error;
-  }
-
-  // Initialization of the storage configuration
-  if (storaged_initialize() != 0) {
-      severe("can't initialize storaged: %s.", strerror(errno));
-      goto error;
-  }
-
-
   // Initialize the list of cluster(s)
   list_init(&cluster_entries);
   
@@ -888,19 +781,19 @@ int storaged_rebuild_list(char * fid_list, char * statFilename) {
   pExport_hostname = rbs_get_cluster_list(&rpcclt_export, 
                            storage_config.export_hostname, 
 			   storage_config.site,
-			   storage_config.storage.cid, 
+			   storage_config.cid, 
 			   &cluster_entries);			   
   if (pExport_hostname == NULL) {			   
       severe("Can't get list of others cluster members from export server (%s) for storage to rebuild (cid:%u; sid:%u): %s\n",
               storage_config.export_hostname, 
-	      storage_config.storage.cid, 
-	      storage_config.storage.sid, 
+	      storage_config.cid, 
+	      storage_config.sid, 
 	      strerror(errno));
       goto error;
   }
     
   // Get connections for this given cluster  
-  rbs_init_cluster_cnts(&cluster_entries, storage_config.storage.cid, storage_config.storage.sid,&failed,&available);
+  rbs_init_cluster_cnts(&cluster_entries, storage_config.cid, storage_config.sid,&failed,&available);
   
   REBUILD_MSG("   -> %s rebuild start",fid_list);
   
@@ -976,16 +869,16 @@ int storaged_rebuild_list(char * fid_list, char * statFilename) {
     // Get storage connections for this entry
     local_index = rbs_get_rb_entry_cnts(&re, 
                               &cluster_entries, 
-                              storage_config.storage.cid, 
-			      storage_config.storage.sid,
+                              storage_config.cid, 
+			      storage_config.sid,
                               rozofs_inverse);
     if (local_index == -1) {
       if      (errno==EINVAL) file_entry.error = rozofs_rbs_error_no_such_cluster;
       else if (errno==EPROTO) file_entry.error = rozofs_rbs_error_not_enough_storages_up;
       else                    file_entry.error = rozofs_rbs_error_unknown;
       severe( "rbs_get_rb_entry_cnts failed cid/sid %d/%d %s", 
-	          storage_config.storage.cid,
-			  storage_config.storage.sid,
+	          storage_config.cid,
+			  storage_config.sid,
 			  strerror(errno));
       continue; // Try with the next
     }
@@ -994,7 +887,7 @@ int storaged_rebuild_list(char * fid_list, char * statFilename) {
     // Check if the storage to rebuild is
     // a spare for this entry
     for (prj = 0; prj < rozofs_safe; prj++) {
-        if (re.dist_set_current[prj] == storage_config.storage.sid)  break;
+        if (re.dist_set_current[prj] == storage_config.sid)  break;
     }  
     if (prj >= rozofs_forward) spare = 1;
     else                       spare = 0;
@@ -1011,7 +904,8 @@ int storaged_rebuild_list(char * fid_list, char * statFilename) {
       // Restore this entry
       uint32_t block_start = file_entry.block_start;
       if (spare == 1) {
-	ret = rbs_restore_one_spare_entry(&storage_config.storage, file_entry.layout, local_index, file_entry.relocate,
+	ret = rbs_restore_one_spare_entry(&storage_config,
+	                                  file_entry.layout, local_index, file_entry.relocate,
                                           &block_start, file_entry.block_end, 
 					  &re, prj,
 					  &size_written,
@@ -1019,7 +913,8 @@ int storaged_rebuild_list(char * fid_list, char * statFilename) {
 					  &file_entry.error);     
       }
       else {
-	ret = rbs_restore_one_rb_entry(&storage_config.storage, file_entry.layout, local_index, file_entry.relocate,
+	ret = rbs_restore_one_rb_entry(&storage_config, 
+	                               file_entry.layout, local_index, file_entry.relocate,
                                        &block_start, file_entry.block_end, 
 				       &re, prj, 
 				       &size_written,
@@ -1153,7 +1048,6 @@ static void on_stop() {
     DEBUG_FUNCTION;   
 
     rozofs_layout_release();
-    storaged_release();
     closelog();
 }
 

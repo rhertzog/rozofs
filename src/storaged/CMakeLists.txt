@@ -62,10 +62,7 @@ add_executable(storage_rebuild
 target_link_libraries(storage_rebuild rozofs ${PTHREAD_LIBRARY} ${UUID_LIBRARY} ${CONFIG_LIBRARY})
 
 add_executable(storage_list_rebuilder
-    sconfig.h
-    sconfig.c
     storage.h
-    storage.c
     rbs.h
     rbs_transform.h
     rbs_transform.c
@@ -75,9 +72,7 @@ add_executable(storage_list_rebuilder
     rbs_eclient.c
     rbs.c
     storaged.h
-    storage_list_rebuilder.c       
-    storio_crc32.c
-    storio_crc32.h
+    storage_list_rebuilder.c 
 )
 
 target_link_libraries(storage_list_rebuilder rozofs ${PTHREAD_LIBRARY} ${UUID_LIBRARY} ${CONFIG_LIBRARY})
