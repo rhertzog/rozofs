@@ -743,7 +743,16 @@ void parse_command(int argc, char *argv[], rbs_parameter_t * par) {
       REBUILD_FAILED("--fid option requires --sid option too.");
       exit(EXIT_FAILURE);      
     }
-	par->parallel = 1;
+    par->parallel = 1;
+    /* 
+    ** When relocate is requested, rebuild the whole file and not only a part of it
+    */
+    if (par->relocate) {
+      if (par->chunk != -1) {
+        severe("With relocate --chunk --bstart and --bstop are ignored");
+        par->chunk = -1;
+      }
+    }  
   }
   /*
   ** When relocate is set, cid/sid and device are mandatory 
@@ -1765,7 +1774,7 @@ static int rbs_build_one_fid_list(cid_t cid, sid_t sid, uint8_t layout, uint8_t 
   memcpy(file_entry.fid, parameter.fid2rebuild, sizeof (fid_t));
   file_entry.bsize       = bsize;  
   file_entry.todo        = 1;      
-  file_entry.relocate    = 1;
+  file_entry.relocate    = parameter.relocate;
   /*
   ** Where to start rebuild from 
   */    
