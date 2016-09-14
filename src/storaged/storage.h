@@ -1370,15 +1370,21 @@ void static inline storage_dev_map_distribution_remove(storage_t * st, fid_t fid
 }
 /*
  ** Read a header/mapper file
+    This function looks for a header file of the given FID on every
+    device when it should reside on this storage.
 
-  @param path : pointer to the bdirectory where to write the header file
-  @param hdr : header to write in the file
+  @param st    : storage we are looking on
+  @param fid   : fid whose hader file we are looking for
+  @param spare : whether this storage is spare for this FID
+  @param hdr   : where to return the read header file
+  @param update_recycle : whether the header file is to be updated when recycling occurs
   
   @retval  STORAGE_READ_HDR_ERRORS     on failure
   @retval  STORAGE_READ_HDR_NOT_FOUND  when header file does not exist
   @retval  STORAGE_READ_HDR_OK         when header file has been read
+  @retval  STORAGE_READ_HDR_OTHER_RECYCLING_COUNTER         when header file has been read
   
- */
+*/
 typedef enum { 
   STORAGE_READ_HDR_OK,
   STORAGE_READ_HDR_NOT_FOUND,
@@ -1386,6 +1392,15 @@ typedef enum {
   STORAGE_READ_HDR_OTHER_RECYCLING_COUNTER
 } STORAGE_READ_HDR_RESULT_E;
 
+
+STORAGE_READ_HDR_RESULT_E storage_read_header_file(storage_t                   * st, 
+                                                   fid_t                         fid, 
+						   uint8_t                       spare, 
+						   rozofs_stor_bins_file_hdr_t * hdr, 
+						   int                           update_recycle);
+						   
+						   
+						   
 
 int storage_rm_chunk(storage_t * st, uint8_t * device, 
                      uint8_t layout, uint8_t bsize, uint8_t spare, 
