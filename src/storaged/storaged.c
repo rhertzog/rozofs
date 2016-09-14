@@ -153,6 +153,7 @@ static int storaged_initialize() {
 out:
     return status;
 }
+
 /*
 **____________________________________________________
 */
@@ -370,18 +371,49 @@ static void on_start() {
     
     storaged_start_nb_th(&conf);
 }
-
-void usage() {
-
-    printf("RozoFS storage daemon - %s\n", VERSION);
-    printf("Usage: storaged [OPTIONS]\n\n");
-    printf("   -h, --help\t\t\tprint this message.\n");
-    printf("   -H, --host=storaged-host\tspecify the hostname to use for build pid name (default: none).\n");
-    printf("   -c, --config=config-file\tspecify config file to use (default: %s).\n",
-            STORAGED_DEFAULT_CONFIG);
-    printf("   -C, --check\tthe storaged just checks the configuration and returns an exit status (0 when OK).\n");
+/*-----------------------------------------------------------------------------
+**
+**  Display usage
+**
+**----------------------------------------------------------------------------
+*/
+void usage(char * fmt, ...) {
+  va_list   args;
+  char      error_buffer[512];
+  
+  /*
+  ** Display optionnal error message if any
+  */
+  if (fmt) {
+    va_start(args,fmt);
+    vsprintf(error_buffer, fmt, args);
+    va_end(args);   
+    severe("%s",error_buffer);
+    printf("%s\n",error_buffer);
+  }
+  
+  /*
+  ** Display usage
+  */
+  printf("RozoFS storage daemon - %s\n", VERSION);
+  printf("Usage: storaged [OPTIONS]\n\n");
+  printf("   -h, --help\t\t\tprint this message.\n");
+  printf("   -H, --host=storaged-host\tspecify the hostname to use for build pid name (default: none).\n");
+  printf("   -c, --config=config-file\tspecify config file to use (default: %s).\n",
+          STORAGED_DEFAULT_CONFIG);
+  printf("   -C, --check\tthe storaged just checks the configuration and returns an exit status (0 when OK).\n");  
+  
+  
+  if (fmt) exit(EXIT_FAILURE);
+  exit(EXIT_SUCCESS); 
 }
 
+/*-----------------------------------------------------------------------------
+**
+**  M A I N
+**
+**----------------------------------------------------------------------------
+*/
 int main(int argc, char *argv[]) {
     int c;
     int  justCheck=0; /* Run storaged. Not just a configuration check. */
@@ -426,8 +458,7 @@ int main(int argc, char *argv[]) {
         switch (c) {
 
             case 'h':
-                usage();
-                exit(EXIT_SUCCESS);
+                usage(NULL);
                 break;
             case 'C':
                 justCheck = 1;
@@ -442,12 +473,10 @@ int main(int argc, char *argv[]) {
 		parse_host_name(optarg);
                 break;
             case '?':
-                usage();
-                exit(EXIT_SUCCESS);
+                usage(NULL);
                 break;
             default:
-                usage();
-                exit(EXIT_FAILURE);
+                usage("Unexpected option \'%c\'",c);
                 break;
         }
     }
