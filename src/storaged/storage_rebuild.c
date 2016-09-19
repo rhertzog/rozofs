@@ -537,7 +537,7 @@ void parse_command(int argc, char *argv[], rbs_parameter_t * par) {
   int    idx;
   char * optarg;
 
-  if (argc < 2) usage("Only %d arguments.\n",argc); 
+  //if (argc < 2) usage("Only %d arguments.\n",argc); 
   
   idx = 0;
   while (idx < argc) {
