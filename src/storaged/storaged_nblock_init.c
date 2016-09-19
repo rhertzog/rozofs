@@ -350,6 +350,39 @@ static void show_storage_device_status(char * argv[], uint32_t tcpRef, void *buf
     }  
     uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
 }
+static void show_storage_json_device_status(char * argv[], uint32_t tcpRef, void *bufRef) {
+    char                * pChar = uma_dbg_get_buffer();
+    storage_t           * st=NULL;
+    int                   device;
+    storage_share_t     * share;
+    uint32_t              period;
+    
+    
+    pChar += sprintf(pChar, "{ \"devices\" : [\n");
+    
+    while((st = storaged_next(st)) != NULL) {
+      /* 
+      ** Resolve the share memory address|
+      */
+      share = storage_get_share(st);
+      period = share->monitoring_period;
+      if (period == 0) continue;     
+
+      if (share != NULL) {
+	for (device=0; device < st->device_number; device++) {
+	  storage_device_info_t *pdev = &share->dev[device];
+	  
+	  pChar += sprintf(pChar, "    { \"cid\" : %d, \"sid\" : %d, \"device\" : %d, \"name\" : \"%s\", \"status\" : \"%s\", \"free\" : %llu, \"total\" : %llu },\n",
+	                   st->cid, st->sid, device, pdev->devName,storage_device_status2string(pdev->status),
+			   (long long unsigned int)pdev->free ,(long long unsigned int)pdev->size);   
+	}
+      }	
+    }  
+    
+    pChar -= 2;
+    pChar += sprintf(pChar,"\n  ]\n}\n");  
+    uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
+}
 // For trace purpose
 struct timeval Global_timeDay;
 unsigned long long Global_timeBefore, Global_timeAfter;
@@ -564,6 +597,7 @@ int storaged_start_nb_th(void *args) {
     storio_nb = args_p->nb_storio;
     uma_dbg_addTopic("storio_nb", show_storio_nb);
     uma_dbg_addTopic("device",show_storage_device_status);
+    uma_dbg_addTopic("dstatus",show_storage_json_device_status);
     
     if (pHostArray[0] != NULL) {
         info("storaged non-blocking thread started (host: %s, dbg port: %d).",
