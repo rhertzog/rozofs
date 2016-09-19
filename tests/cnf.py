@@ -53,7 +53,7 @@ def setVolumeHosts(nbHosts):
     for s in range(nbHosts):
       if georep == False:
         for f in range(factor):
-          c.add_sid_on_host(s+1,s % rozofs.site_number)
+          c.add_sid_on_host(s+1,(s % rozofs.site_number)+1)
       else:
         # In geo replication 
 	# host2 on site 1 replicates host1 on site 0
@@ -70,15 +70,25 @@ def addExport(vol,layout=None):
   e = vol.add_export(rozofs.bsize4K(),layout)
 
   for i in range(1,clients_nb+1): 
-    m1 = e.add_mount((i-1) % rozofs.site_number)
-    if georep==True: m2 = e1.add_mount(1)
+    # Georeplication : 1 clinet on each site
+    if georep==True: 
+      m1 = e.add_mount(0)
+      m2 = e.add_mount(1)
+    # Multi site one client on each site  
+    else:
+      if rozofs.site_number == 1:
+        m1 = e.add_mount(0)
+      else:	
+        for site in range(1,rozofs.site_number+1): 
+          m1 = e.add_mount(site)
+        
 
     
 #_____________________________________ 
 georep = False
 #georep = True
 
-# Number of sites
+# Number of sites : default is to have 1 site
 #rozofs.set_site_number(4)
 
 #rozofs.set_trace()
@@ -153,7 +163,7 @@ redundancy = 2
 nbclusters = 3
 
 # default is to have one mount point per site
-clients_nb = rozofs.site_number
+clients_nb = 1
 
 # Define Layout
 setLayout(1)

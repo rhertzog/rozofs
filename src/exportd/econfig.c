@@ -69,6 +69,10 @@ int storage_node_config_initialize(storage_node_config_t *s, uint8_t sid,
         fatal("The SID value must be between %u and %u", SID_MIN, SID_MAX);
         goto out;
     }
+    if (siteNum == 0) {
+        fatal("Invalid site number 0");
+        goto out;    
+    }
 
     s->sid = sid;
     strncpy(s->host, host, ROZOFS_HOSTNAME_MAX);
