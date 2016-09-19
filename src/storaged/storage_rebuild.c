@@ -98,7 +98,6 @@ static rpcclt_t rpcclt_export;
 /* List of cluster(s) */
 static list_t cluster_entries;
 uint32_t    run_loop=0;
-uint8_t rbs_start_process = 0;
   
 int     nb_rbs_entry=0;
 typedef struct rbs_monitor_s {
@@ -410,7 +409,12 @@ void rbs_conf_init(rbs_parameter_t * par) {
   fid_t fid_null={0};
 
   strcpy(par->storaged_config_file,STORAGED_DEFAULT_CONFIG);
-  par->rbs_export_hostname[0] = 0;
+  if (strcmp(common_config.export_hosts,"")==0) {
+    par->rbs_export_hostname[0] = 0;
+  }
+  else {
+    strcpy(par->rbs_export_hostname,common_config.export_hosts);
+  }  
   par->rbs_device_number    = -1;
   par->type                 = rbs_rebuild_type_storage;
   par->storaged_hostname    = NULL;
@@ -621,7 +625,6 @@ void parse_command(int argc, char *argv[], rbs_parameter_t * par) {
         REBUILD_FAILED("Bad host name %s.", optarg);
         exit(EXIT_FAILURE);
       }
-      rbs_start_process = 1;
       continue;
     }  
 	  
@@ -725,7 +728,7 @@ void parse_command(int argc, char *argv[], rbs_parameter_t * par) {
     }
   }
   else {
-    if (rbs_start_process == 0) {
+    if (par->rbs_export_hostname[0] == 0) {
         REBUILD_FAILED("Missing mandatory option --rebuild");    
         exit(EXIT_FAILURE);      
     }     
