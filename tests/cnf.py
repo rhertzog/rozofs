@@ -79,7 +79,7 @@ def addExport(vol,layout=None):
       if rozofs.site_number == 1:
         m1 = e.add_mount(0)
       else:	
-        for site in range(1,rozofs.site_number+1): 
+        for site in range(0,rozofs.site_number+1): 
           m1 = e.add_mount(site)
         
 

@@ -6,17 +6,21 @@
 storage_rebuild \- RozoFS disk rebuild utility
 .SH SYNOPSIS
 .IP "Rebuilding a full storage node"
-.B storage_rebuild -r <export hosts> [-p <p//>] [-l <loop>] [-q][-fg]
-.IP "Rebuilding only one storage within a storage node"
-.B storage_rebuild -r <export hosts> -s <cid>/<sid> [-p <p//>] [-l <loop>] [-q][-fg]
-.IP "Rebuilding only a device of a storage"
-.B storage_rebuild -r <export hosts> -s <cid>/<sid> -d <device> [-p <p//>] [-l <loop>] [-q][-fg]
-.IP "Relocating files of a device of a storage on all available devices of the same storage"
-.B storage_rebuild -R -r <export hosts> -s <cid>/<sid> -d <device> [-p <p//>] [-l <loop>] [-q][-fg]
-.IP "Putting back a device in service when it is replaced after a manual or automatic relocation (self healing)"
-.B storage_rebuild -C -r <export hosts> -s <cid>/<sid> -d <device> [-p <p//>] [-l <loop>] [-q][-fg]
-.IP "Rebuilding only a FID of a storage"
-.B storage_rebuild -r <export hosts> -s <cid>/<sid> -f <FID> [-p <p//>] [-l <loop>] [-q][-fg]
+.B storage_rebuild [-r <export hosts>] [-p <p//>] [-l <loop>] [-q][-fg]
+.IP "Rebuilding only nominal files of a storage node"
+.B storage_rebuild --nominal [-r <export hosts>] [-p <p//>] [-l <loop>] [-q][-fg]
+.IP "Rebuilding only spare files of a storage node"
+.B storage_rebuild --spare [-r <export hosts>] [-p <p//>] [-l <loop>] [-q][-fg]
+.IP "Rebuilding only one logical storage within a storage node"
+.B storage_rebuild [-r <export hosts>] [--spare|--nominal] -s <cid>/<sid> [-p <p//>] [-l <loop>] [-q][-fg]
+.IP "Rebuilding only a device of a logical storage"
+.B storage_rebuild [-r <export hosts>] -s <cid>/<sid> -d <device> [-p <p//>] [-l <loop>] [-q][-fg]
+.IP "Relocating files of a failed device of a logical storage on all available devices of the same logical storage"
+.B storage_rebuild -R [-r <export hosts>] -s <cid>/<sid> -d <device> [-p <p//>] [-l <loop>] [-q][-fg]
+.IP "Clearing error counters a device of a logical storage"
+.B storage_rebuild -C [-r <export hosts>] -s <cid>/<sid> -d <device> [-q][-fg]
+.IP "Rebuilding only a FID of a logical storage"
+.B storage_rebuild [-r <export hosts>] -s <cid>/<sid> -f <FID> [-l <loop>] [-q][-fg]
 .IP "Getting the list of FID that are to be rebuilt. Then use rozo_fid2pathname utility on export node to translate FIDs to full path names."
 .B storage_rebuild -id <id> -list 
 .IP "Pause a running rebuild in order to resume it later."
@@ -28,37 +32,49 @@ storage_rebuild \- RozoFS disk rebuild utility
 .B
 .SH DESCRIPTION
 .B storage_rebuild
-rebuilds either a file or some devices of a storage node. 
+rebuilds either a file or a device or all devices of a logical storage node or all devices of a storage node. 
 
-When the rebuild fails, on can get the list of FIDs that have not been rebuilt. Then with rozo_fid2pathname utility on export node one can translate these FIDs to full path names.
+When the rebuild fails, one can get the list of FIDs that have not been rebuilt. Then with rozo_fid2pathname utility on export node one can translate these FIDs to full path names.
 
 
 A rebuild can be paused temporarily. It is then possible to resume a paused or failed rebuild (i.e only rebuild the files that are not yet rebuilt). 
 
-A monitoring rebuild file provides information on the ongoing rebuild. The name of the rebuild monitoring file is displayed on return from the rebuild command except when --quiet option is set. In any case the name of the rebuild monitoring file can be found in the syslog file."
+A monitoring rebuild file provides information on the ongoing rebuild. The name of the rebuild monitoring file is displayed on return from the rebuild command except when --quiet option is set. In any case the name of the rebuild monitoring file can be found in the syslog file.
 .SH OPTIONS
 .IP "-r, --rebuild <export hosts>"
 .RS
 Use
 .I <export hosts>
-as the list of addresses (or dns names) where exportd daemon is running. When securing the exportd thanks to a virtual IP address only the virtual IP address is given (i.e "--rebuild 192.168.10.1"). When no virtual IP address is used the list of "physical" IP addresses of each host securing the exportd must be given (i.e "--rebuild 192.168.10.1/192.168.20.1"). 
+as the list of addresses (or dns names) where exportd daemon is running. When securing the exportd thanks to a virtual IP address only the virtual IP address is given (i.e "--rebuild 192.168.10.1"). When no virtual IP address is used the list of "physical" IP addresses of each host securing the exportd must be given (i.e "--rebuild 192.168.10.1/192.168.20.1"). This parameter can be omitted when the server has been installed with the
+.B export_hosts
+filled in the rozofs.conf configuration file of the server.
 .RE
 .IP "-s, --sid <cid>/<sid>"
 .RE
 .RS
-Rebuilds only the storage instance 
+Rebuilds only the logical storage instance 
 .I <sid>
 of cluster
 .I <cid>
 of the storage node.
-When no set the rebuild operates on every storage instance of the storage node.
+When not set the rebuild operates on every logical storage instance of the storage node.
+.RE
+.IP "--nominal"
+.RE
+.RS
+Rebuilds only nominal files and no spare file on a storage node or logical storage node.
+.RE
+.IP "--spare"
+.RE
+.RS
+Rebuilds only spare files and no nominal file on a storage node or logical storage node.
 .RE
 .IP "-d, --device <device>"
 .RE
 .RS
 Rebuilds only device number
 .I <device>
-of a storage instance. When this option is set option --sid must be set too. When -d is not set, the rebuild is done for every devices of the storage or the storage node.
+of a logical storage instance. When this option is set option --sid must be set too. When -d is not set, the rebuild is done for every devices of the storage or the storage node.
 .RE
 .IP "-f, --fid <FID>"
 .RE
@@ -79,7 +95,7 @@ Use
 .I <p//>
 processes in parallel for rebuilding. The greater is 
 .I <p//>
-the faster is the rebuild, but the more CPU and bandwith consuming it is. Use --help option to get the default as well as the maximum value.
+the faster is the rebuild, but the more CPU and network/disk bandwith consuming it is. Use --help option to get the default as well as the maximum value.
 .RE
 .IP "-l, --loop <loop>"
 .RE

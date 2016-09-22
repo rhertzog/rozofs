@@ -475,18 +475,26 @@ class mount_point_class:
     for h in hosts:
       for s in h.sid:
         if s.cid.volume.vid == self.eid.volume.vid:
-	  if h.site == self.site:
-	    if not h in list:
-	      list.append(h)
-	      string += " %s"%(h.number)
+	  if self.eid.volume.georep() == True:
+	    if h.site == self.site:
+	      if not h in list:
+		list.append(h)
+		string += " %s"%(h.number)
+	  else:
+              if not h in list:
+		list.append(h)
+		string += " %s"%(h.number)	    	
     print "hosts = %s"%(string)	        
     list=[]
     string=""
     for h in hosts:
       for s in h.sid:
         if s.cid.volume.vid == self.eid.volume.vid:
-	  if h.site == self.site:
-	    string += " %s-%s-%s"%(h.number,s.cid.cid,s.sid)
+	  if self.eid.volume.georep() == True:	
+	    if h.site == self.site:
+	      string += " %s-%s-%s"%(h.number,s.cid.cid,s.sid)
+	  else:
+	      string += " %s-%s-%s"%(h.number,s.cid.cid,s.sid)   
     print "sids = %s"%(string)	    
 
     string="ps -o pid=,cmd= -C rozofsmount"
@@ -531,6 +539,7 @@ class mount_point_class:
     options += " -o rozofsbufsize=256" 
     options += " -o rozofsrotate=3"
     options += " -o rozofsattrtimeout=1,rozofsentrytimeout=1"
+    options += " -o auto_unmount"
 #    options += "-o noReadFaultTolerant"
   
     options += " -o site=%s"%(self.site)
@@ -1186,7 +1195,6 @@ class rozofs_class:
     display_config_string("export_hosts",exportd.export_host)
     if self.deletion_delay != None :
       display_config_int("deletion_delay",self.deletion_delay)
-      
     if self.client_fast_reconnect == True: display_config_bool("client_fast_reconnect",True)
     os.system("mkdir -p /root/tmp/export; mkdir -p /root/tmp/storage;")
     
@@ -1542,7 +1550,31 @@ def syntax(string=None,topic=None) :
   except:
     pass
   sys.exit(-1)
-  
+
+#_____________________________________________  
+def clean_build() :
+  if os.path.exists("build") :    shutil.rmtree("build")
+  if os.path.exists("../build") : shutil.rmtree("../build")  
+
+
+#_____________________________________________  
+def clean() :
+  rozofs.stop() 
+  clean_build()   
+
+#_____________________________________________  
+def build() :
+  clean_build()   
+  os.mkdir("build") 
+  os.system("./setup.sh build")
+
+#_____________________________________________  
+def rebuild() :  
+  if os.path.exists("build") : 
+    os.system("cd build; make")
+  else:
+    build()
+
 #_____________________________________________  	 
 def test_parse(command, argv):	
   global rozofs
@@ -1576,9 +1608,9 @@ def test_parse(command, argv):
   elif command == "configure"          : rozofs.configure() 
   elif command == "pause"              : rozofs.pause()  
   elif command == "resume"             : rozofs.resume()  
-  elif command == "build"              : os.system("./setup.sh build")
-  elif command == "rebuild"            : os.system("./setup.sh rebuild")
-  elif command == "clean"              : os.system("./setup.sh clean")
+  elif command == "build"              : build()
+  elif command == "rebuild"            : rebuild()
+  elif command == "clean"              : clean()
   elif command == "monitor"            : rozofs.monitor()
 
   elif command == "spare"              : 

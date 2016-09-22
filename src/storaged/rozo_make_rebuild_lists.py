@@ -131,6 +131,8 @@ parser.add_option("-s","--simu", action="store",type="string", dest="simu", help
 parser.add_option("-u","--user", action="store",type="string", dest="user", help="User name to use for scp or ssh when different from root.")
 parser.add_option("-P","--port", action="store",type="string", dest="port", help="Port to use for scp or ssh.")
 parser.add_option("-o","--sshoption", action="store",type="string", dest="sshoption", help="Other ssh or scp option (such as -i <key path>)")
+parser.add_option("--spare", action="store_true",dest="spare", help="set to only get spare file list.")
+parser.add_option("--nominal", action="store_true", dest="nominal", help="set to only get nominal file list.")
 
 (options, args) = parser.parse_args()
 
@@ -170,6 +172,9 @@ if options.expDirectory == None: options.expDirectory = "/tmp"
 
 cmd="rozo_rbsList -p %d -r %d -E %s -i %s"%( parallel, rebuildRef, options.expDirectory, options.cidsid)	
 if options.simu != None: cmd=cmd+" -c %s"%(options.simu)
+if options.nominal == True: cmd=cmd+" --nominal"
+else:
+  if options.spare == True: cmd=cmd+" --spare"
 ssh_export(export,cmd)
 
 

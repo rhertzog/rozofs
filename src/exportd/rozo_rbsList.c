@@ -14,12 +14,16 @@
 #include <rozofs/rozofs.h>
 #include <rozofs/common/mattr.h>
 #include <libconfig.h>
+#include <stdarg.h>
+
 #include "export.h"
 #include "rozo_inode_lib.h"
 #include "exp_cache.h"
 #include "econfig.h"
 #include "rozofs/common/log.h"
 #include "rozofs/rozofs_srv.h"
+
+static rbs_file_type_e   file_type = rbs_file_type_all;
 
 int rozofs_no_site_file;
 
@@ -35,6 +39,8 @@ int    rebuildRef=0;
 typedef struct _sid_one_info_t {  
   // Count of FID that match
   uint64_t     count;
+  // total size of FID that match
+  uint64_t     size;
   // Next job file to write
   int          fd_idx;
   // One file descriptor opened per job file
@@ -185,9 +191,16 @@ int rozofs_visit(void *exportd,void *inode_attr_p,void *p) {
     }    
     
     if (i<rozofs_forward) {
+      if (file_type == rbs_file_type_spare) {
+        continue;
+      }	     
       pOne = &pSid->nominal;
+      
     }
     else {
+      if (file_type == rbs_file_type_nominal) {
+        continue;
+      }	     
       pOne = &pSid->spare;    
     }  
 					
@@ -202,6 +215,7 @@ int rozofs_visit(void *exportd,void *inode_attr_p,void *p) {
     if (idx>=parallel) idx = 0;
     pOne->fd_idx = idx;
     pOne->count++;
+    pOne->size += inode_p->s.attrs.size;
     total++;
   }  
   return 0;
@@ -311,32 +325,37 @@ int parse_cidsid_list(char *line,int rebuildRef, int parallel)
 	(*pCid)[sid] = pSid;
       }
 
-      sprintf(fName,"%scid%d_sid%d_%d",pDir,cid+1,sid+1,rbs_file_type_nominal);
-      if (mkdir(fName,766)<0) {
-        severe("mkdir(%s) %s\n",fName,strerror(errno));
-      }  
+      if (file_type != rbs_file_type_spare) {
+	sprintf(fName,"%scid%d_sid%d_%d",pDir,cid+1,sid+1,rbs_file_type_nominal);
+	if (mkdir(fName,766)<0) {
+          severe("mkdir(%s) %s\n",fName,strerror(errno));
+	}  
 
-      for (i=0; i< parallel; i++) {
-	sprintf(fName,"%scid%d_sid%d_%d/job%d",pDir,cid+1,sid+1,rbs_file_type_nominal,i);
-	pSid->nominal.fd[i] = open(fName, O_CREAT | O_TRUNC | O_APPEND | O_WRONLY,0755);
-	if (pSid->nominal.fd[i] == -1) {
-	  severe("open(%s) %s\n",fName,strerror(errno));
-	}
-	TRACE("%s opened\n",fName);
-      }  
-      sprintf(fName,"%scid%d_sid%d_%d",pDir,cid+1,sid+1,rbs_file_type_spare);
-      if (mkdir(fName,766)<0) {
-        severe("mkdir(%s) %s\n",fName,strerror(errno));
-      }  
+	for (i=0; i< parallel; i++) {
+	  sprintf(fName,"%scid%d_sid%d_%d/job%d",pDir,cid+1,sid+1,rbs_file_type_nominal,i);
+	  pSid->nominal.fd[i] = open(fName, O_CREAT | O_TRUNC | O_APPEND | O_WRONLY,0755);
+	  if (pSid->nominal.fd[i] == -1) {
+	    severe("open(%s) %s\n",fName,strerror(errno));
+	  }
+	  TRACE("%s opened\n",fName);
+	} 
+      }
 
-      for (i=0; i< parallel; i++) {
-	sprintf(fName,"%scid%d_sid%d_%d/job%d",pDir,cid+1,sid+1,rbs_file_type_spare,i);
-	pSid->spare.fd[i] = open(fName, O_CREAT | O_TRUNC | O_APPEND | O_WRONLY,0755);
-	if (pSid->spare.fd[i] == -1) {
-	  severe("open(%s) %s\n",fName,strerror(errno));
+      if (file_type != rbs_file_type_nominal) {      	 
+	sprintf(fName,"%scid%d_sid%d_%d",pDir,cid+1,sid+1,rbs_file_type_spare);
+	if (mkdir(fName,766)<0) {
+          severe("mkdir(%s) %s\n",fName,strerror(errno));
+	}  
+
+	for (i=0; i< parallel; i++) {
+	  sprintf(fName,"%scid%d_sid%d_%d/job%d",pDir,cid+1,sid+1,rbs_file_type_spare,i);
+	  pSid->spare.fd[i] = open(fName, O_CREAT | O_TRUNC | O_APPEND | O_WRONLY,0755);
+	  if (pSid->spare.fd[i] == -1) {
+	    severe("open(%s) %s\n",fName,strerror(errno));
+	  }
+	  TRACE("%s opened\n",fName);
 	}
-	TRACE("%s opened\n",fName);
-      }  	    
+      }	  	    
       break;		
     }
 
@@ -357,6 +376,8 @@ void close_all() {
   sid_info_t     * pSid;
   char             fname[ROZOFS_FILENAME_MAX];
   int              fd;
+  char             msg[512];
+  char           * pChar = msg;
     
   for (cid=0; cid<ROZOFS_CLUSTERS_MAX; cid++) {
   
@@ -369,68 +390,109 @@ void close_all() {
       if (pSid == NULL) continue;
 
       for (job=0; job<parallel; job++) {
-	if (pSid->nominal.fd[job]>0) {
-	  close(pSid->nominal.fd[job]);
-	  pSid->nominal.fd[job] = 0;
+        if (file_type != rbs_file_type_spare) {
+	  if (pSid->nominal.fd[job]>0) {
+	    close(pSid->nominal.fd[job]);
+	    pSid->nominal.fd[job] = 0;
+	  }
 	}
-	if (pSid->spare.fd[job]>0) {
-	  close(pSid->spare.fd[job]);
-	  pSid->spare.fd[job] = 0;
+        if (file_type != rbs_file_type_nominal) {      	 
+	  if (pSid->spare.fd[job]>0) {
+	    close(pSid->spare.fd[job]);
+	    pSid->spare.fd[job] = 0;
+	  }	
+	}  
+      }
+	
+      pChar += sprintf(pChar,"[%d-%d",cid+1,sid+1);
+
+      if (file_type != rbs_file_type_spare) {
+	sprintf(fname,"%s/cid%d_sid%d_%d/count",pDir,cid+1,sid+1,rbs_file_type_nominal);
+	fd = open(fname, O_WRONLY | O_APPEND | O_CREAT | O_TRUNC,0755);
+	if (fd<0) {
+          severe("open(%s) %s\n",fname,strerror(errno));
+	  continue;
 	}	
+	if (write(fd,&(pSid->nominal.count), sizeof(uint64_t)) != sizeof(uint64_t)) {
+          severe("write(%d,%s) %s\n",fd,fname,strerror(errno));	  
+	}
+	if (write(fd,&(pSid->nominal.size), sizeof(uint64_t)) != sizeof(uint64_t)) {
+          severe("write(%d,%s) %s\n",fd,fname,strerror(errno));	  
+	}	
+	close(fd);
+
+	pChar += sprintf(pChar,"/%llu nom %lluB",
+	      (unsigned long long)pSid->nominal.count,
+	      (unsigned long long)pSid->nominal.size);
       }
 
-      sprintf(fname,"%s/cid%d_sid%d_%d/count",pDir,cid+1,sid+1,rbs_file_type_nominal);
-      fd = open(fname, O_WRONLY | O_APPEND | O_CREAT | O_TRUNC,0755);
-      if (fd<0) {
-        severe("open(%s) %s\n",fname,strerror(errno));
-	continue;
-      }	
-      if (write(fd,&(pSid->nominal.count), sizeof(uint64_t)) != sizeof(uint64_t)) {
-        severe("write(%d,%s) %s\n",fd,fname,strerror(errno));	  
-      }
-      close(fd);
-      
-      info("cid/sid %d/%d : %llu nominal files",
-            cid+1,
-	    sid+1,
-	    (unsigned long long)pSid->nominal.count);
+      if (file_type != rbs_file_type_nominal) {    
+	sprintf(fname,"%s/cid%d_sid%d_%d/count",pDir,cid+1,sid+1,rbs_file_type_spare);
+	fd = open(fname, O_WRONLY | O_APPEND | O_CREAT | O_TRUNC,0755);
+	if (fd<0) {
+          severe("open(%s) %s\n",fname,strerror(errno));
+	  continue;
+	}	
+	if (write(fd,&(pSid->spare.count), sizeof(uint64_t)) != sizeof(uint64_t)) {
+          severe("write(%d,%s) %s\n",fd,fname,strerror(errno));	  
+	}
+	if (write(fd,&(pSid->spare.size), sizeof(uint64_t)) != sizeof(uint64_t)) {
+          severe("write(%d,%s) %s\n",fd,fname,strerror(errno));	  
+	}
+	close(fd);
 
-
-      sprintf(fname,"%s/cid%d_sid%d_%d/count",pDir,cid+1,sid+1,rbs_file_type_spare);
-      fd = open(fname, O_WRONLY | O_APPEND | O_CREAT | O_TRUNC,0755);
-      if (fd<0) {
-        severe("open(%s) %s\n",fname,strerror(errno));
-	continue;
-      }	
-      if (write(fd,&(pSid->spare.count), sizeof(uint64_t)) != sizeof(uint64_t)) {
-        severe("write(%d,%s) %s\n",fd,fname,strerror(errno));	  
+	pChar += sprintf(pChar,"/%llu sp %lluB",
+	      (unsigned long long)pSid->spare.count,
+	      (unsigned long long)pSid->spare.size);
       }
-      close(fd);
-      
-      info("cid/sid %d/%d : %llu spare files",
-            cid+1,
-	    sid+1,
-	    (unsigned long long)pSid->spare.count);	    
-    }
+      pChar += sprintf(pChar,"]");	      	   	
+    }   
   }
+  info("%s",msg);   
 }
-/*
- *_______________________________________________________________________
- */
-static void usage() {
-    printf("Usage: ./rzsave [OPTIONS]\n\n");
-    printf("\t-h,--help                    print this message.\n\n");
-    printf("\t-i,--input      <cid/sid>    mandatory list <cid>:<sid>,<sid>,<sid>.... \n");
-    printf("\t-p,--parallel   <parallel>   mandatory rebuild parallelism number.\n");
-    printf("\t-r,--rebuildRef <rebuildRef> mandatory rebuild reference\n");
-    printf("\t-E,--expDir     <cfgFile>    optionnal result directory.\n");
-    printf("\t-c,--config     <cfgFile>    optionnal configuration file name.\n");
-    printf("\t-d,--debug                   display debugging information.\n");
+/*-----------------------------------------------------------------------------
+**
+**  Display usage
+**
+**----------------------------------------------------------------------------
+*/
+char * utility_name=NULL;
+void usage(char * fmt, ...) {
+  va_list   args;
+  char      error_buffer[512];
+  
+  /*
+  ** Display optionnal error message if any
+  */
+  if (fmt) {
+    va_start(args,fmt);
+    vsprintf(error_buffer, fmt, args);
+    va_end(args);   
+    severe("%s",error_buffer);
+    printf("%s\n",error_buffer);
+  }
+  
+  printf("RozoFS rebuild list maker utility - %s\n", VERSION);
+  printf("Usage: %s [OPTIONS]\n\n",utility_name);
+  printf("\t-h,--help                    print this message.\n\n");
+  printf("\t-i,--input      <cid/sid>    mandatory list <cid>:<sid>,<sid>,<sid>.... \n");
+  printf("\t-p,--parallel   <parallel>   mandatory rebuild parallelism number.\n");
+  printf("\t-r,--rebuildRef <rebuildRef> mandatory rebuild reference\n");
+  printf("\t-E,--expDir     <cfgFile>    optionnal result directory.\n");
+  printf("\t-c,--config     <cfgFile>    optionnal configuration file name.\n");
+  printf("\t-s,--spare                   only list spare files.\n");
+  printf("\t-n,--nominal                 only list nominal files.\n");
+  printf("\t-d,--debug                   display debugging information.\n");
+
+  if (fmt) exit(EXIT_FAILURE);
+  exit(EXIT_SUCCESS); 
 };
-
-
-
-
+/*-----------------------------------------------------------------------------
+**
+**  M A I N
+**
+**----------------------------------------------------------------------------
+*/
 int main(int argc, char *argv[]) {
   int c;
   void *rozofs_export_p;
@@ -445,16 +507,23 @@ int main(int argc, char *argv[]) {
       {"rebuildRef", required_argument, 0, 'r'},
       {"expDir", required_argument, 0, 'E'},      
       {"config", required_argument, 0, 'c'},
+      {"spare", no_argument, 0, 's'},
+      {"nominal", no_argument, 0, 'n'},
       {"debug", no_argument, 0, 'd'},
       {0, 0, 0, 0}
   };
 
   openlog("rozo_rbsList", LOG_PID, LOG_DAEMON);
 
+  /*
+  ** Get utility name
+  */
+  utility_name = basename(argv[0]);   
+
   while (1) {
 
       int option_index = 0;
-      c = getopt_long(argc, argv, "hdv:i:p:r:c:E:", long_options, &option_index);
+      c = getopt_long(argc, argv, "hdv:i:p:r:c:E:sn", long_options, &option_index);
 
       if (c == -1)
           break;
@@ -462,8 +531,7 @@ int main(int argc, char *argv[]) {
       switch (c) {
 
         case 'h':
-          usage();
-          exit(EXIT_SUCCESS);
+          usage(NULL);
           break;
 		  
         case 'c':
@@ -476,10 +544,8 @@ int main(int argc, char *argv[]) {
 		  		  
         case 'p':
           if (sscanf(optarg,"%d",&parallel)!= 1) {
-		    severe("Bad -p value %s\n",optarg);	  
-            usage();
-            exit(EXIT_FAILURE);			  
-		  }
+            usage("Bad -p value %s\n",optarg);
+          }
           break;
 		  		  
         case 'd':
@@ -488,68 +554,66 @@ int main(int argc, char *argv[]) {
 
         case 'r':
           if (sscanf(optarg,"%d",&rebuildRef)!= 1) {
-		    severe("Bad -r value %s\n",optarg);	  		  
-            usage();
-            exit(EXIT_FAILURE);			  
-		  }
+            usage("Bad -r value %s\n",optarg);
+          }
           break;
 		  			  			  
         case 'i':
-	      if (cidsid_p!= NULL) {
-	        severe("cid/sid list already defined : %s\n",cidsid_p);
-        	usage();
-        	exit(EXIT_FAILURE);	        
-
-	      }
+	  if (cidsid_p!= NULL) {
+            usage("cid/sid list already defined : %s\n",cidsid_p);
+	  }
           cidsid_p = optarg;
+          break;
+	  
+        case 's':
+	  if (file_type == rbs_file_type_nominal) {
+            usage("-s or -n are incompatible");
+	  }
+          file_type = rbs_file_type_spare;
+          break;
+	  
+        case 'n':
+	  if (file_type == rbs_file_type_spare) {
+            usage("-s or -n are incompatible");
+	  }
+          file_type = rbs_file_type_nominal;
           break;
 
         case '?':
-          usage();
+          usage(NULL);
           exit(EXIT_SUCCESS);
           break;
 		  
         default:
-          usage();
-          exit(EXIT_FAILURE);
-          break;
+          usage("Unexpected parameter \'%c\'",c);
       }
   }
 
   if (cidsid_p == NULL) 
   {
-       severe("cid/sid list missing!!\n");
-       usage();
-       exit(EXIT_FAILURE);  
+       usage("cid/sid list missing!!");
   }  
   if (rebuildRef == 0)
   {
-       severe("rebuildRef missing!!\n");
-       usage();
-       exit(EXIT_FAILURE);  
+       usage("rebuildRef missing!!");
   } 
   if (parallel == 0)
   {
-       severe("parallel missing!!\n");
-       usage();
-       exit(EXIT_FAILURE);  
+       usage("parallel missing!!");
   }        
   /*
   ** Read configuration file
   */
   if (econfig_initialize(&exportd_config) != 0) {
-       severe("can't initialize exportd config %s.\n",strerror(errno));
-       exit(EXIT_FAILURE);  
+       usage("can't initialize exportd config %s.\n",strerror(errno));
   }    
   if (econfig_read(&exportd_config, configFileName) != 0) {
-        severe("failed to parse configuration file %s %s.\n",
+        usage("failed to parse configuration file %s %s.\n",
             configFileName,strerror(errno));
-       exit(EXIT_FAILURE);  
   }   
   if (econfig_validate(&exportd_config) != 0) {
-       severe("inconsistent configuration file %s %s.\n",
-            configFileName, strerror(errno));
-       exit(EXIT_FAILURE);  
+       usage("inconsistent configuration file %s %s.\n",
+            configFileName, strerror(errno)); 
   } 
   rozofs_layout_initialize();
   
@@ -566,8 +630,7 @@ int main(int argc, char *argv[]) {
   }
   clean_dir(pDir);
   if (mkdir(pDir,766)<0) {
-    severe("mkdir(%s) %s\n",pDir,strerror(errno));
-    exit(EXIT_FAILURE); 	
+    usage("mkdir(%s) %s\n",pDir,strerror(errno));
   }  
   
   /*
@@ -575,9 +638,7 @@ int main(int argc, char *argv[]) {
   */
   ret = parse_cidsid_list(cidsid_p, rebuildRef, parallel);
   if (ret < 0) {
-     severe("erreur while parsing cid/sid list\n");
-     usage();
-     exit(EXIT_FAILURE);       
+     usage("erreur while parsing cid/sid list\n");
   }
   /*
   ** Loop on export

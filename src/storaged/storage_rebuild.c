@@ -195,7 +195,8 @@ typedef struct _rbs_parameter_t {
   char   * simu;
   int      bstart; // 1rst block to rebuild when FID is given
   int      bstop;  // Last block to rebuild when FID is given
-  int      chunk;  // Chunk to rebuild when FID is given  
+  int      chunk;  // Chunk to rebuild when FID is given 
+  rbs_file_type_e filetype; // spare/nominal/all 
 } rbs_parameter_t;
 
 rbs_parameter_t parameter;
@@ -436,6 +437,7 @@ void rbs_conf_init(rbs_parameter_t * par) {
   par->bstart               = 0;
   par->bstop                = -1;
   par->chunk                = -1;
+  par->filetype             = rbs_file_type_all;
   
   
   par->storaged_geosite = rozofs_get_local_site();
@@ -465,12 +467,14 @@ void usage_display() {
     printf("   -p, --parallel=<val>      \tNumber of rebuild processes in parallel per cid/sid\n");
     printf("                             \t(default is %d, maximum is %d)\n",
            common_config.device_self_healing_process,MAXIMUM_PARALLEL_REBUILD_PER_SID);   
+    printf("       --spare               \tTo rebuild only spare files on node or sid rebuild.\n");
+    printf("       --nominal             \tTo rebuild only nominal files on node or sid rebuild.\n");
     printf("   -g, --geosite             \tTo force site number in case of geo-replication\n");
     printf("   -R, --relocate            \tTo rebuild a device by relocating files\n");
     printf("   -l, --loop                \tNumber of reloop in case of error (default %d)\n",DEFAULT_REBUILD_RELOOP);
     printf("   -q, --quiet               \tDo not display messages\n");
     printf("   -C, --clear               \tClear the status of the device after it has been set OOS\n");
-    printf("   -K, --clearOnly           \tJustt clear the status of the device, but do not rebuild it\n");
+    printf("   -K, --clearOnly           \tJust clear the status of the device, but do not rebuild it\n");
     printf("   -o, --output=<file>       \tTo give the name of the rebuild status file (under %s/storage_rebuild)\n",DAEMON_PID_DIRECTORY);
     printf("   -id <id>                  \tIdentifier of a non completed rebuild.\n");
     printf("   -abort                    \tAbort a rebuild\n");
@@ -599,6 +603,24 @@ void parse_command(int argc, char *argv[], rbs_parameter_t * par) {
       continue;
     }  
 
+    if (IS_ARG(--spare)) {
+      if (par->filetype == rbs_file_type_nominal) {
+	REBUILD_FAILED("--spare and --nominal options are incompatible.\n");
+        exit(EXIT_FAILURE);
+      }
+      par->filetype = rbs_file_type_spare;     
+      continue;
+    }  
+
+    if (IS_ARG(--nominal)) {
+      if (par->filetype == rbs_file_type_spare) {
+	REBUILD_FAILED("--spare and --nominal options are incompatible.\n");
+        exit(EXIT_FAILURE);
+      }
+      par->filetype = rbs_file_type_nominal;     
+      continue;
+    }  
+        
     if (IS_ARG(-K) || IS_ARG(--clearOnly)) {
       par->clear = 2;     
       continue;
@@ -1572,6 +1594,7 @@ int rbs_build_job_list_from_export() {
     
   // Initialize the list of cluster(s)
   list_init(&cluster_entries);
+
   
   for (idx=0; idx<nb_rbs_entry; idx++) {
 
@@ -1610,31 +1633,43 @@ int rbs_build_job_list_from_export() {
     rbs_stor_configs[idx].status = RBS_STATUS_PROCESSING_LIST;
     rbs_write_storage_config_file(parameter.rebuildRef, &storage_config);
 	
-    if (storage_config.ftype == rbs_file_type_nominal) {	
-      if (first) {	
-	    pChar += sprintf(pChar,"rozo_make_rebuild_lists.py -d -e %s -p %d -r %d -E %s -S %s -u %s ",
-                	     pExport_host, 
-			     (int) parameter.parallel, 
-			     (int) parameter.rebuildRef,
-			     common_config.export_temporary_dir,
-			     common_config.storage_temporary_dir,
-			     common_config.ssh_user);
-	    if (common_config.ssh_port) {
-	      pChar += sprintf(pChar,"-P %d ",common_config.ssh_port);
-	    }		   
-	    if (strcmp(common_config.ssh_param,"")!=0) {
-	      pChar += sprintf(pChar,"-o \"%s\" ",common_config.ssh_param);
-	    }		   
-
-	    pChar += sprintf(pChar,"-c %d:%d", 
-                             (int) rbs_stor_configs[idx].cid, 
-			     (int) rbs_stor_configs[idx].sid);
-	    first = 0;
-      }			
-      else {
-  	    pChar += sprintf(pChar, ",%d:%d",rbs_stor_configs[idx].cid, rbs_stor_configs[idx].sid);
+    if (first) {	
+      pChar += sprintf(pChar,"rozo_make_rebuild_lists.py -d -e %s -p %d -r %d -E %s -S %s -u %s ",
+                       pExport_host, 
+		       (int) parameter.parallel, 
+		       (int) parameter.rebuildRef,
+		       common_config.export_temporary_dir,
+		       common_config.storage_temporary_dir,
+		       common_config.ssh_user);
+      if (common_config.ssh_port) {
+	pChar += sprintf(pChar,"-P %d ",common_config.ssh_port);
+      }		   
+      if (strcmp(common_config.ssh_param,"")!=0) {
+	pChar += sprintf(pChar,"-o \"%s\" ",common_config.ssh_param);
+      }	
+      
+      if (parameter.filetype == rbs_file_type_spare) {
+        pChar += sprintf(pChar,"--spare ");
       }
-    }	
+      if (parameter.filetype == rbs_file_type_nominal) {
+        pChar += sprintf(pChar,"--nominal ");
+      }      
+
+      pChar += sprintf(pChar,"-c %d:%d", 
+                       (int) rbs_stor_configs[idx].cid, 
+		       (int) rbs_stor_configs[idx].sid);
+      first = 0;
+    }			
+    else {
+      if (parameter.filetype != rbs_file_type_all) {
+        pChar += sprintf(pChar, ",%d:%d",rbs_stor_configs[idx].cid, rbs_stor_configs[idx].sid);
+      }
+      else if (storage_config.ftype == rbs_file_type_nominal){
+        pChar += sprintf(pChar, ",%d:%d",rbs_stor_configs[idx].cid, rbs_stor_configs[idx].sid);        
+      }	
+    }
+
+
     // Free cluster(s) list
     rbs_release_cluster_list(&cluster_entries);
 
@@ -3080,7 +3115,10 @@ static int prepare_list_of_storage_to_rebuild() {
     ** Only recored nominal file type. Spare file type will be added after
     ** since nominal files have to be rebuilt before spare ones.
     */
-    ftype = rbs_file_type_nominal; 
+    if (parameter.filetype == rbs_file_type_spare)
+      ftype = rbs_file_type_spare;
+    else  
+      ftype = rbs_file_type_nominal;
     strncpy(rbs_stor_configs[nb_rbs_entry].export_hostname, parameter.rbs_export_hostname,
     ROZOFS_HOSTNAME_MAX);
     rbs_stor_configs[nb_rbs_entry].cid = sc->cid;
@@ -3127,29 +3165,31 @@ static int prepare_list_of_storage_to_rebuild() {
   ** Since only nominal file type have been registered.
   ** (Nominal projections have to be rebuild prior to spare projections)
   */
-  nb = nb_rbs_entry;
-  for (idx=0; idx<nb; idx++) {
+  if (parameter.filetype == rbs_file_type_all) {
+    nb = nb_rbs_entry;
+    for (idx=0; idx<nb; idx++) {
 
-    // Copy the configuration for the storage to rebuild
-    ftype = rbs_file_type_spare; 
-    memcpy(&rbs_stor_configs[nb+idx],&rbs_stor_configs[idx], sizeof(rbs_stor_configs[0]));
-    rbs_stor_configs[nb+idx].ftype     = ftype;
+      // Copy the configuration for the storage to rebuild
+      ftype = rbs_file_type_spare; 
+      memcpy(&rbs_stor_configs[nb+idx],&rbs_stor_configs[idx], sizeof(rbs_stor_configs[0]));
+      rbs_stor_configs[nb+idx].ftype     = ftype;
 
-    memcpy(&rbs_monitor[nb+idx], &rbs_monitor[idx], sizeof(rbs_monitor[0]));
-    rbs_monitor[nb+idx].ftype  = ftype;
-    nb_rbs_entry++;
+      memcpy(&rbs_monitor[nb+idx], &rbs_monitor[idx], sizeof(rbs_monitor[0]));
+      rbs_monitor[nb+idx].ftype  = ftype;
+      nb_rbs_entry++;
 
-    // Create a temporary directory to receive the list files 
-    dir = get_rebuild_sid_directory_name(parameter.rebuildRef,
-	                                        rbs_stor_configs[idx].cid,
-						rbs_stor_configs[idx].sid,
-						ftype);
+      // Create a temporary directory to receive the list files 
+      dir = get_rebuild_sid_directory_name(parameter.rebuildRef,
+	                                          rbs_stor_configs[idx].cid,
+						  rbs_stor_configs[idx].sid,
+						  ftype);
 
-    ret = mkdir(dir,ROZOFS_ST_BINS_FILE_MODE);
-    if ((ret != 0)&&(errno!=EEXIST)) {
-      severe("mkdir(%s) %s", dir, strerror(errno));
-      return -1;
-    }        
+      ret = mkdir(dir,ROZOFS_ST_BINS_FILE_MODE);
+      if ((ret != 0)&&(errno!=EEXIST)) {
+	severe("mkdir(%s) %s", dir, strerror(errno));
+	return -1;
+      }
+    }         
   }
   /*
   ** Ask the export for the list of jobs

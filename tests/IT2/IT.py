@@ -1014,7 +1014,7 @@ def gruyere():
     return gruyere_reread()
   return 0
 #___________________________________________________
-def rebuild_one_dev() :
+def rebuild_1dev() :
 # test rebuilding device per device
 #___________________________________________________
   global sids
@@ -1053,7 +1053,7 @@ def rebuild_one_dev() :
     return ret
   return 0
 #___________________________________________________
-def relocate_one_dev() :
+def relocate_1dev() :
 # test rebuilding device per device
 #___________________________________________________
 
@@ -1215,7 +1215,7 @@ def rebuild_all_dev() :
   return 0  
 
 #___________________________________________________
-def rebuild_one_node() :
+def rebuild_1node() :
 # test re-building a whole storage
 #___________________________________________________
   global hosts
@@ -1251,7 +1251,50 @@ def rebuild_one_node() :
   if rebuildCheck == True:      
     ret = gruyere_reread()          
     return ret
-  return 0  
+  return 0 
+#___________________________________________________
+def rebuild_1node_parts() :
+# test re-building a whole storage
+#___________________________________________________
+  global hosts
+  global sids
+    
+  ret=1 
+  # Loop on every host
+  for hid in hosts:
+ 
+    # Delete every device of every CID/SID on this host
+    for s in sids:
+
+      zehid=s.split('-')[0]
+      if int(zehid) != int(hid): continue
+      
+      cid=s.split('-')[1]
+      sid=s.split('-')[2]
+      
+      os.system("./setup.py sid %s %s device-clear all 1> /dev/null"%(cid,sid))
+
+    clean_rebuild_dir()
+    
+    string="./setup.py storage %s rebuild -fg -o node_nominal_%s --nominal"%(hid,hid)
+    ret = cmd_returncode(string)
+    if ret != 0:
+      return ret
+    
+    string="./setup.py storage %s rebuild -fg -o node_spare_%s --spare"%(hid,hid)
+    ret = cmd_returncode(string)
+    if ret != 0:
+      return ret
+
+    if rebuildCheck == True:	
+      ret = gruyere_one_reread()  
+      if ret != 0:
+	return ret    
+
+  if rebuildCheck == True:      
+    ret = gruyere_reread()          
+    return ret
+  return 0    
 #___________________________________________________
 def delete_rebuild() :
 # test re-building a whole storage
@@ -1665,7 +1708,7 @@ TST_RW=['read_parallel','write_parallel','rw2','wr_rd_total','wr_rd_partial','wr
 TST_BASIC=['readdir','xattr','link','symlink', 'rename','chmod','truncate','lock_posix_passing','lock_posix_blocking','lock_race','crc32','rsync','compil']
 TST_BASIC_NFS=['readdir','link', 'rename','chmod','truncate','lock_posix_passing','lock_posix_blocking','lock_race','crc32','rsync','compil']
 # Rebuild test list
-TST_REBUILD=['gruyere','rebuild_fid','rebuild_one_dev','relocate_one_dev','rebuild_all_dev','rebuild_one_node','gruyere_reread']
+TST_REBUILD=['gruyere','rebuild_fid','rebuild_1dev','relocate_1dev','rebuild_all_dev','rebuild_1node','gruyere_reread','gruyere','rebuild_1node_parts','gruyere_reread']
 
 ifnumber=get_if_nb()
 
