@@ -36,6 +36,9 @@
 #include "rbs.h"
 #include "rbs_sclient.h"
 
+uint64_t totalReadSize = 0;
+
+
 /** Get one storage connection for a given SID and given random value
  *
  * @param *storages: list of storages
@@ -254,6 +257,7 @@ int rbs_read_proj(sclient_t *storage, cid_t cid, sid_t sid, uint8_t stor_idx,
     
     *size_read += (proj_ctx_p->nbBlocks * rozofs_max_psize_in_msg);
 
+    totalReadSize += (proj_ctx_p->nbBlocks * rozofs_max_psize_in_msg);
     status = 0;
 out:
     return status;
@@ -445,6 +449,8 @@ int rbs_read_all_available_proj(sclient_t **storages, int spare_idx, uint8_t lay
         }
 	
 	success++;
+	
+	
 
         // If it's the first request received
         if (nb_diff_nb_blocks_recv == 0) {

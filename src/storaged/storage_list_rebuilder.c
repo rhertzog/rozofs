@@ -62,10 +62,21 @@
 #include "rbs_eclient.h"
 #include "rbs_sclient.h"
 
-int cid = -1;
-int sid = -1;
-int rebuildRef = -1;
-int instance = -1;
+/*
+** Some input parameters
+*/
+static int cid        = -1;     /* Cluster id to rebuild */
+static int sid        = -1;     /* Sid to rebuild within the cluster id */
+static int rebuildRef = -1;     /* Rebuild process reference */
+static int instance   = -1;     /* List rebuilder instance within the rebuild process */
+static int throughput = 0;      /* Rebuild throughput limitation in MB/s */
+
+/*
+** For enforcing throughput limitation
+*/
+extern uint64_t totalReadSize;
+static uint64_t startTime     = 0;
+
 
 char        rebuild_directory_path[FILENAME_MAX]; 
 char        fid_list[FILENAME_MAX]; 
@@ -98,7 +109,11 @@ rbs_file_type_e ftype = rbs_file_type_all;
 storage_t storaged_storages[0];
 uint16_t  storaged_nrstorages=0;
   
-/*__________________________________________________________________________
+/*-----------------------------------------------------------------------------
+**
+**  SIGUSR1 receiving handler
+**
+**----------------------------------------------------------------------------
 */
 void rbs_cath_sigusr(int sig){
   sigusr_received = 1;
@@ -154,7 +169,78 @@ typedef enum _rbs_exe_code_e {
   RBS_EXE_ENOENT,
   RBS_EXE_BROKEN
 } RBS_EXE_CODE_E;
+/*
+**____________________________________________________
+**
+** Get time in micro seconds
+**
+** @param from  when set compute the delta in micro seconds from this time to now
+**              when zero just return current time in usec
+**----------------------------------------------------------------------------
+*/
+static inline uint64_t get_us(uint64_t from) {
+  struct timeval     timeDay;
+  uint64_t           us;
+  
+  /*
+  ** Get current time in us
+  */
+  gettimeofday(&timeDay,(struct timezone *)0); 
+  us = ((unsigned long long)timeDay.tv_sec * 1000000 + timeDay.tv_usec);
 
+  /*
+  ** When from is given compute the delta
+  */
+  if (from) {
+    us -= from;
+  }  
+  
+  return us;	
+}
+/*-----------------------------------------------------------------------------
+**
+** Enforce the requested throughput
+**
+**----------------------------------------------------------------------------
+*/
+static inline void enforce_throughput() {
+  uint64_t   delay;
+  uint64_t   enforcement_delay;
+  
+  /*
+  ** No throughput limitation
+  */
+  if (throughput == 0) return;
+
+  /*
+  ** Nothing yet read
+  */
+  if (totalReadSize == 0) return;
+  
+  /*
+  ** Compute delay from the start time
+  */
+  delay = get_us(startTime);
+  
+  /*
+  ** Compute the time credit for the size read 
+  */
+  enforcement_delay = totalReadSize / throughput;
+  
+  /*
+  ** Check we are not ready too fast.
+  ** If we are less than 10ms too fast just go ahead...
+  */
+  if (enforcement_delay >= (delay + 10000L)) {
+    usleep(enforcement_delay-delay);
+  }
+}
+/*-----------------------------------------------------------------------------
+**
+** Spare ile rebuilding
+**
+**----------------------------------------------------------------------------
+*/
 RBS_EXE_CODE_E rbs_restore_one_spare_entry(rbs_storage_config_t * st, 
                                            uint8_t           layout,
                                 	   int               local_idx, 
@@ -253,6 +339,11 @@ RBS_EXE_CODE_E rbs_restore_one_spare_entry(rbs_storage_config_t * st,
 	  if ((block_end-*block_start+1) < requested_blocks){
 	    requested_blocks = (block_end-*block_start+1);
 	  }
+
+          /*
+	  ** Enforce throughput limitation
+	  */
+          enforce_throughput();
 
           // Read every available bins
 	  ret = rbs_read_all_available_proj(re->storages, spare_idx, layout, bsize, st->cid,
@@ -495,7 +586,12 @@ out:
 
     return status;
 }
-
+/*-----------------------------------------------------------------------------
+**
+** Nominal file rebuilding
+**
+**----------------------------------------------------------------------------
+*/
 #define RESTORE_ONE_RB_ENTRY_FREE_ALL \
 	for (i = 0; i < rozofs_safe; i++) {\
             if (working_ctx.prj_ctx[i].bins) {\
@@ -569,6 +665,11 @@ RBS_EXE_CODE_E rbs_restore_one_rb_entry(rbs_storage_config_t * st,
 	if ((block_end!=0xFFFFFFFF) && ((block_end-*block_start+1) < requested_blocks)) {
 	  requested_blocks = (block_end-*block_start+1);
 	}
+
+        /*
+	** Enforce throughput limitation
+	*/
+        enforce_throughput();
 
         // Try to read blocks on others storages
         ret = rbs_read_blocks(re->storages, local_idx, layout, bsize, st->cid,
@@ -670,6 +771,12 @@ out:
     RESTORE_ONE_RB_ENTRY_FREE_ALL;   
     return status;
 }
+/*-----------------------------------------------------------------------------
+**
+** Compact the job list when not completed
+**
+**----------------------------------------------------------------------------
+*/
 void storaged_rebuild_compact_list(char * fid_list, int fd) {
   uint64_t   write_offset;
   uint64_t   read_offset;
@@ -704,9 +811,16 @@ void storaged_rebuild_compact_list(char * fid_list, int fd) {
     severe("ftruncate(%s,%llu) %s",fid_list,(long long unsigned int)write_offset,strerror(errno));
   }    
 }
-/*
+/*-----------------------------------------------------------------------------
+**
 ** Check the existence of a FID from the export
-** Just in case it is being deleted
+** Just in case it has been deleted
+**
+** @param fid     The fid to check
+**
+** @retval 1 when the file has been deleted / 0 when the file  still exist
+**
+**----------------------------------------------------------------------------
 */
 int check_fid_deleted_from_export(fid_t fid) {
   uint32_t   bsize;
@@ -723,7 +837,16 @@ int check_fid_deleted_from_export(fid_t fid) {
   }  
   return 0;
 }
-/*
+/*-----------------------------------------------------------------------------
+**
+** Rebuild a list of FID 
+**
+** @param   fid_list        File containing the list of FID to rebuild
+** @param   statFilename    File containing statistics related to this rebuild list
+**
+** @retval 0 when rebuild is successfull / 1 when rebuild is not completed
+**
+**----------------------------------------------------------------------------
 */
 int storaged_rebuild_list(char * fid_list, char * statFilename) {
   int        fdlist = -1;
@@ -1043,17 +1166,39 @@ error:
   }	
   return 1;
 }
-
+/*-----------------------------------------------------------------------------
+**
+**  Stop handler
+**
+**----------------------------------------------------------------------------
+*/
 static void on_stop() {
     DEBUG_FUNCTION;   
 
     rozofs_layout_release();
     closelog();
 }
-
+/*-----------------------------------------------------------------------------
+**
+**  Display usage
+**
+**----------------------------------------------------------------------------
+*/
 char * utility_name=NULL;
+void usage(char * fmt, ...) {
+    va_list   args;
+    char      error_buffer[512];
 
-void usage() {
+    /*
+    ** Display optionnal error message if any
+    */
+    if (fmt) {
+      va_start(args,fmt);
+      vsprintf(error_buffer, fmt, args);
+      va_end(args);   
+      severe("%s",error_buffer);
+      printf("%s\n",error_buffer);
+    }
 
     printf("RozoFS storage rebuilder - %s\n", VERSION);
     printf("Usage: %s [OPTIONS]\n\n",utility_name);
@@ -1064,8 +1209,17 @@ void usage() {
     printf("   -r, --ref\trebuild refence.\n");
     printf("   -i, --instance\trebuild instance number.\n");    
     printf("   -q, --quiet \tDo not print.\n");    
-}
+    printf("   -t, --throughput\tThroughput limitation in MB/s.\n");    
 
+    if (fmt) exit(EXIT_FAILURE);
+    exit(EXIT_SUCCESS); 
+}
+/*-----------------------------------------------------------------------------
+**
+**  M A I N
+**
+**----------------------------------------------------------------------------
+*/
 int main(int argc, char *argv[]) {
     int    c;
     char * dir;  
@@ -1084,6 +1238,7 @@ int main(int argc, char *argv[]) {
         { "ref", required_argument, 0, 'r'},	
         { "quiet", no_argument, 0, 'q'},
         { "instance", required_argument, 0, 'i'},	
+        { "throughput", required_argument, 0, 't'},	
         { 0, 0, 0, 0}
     };
 
@@ -1095,75 +1250,74 @@ int main(int argc, char *argv[]) {
    
     while (1) {
 
-        int option_index = 0;
-        c = getopt_long(argc, argv, "hH:c:s:r:i:q:f:", long_options, &option_index);
+      int option_index = 0;
+      c = getopt_long(argc, argv, "hH:c:s:r:i:q:f:t:", long_options, &option_index);
 
-        if (c == -1)
-            break;
+      if (c == -1)
+          break;
 
-        switch (c) {
+      switch (c) {
 
-            case 'h':
-                usage();
-                exit(EXIT_SUCCESS);
-                break;
+        case 'h':
+          usage(NULL);
+          break;
 
-            case 'c':
-			  if (sscanf(optarg,"%d",&cid)!=1) {
-			    usage();
-                exit(EXIT_FAILURE);
-			  }
-			  break;
+        case 'c':
+	  if (sscanf(optarg,"%d",&cid)!=1) {
+	    usage("Bad cluster id \"%s\"",optarg);
+          }
+	  break;
 
-            case 's':
-			  if (sscanf(optarg,"%d",&sid)!=1) {
-			    usage();
-                exit(EXIT_FAILURE);
-			  }
-			  break;
-			  			  
-            case 'r':
-			  if (sscanf(optarg,"%d",&rebuildRef)!=1) {
-			    usage();
-                exit(EXIT_FAILURE);
-			  }
-			  break;
-            case 'f':
-	      if (strcmp(optarg,"nominal")==0) {
-		ftype = rbs_file_type_nominal;
-	      }
-	      else if (strcmp(optarg,"spare")==0) {
-		ftype = rbs_file_type_spare;
-	      }
-	      else if (strcmp(optarg,"all")==0) {
-		ftype = rbs_file_type_all;
-	      }
-	      else {
-		usage();
-                exit(EXIT_FAILURE);
-	      }
-	      break;			  			  
-			  			  
-            case 'i':
-			  if (sscanf(optarg,"%d",&instance)!=1) {
-			    usage();
-                exit(EXIT_FAILURE);
-			  }
-			  break;			  
+        case 's':
+	  if (sscanf(optarg,"%d",&sid)!=1) {
+	    usage("Bad storage id \"%s\"",optarg);
+          }
+	  break;
 
-	        case 'q':
-	          quiet = 1;
-		      break;
-		
-            case '?':
-                usage();
-                exit(EXIT_SUCCESS);
-                break;
-            default:
-                usage();
-                exit(EXIT_FAILURE);
-                break;
-        }
+        case 'r':
+	  if (sscanf(optarg,"%d",&rebuildRef)!=1) {
+	    usage("Bad rebuild reference \"%s\"",optarg);
+          }
+	  break;
+
+        case 'f':
+	  if (strcmp(optarg,"nominal")==0) {
+	    ftype = rbs_file_type_nominal;
+	  }
+	  else if (strcmp(optarg,"spare")==0) {
+	    ftype = rbs_file_type_spare;
+	  }
+	  else if (strcmp(optarg,"all")==0) {
+	    ftype = rbs_file_type_all;
+	  }
+	  else {
+	    usage("Bad file type \"%s\"",optarg);
+	  }
+	  break;			  			  
+
+        case 'i':
+	  if (sscanf(optarg,"%d",&instance)!=1) {
+	    usage("Bad instance number \"%s\"",optarg);
+	  }
+	  break;
+	
+	case 't':  				  
+	  if (sscanf(optarg,"%d",&throughput)!=1) {
+	    usage("Bad throughput value \"%s\"",optarg);
+	  }
+	  break;
+	  
+	case 'q':
+	  quiet = 1;
+	  break;
+
+        case '?':
+          usage(NULL);
+          break;
+        default:
+          usage("Unexpected parameter \"%c\"",c);
+          break;
+      }
     }
     uma_dbg_record_syslog_name("RBS_LIST");
     
@@ -1172,20 +1326,16 @@ int main(int argc, char *argv[]) {
     ** Check parameter consistency
     */
     if (cid == -1){
-        fprintf(stderr, "storage_rebuilder failed. Missing --cid option.\n");
-        exit(EXIT_FAILURE);
+        usage("storage_rebuilder failed. Missing --cid option");
     }  
     if (sid == -1){
-        fprintf(stderr, "storage_rebuilder failed. Missing --sid option.\n");
-        exit(EXIT_FAILURE);
+        usage("storage_rebuilder failed. Missing --sid option");
     }  
     if (rebuildRef == -1){
-        fprintf(stderr, "storage_rebuilder failed. Missing --rebuildRef option.\n");
-        exit(EXIT_FAILURE);
+        usage("storage_rebuilder failed. Missing --rebuildRef option");
     }  
     if (instance == -1){
-        fprintf(stderr, "storage_rebuilder failed. Missing --instance option.\n");
-        exit(EXIT_FAILURE);
+        usage("storage_rebuilder failed. Missing --instance option");
     }              
     /*
     ** read common config file
@@ -1197,9 +1347,7 @@ int main(int argc, char *argv[]) {
     */
     dir = get_rebuild_sid_directory_name(rebuildRef,cid,sid,ftype);
     if (rbs_read_storage_config_file(dir, &storage_config) == NULL) {
-      severe("No storage conf file in %s",dir);
-      fprintf(stderr, "No storage conf file in %s",dir);
-      exit(EXIT_FAILURE);	    
+      usage("No storage conf file in %s",dir);
     }		
 	
     sprintf(fid_list, "%s/job%d",dir,instance);
@@ -1210,7 +1358,13 @@ int main(int argc, char *argv[]) {
     */
     signal(SIGUSR1, rbs_cath_sigusr);  
 
-	
+
+    /*
+    ** Gt start time to insure throughput the throughput limitation
+    */ 
+    totalReadSize = 0;
+    startTime     = get_us(0); 
+  	
     // Start rebuild storage   
     if (storaged_rebuild_list(fid_list,statFilename) != 0) goto error;    
     on_stop();

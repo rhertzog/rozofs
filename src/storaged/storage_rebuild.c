@@ -42,6 +42,8 @@
 #include <dirent.h> 
 #include <sys/wait.h>
 #include <signal.h>
+#include <stdarg.h>
+
 #include <rozofs/rozofs_srv.h>
 #include <rozofs/common/log.h>
 #include <rozofs/common/xmalloc.h>
@@ -158,8 +160,6 @@ int quiet=0;
 int sigusr_received=0;
 
 
-#define usage(fmt, ...) {printf(fmt, ##__VA_ARGS__);usage_display();}
-
 /*________________________________________________
 *
 * Parameter structure
@@ -197,6 +197,7 @@ typedef struct _rbs_parameter_t {
   int      bstop;  // Last block to rebuild when FID is given
   int      chunk;  // Chunk to rebuild when FID is given 
   rbs_file_type_e filetype; // spare/nominal/all 
+  int      throughput; // spare/nominal/all 
 } rbs_parameter_t;
 
 rbs_parameter_t parameter;
@@ -438,6 +439,7 @@ void rbs_conf_init(rbs_parameter_t * par) {
   par->bstop                = -1;
   par->chunk                = -1;
   par->filetype             = rbs_file_type_all;
+  par->throughput           = 0;
   
   
   par->storaged_geosite = rozofs_get_local_site();
@@ -445,11 +447,27 @@ void rbs_conf_init(rbs_parameter_t * par) {
     par->storaged_geosite = 0;
   }
 }
-/*________________________________________________
-*
-* Display this utility usage
+/*-----------------------------------------------------------------------------
+**
+**  Display usage
+**
+**----------------------------------------------------------------------------
 */
-void usage_display() {
+char * utility_name=NULL;
+void usage(char * fmt, ...) {
+    va_list   args;
+    char      error_buffer[512];
+
+    /*
+    ** Display optionnal error message if any
+    */
+    if (fmt) {
+      va_start(args,fmt);
+      vsprintf(error_buffer, fmt, args);
+      va_end(args);   
+      severe("%s",error_buffer);
+      printf("%s\n",error_buffer);
+    }
 
 
     printf("\nStorage node rebuild - RozoFS %s\n", VERSION);
@@ -467,6 +485,7 @@ void usage_display() {
     printf("   -p, --parallel=<val>      \tNumber of rebuild processes in parallel per cid/sid\n");
     printf("                             \t(default is %d, maximum is %d)\n",
            common_config.device_self_healing_process,MAXIMUM_PARALLEL_REBUILD_PER_SID);   
+    printf("   -t, --throughput          \tThroughput limitation in MB/s per rebuild process in parallel.\n");    
     printf("       --spare               \tTo rebuild only spare files on node or sid rebuild.\n");
     printf("       --nominal             \tTo rebuild only nominal files on node or sid rebuild.\n");
     printf("   -g, --geosite             \tTo force site number in case of geo-replication\n");
@@ -507,8 +526,10 @@ void usage_display() {
     printf("Check the list of remaining FID to rebuild\n");
     printf("storage_rebuild -id <id> -list\n\n");     
     printf("Abort definitively a running rebuild\n");
-    printf("storage_rebuild -id <id> -abort\n\n");                   
-    exit(EXIT_SUCCESS);
+    printf("storage_rebuild -id <id> -abort\n\n");  
+                     
+    if (fmt) exit(EXIT_FAILURE);
+    exit(EXIT_SUCCESS); 
 }
 
 /*________________________________________________
@@ -531,8 +552,7 @@ void usage_display() {
   GET_PARAM(opt)\
   ret = sscanf(optarg,"%u",&val);\
   if (ret != 1) {\
-   REBUILD_FAILED("\"%s\" option has not int value \"%s\"\n",#opt,optarg);\
-   exit(EXIT_FAILURE);\
+   usage("\"%s\" option has not int value \"%s\"\n",#opt,optarg);\
   }\
 }      
  
@@ -550,15 +570,13 @@ void parse_command(int argc, char *argv[], rbs_parameter_t * par) {
     //printf("optarg = %s\n",optarg);
 
     if (IS_ARG(-h) || IS_ARG(--help) || IS_ARG(?)) {
-      usage("%s\n"," ");
-      exit(EXIT_SUCCESS);
+      usage(NULL);
     }
     
     if (IS_ARG(-c) || IS_ARG(--config)) {
       GET_PARAM(--config)
       if (!realpath(optarg, par->storaged_config_file)) {
-	REBUILD_FAILED("No such configuration file %s.",optarg);
-	exit(EXIT_FAILURE);
+	usage("No such configuration file %s.",optarg);
       }
       continue;
     }  
@@ -566,8 +584,13 @@ void parse_command(int argc, char *argv[], rbs_parameter_t * par) {
     if IS_ARG(-id) {
       GET_INT_PARAM(-id,par->rebuildRef);
       continue;
-    }  	    	
-
+    }  	
+        	
+    if (IS_ARG(-t) || IS_ARG(--throughput)) {
+      GET_INT_PARAM(-t,par->throughput);
+      continue;
+    }  	
+       
     if IS_ARG(-resume) {
       par->resume = 1;
       continue;
@@ -605,8 +628,7 @@ void parse_command(int argc, char *argv[], rbs_parameter_t * par) {
 
     if (IS_ARG(--spare)) {
       if (par->filetype == rbs_file_type_nominal) {
-	REBUILD_FAILED("--spare and --nominal options are incompatible.\n");
-        exit(EXIT_FAILURE);
+	usage("--spare and --nominal options are incompatible.\n");
       }
       par->filetype = rbs_file_type_spare;     
       continue;
@@ -614,8 +636,7 @@ void parse_command(int argc, char *argv[], rbs_parameter_t * par) {
 
     if (IS_ARG(--nominal)) {
       if (par->filetype == rbs_file_type_spare) {
-	REBUILD_FAILED("--spare and --nominal options are incompatible.\n");
-        exit(EXIT_FAILURE);
+	usage("--spare and --nominal options are incompatible.\n");
       }
       par->filetype = rbs_file_type_nominal;     
       continue;
@@ -644,8 +665,7 @@ void parse_command(int argc, char *argv[], rbs_parameter_t * par) {
     if (IS_ARG(-r) || IS_ARG(--rebuild)) { 
       GET_PARAM(--rebuild)
       if (strncpy(par->rbs_export_hostname, optarg, ROZOFS_HOSTNAME_MAX) == NULL) {
-        REBUILD_FAILED("Bad host name %s.", optarg);
-        exit(EXIT_FAILURE);
+        usage("Bad host name %s.", optarg);
       }
       continue;
     }  
@@ -654,8 +674,7 @@ void parse_command(int argc, char *argv[], rbs_parameter_t * par) {
       GET_PARAM(--sid)
       ret = sscanf(optarg,"%d/%d", &par->cid, &par->sid);
       if (ret != 2) {
-	    REBUILD_FAILED("-s option requires also cid/sid.\n");
-        exit(EXIT_FAILURE);
+	usage("-s option requires also cid/sid.\n");
       }	
       continue;
     }  
@@ -664,8 +683,7 @@ void parse_command(int argc, char *argv[], rbs_parameter_t * par) {
       GET_PARAM(--fid)
       ret = rozofs_uuid_parse(optarg,par->fid2rebuild);
       if (ret != 0) {
-	    REBUILD_FAILED("Bad FID format %s.", optarg);
-        exit(EXIT_FAILURE);
+	usage("Bad FID format %s.", optarg);
       }
       par->type = rbs_rebuild_type_fid; 
       par->rbs_device_number = -2; // To tell one FID to rebuild 
@@ -714,8 +732,7 @@ void parse_command(int argc, char *argv[], rbs_parameter_t * par) {
     if (IS_ARG(-g) || IS_ARG(--geosite)) { 
       GET_INT_PARAM(-g,par->storaged_geosite)
       if ((par->storaged_geosite!=0)&&(par->storaged_geosite!=1)) { 
-        REBUILD_FAILED("Site number must be within [0:1] instead of %s.", optarg);
-        exit(EXIT_FAILURE);
+        usage("Site number must be within [0:1] instead of %s.", optarg);
       }
       continue;
     }
@@ -745,14 +762,12 @@ void parse_command(int argc, char *argv[], rbs_parameter_t * par) {
   */
   if ((par->resume)||(par->list)||(par->pause)||(par->abort)) {
     if (par->rebuildRef==0) {
-      REBUILD_FAILED("-resume -pause -abort and -list/-rawlist options require a rebuild identifier.");
-      exit(EXIT_FAILURE);         
+      usage("-resume -pause -abort and -list/-rawlist options require a rebuild identifier.");
     }
   }
   else {
     if (par->rbs_export_hostname[0] == 0) {
-        REBUILD_FAILED("Missing mandatory option --rebuild");    
-        exit(EXIT_FAILURE);      
+        usage("Missing mandatory option --rebuild");    
     }     
     /*
     ** When neither resume nor ailed is given, the rebuild ref is the process pid
@@ -765,8 +780,7 @@ void parse_command(int argc, char *argv[], rbs_parameter_t * par) {
   */ 
   if (par->type == rbs_rebuild_type_fid) {
     if ((par->cid==-1)&&(par->sid==-1)) {
-      REBUILD_FAILED("--fid option requires --sid option too.");
-      exit(EXIT_FAILURE);      
+      usage("--fid option requires --sid option too.");
     }
     par->parallel = 1;
     /* 
@@ -784,12 +798,10 @@ void parse_command(int argc, char *argv[], rbs_parameter_t * par) {
   */
   if (par->relocate) {
     if ((par->cid==-1)&&(par->sid==-1)) {
-      REBUILD_FAILED("--relocate option requires --sid option too.");
-      exit(EXIT_FAILURE);      
+      usage("--relocate option requires --sid option too.");
     }
     if (par->type != rbs_rebuild_type_device) {
-      REBUILD_FAILED("--relocate option requires --device option too.");
-      exit(EXIT_FAILURE);      
+      usage("--relocate option requires --device option too.");
     }
   }
   /*
@@ -801,15 +813,13 @@ void parse_command(int argc, char *argv[], rbs_parameter_t * par) {
     ** When clear is set cid/sid must too
     */    
     if ((par->cid==-1)&&(par->sid==-1)) {
-      REBUILD_FAILED("--clear option requires --sid option too.");
-      exit(EXIT_FAILURE);      
+      usage("--clear option requires --sid option too.");
     }
     /*
     ** When clear is set device number must too
     */    
     if (par->rbs_device_number < 0) {
-      REBUILD_FAILED("--clear option requires --device option too.");
-      exit(EXIT_FAILURE);      
+      usage("--clear option requires --device option too.");
     }    
   }
   
@@ -827,32 +837,25 @@ int is_command_resume(int argc, char *argv[]) {
   if (localPar.resume == 0) return 0;
   
   if (strcmp(localPar.storaged_config_file,STORAGED_DEFAULT_CONFIG)!=0) {
-    REBUILD_FAILED("-resume and --config options are incompatibles.");
-    exit(EXIT_FAILURE);      
+    usage("-resume and --config options are incompatibles.");
   }
   if (localPar.rbs_export_hostname[0] != 0) {
-    REBUILD_FAILED("-resume and --rebuild options are incompatibles.");
-    exit(EXIT_FAILURE);      
+    usage("-resume and --rebuild options are incompatibles.");
   }
   if ((localPar.cid!=-1)||(localPar.sid!=-1)) {
-    REBUILD_FAILED("-resume and --sid options are incompatibles.");
-    exit(EXIT_FAILURE);      
+    usage("-resume and --sid options are incompatibles.");
   } 
   if (localPar.type == rbs_rebuild_type_device) {
-    REBUILD_FAILED("-resume and --device options are incompatibles.");
-    exit(EXIT_FAILURE);      
+    usage("-resume and --device options are incompatibles.");
   } 
   if (localPar.type == rbs_rebuild_type_fid) {
-    REBUILD_FAILED("-resume and --fid options are incompatibles.");
-    exit(EXIT_FAILURE);      
+    usage("-resume and --fid options are incompatibles.");
   } 
   if (localPar.cid!=-1) {
-    REBUILD_FAILED("-resume and --fid options are incompatibles.");
-    exit(EXIT_FAILURE);      
+    usage("-resume and --fid options are incompatibles.");
   }        
   if (localPar.relocate) {
-    REBUILD_FAILED("-resume and --relocate options are incompatibles.");
-    exit(EXIT_FAILURE);      
+    usage("-resume and --relocate options are incompatibles.");
   } 
   return localPar.rebuildRef;
 }
@@ -1985,6 +1988,10 @@ int rbs_do_list_rebuild(int cid, int sid, rbs_file_type_e ftype) {
       pChar += rozofs_u32_append(pChar,instance);
       pChar += rozofs_string_append(pChar," -f ");
       pChar += rozofs_string_append(pChar,rbs_file_type2string(ftype));
+      if (parameter.throughput) {
+        pChar += rozofs_string_append(pChar," -t ");
+        pChar += rozofs_u32_append(pChar,parameter.throughput);
+      }
       if (quiet) {
 	pChar += rozofs_string_append(pChar," --quiet");
       }
@@ -3474,8 +3481,11 @@ void rbs_remove_rebuild_marks() {
   }
   return;
 }     
-  
-/*__________________________________________________________________________
+/*-----------------------------------------------------------------------------
+**
+**  Stop handler
+**
+**----------------------------------------------------------------------------
 */
 static void on_stop() {
     DEBUG_FUNCTION;   
@@ -3487,13 +3497,23 @@ static void on_stop() {
       rozofs_session_leader_killer(1000000);
     }  
 }
-/*__________________________________________________________________________
+  
+/*-----------------------------------------------------------------------------
+**
+**  SIGUSR1 receiving handler
+**
+**----------------------------------------------------------------------------
 */
 void rbs_cath_sigusr(int sig){
   sigusr_received = 1;
   signal(SIGUSR1, rbs_cath_sigusr);  
 }
-
+/*-----------------------------------------------------------------------------
+**
+**  M A I N
+**
+**----------------------------------------------------------------------------
+*/
 int main(int argc, char *argv[]) {
     int ret;
     int status = -1;
@@ -3530,8 +3550,7 @@ int main(int argc, char *argv[]) {
       ** ones of the original command
       */
       if (preload_command(rebuildRef, &parameter) == -1) {
-        printf("No such rebuild id %d\n",rebuildRef);	 
-        exit(EXIT_FAILURE);		   
+        usage("No such rebuild id %d\n",rebuildRef);	 
       } 
     }
     /*
@@ -3569,7 +3588,7 @@ int main(int argc, char *argv[]) {
       ** Check the rebuild is not running
       */
       if (rbs_get_running_pid()!=0) {
-        printf("Rebuild %d is already running\n",parameter.rebuildRef);
+        REBUILD_MSG("Rebuild %d is already running\n",parameter.rebuildRef);
         exit(EXIT_FAILURE);
       }   
       /*

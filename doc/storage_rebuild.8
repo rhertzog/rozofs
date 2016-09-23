@@ -6,33 +6,44 @@
 storage_rebuild \- RozoFS disk rebuild utility
 .SH SYNOPSIS
 .IP "Rebuilding a full storage node"
-.B storage_rebuild [-r <export hosts>] [-p <p//>] [-l <loop>] [-q][-fg]
-.IP "Rebuilding only nominal files of a storage node"
-.B storage_rebuild --nominal [-r <export hosts>] [-p <p//>] [-l <loop>] [-q][-fg]
-.IP "Rebuilding only spare files of a storage node"
-.B storage_rebuild --spare [-r <export hosts>] [-p <p//>] [-l <loop>] [-q][-fg]
+ all files          :
+.B storage_rebuild [-r <exports>] [-p <//>] [-t <MB/s>] [-l <loop>]
+ nominal files only :
+.B storage_rebuild [-r <exports>] [-p <//>] [-t <MB/s>] [-l <loop>] --nominal  
+ spare files only   :
+.B storage_rebuild [-r <exports>] [-p <//>] [-t <MB/s>] [-l <loop>] --spare 
 .IP "Rebuilding only one logical storage within a storage node"
-.B storage_rebuild [-r <export hosts>] [--spare|--nominal] -s <cid>/<sid> [-p <p//>] [-l <loop>] [-q][-fg]
+ all files          :
+.B storage_rebuild [-r <exports>] [-p <//>] [-t <MB/s>] [-l <loop>] -s <cid>/<sid> 
+ nominal files only :
+.B storage_rebuild [-r <exports>] [-p <//>] [-t <MB/s>] [-l <loop>] -s <cid>/<sid> --nominal
+ spare files only   :
+.B storage_rebuild [-r <exports>] [-p <//>] [-t <MB/s>] [-l <loop>] -s <cid>/<sid> --spare 
 .IP "Rebuilding only a device of a logical storage"
-.B storage_rebuild [-r <export hosts>] -s <cid>/<sid> -d <device> [-p <p//>] [-l <loop>] [-q][-fg]
-.IP "Relocating files of a failed device of a logical storage on all available devices of the same logical storage"
-.B storage_rebuild -R [-r <export hosts>] -s <cid>/<sid> -d <device> [-p <p//>] [-l <loop>] [-q][-fg]
+ on the same device :
+.B storage_rebuild [-r <exports>] [-p <//>] [-t <MB/s>] [-l <loop>] -s <cid>/<sid> -d <device> 
+ relocating files   :
+.B storage_rebuild [-r <exports>] [-p <//>] [-t <MB/s>] [-l <loop>] -s <cid>/<sid> -d <device> -R
 .IP "Clearing error counters a device of a logical storage"
-.B storage_rebuild -C [-r <export hosts>] -s <cid>/<sid> -d <device> [-q][-fg]
+.B storage_rebuild -C [-r <exports>] -s <cid>/<sid> -d <device>
 .IP "Rebuilding only a FID of a logical storage"
-.B storage_rebuild [-r <export hosts>] -s <cid>/<sid> -f <FID> [-l <loop>] [-q][-fg]
+.B storage_rebuild [-r <exports>] [-t <MB/s>] [-l <loop>]  -s <cid>/<sid> -f <FID> 
 .IP "Getting the list of FID that are to be rebuilt. Then use rozo_fid2pathname utility on export node to translate FIDs to full path names."
 .B storage_rebuild -id <id> -list 
 .IP "Pause a running rebuild in order to resume it later."
 .B storage_rebuild -id <id> -pause 
 .IP "Resume a failed or paused rebuild."
-.B storage_rebuild -id <id> -resume [-l <loop>] [-q][-fg|-bg]
+.B storage_rebuild -id <id> -resume [-l <loop>] 
 .IP "Abort definitively a rebuild."
 .B storage_rebuild -id <id> -abort
 .B
 .SH DESCRIPTION
 .B storage_rebuild
-rebuilds either a file or a device or all devices of a logical storage node or all devices of a storage node. 
+rebuilds  
+ . either a file on a logical storage
+ . or a device of a logical storage
+ . or all devices of a logical storage
+ . or all devices of a storage node. 
 
 When the rebuild fails, one can get the list of FIDs that have not been rebuilt. Then with rozo_fid2pathname utility on export node one can translate these FIDs to full path names.
 
@@ -40,11 +51,11 @@ When the rebuild fails, one can get the list of FIDs that have not been rebuilt.
 A rebuild can be paused temporarily. It is then possible to resume a paused or failed rebuild (i.e only rebuild the files that are not yet rebuilt). 
 
 A monitoring rebuild file provides information on the ongoing rebuild. The name of the rebuild monitoring file is displayed on return from the rebuild command except when --quiet option is set. In any case the name of the rebuild monitoring file can be found in the syslog file.
-.SH OPTIONS
-.IP "-r, --rebuild <export hosts>"
+.SH MAIN OPTIONS
+.IP "-r, --rebuild <exports>"
 .RS
 Use
-.I <export hosts>
+.I <exports>
 as the list of addresses (or dns names) where exportd daemon is running. When securing the exportd thanks to a virtual IP address only the virtual IP address is given (i.e "--rebuild 192.168.10.1"). When no virtual IP address is used the list of "physical" IP addresses of each host securing the exportd must be given (i.e "--rebuild 192.168.10.1/192.168.20.1"). This parameter can be omitted when the server has been installed with the
 .B export_hosts
 filled in the rozofs.conf configuration file of the server.
@@ -62,19 +73,19 @@ When not set the rebuild operates on every logical storage instance of the stora
 .IP "--nominal"
 .RE
 .RS
-Rebuilds only nominal files and no spare file on a storage node or logical storage node.
+Rebuilds only nominal files and no spare file on a storage node or logical storage.
 .RE
 .IP "--spare"
 .RE
 .RS
-Rebuilds only spare files and no nominal file on a storage node or logical storage node.
+Rebuilds only spare files and no nominal file on a storage node or logical storage.
 .RE
 .IP "-d, --device <device>"
 .RE
 .RS
 Rebuilds only device number
 .I <device>
-of a logical storage instance. When this option is set option --sid must be set too. When -d is not set, the rebuild is done for every devices of the storage or the storage node.
+of a logical storage instance. When this option is set option --sid must be set too. When -d is not set, the rebuild is done for every devices of the logical storage or the storage node.
 .RE
 .IP "-f, --fid <FID>"
 .RE
@@ -88,21 +99,27 @@ In this case --sid option is mandatory and --device option is ignored.
 .RS
 Enables relocation of the rebuilt files on other devices. This is used for repairing data files of a broken device on the remaining in service devices. When not set the data files are not relocated and are so rebuilt on the same devices they used to be.
 .RE
-.IP "-p, --parallel <p//>"
+.IP "-p, --parallel <//>"
 .RE
 .RS
 Use 
-.I <p//>
+.I <//>
 processes in parallel for rebuilding. The greater is 
-.I <p//>
+.I <//>
 the faster is the rebuild, but the more CPU and network/disk bandwith consuming it is. Use --help option to get the default as well as the maximum value.
+.RE
+.IP "-t, --throughput <MB/s>"
+.RE
+.RS
+Limit the network bandwith used for reading data from the logical storages for each of the processes run in parallel. The value is in MB/s units. When 4 processes are used with a throughput limitation of 10, no more than 40MB/s of network bandwith will be consummed for reading during this rebuild. Default is not to have any bandwith limitation.
 .RE
 .IP "-l, --loop <loop>"
 .RE
 .RS
 re-attempt automatically up to
 .I <loop>
-times the rebuild on files that fail to rebuild.  Use --help option to get the default as well as the maximum value.
+times the rebuild on files that fail to rebuild. The rebuild may fail on a file because of write competition between the rebuild process and a user write; a later rebuild re-attempt may then succeed. Use --help option to get the default as well as the maximum value.
+.SH ACTION OPTIONS
 .RE
 .IP "-pause"
 .RE
@@ -129,6 +146,7 @@ is the identifier of a rebuild.
 .RE
 .RS
 To re-initialize the satus of a device that has been set out of service after an automatic relocation of the data on other devices (self healing) and then rebuild it.
+.SH MISCELLANEOUS OPTIONS
 .RE
 .IP "-q, --quiet"
 .RE
@@ -220,5 +238,6 @@ Fizians <http://www.fizians.org>
 .SH "SEE ALSO"
 .BR rozofs (7),
 .BR storage.conf (5),
+.BR rozofs.conf (5),
 .BR exportd (8),
 .BR rozofsmount (8)

@@ -178,7 +178,7 @@ class host_class:
     if rebef == True:
       res=cmd_returncode("storage_rebuild --simu %s %s"%(exportd.get_config_name(),param))      
     else:  
-      res=cmd_returncode("storage_rebuild --simu %s -c %s -H localhost%s -r %s %s"%(exportd.get_config_name(),self.get_config_name(),self.number,exportd.export_host,param))  
+      res=cmd_returncode("storage_rebuild --simu %s -c %s -H localhost%s %s"%(exportd.get_config_name(),self.get_config_name(),self.number,param))  
     sys.exit(res)
 #____________________________________
 # Class sid
@@ -371,7 +371,7 @@ class sid_class:
       res=cmd_returncode("storage_rebuild --simu %s %s"%(exportd.get_config_name(),param))      
     else: 
       h = self.host[0]   
-      res=cmd_returncode("storage_rebuild --simu %s -c %s -H localhost%s -r %s -s %d/%d %s"%(exportd.get_config_name(),h.get_config_name(),h.number,exportd.export_host,self.cid.cid,self.sid,param))  
+      res=cmd_returncode("storage_rebuild --simu %s -c %s -H localhost%s -s %d/%d %s"%(exportd.get_config_name(),h.get_config_name(),h.number,self.cid.cid,self.sid,param))  
     sys.exit(res)
                    
   def info(self):
