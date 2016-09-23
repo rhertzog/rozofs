@@ -981,7 +981,7 @@ void rozofs_ll_read_cbk(void *this,void *param)
    uint64_t offset_buf_wr_start,offset_end;
    char *buff;
    size_t length;
-   int len_zero;
+//   int len_zero;
    uint8_t *src_p,*dst_p;
    int len;
    void *shared_buf_ref;

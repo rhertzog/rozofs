@@ -121,7 +121,7 @@ void export_rebalance_cluster_sid_stats(int storage_idx,uint16_t storage_id,uint
    p = &export_rebalance_cluster_stat_p->sid_tab[storage_idx];
    p->sid = storage_id;
    p->state = status;
-   strcpy(p->hostname,host);
+   strcpy((char *)p->hostname,host);
    p->total_size_bytes = total_size_bytes;
    p->free_size_bytes = free_size_bytes;
    if (total_size_bytes!= 0) p->free_percent =free_size_bytes*100/total_size_bytes;
@@ -151,7 +151,7 @@ int monitor_volume(volume_t *volume) {
       export_rebalance_vol_stat_p = malloc(sizeof(export_vol_stat_t));
       if (export_rebalance_vol_stat_p == NULL)
       {
-        severe("out of memory while allocation %d bytes",sizeof(export_vol_stat_t));
+        severe("out of memory while allocation %lu bytes",sizeof(export_vol_stat_t));
       }
     }
     if (export_rebalance_vol_stat_p != NULL) memset(export_rebalance_vol_stat_p,0,sizeof(export_vol_stat_t));
@@ -161,7 +161,7 @@ int monitor_volume(volume_t *volume) {
       export_rebalance_cluster_stat_p = malloc(sizeof(export_vol_cluster_stat2_t));
       if (export_rebalance_cluster_stat_p == NULL)
       {
-        severe("out of memory while allocation %d bytes",sizeof(export_vol_cluster_stat2_t));
+        severe("out of memory while allocation %lu bytes",sizeof(export_vol_cluster_stat2_t));
       }
     }
 

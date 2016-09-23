@@ -305,7 +305,7 @@ void rozofs_ll_lookup_nb(fuse_req_t req, fuse_ino_t parent, const char *name)
     int allocated = 0;
     int len_name;
     fuse_ino_t child = 0;   
-    int  local_lookup_success = 0;
+//    int  local_lookup_success = 0;
     uint32_t lookup_flags=0;
     int extra_length = 0;
     fuse_ino_t ino = 0;
