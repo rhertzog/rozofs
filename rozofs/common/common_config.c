@@ -134,6 +134,7 @@ long int          intval;
 
 const char * charval;
 #define COMMON_CONFIG_READ_STRING(val,def)  {\
+  if (common_config.val) free(common_config.val);\
   if (config_lookup_string(&cfg, #val, &charval)) {\
     common_config.val = strdup(charval);\
   } else {\
