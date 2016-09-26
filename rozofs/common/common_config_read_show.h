@@ -183,8 +183,16 @@ char *pChar = uma_dbg_get_buffer();
   pChar += rozofs_string_append(pChar,"// spareOnly  only self repair on a spare disk\n");
   pChar += rozofs_string_append(pChar,"// relocate   also repair on remaining disks when no spare available\n");
   COMMON_CONFIG_SHOW_STRING(device_selfhealing_mode,"spareOnly");
-  pChar += rozofs_string_append(pChar,"// Export hostname required for selfhealing\n");
+  pChar += rozofs_string_append(pChar,"// Export host names or IP addresses separated with / \n");
+  pChar += rozofs_string_append(pChar,"// Required for selfhealing.\n");
+  pChar += rozofs_string_append(pChar,"// Required for spare file restoring to its nominal location.\n");
   COMMON_CONFIG_SHOW_STRING(export_hosts,"");
+  pChar += rozofs_string_append(pChar,"// Spare file restoring : whether the service is active or not\n");
+  COMMON_CONFIG_SHOW_BOOL(spare_restore_enable,True);
+  pChar += rozofs_string_append(pChar,"// Spare file restoring : how often the process runs  \n");
+  COMMON_CONFIG_SHOW_INT(spare_restore_loop_delay,120);
+  pChar += rozofs_string_append(pChar,"// Spare file restoring : throughput limitation for reading and analyzing spare files in MB/s\n");
+  COMMON_CONFIG_SHOW_INT(spare_restore_read_throughput,5);
 
   uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
   return;
@@ -340,8 +348,16 @@ static inline void common_config_generated_read(char * fname) {
   // spareOnly  only self repair on a spare disk 
   // relocate   also repair on remaining disks when no spare available 
   COMMON_CONFIG_READ_STRING(device_selfhealing_mode,"spareOnly");
-  // Export hostname required for selfhealing 
+  // Export host names or IP addresses separated with /  
+  // Required for selfhealing. 
+  // Required for spare file restoring to its nominal location. 
   COMMON_CONFIG_READ_STRING(export_hosts,"");
+  // Spare file restoring : whether the service is active or not 
+  COMMON_CONFIG_READ_BOOL(spare_restore_enable,True);
+  // Spare file restoring : how often the process runs   
+  COMMON_CONFIG_READ_INT(spare_restore_loop_delay,120);
+  // Spare file restoring : throughput limitation for reading and analyzing spare files in MB/s 
+  COMMON_CONFIG_READ_INT(spare_restore_read_throughput,5);
  
   config_destroy(&cfg);
 }

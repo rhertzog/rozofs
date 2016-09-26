@@ -126,8 +126,15 @@ INT     storage device_selfhealing_delay        15 0:10000
 // spareOnly  only self repair on a spare disk
 // relocate   also repair on remaining disks when no spare available
 STRING  storage device_selfhealing_mode        "spareOnly"
-// Export hostname required for selfhealing
+// Export host names or IP addresses separated with / 
+// Required for selfhealing.
+// Required for spare file restoring to its nominal location.
 STRING  storage export_hosts                   ""
 // Minimum delay between the deletion request and the effective projections deletion
 INT     export deletion_delay 	0           
-
+// Spare file restoring : whether the service is active or not
+BOOL    storage spare_restore_enable                True	
+// Spare file restoring : how often the process runs  
+INT     storage spare_restore_loop_delay            120  
+// Spare file restoring : throughput limitation for reading and analyzing spare files in MB/s
+INT     storage spare_restore_read_throughput       5

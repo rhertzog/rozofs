@@ -1,4 +1,5 @@
 /usr/bin/storaged
+/usr/bin/stspare
 /usr/bin/storio
 /usr/bin/storage_rebuild
 /usr/bin/storage_list_rebuilder

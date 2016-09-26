@@ -44,6 +44,7 @@ typedef enum rozofs_service_port_range_e {
   ROZOFS_SERVICE_PORT_STORAGED_MPROTO,
   ROZOFS_SERVICE_PORT_GEOMGR_DIAG,
   ROZOFS_SERVICE_PORT_REBALANCE_DIAG,
+  ROZOFS_SERVICE_PORT_STSPARE_DIAG,
 
   ROZOFS_SERVICE_PORT_MAX
   
@@ -133,6 +134,9 @@ static inline uint16_t rozofs_get_service_port_storaged_diag(void) {
 static inline uint16_t rozofs_get_service_port_storaged_mproto(void) {
   return rozofs_get_service_port(ROZOFS_SERVICE_PORT_STORAGED_MPROTO);
 }
+static inline uint16_t rozofs_get_service_port_stspare_diag(void) {
+  return rozofs_get_service_port(ROZOFS_SERVICE_PORT_STSPARE_DIAG);
+} 
 /*
 ** Storio ports
 */

@@ -83,6 +83,7 @@ void syntax_display() {
   printf("    -T <target>    The diagnostic target in the format:\n");
   printf("                     export                               for an export\n");
   printf("                     storaged                             for a storaged\n");
+  printf("                     stspare                              for a storaged spare restorer\n");
   printf("                     storio[:<instance>]                  for a storio\n");
   printf("                     mount[:<mount instance>]             for a rozofsmount\n");
   printf("                     mount[:<mount instance>[:<1|2>]]     for a storcli of a rozofsmount\n");
@@ -485,6 +486,9 @@ char *argv[];
       else if (strncasecmp(pt,"storaged",strlen("storaged"))==0) {
         port32 = rozofs_get_service_port_storaged_diag();
       }
+      else if (strncasecmp(pt,"stspare",strlen("stspare"))==0) {
+        port32 = rozofs_get_service_port_stspare_diag();
+      }      
       else if (strncasecmp(pt,"export",strlen("export"))==0) {
         pt += strlen("export");
 	if (*pt == ':') {

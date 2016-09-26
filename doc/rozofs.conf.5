@@ -154,18 +154,25 @@ The self-healing mode is a string that can take the following values:
              When no more spare device is available, files of failed devices are automatically relocated on remaining devices of the same sid.
 
 For self-healing to be active, the 
-.B export-hosts 
+.B export_hosts 
 parameter must be configured too.
 .SS device_selfhealing_delay
 Gives the delay in minutes before starting an automatic rebuild of a failed device. The lowest possible value is 1.  
 .SS device_self_healing_process
 This parameter sets the number of rebuilder processes that run in parallel in case of an automatic rebuild for self-healing purpose. This is also the default number of rebuilder processes for operator rebuild commands.
-.SS export-hosts 
-This parameter is only needed when self-healing is configured. It gives the list of addresses (or dns names) where exportd daemon is running. When securing the exportd thanks to virtual IP address only the virtual IP address is declared (i.e "192.168.10.1"). When no virtual IP address is used the list of "physical" IP addresses of each host securing the exportd must be given (i.e "192.168.10.1/192.168.20.1").
+.SS export_hosts 
+This parameter is needed for automatic rebuilds to take place. It gives the list of addresses (or dns names) where exportd daemon is running. When securing the exportd thanks to virtual IP address only the virtual IP address is declared (i.e "192.168.10.1"). When no virtual IP address is used the list of "physical" IP addresses of each host securing the exportd must be given (i.e "192.168.10.1/192.168.20.1").
 .SS deletion_delay 
 Minimum delay in seconds between the FID unlink in the export and the actual projections removal on the storage nodes.
- 
-
+.SS deletion_delay 
+Minimum delay in seconds between the FID unlink in the export and the actual projections removal on the storage nodes.
+.SS spare_restore_enable
+Set to False to disable spare file restoring. Default value is True, which enables the spare file restoring feature. This feature tries to relocate data saved in spare files to the nominal location.
+This feature also requires export_hosts parameter to be set.
+.SS spare_restore_loop_delay
+This parameter gives in minutes the delay between two spare file restoring attempts.
+.SS spare_restore_read_throughput
+This parameter is the maximum network/disk bandwith that the spare file restoring process will take to run.  
 .SH EXAMPLE
 .PP
 .nf

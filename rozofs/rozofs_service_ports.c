@@ -75,4 +75,11 @@ ROZOFS_SERVICE_PORT_RANGE_DESC_T rozofs_service_port_range[ROZOFS_SERVICE_PORT_M
     .name         = "rozofs_geomgr_diag",
     .service      = "Geo-replication manager, clients & storcli diagnostic",
   },     
+  
+  [ROZOFS_SERVICE_PORT_STSPARE_DIAG] = {
+    .defaultValue = 50100,
+    .rangeSize    = 1,
+    .name         = "rozofs_stspare_diag",
+    .service      = "Storaged spare restorer diagnostic port",
+  }, 
 };

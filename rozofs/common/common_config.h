@@ -163,8 +163,16 @@ typedef struct _common_config_global_t {
   // spareOnly  only self repair on a spare disk
   // relocate   also repair on remaining disks when no spare available
   char *      device_selfhealing_mode;
-  // Export hostname required for selfhealing
+  // Export host names or IP addresses separated with / 
+  // Required for selfhealing.
+  // Required for spare file restoring to its nominal location.
   char *      export_hosts;
+  // Spare file restoring : whether the service is active or not
+  uint32_t    spare_restore_enable;
+  // Spare file restoring : how often the process runs  
+  uint32_t    spare_restore_loop_delay;
+  // Spare file restoring : throughput limitation for reading and analyzing spare files in MB/s
+  uint32_t    spare_restore_read_throughput;
 } common_config_t;
 
 extern common_config_t common_config;

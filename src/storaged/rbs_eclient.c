@@ -255,6 +255,7 @@ char * rbs_get_cluster_list(rpcclt_t * clt, const char *export_host_list, int si
 	  timeo.tv_sec++;	
 	}  
     }		
+    rpcclt_release(clt);
     return NULL;
 }
 /** Initialize a storage structure to reach a cid/sid by interogating

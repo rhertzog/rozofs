@@ -187,9 +187,47 @@ static void on_stop() {
     */
     rozofs_session_leader_killer(300000);
 }
+/*
+**____________________________________________________
+**
+** Start Spare restorer process
+**
+*/
+void storaged_start_spare_restorer_process() {
+  char   cmd[1024];
+  char   pidfile[128];
+  char * p;
+  int    ret;
 
-
-
+  p = cmd;
+      
+  /*
+  ** Get storio executable from same directory as storaged 
+  */
+  if (exe_path_name) {
+    p += rozofs_string_append(p,exe_path_name);
+    *p++ ='/'; 
+  }
+  p += rozofs_string_append(p, "stspare -c ");
+  p += rozofs_string_append(p,storaged_config_file);
+  if (pHostArray[0] != NULL) {
+    p += rozofs_string_append (p, " -H ");
+    p += rozofs_string_append (p, pHostArray[0]);
+    int idx=1;
+    while (pHostArray[idx] != NULL) {
+      *p++ ='/';
+      p += rozofs_string_append(p , pHostArray[idx++]);
+    }  
+  }	
+      
+  storaged_spare_restorer_pid_file(pidfile, pHostArray[0]);
+      
+  // Launch process throufh rozo launcher
+  ret = rozo_launcher_start(pidfile, cmd);
+  if (ret !=0) {
+    severe("rozo_launcher_start(%s,%s) %s",pidfile, cmd, strerror(errno));
+  }
+}
 /*
 **____________________________________________________
 */
@@ -363,6 +401,11 @@ static void on_start() {
         conf.nb_storio++;
       }
     }
+    
+    /*
+    ** Start spare restorer process
+    */
+    storaged_start_spare_restorer_process();
 
     // Create the debug thread of the parent
     conf.instance_id = 0;

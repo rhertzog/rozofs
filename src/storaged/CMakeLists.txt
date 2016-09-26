@@ -41,6 +41,23 @@ add_executable(storaged
 )
 target_link_libraries(storaged rozofs ${PTHREAD_LIBRARY} ${UUID_LIBRARY} ${CONFIG_LIBRARY} ${NUMA_LIBRARY})
 
+add_executable(stspare
+    sconfig.h
+    sconfig.c
+    storage.h
+    storage.c
+    storio_crc32.c
+    storio_crc32.h   
+    storio_fid_cache.c
+    stspare.c   
+    stspare_fid_cache.c
+    stspare_fid_cache.h
+    rbs_eclient.c
+    rbs.h    
+    rbs.c    
+)
+target_link_libraries(stspare rozofs ${PTHREAD_LIBRARY} ${UUID_LIBRARY} ${CONFIG_LIBRARY} ${NUMA_LIBRARY})
+
 add_executable(storage_rebuild
     sconfig.h
     sconfig.c
@@ -126,6 +143,12 @@ target_link_libraries(rozodump rozofs ${PTHREAD_LIBRARY} ${UUID_LIBRARY} ${CONFI
 # Install
 install(CODE "EXECUTE_PROCESS (COMMAND mkdir -p ${ROZOFS_CONFIG_DIR})" COMPONENT storage)
 
+install(TARGETS stspare
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    COMPONENT stspare
+)
 install(TARGETS storaged
     RUNTIME DESTINATION bin
     LIBRARY DESTINATION lib

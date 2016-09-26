@@ -113,8 +113,8 @@ int rbs_stor_cnt_initialize(rb_stor_t * rb_stor, int cid) {
 
     // Initialize connection with this storage (by mproto)
     if (mclient_connect(&rb_stor->mclient, timeo) != 0) {
-        severe("failed to join storage (host: %s), %s.",
-                rb_stor->host, strerror(errno));
+//        severe("failed to join storage (host: %s), %s.",
+//                rb_stor->host, strerror(errno));
         goto out;
     } else {
         // Send request to get TCP ports for this storage
@@ -248,7 +248,6 @@ void rbs_init_cluster_cnts(list_t * cluster_entries,
         }
     }
 }
-
 /** Release the list of cluster(s)
  *
  * @param cluster_entries: list of cluster(s).
@@ -272,13 +271,13 @@ void rbs_release_cluster_list(list_t * cluster_entries) {
                 sclient_release(&rb_stor->sclients[i]);
 
             list_remove(&rb_stor->list);
-            free(rb_stor);
+            xfree(rb_stor);
 
         }
 
         // Remove and free cluster
         list_remove(&clu->list);
-        free(clu);
+        xfree(clu);
     }
 }
 

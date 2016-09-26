@@ -185,6 +185,7 @@ mkdir -p %{buildroot}%{_initrddir}
 %files storaged
 %defattr(-,root,root)
 %{_bindir}/storaged
+%{_bindir}/stspare
 %{_bindir}/storio
 %{_bindir}/storage_rebuild
 %{_bindir}/storage_list_rebuilder

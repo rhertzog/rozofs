@@ -1426,6 +1426,23 @@ static inline void storio_pid_file(char * pidfile, char * storaged_hostname, int
   pidfile += rozofs_string_append(pidfile, ".pid");
 
 }
+/*
+ ** Name the storaged spare restorer pid file for the rozolauncher
+
+  @param pidfile           : the name of the pid file
+  @param storaged_hostname : hostname
+  
+ */
+static inline void storaged_spare_restorer_pid_file(char * pidfile, char * storaged_hostname) {
+
+  pidfile += rozofs_string_append(pidfile,"/var/run/launcher_storaged_spare_restorer");
+  if (storaged_hostname) {
+    *pidfile++ = '_';
+    pidfile += rozofs_string_append(pidfile,storaged_hostname);
+  }
+  pidfile += rozofs_string_append(pidfile, ".pid");
+
+}
 
 int storage_resize(storage_t * st, storio_device_mapping_t * fidCtx, uint8_t layout, uint32_t bsize, sid_t * dist_set,
         uint8_t spare, fid_t fid, bin_t * bins, uint32_t * nb_blocks, uint32_t * last_block_size, int * is_fid_faulty);
