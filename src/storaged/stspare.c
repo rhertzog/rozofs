@@ -1049,14 +1049,7 @@ static void wait_until_ready_to_run() {
     if ((strcmp(common_config.export_hosts,"")!=0)
     &&  (common_config.spare_restore_enable)) {
       break;
-    }
-    
-    /*
-    ** Check export host name is defined
-    */ 
-    if (common_config.spare_restore_enable) {
-      break;
-    }   
+    }  
     
     /*
     ** Wait until it is defined
