@@ -1032,7 +1032,8 @@ void stspare_scan_all_spare_files() {
 **____________________________________________________
 */
 static void wait_until_ready_to_run() {
-
+  int delay;
+  
   /*
   ** Wait until export host name is defined in rozofs.conf
   */
@@ -1054,7 +1055,9 @@ static void wait_until_ready_to_run() {
     /*
     ** Wait until it is defined
     */
-    sleep (15*60);
+    delay = 15*60;
+    stspare_stat.seconds_before_next_run = time(NULL)+delay;
+    sleep (delay);
   }
 }  
 /*
