@@ -718,6 +718,40 @@ def truncate():
   return os.system("./IT2/test_trunc.exe -process %d -loop %d -mount %s"%(process,loop,exepath))
 
 #___________________________________________________
+def makeBigFName(c):
+#___________________________________________________
+  FNAME="%s/bigFName/"%(exepath)
+  for i in range(510): FNAME=FNAME+c
+  return FNAME
+  
+#___________________________________________________
+def bigFName():
+#___________________________________________________
+  charList="abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ_-#:$@:=.;"
+  
+  if os.path.exists("%s/bigFName"%(exepath)):
+    os.system("rm -rf %s/bigFName"%(exepath))
+  
+  if not os.path.exists("%s/bigFName"%(exepath)):
+    os.system("mkdir -p %s/bigFName"%(exepath))
+    
+  for c in charList:
+    FNAME=makeBigFName(c)
+    f = open(FNAME, 'w')
+    f.write(FNAME) 
+    f.close()
+    
+  for c in charList:
+    FNAME=makeBigFName(c)
+    f = open(FNAME, 'r')
+    data = f.read(1000) 
+    f.close()   
+    if data != FNAME:
+      syslog.syslog("%s\nbad content %s\n"%(FNAME,data))
+      return -1
+  return 0
+  
+#___________________________________________________
 def lock_race():
 #___________________________________________________ 
   zefile='%s/%s'%(exepath,tst_file)
@@ -1705,8 +1739,8 @@ parser.add_option("-n","--nfs", action="store_true",dest="nfs", default=False, h
 # Read/write test list
 TST_RW=['read_parallel','write_parallel','rw2','wr_rd_total','wr_rd_partial','wr_rd_random','wr_rd_total_close','wr_rd_partial_close','wr_rd_random_close','wr_close_rd_total','wr_close_rd_partial','wr_close_rd_random','wr_close_rd_total_close','wr_close_rd_partial_close','wr_close_rd_random_close']
 # Basic test list
-TST_BASIC=['readdir','xattr','link','symlink', 'rename','chmod','truncate','lock_posix_passing','lock_posix_blocking','lock_race','crc32','rsync','compil']
-TST_BASIC_NFS=['readdir','link', 'rename','chmod','truncate','lock_posix_passing','lock_posix_blocking','lock_race','crc32','rsync','compil']
+TST_BASIC=['readdir','xattr','link','symlink', 'rename','chmod','truncate','bigFName','lock_posix_passing','lock_posix_blocking','lock_race','crc32','rsync','compil']
+TST_BASIC_NFS=['readdir','link', 'rename','chmod','truncate','bigFName','lock_posix_passing','lock_posix_blocking','lock_race','crc32','rsync','compil']
 # Rebuild test list
 TST_REBUILD=['gruyere','rebuild_fid','rebuild_1dev','relocate_1dev','rebuild_all_dev','rebuild_1node','gruyere_reread','gruyere','rebuild_1node_parts','gruyere_reread']
 
