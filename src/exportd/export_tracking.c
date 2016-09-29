@@ -325,6 +325,7 @@ void *export_wr_attr_th(void *arg) {
        sem_wait(&thread_ctx_p->export_attr_wr_ready);
     }
     thread_ctx_p->lv2 = lv2;
+    thread_ctx_p->sync = sync;
     thread_ctx_p->trk_tb_p = trk_tb_p;
     sem_post(&thread_ctx_p->export_attr_wr_rq);     
 }
