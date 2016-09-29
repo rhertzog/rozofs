@@ -723,7 +723,7 @@ def makeBigFName(c):
   FNAME="%s/bigFName/"%(exepath)
   for i in range(510): FNAME=FNAME+c
   return FNAME
-  
+
 #___________________________________________________
 def bigFName():
 #___________________________________________________
@@ -750,7 +750,7 @@ def bigFName():
       syslog.syslog("%s\nbad content %s\n"%(FNAME,data))
       return -1
   return 0
-  
+	  
 #___________________________________________________
 def lock_race():
 #___________________________________________________ 
