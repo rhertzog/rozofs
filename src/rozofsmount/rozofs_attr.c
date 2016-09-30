@@ -100,10 +100,6 @@ uint64_t rozofs_max_getattr_duplicate = 0;
     /*
     ** fill up the structure that will be used for creating the xdr message
     */  
-    if (ino == 1)
-    {
-       severe("FDL getattr for root directory");
-    }  
     arg.arg_gw.eid = exportclt.eid;
     memcpy(arg.arg_gw.fid, ie->fid, sizeof (uuid_t));
     /*
