@@ -28,6 +28,8 @@
 //#include <rozofs/rpc/epproto.h>
 #include "cache.h"
 #include "export.h"
+#include "rozofs_exp_mover.h"
+
 #include <rozofs/common/export_track.h>
 
 #define EXP_MAX_FAKE_LVL2_ENTRIES 16
@@ -60,6 +62,10 @@ static inline uint32_t lv2_hash(void *key) {
     */
     memcpy(&fake_inode,key,sizeof(rozofs_inode_t));
     rozofs_reset_recycle_on_fid(&fake_inode);
+    /*
+    ** Clear the mover_idx since a lookup can by done from the storage node with a storage_fid encoding
+    */
+    fake_inode.s.mover_idx = 0;
     /*
     ** clear the delete pending bit
     */
@@ -115,6 +121,10 @@ static inline void lv2_cache_unlink(lv2_cache_t *cache,lv2_entry_t *entry) {
   if (entry->symlink_target != NULL) free(entry->symlink_target);
   
   list_remove(&entry->list);
+  /*
+  ** remove from the move_list
+  */
+  list_remove(&entry->move_list);  
   free(entry);
   cache->size--;  
 }
@@ -358,7 +368,10 @@ lv2_entry_t *lv2_cache_put(export_tracking_table_t *trk_tb_p,lv2_cache_t *cache,
     list_init(&entry->file_lock);
     entry->nb_locks = 0;
     list_init(&entry->list);
-
+    /*
+    ** init of the move list
+    */
+    list_init(&entry->move_list);
     /*
     ** Try to remove older entries
     */
@@ -370,7 +383,11 @@ lv2_entry_t *lv2_cache_put(export_tracking_table_t *trk_tb_p,lv2_cache_t *cache,
  	  if (lru->nb_locks != 0) {
 	    severe("lv2 with %d locks in lru",lru->nb_locks);
  	  }
-
+          /*
+	  **  Exit from the LRU deletion loop if the current entry is
+	  **  locked in the cache
+	  */
+	  if (lru->locked_in_cache) break;
            
 	  htable_del(&cache->htable, lru->attributes.s.attrs.fid);
 	  lv2_cache_unlink(cache,lru);
@@ -439,7 +456,10 @@ lv2_entry_t *lv2_cache_put_forced(lv2_cache_t *cache, fid_t fid,ext_mattr_t *att
     list_init(&entry->file_lock);
     entry->nb_locks = 0;
     list_init(&entry->list);
-
+    /*
+    ** init of the move list
+    */
+    list_init(&entry->move_list);
     /*
     ** Try to remove older entries
     */
@@ -451,7 +471,11 @@ lv2_entry_t *lv2_cache_put_forced(lv2_cache_t *cache, fid_t fid,ext_mattr_t *att
  	  if (lru->nb_locks != 0) {
 	    severe("lv2 with %d locks in lru",lru->nb_locks);
  	  }
-
+          /*
+	  **  Exit from the LRU deletion loop if the current entry is
+	  **  locked in the cache
+	  */
+	  if (lru->locked_in_cache) break;
            
 	  htable_del(&cache->htable, lru->attributes.s.attrs.fid);
 	  lv2_cache_unlink(cache,lru);
@@ -500,27 +524,42 @@ void lv2_cache_del(lv2_cache_t *cache, fid_t fid)
  
   @param trk_tb_p: export attributes tracking table
   @param cache: pointer to the cache associated with the export
-  @param fid: the searched fid
+  @param fid: the searched fid_orig
+  @param mover_invalidate: assert to 1 where mover can be invalidated
  
   @return a pointer to lv2 entry or null on error (errno is set)
 */
-lv2_entry_t *export_lookup_fid(export_tracking_table_t *trk_tb_p,lv2_cache_t *cache, fid_t fid) {
+lv2_entry_t *export_lookup_fid_internal(export_tracking_table_t *trk_tb_p,lv2_cache_t *cache, fid_t fid_orig,int mover_invalidate) {
     lv2_entry_t *lv2 = 0;
+    rozofs_inode_t fake_inode;
+    rozofs_inode_t *fid = &fake_inode;
+    rozofs_inode_t *fake_inode_src_p = (rozofs_inode_t*)fid_orig;
     uint32_t slice;
 //    START_PROFILING(export_lookup_fid);
-    
+    /*
+    ** use a temporary FID for doing the lookup
+    */
+    fid->fid[0] = fake_inode_src_p->fid[0];
+    fid->fid[1] = fake_inode_src_p->fid[1];
+    if ((fid->s.key == ROZOFS_REG_S_MOVER) || (fid->s.key == ROZOFS_REG_D_MOVER))
+    {
+       /*
+       ** switch back to the ROZOFS_REG type for the lookup
+       */
+       fid->s.key = ROZOFS_REG;
+    }
     /*
     ** get the slice of the fid :extracted from the upper part 
     */
-    exp_trck_get_slice(fid,&slice);
+    exp_trck_get_slice((unsigned char *)fid,&slice);
     /*
     ** check if the slice is local
     */
     if (exp_trck_is_local_slice(slice))
     {
-      if (!(lv2 = lv2_cache_get(cache, fid))) {
+      if (!(lv2 = lv2_cache_get(cache, (unsigned char *)fid))) {
           // not cached, find it an cache it
-          if (!(lv2 = lv2_cache_put(trk_tb_p,cache, fid))) {
+          if (!(lv2 = lv2_cache_put(trk_tb_p,cache,(unsigned char *) fid))) {
               goto out;
           }
       }
@@ -529,7 +568,7 @@ lv2_entry_t *export_lookup_fid(export_tracking_table_t *trk_tb_p,lv2_cache_t *ca
     {
       int idx  = (++exp_fake_lv2_entry_idx)%(EXP_MAX_FAKE_LVL2_ENTRIES);
       lv2 = &exp_fake_lv2_entry[idx];
-      if (exp_meta_get_object_attributes(trk_tb_p,fid,lv2) < 0)
+      if (exp_meta_get_object_attributes(trk_tb_p,(unsigned char *)fid,lv2) < 0)
       {
 	/*
 	** cannot get the attributes: need to log the returned errno
@@ -542,10 +581,51 @@ lv2_entry_t *export_lookup_fid(export_tracking_table_t *trk_tb_p,lv2_cache_t *ca
       }         
     }
 out:
+    if (lv2!= NULL)
+    {
+       if ((fake_inode_src_p->s.key != ROZOFS_REG_S_MOVER) && (fake_inode_src_p->s.key != ROZOFS_REG_D_MOVER))
+       {
+          rozofs_mover_invalidate(lv2);
+       }
+    }
 //    STOP_PROFILING(export_lookup_fid);
     return lv2;
 }
+/*
+**__________________________________________________________________
+*/
+/** search a fid in the attribute cache
+ 
+ if fid is not cached, try to find it on the underlying file system
+ and cache it.
+ 
+  @param trk_tb_p: export attributes tracking table
+  @param cache: pointer to the cache associated with the export
+  @param fid_orig: the searched fid
+ 
+  @return a pointer to lv2 entry or null on error (errno is set)
+*/
+lv2_entry_t *export_lookup_fid(export_tracking_table_t *trk_tb_p,lv2_cache_t *cache, fid_t fid_orig) {
+    return export_lookup_fid_internal(trk_tb_p,cache,fid_orig,0);
+}
 
+/*
+**__________________________________________________________________
+*/
+/** search a fid in the attribute cache
+ 
+ if fid is not cached, try to find it on the underlying file system
+ and cache it.
+ 
+  @param trk_tb_p: export attributes tracking table
+  @param cache: pointer to the cache associated with the export
+  @param fid: the searched fid
+ 
+  @return a pointer to lv2 entry or null on error (errno is set)
+*/
+lv2_entry_t *export_lookup_fid_no_invalidate_mover(export_tracking_table_t *trk_tb_p,lv2_cache_t *cache, fid_t fid_orig) {
+    return export_lookup_fid_internal(trk_tb_p,cache,fid_orig,0);
+}
 /*
 **__________________________________________________________________
 */

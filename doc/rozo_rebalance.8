@@ -1,0 +1,143 @@
+.\" Process this file with
+.\" groff -man -Tascii rozo_rebalance.8
+.\"
+.TH rozo_rebalance 8 "OCTOBER 2016" RozoFS "User Manuals"
+.SH NAME
+rozo_rebalance \- RozoFS storage rebalancer deamon
+.SH SYNOPSIS
+.B rozo_rebalance 
+[
+.I PARAMS
+] [
+.I OPTIONS
+]
+.B
+.SH DESCRIPTION
+.B rozo_rebalance
+RozoFS storage rebalancer. The goal of the rebalancer is to move files within a RozoFS Volume in order to balance the storage. The process MUST run on the same node as the exportd where the volume is defined. It can be started either as a background process or in one shot mode. When it is started in the one shot mode, the process ends when the balance criteria are met.
+.SH PARAMS
+.IP "-v, --volume vid"
+.RS
+Use 
+.I vid
+as the volume identifier for which storage balancing should apply. The vid should be defined in the following file: 
+.I /etc/rozofs/export.conf
+(or
+.I /usr/local/etc/rozofs/export.conf
+according to install options)
+.RE
+.IP "-t threshold"
+.RS
+This parameter defines the threshold in percentage around the average storage occupancy to which the balancing applies. Typically, the balancing stops when all the storages (sid) are included in the window defined by that threshold.
+.RE
+.IP "-a threshold"
+.RS
+This parameter defines the free space threshold in percentage before triggering a storage balancing. If the free available space on sid is higher than that threshold, the balancing process stops.
+.RE
+.SH OPTIONS
+.IP "-h, --help"
+.RS
+Print help.
+.RE
+.IP "-f,--frequency seconds"
+.RS
+This option defines the scanning frequency in seconds of the storage balancing process. (default 30s).
+.RE
+.IP "-c,--config file"
+.RS
+Use 
+.I file
+as configuration file default is
+.I /etc/rozofs/export.conf
+(or
+.I /usr/local/etc/rozofs/export.conf
+according to install options)
+.RE
+.IP "--olderm minutes, --older days"
+.RS
+exclude files that are more recent than the specified delay. The delay can be defined either in minutes or days.
+.RE
+.IP "--newerrm minutes, --newer days"
+.RS
+exclude files that are older than the specified delay. The delay can be defined either in minutes or days.
+.RE
+.RE
+.IP "--cont"
+.RS
+that option when set, indicates that the storage rebalancing process operates in continous mode.
+.RE
+.IP "--mode <rel|abs|fid>"
+.RS
+that option indicates the access mode used by the storage balancer for moving the file:
+.RS 
+- rel: use relative mode (parent/child)
+.RE
+.RS 
+- abs: use full pathname mode 
+.RE
+.RS 
+- fid: use i-node mode (default) 
+.RE
+.RE
+.IP "--verbose"
+.RS
+that option sets the storage balancing process in verbose mode.
+.RE
+.IP "--movecnt count"
+.RS
+that option defines the file count threshold before triggering an effective file move (default:10).
+.RE
+.IP "--movesz value[k|K|m|M|g|G]"
+.RS
+that option defines the cumulated file size threshold before triggering an effective file move (default:1G). The size can be given in bytes, kilobytes(k,K), megabytes (m,M) or gigabytes (g,G).
+.RE
+.IP "--throughput value"
+.RS
+that option defines the maximun bandwidth in MB/s allocated to the file mover (default: 10 MB/s).
+.RE
+.SH FILES
+.I /etc/rozofs/export.conf (/usr/local/etc/rozofs/export.conf)
+.RS
+The system wide configuration file. See
+.BR export.conf (5)
+for further details.
+.RE
+.I /var/log/syslog
+.RS
+The log file. See
+.BR syslogd (8)
+and
+.BR syslog.conf (5)
+for further details.
+.RE
+.I /var/run/storaged.pid
+.RS
+Pid file for the
+.B storaged
+daemon.
+.\".SH ENVIRONMENT
+.\".SH DIAGNOSTICS
+.SH "REPORTING BUGS"
+Report bugs to <bugs@fizians.org>.
+.SH COPYRIGHT
+Copyright (c) 2013 Fizians SAS. <http://www.fizians.com>
+
+Rozofs is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published
+by the Free Software Foundation, version 2.
+
+Rozofs is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+.SH AUTHOR
+Fizians <http://www.fizians.org>
+.SH "SEE ALSO"
+.BR rozofs (7),
+.BR export.conf (5),
+.BR exportd (8),
+.BR rozofsmount (8),
+

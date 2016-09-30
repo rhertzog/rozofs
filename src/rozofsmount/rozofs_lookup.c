@@ -388,6 +388,28 @@ void rozofs_ll_lookup_nb(fuse_req_t req, fuse_ino_t parent, const char *name)
       return;
     }
     /*
+    ** check if the lookup is a lookup revalidate. In such a case, the VFS provides*
+    ** the inode. So if the i-node attributes are fine, we do not worry
+    */
+    if (child != 0)
+    {
+      uint64_t attr_us = rozofs_tmr_get_attr_us(rozofs_is_directory_inode(ino));    
+      nie = get_ientry_by_inode(child);
+      if (nie != NULL)
+      {
+	if (
+           /* check regular file */
+           ((((nie->timestamp+attr_us) > rozofs_get_ticker_us()) || (rozofs_mode == 1))&&(S_ISREG(nie->attrs.mode))) ||
+	   /* check directory */
+	   (((nie->pending_getattr_cnt>0)||((nie->timestamp+attr_us) > rozofs_get_ticker_us()))&&(S_ISDIR(nie->attrs.mode)))
+	   ) 
+        {
+	  mattr_to_stat(&nie->attrs, &stbuf,exportclt.bsize);
+	  goto success;    
+	}                
+      }    
+    }
+    /*
     ** fill up the structure that will be used for creating the xdr message
     */    
     arg.arg_gw.eid = exportclt.eid;

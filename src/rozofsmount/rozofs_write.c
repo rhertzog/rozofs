@@ -36,6 +36,8 @@ static int64_t write_buf_nb(void *buffer_p,file_t * f, uint64_t off, const char 
 
 void rozofs_ll_write_cbk(void *this,void *param);
 void rozofs_clear_file_lock_owner(file_t * f);
+void export_write_block_cbk(void *this,void *param);
+
 /*
 ** write alignment statistics
 */
@@ -958,6 +960,12 @@ static int64_t write_buf_nb(void *buffer_p,file_t * f, uint64_t off, const char 
     memcpy(args.fid, f->fid, sizeof (fid_t));
     args.off = off;
     args.data.data_len = len;
+    ret = rozofs_fill_storage_info(ie,&args.cid,args.dist_set,args.fid);
+    if (ret < 0)
+    {
+      severe("FDL bad storage information encoding");
+      return ret;
+    }    
     /*
     ** Update the bandwidth statistics
     */
@@ -2440,6 +2448,10 @@ void export_force_write_block_cbk(void *this,void *param)
   if (status < 0)
   {
      /*
+     ** Attempt to queue the ientry in the write_block retry list
+     */
+     
+     /*
      ** something wrong happened
      */
      errno = rozofs_tx_get_errno(this);  
@@ -2604,32 +2616,315 @@ int export_force_write_block_asynchrone(void *fuse_ctx_p,  ientry_t *ientry, uin
     return ret;  
 }
 
+/**
+**____________________________________________________________
+      Write Block Retry section
+**____________________________________________________________
+*/      
+/*
+**__________________________________________________________________
+*/
+/**
+  Queue a pending write block in the pending list
+ 
+   The entry parameter should contain the inode value provide by VFS
+ 
+  @param param : fuse context
+  
+  @retval 0 on success
+  @retvak -1 on error
+
+ */
+int rozofs_export_queue_ie_in_wr_block_list_from_fuse_ctx(void *param)
+{
+   fuse_ino_t ino;
+   ientry_t *ie;
+   RESTORE_FUSE_PARAM(param,ino);
+
+    if (!(ie = get_ientry_by_inode(ino))) {
+        errno = ENOENT;
+        return -1;
+    }
+    rozofs_export_queue_ie_in_wr_block_list(ie);
+    return 0;
+}
+/**
+*  Call back function call upon a success rpc, timeout or any other rpc failure
+*
+ @param this : pointer to the transaction context
+ @param param: pointer to the associated rozofs_fuse_context
+ 
+ @return none
+ */
+ 
+void export_write_block_retry_cbk(void *this,void *param) 
+{
+   epgw_mattr_ret_t ret ;
+   struct rpc_msg  rpc_reply;
+
+   
+   int status;
+   uint8_t  *payload;
+   void     *recv_buf = NULL;   
+   XDR       xdrs;    
+   int      bufsize;
+   xdrproc_t decode_proc = (xdrproc_t)xdr_epgw_mattr_ret_t;
+   errno = 0;
+   int trc_idx;
+   ientry_t *ie = 0;
+   ino_t   ino;
+    
+   RESTORE_FUSE_PARAM(param,trc_idx);
+   RESTORE_FUSE_PARAM(param,ino);
+   
+   ie = get_ientry_by_inode(ino);
 
 
+   rpc_reply.acpted_rply.ar_results.proc = NULL;
+    /*
+    ** get the pointer to the transaction context:
+    ** it is required to get the information related to the receive buffer
+    */
+    rozofs_tx_ctx_t      *rozofs_tx_ctx_p = (rozofs_tx_ctx_t*)this;     
+    /*    
+    ** get the status of the transaction -> 0 OK, -1 error (need to get errno for source cause
+    */
+    status = rozofs_tx_get_status(this);
+    if (status < 0)
+    {
+       /*
+       ** queue the ientry on the write_block pending list for retrying later
+       */
+       rozofs_export_queue_ie_in_wr_block_list_from_fuse_ctx(param);
+       /*
+       ** something wrong happened
+       */
+       errno = rozofs_tx_get_errno(this);  
+       goto error; 
+    }
+    /*
+    ** get the pointer to the receive buffer payload
+    */
+    recv_buf = rozofs_tx_get_recvBuf(this);
+    if (recv_buf == NULL)
+    {
+       /*
+       ** something wrong happened
+       */
+       errno = EFAULT;  
+       goto error;         
+    }
+    payload  = (uint8_t*) ruc_buf_getPayload(recv_buf);
+    payload += sizeof(uint32_t); /* skip length*/
+    /*
+    ** OK now decode the received message
+    */
+    bufsize = rozofs_tx_get_small_buffer_size();
+    xdrmem_create(&xdrs,(char*)payload,bufsize,XDR_DECODE);
+    /*
+    ** decode the rpc part
+    */
+    if (rozofs_xdr_replymsg(&xdrs,&rpc_reply) != TRUE)
+    {
+     TX_STATS(ROZOFS_TX_DECODING_ERROR);
+     errno = EPROTO;
+     goto error;
+    }
+    /*
+    ** ok now call the procedure to encode the message
+    */
+    memset(&ret,0, sizeof(ret));                    
+    if (decode_proc(&xdrs,&ret) == FALSE)
+    {
+       TX_STATS(ROZOFS_TX_DECODING_ERROR);
+       errno = EPROTO;
+       xdr_free((xdrproc_t) decode_proc, (char *) &ret);
+       goto error;
+    }   
+
+    if (ret.status_gw.status == EP_FAILURE) {
+        errno = ret.status_gw.ep_mattr_ret_t_u.error;
+        xdr_free((xdrproc_t) decode_proc, (char *) &ret);    
+        goto error;
+    }
+    
+    /*
+    ** Update eid free quota
+    */
+    eid_set_free_quota(ret.free_quota);
+            
+    /*
+    ** Update cache entry
+    */
+    if (ie) {
+      /*
+      ** update the attributes in the ientry
+      */
+      rozofs_ientry_update(ie,(mattr_t *)&ret.status_gw.ep_mattr_ret_t_u.attrs);  
+      ie->file_extend_running = 0;
+      /*
+      ** check if some more write blocks are pending
+      */
+      rozofs_export_write_block_list_process();
+    }
+        
+    xdr_free((xdrproc_t) decode_proc, (char *) &ret);    
+error:
+    /*
+    ** release the transaction context and the fuse context
+    */
+    rozofs_trc_rsp(srv_rozofs_ll_ioctl,0/*ino*/,NULL,(errno==0)?0:1,trc_idx);
+    STOP_PROFILING_NB(param,rozofs_ll_ioctl);
+    rozofs_fuse_release_saved_context(param);
+    if (rozofs_tx_ctx_p != NULL) rozofs_tx_free_from_ptr(rozofs_tx_ctx_p);    
+    if (recv_buf != NULL) ruc_buf_freeBuffer(recv_buf);   
+    /*
+    ** check if the ientry has to be deleted
+    */
+    if (ie) del_ientry(ie);
+    
+    return;
+}
+
+/**
+*  metadata update on retry -> need to update the file size 
+   THis occurs when the exportd does not respond to the write block because of a switch-over condition
 
 
+ @param fuse_ctx_p: pointer to the fuse request context (must be preserved for the transaction duration
+ @param ie : ientry for whicj a write block retry is attempted
+ 
+ @retval 0 success
+ @retval <>0 error
+
+*/
+int export_write_block_asynchrone_retry(void *fuse_ctx_p, ientry_t *ie) 
+{
+    epgw_write_block_arg_t arg;
+    int    ret;        
+
+    int trc_idx = rozofs_trc_req_io(srv_rozofs_ll_ioctl,(fuse_ino_t)ie,ie->fid, ie->attrs.size,0);
+    SAVE_FUSE_PARAM(fuse_ctx_p,trc_idx);
+    /*
+    ** insert the site number in the argument
+    */
+    arg.hdr.gateway_rank = rozofs_get_site_number(); 
+    /*
+    ** fill up the structure that will be used for creating the xdr message
+    */    
+    arg.arg_gw.eid = exportclt.eid;
+    memcpy(arg.arg_gw.fid, ie->fid, sizeof (fid_t));
+    arg.arg_gw.bid = 0;
+    arg.arg_gw.nrb = 1;
+    arg.arg_gw.length = 0; //buf_flush_len;
+    arg.arg_gw.offset = ie->attrs.size; //buf_flush_offset;
+    arg.arg_gw.geo_wr_start = 0;
+    arg.arg_gw.geo_wr_end   = 0;
+    /*
+    ** now initiates the transaction towards the remote end
+    */
+    ret = rozofs_expgateway_send_routing_common(arg.arg_gw.eid,ie->fid,EXPORT_PROGRAM, EXPORT_VERSION,
+                              EP_WRITE_BLOCK,(xdrproc_t) xdr_epgw_write_block_arg_t,(void *)&arg,
+                              export_write_block_retry_cbk,fuse_ctx_p); 
+    if (ret == 0) {
+      /*
+      ** indicates that the revelant file size will be found in the ientry
+      */
+      if (ie->file_extend_pending )       
+      {
+        ie->file_extend_pending = 0;
+	ie->file_extend_size    = 0;
+        ie->file_extend_running = 1;
+     } 
+    } 
+    else
+    {
+      /*
+      ** queue the ientry in the retry list of the wr_block. The insertion takes place
+      ** where the exportd connectivity is lost during a switch-over
+      */
+      rozofs_export_queue_ie_in_wr_block_list(ie);
+    }   
+    return ret;  
+}
 
 
+/*
+**__________________________________________________________________
+*/
+/**
+  Process the pending write block list
+ 
+  @param param : none
+  
+ */
+void rozofs_export_write_block_list_process()
+{
+  rozofs_fuse_ctx_t  *ctx_p;
+  uint32_t            buffer_count;
+  fid_t               fake_fid;
+  expgw_tx_routing_ctx_t routing_ctx; 
+  list_t             * p;
+  list_t             * n;
+   void *buffer_p = NULL;
+  ientry_t           *ie;
+  fuse_ino_t         ino;
+  int                ret;
+  int                credit = 1;
+ 
+  if (list_empty(&list_wr_block_head)) return;
+  /*
+  ** check if there is enought fuse context for processing pending requests
+  */
+  ctx_p = (rozofs_fuse_ctx_t*)rozofs_fuse_ctx_p;
+  
+  buffer_count = ruc_buf_getFreeBufferCount(ctx_p->fuseReqPoolRef);
+  if (buffer_count < 30) return;
+  /*
+  ** Check the status of the lbg towards the exportd
+  */
+  if (expgw_get_export_routing_lbg_info(exportclt.eid,fake_fid,&routing_ctx) != 0) {
+     return;
+  }
+  if (north_lbg_get_state(routing_ctx.lbg_id[0]) != NORTH_LBG_UP) {       
+     return;
+  }
+  /*
+  ** loop on the pending wr_block requests
+  */
+  list_for_each_forward_safe(p,n,&list_wr_block_head) {
+    
+    ie = (ientry_t *) list_entry(p, ientry_t, list_wr_block);
+    /*
+    ** allocate a fuse context
+    */
+    buffer_p = rozofs_fuse_alloc_saved_context();
+    if (buffer_p == NULL)
+    {
+      return;
+    }
+    ino = ie->inode;
+    SAVE_FUSE_PARAM(buffer_p,ino);
+    /*
+    ** remove the ientry from the list prior attempting to send the write block towards
+    ** the exportd: this is required since the ie can be requeued during the attempt
+    */
+    rozofs_export_dequeue_ie_from_wr_block_list(ie);
+    ret = export_write_block_asynchrone_retry(buffer_p,ie);
+    if (ret != 0) return;
+    /*
+    ** check if it remains some credits
+    */
+    credit--;
+    if (credit == 0) return;
+  }
+}
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+/**
+**____________________________________________________________
+      Write Block Retry end
+**____________________________________________________________
+*/ 
 
 /**
 *  metadata update -> need to update the file size
@@ -2660,7 +2955,13 @@ int export_write_block_asynchrone(void *fuse_ctx_p, file_t *file_p, sys_recv_pf_
     ie = file_p->ie;
     if (ie) {
       ie->timestamp = 0;
+      /*
+      ** dequeue the ientry from the write block pending list
+      */
+      rozofs_export_dequeue_ie_from_wr_block_list(ie);
+
     }  
+
 
     /*
     ** adjust the size of the attributes of the local file
@@ -2714,7 +3015,15 @@ int export_write_block_asynchrone(void *fuse_ctx_p, file_t *file_p, sys_recv_pf_
 	ie->file_extend_size    = 0;
         ie->file_extend_running = 1;
      } 
-    }    
+    } 
+    else
+    {
+      /*
+      ** queue the ientry in the retry list of the wr_block. The insertion takes place
+      ** where the exportd connectivity is lost during a switch-over
+      */
+      rozofs_export_queue_ie_in_wr_block_list(ie);
+    }   
     return ret;  
 }
 
@@ -2730,7 +3039,6 @@ int export_write_block_asynchrone(void *fuse_ctx_p, file_t *file_p, sys_recv_pf_
  
  @retval none
 */
-void export_write_block_cbk(void *this,void *param);
 
 void export_write_block_nb(void *fuse_ctx_p, file_t *file_p) 
 {
@@ -2905,6 +3213,10 @@ void export_write_block_cbk(void *this,void *param)
     if (status < 0)
     {
        /*
+       ** queue the ientry on the write_block pending list for retrying later
+       */
+       rozofs_export_queue_ie_in_wr_block_list_from_fuse_ctx(param);
+       /*
        ** something wrong happened
        */
        errno = rozofs_tx_get_errno(this);  
@@ -3009,6 +3321,10 @@ void export_write_block_cbk(void *this,void *param)
       */
       rozofs_ientry_update(ie,(mattr_t *)&ret.status_gw.ep_mattr_ret_t_u.attrs);  
       ie->file_extend_running = 0;
+      /*
+      ** check if some more write blocks are pending
+      */
+      rozofs_export_write_block_list_process();
     }
         
     xdr_free((xdrproc_t) decode_proc, (char *) &ret);    

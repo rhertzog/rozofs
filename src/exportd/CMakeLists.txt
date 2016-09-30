@@ -105,6 +105,7 @@ add_executable(exportd
     quota_writeback_cache.c
     export_quota_thread.c
     rozofs_quota_intf_srv_thread.c        
+    rozofs_exp_mover.c
 )
 target_link_libraries(exportd rozofs ${PTHREAD_LIBRARY} ${UUID_LIBRARY} ${CONFIG_LIBRARY})
 

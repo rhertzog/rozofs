@@ -40,6 +40,9 @@
 extern exportclt_t exportclt;
 
 extern list_t inode_entries;
+extern int list_wr_block_count;   /**< statistics counter of wr_block that has been queued because of exportd loss of connectivity */
+extern list_t list_wr_block_head;
+
 extern htable_t htable_inode;
 extern htable_t htable_fid;
 extern uint64_t rozofs_ientries_count;
@@ -134,6 +137,7 @@ typedef struct ientry {
      ** a file_t buffer automaticaly triggers the flush to disk of the previous pending write.
      */ 
     file_t    * write_pending;
+    list_t list_wr_block;   /**< to chain pending write block in case of no response from exportd  */
     /**
      ** This counter is used for a reader to know whether the data in its buffer can be
      ** used safely or if they must be thrown away and a re-read from the disk is required
@@ -296,10 +300,24 @@ static inline void put_ientry(ientry_t * ie) {
 
 static inline void del_ientry(ientry_t * ie) {
     DEBUG("del inode: %llx\n",(unsigned long long int) ie->inode);
+    /*
+    ** take care of the write_block retry: in that case the entry is not deleted
+    ** it might e delauyed untile the exportd acknowlegdes the write_block
+    */
+    if (!list_empty(&ie->list_wr_block)) return;
+    if (ie->nlookup != 0) return;
+    
     rozofs_ientries_count--;
     htable_del(&htable_inode, &ie->inode);
 //    htable_del(&htable_fid, ie->fid);
     list_remove(&ie->list);
+    /*
+    ** future: might need to check if the ientry is queued because one wr_block is missing 
+    **         because of a exportd switch over
+    **         In that case the ientry deletion must be delayed until the client successfully updates
+    **         the i-node on the exportd with that lastest file size
+    */
+    list_remove(&ie->list_wr_block);
     if (ie->db.p != NULL) {
       free(ie->db.p);
       ie->db.p = NULL;
@@ -323,6 +341,7 @@ static inline int rozofs_is_directory_inode(fuse_ino_t ino)
 {
     rozofs_inode_t fake_id;
 
+    if (ino == 1) return 1;
     fake_id.fid[1]=ino;
     if ((ROZOFS_DIR_FID == fake_id.s.key) || (ROZOFS_DIR == fake_id.s.key))
     {
@@ -359,6 +378,7 @@ static inline ientry_t *alloc_ientry(fid_t fid) {
         memset(ie->pfid, 0, sizeof(fid_t));
 	ie->inode = inode_p->fid[1]; //fid_hash(fid);
 	list_init(&ie->list);
+	list_init(&ie->list_wr_block);
 	ie->db.size = 0;
 	ie->db.eof = 0;
 	ie->db.cookie = 0;
@@ -398,7 +418,8 @@ static inline ientry_t *recycle_ientry(ientry_t * ie, fid_t fid) {
 	if (ie->symlink_target) {
 	  free(ie->symlink_target);
 	  ie->symlink_target = NULL;
-	}	
+	}
+	list_remove(&ie->list_wr_block);	
         ie->symlink_ts     = 0;
 	return ie;
 }
@@ -670,4 +691,97 @@ void rozofs_ll_clear_client_file_lock(int eid, uint64_t client_hash);
 #define ROZOFS_WRITE_THR_E 1
 extern rozofs_thr_cnts_t *rozofs_thr_counter[];
 
+/*
+**__________________________________________________________________
+*/
+/**
+*   Fill up the information needed by storio in order to read/write a file
+
+    @param ie: pointer to the inode entry that contains file information
+    @param cid: pointer to the array where the cluster_id is returned
+    @param sids_p: pointer to the array where storage id are returned
+    @param fid_storage: pointer to the array where the fid of the file on storage is returned
+    
+    @retval 0 on success
+    @retval < 0 error (see errno for details)
+*/
+static inline int rozofs_fill_storage_info(ientry_t *ie,cid_t *cid,uint8_t *sids_p,fid_t fid_storage)
+{
+  mattr_t *attrs_p;
+  rozofs_inode_t *inode_p;
+  int key = ROZOFS_PRIMARY_FID;
+  int ret;
+  rozofs_mover_sids_t *dist_mv_p;
+  
+  
+  attrs_p = &ie->attrs;
+  inode_p = (rozofs_inode_t*)attrs_p->fid; 
+  
+  if (inode_p->s.key == ROZOFS_REG_D_MOVER) key = ROZOFS_MOVER_FID; 
+  ret = rozofs_build_storage_fid_from_attr(attrs_p,fid_storage,key);
+  if (ret < 0) return ret;
+  /*
+  ** get the cluster and the list of the sid
+  */
+  if (key == ROZOFS_MOVER_FID)
+  {
+    dist_mv_p = (rozofs_mover_sids_t*)attrs_p->sids;
+    *cid = dist_mv_p->dist_t.mover_cid;
+    memcpy(sids_p,dist_mv_p->dist_t.mover_sids,ROZOFS_SAFE_MAX_STORCLI);
+  }
+  else
+  {
+    *cid = attrs_p->cid;
+    memcpy(sids_p,attrs_p->sids,ROZOFS_SAFE_MAX_STORCLI);  
+  }
+  return 0;
+}
+
+/*
+**__________________________________________________________________
+*/
+/**
+  DeQueue an ientry from pending write block list
+  
+  @param ie : ientry context
+  
+  @retval none
+
+ */
+static inline void rozofs_export_dequeue_ie_from_wr_block_list(ientry_t *ie)
+{
+ if (list_empty(&ie->list_wr_block)) return;
+  /*
+  ** remove from the pending list
+  */
+  list_wr_block_count--;
+  list_remove(&ie->list_wr_block);
+}
+
+/*
+**__________________________________________________________________
+*/
+/**
+  Queue a pending write block in the pending list
+ 
+   The entry parameter should contain the inode value provide by VFS
+ 
+  @param ie : ientry context
+  
+  @retval none
+
+ */
+static inline void rozofs_export_queue_ie_in_wr_block_list(ientry_t *ie)
+{
+  /*
+  ** remove from the pending list
+  */
+  if (list_empty(&ie->list_wr_block))
+  {
+    list_wr_block_count++;
+    list_push_back(&list_wr_block_head, &ie->list_wr_block);
+  }  
+}
+
+void rozofs_export_write_block_list_process(void);
 #endif

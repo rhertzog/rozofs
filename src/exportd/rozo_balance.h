@@ -29,6 +29,15 @@
 #define REBALANCE_MAX_MOVE_SIZE (1000*1024*1024)
 #define REBALANCE_DEFAULT_THROUGPUT 10
 
+typedef enum _rebalance_file_mode_e
+{
+  REBALANCE_MODE_REL= 0, /**< use relative path: @rozofs_uuid@<parent_fid>/filename  */
+  REBALANCE_MODE_ABS, /**< use full pathname  */
+  REBALANCE_MODE_FID, /**< usefid mode: @rozofs_uuid@<file_fid>  */
+  REBALANCE_MODE_MAX
+} rebalance_file_mode_e;
+
+
 typedef struct _rozo_balancing_ctx_t
 {
   char *configFileName;         /**< export configuration file                */
@@ -51,7 +60,7 @@ typedef struct _rozo_balancing_ctx_t
   int continue_on_balanced_state;    /**< assert to one if the process should continue while reaching balanced state */
   int verbose;                       /**< assert to one for verbose mode */
   int throughput;                    /**< file throughput in MBytes/s */
-  int relative_path;                 /**< assert to 1 for using relative path */
+  int file_mode;                     /**< either relative/absolute or fid node (see rebalance_file_mode_e) */
   /*
   ** statistics 
   */

@@ -142,16 +142,22 @@ void clean_dir(char * name) {
    @retval 1 match
 */
 
+int key_table[] = {ROZOFS_PRIMARY_FID,ROZOFS_MOVER_FID,-1};
+
 int rozofs_visit(void *exportd,void *inode_attr_p,void *p) {
   int i;
   ext_mattr_t *inode_p = inode_attr_p;
-  int cid;
   int sid;
   int idx;
   sid_tbl_t   * pCid;
   sid_info_t  * pSid;
   char          name[64];
   sid_one_info_t *pOne;
+  int key_index = 0;
+  int key;
+  int ret;
+  cid_t cid;
+  sid_t sid_tab[ROZOFS_SAFE_MAX_STORCLI];
 
   if (debug) {
      i = 0;
@@ -164,62 +170,64 @@ int rozofs_visit(void *exportd,void *inode_attr_p,void *p) {
   /*
   ** Check whether this CID/SID is interresting
   */
-  cid = inode_p->s.attrs.cid-1;
-  pCid = cid_tbl[cid];
-  if (pCid == NULL) return 0;
+  
+  while ((key = key_table[key_index++])!= -1)
+  {
+    ret = rozofs_fill_storage_info_from_mattr(&inode_p->s.attrs,&cid,sid_tab,inode_p->s.attrs.fid,key);
+    if (ret != 0) continue;
+    cid--;
+    pCid = cid_tbl[cid];
+    if (pCid == NULL) continue;
+    /*
+    ** check for sid
+    */
+    for (i = 0; i < rozofs_safe; i++) {
+      rozofs_rebuild_entry_file_t entry;
+      int                         j;
 
-	
+      sid = sid_tab[i]-1;
+      pSid = (*pCid)[sid];
+      if (pSid == NULL) continue;
 
-  /*
-  ** check for sid
-  */
-  for (i = 0; i < rozofs_safe; i++) {
-    rozofs_rebuild_entry_file_t entry;
-    int                         j;
+      memset(&entry,0,entry_size);
+      memcpy(entry.fid,inode_p->s.attrs.fid,sizeof(fid_t));
+      entry.todo      = 1;
+      entry.block_end = -1;
+      entry.layout    = layout;
+      for (j=0; j<rozofs_safe;j++) {
+	entry.dist_set_current[j] = sid_tab[j];
+      }    
 
-    sid = inode_p->s.attrs.sids[i]-1;
-    pSid = (*pCid)[sid];
-    if (pSid == NULL) continue;
-    
-    memset(&entry,0,entry_size);
-    memcpy(entry.fid,inode_p->s.attrs.fid,sizeof(fid_t));
-    entry.todo      = 1;
-    entry.block_end = -1;
-    entry.layout    = layout;
-    for (j=0; j<rozofs_safe;j++) {
-      entry.dist_set_current[j] = inode_p->s.attrs.sids[j];
-    }    
-    
-    if (i<rozofs_forward) {
-      if (file_type == rbs_file_type_spare) {
-        continue;
-      }	     
-      pOne = &pSid->nominal;
-      
-    }
-    else {
-      if (file_type == rbs_file_type_nominal) {
-        continue;
-      }	     
-      pOne = &pSid->spare;    
+      if (i<rozofs_forward) {
+	if (file_type == rbs_file_type_spare) {
+          continue;
+	}	 
+	pOne = &pSid->nominal;
+      }
+      else {
+	if (file_type == rbs_file_type_nominal) {
+          continue;
+	}	
+	pOne = &pSid->spare;    
+      }  
+
+      idx = pOne->fd_idx;	
+      if (write(pOne->fd[idx],&entry,entry_size) < entry_size) {
+	severe("write(cid %d sid %d job %d) %s\n", cid+1, sid+1, idx, strerror(errno));
+      }
+      else {
+	TRACE("-> added size %d to cid %d sid %d job %d : %s\n",entry_size, cid+1,sid+1,idx,name);
+      }  
+      idx++;
+      if (idx>=parallel) idx = 0;
+      pOne->fd_idx = idx;
+      pOne->count++;
+      total++;
     }  
-					
-    idx = pOne->fd_idx;	
-    if (write(pOne->fd[idx],&entry,entry_size) < entry_size) {
-      severe("write(cid %d sid %d job %d) %s\n", cid+1, sid+1, idx, strerror(errno));
-    }
-    else {
-      TRACE("-> added size %d to cid %d sid %d job %d : %s\n",entry_size, cid+1,sid+1,idx,name);
-    }  
-    idx++;
-    if (idx>=parallel) idx = 0;
-    pOne->fd_idx = idx;
-    pOne->count++;
-    pOne->size += inode_p->s.attrs.size;
-    total++;
-  }  
+  }
   return 0;
 }
+
 /*
 **_______________________________________________________________________
 */

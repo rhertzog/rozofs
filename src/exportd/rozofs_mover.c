@@ -788,6 +788,266 @@ int rozofs_do_move_one_export(char * exportd_hosts, char * export_path, int thro
   mount_path[0] = 0;
   return 0;
 }
+
+
+/*-----------------------------------------------------------------------------
+**
+** Move one file in fid mode
+**
+** @param job               Description of the file to move
+** @param throughput        Throughput limitation or zero when no limit
+**
+**----------------------------------------------------------------------------
+*/
+int rozofs_do_move_one_file_fid_mode(rozofs_mover_job_t * job, int throughput) {
+  char       * pChar;
+  int          i;
+  int          offset=0;
+  uint64_t     loop_delay_us = 0;
+  uint64_t     total_delay_us=0;
+  int64_t      sleep_time_us;
+  uint64_t     begin;
+  
+  tmp_fname[0] = 0;
+  char src_fname[128];
+  char dst_fname[128];
+  char buf_fid[64];
+  
+  rozofs_inode_t *inode_p = (rozofs_inode_t*)job->name;
+
+  inode_p->s.key = ROZOFS_REG_S_MOVER;
+  rozofs_uuid_unparse((unsigned char *)job->name,buf_fid);
+  sprintf(src_fname,"@rozofs_uuid@%s",buf_fid);
+
+  inode_p->s.key = ROZOFS_REG_D_MOVER;
+  rozofs_uuid_unparse((unsigned char *)job->name,buf_fid);
+  sprintf(dst_fname,"@rozofs_uuid@%s",buf_fid);
+  /*
+  ** Starting time
+  */
+  begin = rozofs_mover_get_us(0);    
+  /*
+  ** Check file name exist
+  */
+  if (access(src_fname,R_OK) != 0) {
+    severe("Can not access file \"%s\"",src_fname);
+    goto generic_error;
+  }  
+  /*
+  ** Open source file for reading
+  */
+  src = open(src_fname,O_RDONLY);
+  if (src < 0) {
+    severe("open(%s) %s",src_fname,strerror(errno));
+    goto generic_error;
+  }
+
+  /*
+  ** Set the new distribution 
+  */
+  pChar = buf;
+  pChar += sprintf(pChar,"mover_allocate = %d",job->cid);
+  i=0;
+  while ((i<ROZOFS_SAFE_MAX)&&(job->sid[i]!=0)) {
+    pChar += sprintf(pChar," %d", job->sid[i]);
+    i++;
+  }
+  if (setxattr(dst_fname, "user.rozofs", buf, strlen(buf),0)<0) {
+    if (errno==EINVAL) {
+      severe("invalid distibution %s:%s",tmp_fname,buf);
+      goto generic_error;   
+    }
+    
+    severe("fsetxattr(%s) %s",buf,strerror(errno));   
+    goto generic_error;
+  }
+  
+  /*
+  ** Open destination file
+  */
+  dst = open(dst_fname,O_RDWR,0766);
+  if (dst < 0) {
+    severe("open(%s) %s",dst_fname,strerror(errno));
+    goto generic_error;    
+  }   
+  /*
+  ** When troughput limitation is set, compute allowed time for
+  ** one read write loop
+  */
+  if (throughput>0) {
+    /*
+    ** Compute loop_delay_us in us for copying the buffer of size ROZOFS_MOVER_BUFFER_SIZE_MB
+    */
+    loop_delay_us = 1000000 * ROZOFS_MOVER_BUFFER_SIZE_MB/throughput;
+  }   
+
+  /*
+  ** Copy the file
+  */
+  while (1) {
+    int size;
+
+    /*
+    ** Read a whole buffer
+    */      
+    size = pread(src, buf, ROZOFS_MOVER_BUFFER_SIZE, offset);
+    if (size < 0) {
+      severe("pread(%s) %s",src_fname,strerror(errno)); 
+      goto generic_error;         
+    }
+    
+    /*
+    ** End of file
+    */      
+    if (size == 0) break;
+    
+    /*
+    ** Write the data
+    */      
+    if (pwrite(dst, buf, size, offset)<0) {
+      severe("pwrite(%d) %s",size,strerror(errno));     
+      goto generic_error;       
+    }
+    
+    offset += size;
+
+    /*
+    ** When throughput limitation is set adapdt the speed accordingly
+    ** by sleeping for a while
+    */
+    if (throughput>0) {
+      if (size == ROZOFS_MOVER_BUFFER_SIZE) {
+        total_delay_us += loop_delay_us;
+      }
+      else {
+      	total_delay_us += (loop_delay_us*size/ROZOFS_MOVER_BUFFER_SIZE);
+      }	
+      sleep_time_us   = total_delay_us - rozofs_mover_get_us(begin);
+      if (sleep_time_us >= 10000) {
+        usleep(sleep_time_us);
+      }
+    }       
+  }
+
+  close(src);
+  src = -1;
+  close(dst);
+  dst = -1;
+
+  pChar = buf;
+  pChar += sprintf(pChar,"mover_validate = 0");
+  if (setxattr(dst_fname, "user.rozofs", buf, strlen(buf),0)<0) {
+    if (errno == EACCES)
+    {
+       stats.updated++;
+       goto specific_error;
+    }
+    severe("fsetxattr(%s) %s",buf,strerror(errno));   
+    goto generic_error;
+  }
+  stats.success++;
+  stats.bytes += offset;
+    
+  /*
+  ** Done
+  */
+  return 0;
+  
+generic_error:
+  stats.error++;
+  
+specific_error:  
+
+  /*
+  ** Close opened files
+  */
+
+  if (src > 0) {    
+    close(src);
+    src = -1;
+  }
+
+  if (dst > 0) {
+    close(dst);
+    dst = -1;
+  } 
+  return -1;
+}
+
+/*-----------------------------------------------------------------------------
+**
+** Move a list a file to a new location for rebalancing purpose
+**
+** @param exportd_hosts     exportd host name or addresses (from configuration file)
+** @param export_path       the export path to mount
+** @param throughput        throughput litation in MB. 0 is no limitation.
+** @param jobs              list of files along with their destination
+**
+**----------------------------------------------------------------------------
+*/
+int rozofs_do_move_one_export_fid_mode(char * exportd_hosts, char * export_path, int throughput, list_t * jobs) {
+  int                  instance;
+  list_t             * p;
+  list_t             * n;
+  rozofs_mover_job_t * job;
+
+  if (list_empty(jobs)) {
+     return 0;
+  }
+  
+  /*
+  ** Find out a free rozofsmount instance
+  */
+  instance = rozofs_get_free_rozofsmount_intance();
+  sprintf(mount_path,"/tmp/rozofs_mover_pid%d_instance%d", getpid(), instance);    
+
+  /*
+  ** Mount it 
+  */
+  rozofs_mover_create_mount_point(exportd_hosts , export_path, mount_path, instance);
+
+  
+  /*
+  ** Loop on the file to move
+  */
+  list_for_each_forward_safe(p,n,jobs) {
+    
+    job = (rozofs_mover_job_t *) list_entry(p, rozofs_mover_job_t, list);
+    stats.submited++;
+
+    /*
+    ** Process the job
+    */
+    if (rozofs_mover_is_mounted(mount_path)) {
+      rozofs_do_move_one_file_fid_mode(job,throughput); 
+    }
+    else {
+      stats.not_mounted++;    
+    }
+   
+    /*
+    ** Free this job
+    */
+    list_remove(&job->list);
+    free(job->name);
+    free(job);
+  }
+
+  /*
+  ** Get out of the mountpoint before removing it
+  */
+  if (chdir("/")!= 0) {}
+
+  /*
+  ** Unmount the temporary mount path 
+  */
+  rozofs_mover_remove_mount_point(mount_path);
+  /*
+  ** Clear mount path name
+  */
+  mount_path[0] = 0;
+  return 0;
+}
 /*-----------------------------------------------------------------------------
 **
 ** Man function

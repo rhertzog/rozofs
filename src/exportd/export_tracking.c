@@ -55,6 +55,8 @@
 #include "xattr_main.h"
 #include "rozofs_quota_api.h"
 #include "export_quota_thread_api.h"
+#include "rozofs_exp_mover.h"
+
 #include <rozofs/common/acl.h>
 int rozofs_acl_access_check(const char *name, const char *value, size_t size,mode_t *mode_p);
 /** Max entries of lv1 directory structure (nb. of buckets) */
@@ -78,6 +80,8 @@ uint64_t export_last_count = 0;
 uint64_t export_fid_recycle_reload_count = 0; /**< number of recycle fid reloaded */
 int export_fid_recycle_ready = 0; /**< assert to 1 when fid recycle have been reloaded */
 int export_limit_rm_files;
+
+
 
 typedef struct cnxentry {
     mclient_t *cnx;
@@ -325,8 +329,8 @@ void *export_wr_attr_th(void *arg) {
        sem_wait(&thread_ctx_p->export_attr_wr_ready);
     }
     thread_ctx_p->lv2 = lv2;
-    thread_ctx_p->sync = sync;
     thread_ctx_p->trk_tb_p = trk_tb_p;
+    thread_ctx_p->sync = sync;
     sem_post(&thread_ctx_p->export_attr_wr_rq);     
 }
 
@@ -1568,7 +1572,6 @@ int export_lookup(export_t *e, fid_t pfid, char *name, mattr_t *attrs,mattr_t *p
     {
         fid_t fid_direct;
 	int ret;
-	lv2_entry_t exp_fake_lv2_entry;
 	
 	ret = rozofs_uuid_parse(&name[13],fid_direct);
 	if (ret < 0)
@@ -1576,22 +1579,24 @@ int export_lookup(export_t *e, fid_t pfid, char *name, mattr_t *attrs,mattr_t *p
 	  errno = EINVAL;
 	  goto out;
 	}
+	lv2 = EXPORT_LOOKUP_FID(e->trk_tb_p,e->lv2_cache, fid_direct);
+	if (lv2 == NULL)
+	{
+	  /*
+	  ** cannot get the attributes: need to log the returned errno
+	  */
+	  errno = ENOENT;
+	  goto out;
+	} 
+        memcpy(attrs, &lv2->attributes.s.attrs, sizeof (mattr_t));
 	/*
-	** read the attribute from disk
+	** copy the fid provided in the input argument
 	*/
-      lv2 = &exp_fake_lv2_entry;
-      if (exp_meta_get_object_attributes(e->trk_tb_p,fid_direct,lv2) < 0)
-      {
-	/*
-	** cannot get the attributes: need to log the returned errno
-	*/
-	errno = ENOENT;
-	goto out;
-      } 
-       memcpy(attrs, &lv2->attributes.s.attrs, sizeof (mattr_t));
-       if (lv2->attributes.s.i_state == 0) rozofs_clear_xattr_flag(&attrs->mode);
-       status = 0;  
-       goto out;      
+	memcpy(attrs->fid,fid_direct,sizeof(fid_t));
+	
+        if (lv2->attributes.s.i_state == 0) rozofs_clear_xattr_flag(&attrs->mode);
+        status = 0;  
+        goto out;      
     }
     /*
     ** check for root of delete pending object
@@ -1612,7 +1617,7 @@ int export_lookup(export_t *e, fid_t pfid, char *name, mattr_t *attrs,mattr_t *p
         goto out;
     }
     // get the lv2
-    if (!(lv2 = EXPORT_LOOKUP_FID(e->trk_tb_p,e->lv2_cache, child_fid))) {
+    if (!(lv2 = export_lookup_fid_no_invalidate_mover(e->trk_tb_p,e->lv2_cache, child_fid))) {
         /*
          ** It might be possible that the file is still referenced in the dirent file but 
          ** not present on disk: its FID has been released (and the associated file deleted)
@@ -1635,6 +1640,10 @@ int export_lookup(export_t *e, fid_t pfid, char *name, mattr_t *attrs,mattr_t *p
         }
         goto out;
     }
+    /*
+    ** take care of the case of the mover
+    */
+    rozofs_mover_check_for_validation(e,lv2,child_fid);
     memcpy(attrs, &lv2->attributes.s.attrs, sizeof (mattr_t));
     /*
     ** check if the file has the delete pending bit asserted: if it is the
@@ -1683,7 +1692,7 @@ int export_getattr(export_t *e, fid_t fid, mattr_t *attrs) {
     START_PROFILING(export_getattr);
     uint64_t     ts;
 
-    if (!(lv2 = EXPORT_LOOKUP_FID(e->trk_tb_p,e->lv2_cache, fid))) {
+    if (!(lv2 = export_lookup_fid_no_invalidate_mover(e->trk_tb_p,e->lv2_cache, fid))) {
     
       ts = rdtsc();
       if (ts>last_export_getattr_log+5000000000UL) {
@@ -1693,8 +1702,13 @@ int export_getattr(export_t *e, fid_t fid, mattr_t *attrs) {
 	last_export_getattr_log = ts;
       }
       goto out;
-    }   
+    } 
+    /*
+    ** take care of the case of the mover
+    */
+    rozofs_mover_check_for_validation(e,lv2,fid);  
     memcpy(attrs, &lv2->attributes.s.attrs, sizeof (mattr_t));
+    memcpy(attrs->fid,fid,sizeof(fid_t));
     if (lv2->attributes.s.i_state == 0) rozofs_clear_xattr_flag(&attrs->mode);
     /*
     ** check if the file has the delete pending bit asserted: if it is the
@@ -1751,6 +1765,20 @@ int export_setattr(export_t *e, fid_t fid, mattr_t *attrs, int to_set) {
     {
        errno = EROFS;
        goto out;
+    }
+    /*
+    ** check if the inode reference a Mover
+    */
+    {
+      rozofs_inode_t *inode_p = (rozofs_inode_t*)fid;
+      if ((inode_p->s.key == ROZOFS_REG_S_MOVER) || (inode_p->s.key == ROZOFS_REG_D_MOVER))
+      {
+	 /*
+	 ** Mover cannot  change the i-node
+	 */
+	 status = 0;
+	 goto out;
+      }
     }
 
     if ((to_set & EXPORT_SET_ATTR_SIZE) && S_ISREG(lv2->attributes.s.attrs.mode)) {
@@ -3356,6 +3384,10 @@ void export_unlink_duplicate_fid(export_t * e,lv2_entry_t  *plv2,fid_t parent, f
    fid_has_been_recycled = export_fid_recycle_attempt(e,lv2);
    if (fid_has_been_recycled == 0)
    {
+     /*
+     ** take care of the mover: the "mover" distribution must be pushed in trash when it exits
+     */
+     rozofs_mover_unlink_mover_distribution(e,lv2);
      // Compute hash value for this fid
      uint32_t hash = rozofs_storage_fid_slice(lv2->attributes.s.attrs.fid);
 
@@ -3364,6 +3396,14 @@ void export_unlink_duplicate_fid(export_t * e,lv2_entry_t  *plv2,fid_t parent, f
      */
      trash_entry.size = lv2->attributes.s.attrs.size;
      memcpy(trash_entry.fid, lv2->attributes.s.attrs.fid, sizeof (fid_t));
+     /*
+     ** compute the storage fid
+     */
+     {
+       rozofs_mover_children_t mover_idx;
+       mover_idx.u32 = lv2->attributes.s.attrs.children;
+       rozofs_build_storage_fid(trash_entry.fid,mover_idx.fid_st_idx.primary_idx);
+     }
      trash_entry.cid = lv2->attributes.s.attrs.cid;
      memcpy(trash_entry.initial_dist_set, lv2->attributes.s.attrs.sids,
              sizeof (sid_t) * ROZOFS_SAFE_MAX);
@@ -3604,6 +3644,10 @@ int export_unlink(export_t * e, fid_t parent, char *name, fid_t fid,mattr_t * pa
 	      fid_has_been_recycled = export_fid_recycle_attempt(e,lv2);
 	      if (fid_has_been_recycled == 0)
 	      {
+	        /*
+		** take care of the mover: the "mover" distribution must be pushed in trash when it exists
+		*/
+	        rozofs_mover_unlink_mover_distribution(e,lv2);
         	// Compute hash value for this fid
         	uint32_t hash = rozofs_storage_fid_slice(lv2->attributes.s.attrs.fid);
 
@@ -3612,6 +3656,15 @@ int export_unlink(export_t * e, fid_t parent, char *name, fid_t fid,mattr_t * pa
 		*/
 		trash_entry.size = lv2->attributes.s.attrs.size;
         	memcpy(trash_entry.fid, lv2->attributes.s.attrs.fid, sizeof (fid_t));
+		/*
+		** compute the storage fid
+		*/
+		{
+		  rozofs_mover_children_t mover_idx;
+		  mover_idx.u32 = lv2->attributes.s.attrs.children;
+		  rozofs_build_storage_fid(trash_entry.fid,mover_idx.fid_st_idx.primary_idx);
+		}
+
         	trash_entry.cid = lv2->attributes.s.attrs.cid;
         	memcpy(trash_entry.initial_dist_set, lv2->attributes.s.attrs.sids,
                 	sizeof (sid_t) * ROZOFS_SAFE_MAX);
@@ -5126,6 +5179,10 @@ int export_rename(export_t *e, fid_t pfid, char *name, fid_t npfid,
                     // Check if it's a regular file not empty 
                     if (lv2_to_replace->attributes.s.attrs.size > 0 &&
                             S_ISREG(lv2_to_replace->attributes.s.attrs.mode)) {
+	        	/*
+			** take care of the mover: the "mover" distribution must be pushed in trash when it exits
+			*/
+	        	rozofs_mover_unlink_mover_distribution(e,lv2_to_replace);
 
                         // Compute hash value for this fid
                         uint32_t hash = rozofs_storage_fid_slice(lv2_to_replace->attributes.s.attrs.fid);
@@ -5133,6 +5190,14 @@ int export_rename(export_t *e, fid_t pfid, char *name, fid_t npfid,
 			** prepare the trash entry
 			*/
         		memcpy(trash_entry.fid, lv2_to_replace->attributes.s.attrs.fid, sizeof (fid_t));
+ 			/*
+			** compute the storage fid
+			*/
+			{
+			  rozofs_mover_children_t mover_idx;
+			  mover_idx.u32 = lv2_to_replace->attributes.s.attrs.children;
+			  rozofs_build_storage_fid(trash_entry.fid,mover_idx.fid_st_idx.primary_idx);
+			}
         		trash_entry.cid = lv2_to_replace->attributes.s.attrs.cid;
         		memcpy(trash_entry.initial_dist_set, lv2_to_replace->attributes.s.attrs.sids,
                 		sizeof (sid_t) * ROZOFS_SAFE_MAX);
@@ -5474,6 +5539,23 @@ int64_t export_write_block(export_t *e, fid_t fid, uint64_t bid, uint32_t n,
     if (!(lv2 = EXPORT_LOOKUP_FID(e->trk_tb_p,e->lv2_cache, fid)))
         goto out;
 
+    /*
+    ** check the case of the file mover
+    */
+    {
+       rozofs_inode_t *inode_p = (rozofs_inode_t*)fid;
+       if (inode_p->s.key == ROZOFS_REG_D_MOVER)
+       {
+          /*
+	  ** write block should be ignored
+	  */
+	  length = len;
+	  memcpy(attrs, &lv2->attributes.s.attrs, sizeof (mattr_t));
+          memcpy(attrs->fid,fid,sizeof(fid_t));
+	  if (lv2->attributes.s.i_state == 0) rozofs_clear_xattr_flag(&attrs->mode);
+	  goto out;	  
+       }
+    }
 
     // Update size of file
     if (off + len > lv2->attributes.s.attrs.size) {
@@ -5492,7 +5574,6 @@ int64_t export_write_block(export_t *e, fid_t fid, uint64_t bid, uint32_t n,
         lv2->attributes.s.attrs.size = off + len;
 	sync = 1;
     }
-
     // Update mtime and ctime
     lv2->attributes.s.attrs.mtime = lv2->attributes.s.attrs.ctime = time(NULL);
     /*
@@ -5729,11 +5810,28 @@ static inline int get_rozofs_xattr(export_t *e, lv2_entry_t *lv2, char * value, 
   rozofs_uuid_unparse(lv2->attributes.s.attrs.fid,p);
   p += 36;
   *p++ = '\n';
-  
+  if (S_ISREG(lv2->attributes.s.attrs.mode)) {
+
+     fid_t fidtmp;
+     rozofs_inode_t *fake_inode = (rozofs_inode_t*)fidtmp;
+     memcpy(fidtmp,lv2->attributes.s.attrs.fid,sizeof(fid_t));
+     fake_inode->s.key = ROZOFS_REG_S_MOVER;
+     DISPLAY_ATTR_TITLE( "FID_S"); 
+     rozofs_uuid_unparse(fidtmp,p);
+     p += 36;
+     *p++ = '\n';     
+     fake_inode->s.key = ROZOFS_REG_D_MOVER;
+     DISPLAY_ATTR_TITLE( "FID_M"); 
+     rozofs_uuid_unparse(fidtmp,p);
+     p += 36;
+     *p++ = '\n';                 
+  }
   rozofs_inode_t * fake_inode_p =  (rozofs_inode_t *) lv2->attributes.s.attrs.fid;
   DISPLAY_ATTR_TITLE( "SPLIT");   
   p += rozofs_string_append(p,"vers=");
   p += rozofs_u64_append(p,fake_inode_p->s.vers);
+  p += rozofs_string_append(p," mover_idx=");
+  p += rozofs_u64_append(p,fake_inode_p->s.mover_idx);
   p += rozofs_string_append(p," fid_high=");
   p += rozofs_u64_append(p,fake_inode_p->s.fid_high);
   p += rozofs_string_append(p," recycle=");
@@ -5814,7 +5912,52 @@ static inline int get_rozofs_xattr(export_t *e, lv2_entry_t *lv2, char * value, 
     p += rozofs_u32_padded_append(p,3, rozofs_zero,lv2->attributes.s.attrs.sids[idx]);
   } 
   p += rozofs_eol(p);
-  
+  /*
+  ** Check the case of a file that is currently move internally
+  */
+  {
+  rozofs_mover_sids_t *dist_mv_p;
+  dist_mv_p = (rozofs_mover_sids_t*)&lv2->attributes.s.attrs.sids;
+  if (dist_mv_p->dist_t.mover_cid != 0)
+  {  
+    DISPLAY_ATTR_INT("CLUSTERM",dist_mv_p->dist_t.mover_cid);
+    DISPLAY_ATTR_TITLE("STORAGEM");
+    p += rozofs_u32_padded_append(p,3,rozofs_zero, dist_mv_p->dist_t.mover_sids[0]); 
+    for (idx = 1; idx < rozofs_safe; idx++) {
+      *p++ = '-';
+      p += rozofs_u32_padded_append(p,3, rozofs_zero,dist_mv_p->dist_t.mover_sids[idx]);
+    } 
+    p += rozofs_eol(p);
+    }
+  }
+  DISPLAY_ATTR_HEX("CHILD",lv2->attributes.s.attrs.children);
+  if (lv2->time_move != 0)
+  {
+    bufall[0] = 0;
+    ctime_r((const time_t *)&lv2->time_move,bufall);
+    DISPLAY_ATTR_TXT_NOCR("MOVETM", bufall);  
+  }
+  /*
+  ** display the FID used for the storage
+  */
+  {
+     fid_t fid_storage;
+     int retcode;
+     
+     rozofs_build_storage_fid_from_attr(&lv2->attributes.s.attrs,fid_storage,ROZOFS_PRIMARY_FID);
+     DISPLAY_ATTR_TITLE( "FID_SP"); 
+     rozofs_uuid_unparse(fid_storage,p);
+     p += 36;
+     *p++ = '\n';     
+     retcode = rozofs_build_storage_fid_from_attr(&lv2->attributes.s.attrs,fid_storage,ROZOFS_MOVER_FID);
+     if (retcode == 0)
+     {
+       DISPLAY_ATTR_TITLE( "FID_SM"); 
+       rozofs_uuid_unparse(fid_storage,p);
+       p += 36;
+       *p++ = '\n';             
+     }  
+  }
   DISPLAY_ATTR_TITLE("ST.SLICE");
   p += rozofs_u32_append(p,rozofs_storage_fid_slice(lv2->attributes.s.attrs.fid)); 
   p += rozofs_eol(p);
@@ -6176,6 +6319,18 @@ static inline int set_rozofs_xattr(export_t *e, lv2_entry_t *lv2, char * input_b
   if (S_ISLNK(lv2->attributes.s.attrs.mode)) {
     errno = EMLINK;
     return -1;
+  }
+  /*
+  ** case of the mover: allocation of the new distribution for the file to move
+  */
+  if (sscanf(p," mover_allocate = %d", &new_cid) == 1)
+  {
+     return (rozofs_mover_allocate_scan(value,p,length,e,lv2,new_cid));  
+  }
+
+  if (sscanf(p," mover_validate = %d", &valint) == 1)
+  {
+     return (rozofs_mover_valid_scan(e,lv2,valint));  
   }
 
   /*

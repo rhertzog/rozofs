@@ -938,4 +938,14 @@ int export_wr_attr_th_init();
     @retval: pointer to the exportd configuration file (full path)
 */
 char *export_get_config_file_path();
+/*
+**__________________________________________________________________
+*/
+/** Allocate a rmfentry_t structure to chain the deletion job
+ *
+ * @param trash_entry     The disk context of removed file
+ * 
+ * @return: the address of the allocated structure
+ */
+rmfentry_t * export_alloc_rmentry(rmfentry_disk_t * trash_entry);
 #endif

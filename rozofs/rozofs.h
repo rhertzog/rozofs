@@ -331,6 +331,8 @@ typedef enum
    ROZOFS_SLNK,    /**< name of symbolic link */
    ROZOFS_DIR_FID,     /**< directory rferenced by its fid  */
    ROZOFS_RECYCLE,     /**< recycle directory  */
+   ROZOFS_REG_S_MOVER,     /**< FID of a regular file under the control of the file mover: source       */
+   ROZOFS_REG_D_MOVER,     /**< FID of a regular file under the control of the file mover: destination  */
 
    ROZOFS_MAXATTR
 } export_attr_type_e;
@@ -344,6 +346,8 @@ static inline char * export_attr_type2String(export_attr_type_e val) {
     case ROZOFS_SLNK: return "SLNK";
     case ROZOFS_DIR_FID: return "DIR_FID";
     case ROZOFS_RECYCLE: return "RECYCLE";
+    case ROZOFS_REG_S_MOVER: return "REG_SRC_MOVER";
+    case ROZOFS_REG_D_MOVER: return "REG_DST_MOVER";
     default:
       return "?";
   }
@@ -353,7 +357,8 @@ typedef union
    uint64_t fid[2];   /**<   */
    struct {
      uint64_t  vers:4;        /**< fid version */
-     uint64_t  fid_high:41;   /**< highest part of the fid: not used */
+     uint64_t  mover_idx:8;   /**< fid index: needed by mover feature: rozo_rebalancing */
+     uint64_t  fid_high:33;   /**< highest part of the fid: not used */
      uint64_t  recycle_cpt:2;   /**< recycle counter */
      uint64_t  opcode:4;      /**< opcode used for metadata log */
      uint64_t  exp_id:3;      /**< exportd identifier: must remain unchanged for a given server */
@@ -366,7 +371,8 @@ typedef union
    } s;
    struct {
      uint64_t  vers:4;        /**< fid version */
-     uint64_t  fid_high:41;   /**< highest part of the fid: not used */
+     uint64_t  mover_idx:8;   /**< fid index: needed by mover feature: rozo_rebalancing */
+     uint64_t  fid_high:33;   /**< highest part of the fid: not used */
      uint64_t  recycle_cpt:2;   /**< recycle counter */
      uint64_t  opcode:4;      /**< opcode used for metadata log */
      uint64_t  exp_id:3;      /**< exportd identifier: must remain unchanged for a given server */
@@ -614,6 +620,8 @@ static inline char * fid2string(fid_t fid , char * string) {
   
   p += rozofs_string_append(p,"vers=");
   p += rozofs_u64_append(p,fake_inode_p->s.vers);
+  p += rozofs_string_append(p," mover_idx=");
+  p += rozofs_u64_append(p,fake_inode_p->s.mover_idx);
   p += rozofs_string_append(p," fid_high=");
   p += rozofs_u64_append(p,fake_inode_p->s.fid_high);
   p += rozofs_string_append(p," recycle=");
@@ -646,7 +654,24 @@ static inline char * fid2string(fid_t fid , char * string) {
 
 // Maximum number of parallel threads that will run a rebuild
 #define MAXIMUM_PARALLEL_REBUILD_PER_SID 64
+/*
+**__________________________________________________________________
+*/
+/**
+*   Build the storage fid of a "mover" file
 
+    @param fid: exportd file (either "mover" or "primary")
+    @param index: index of the fid (mover or primary)
+    
+    @retval modified fid
+*/
+static inline void rozofs_build_storage_fid (fid_t fid,uint8_t index)
+{
+    rozofs_inode_t *fake_inode = (rozofs_inode_t*)fid;
+    
+    fake_inode->s.key = ROZOFS_REG;
+    fake_inode->s.mover_idx = index;
+}
 /*
 **__________________________________________________________________
 ** Structure of an entry of a rebuild job file

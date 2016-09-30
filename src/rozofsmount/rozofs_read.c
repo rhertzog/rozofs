@@ -121,6 +121,13 @@ static int read_buf_nb(void *buffer_p,file_t * f, uint64_t off, char *buf, uint3
     args.proj_id = 0; // N.S
     args.bid = bid;
     args.nb_proj = nb_prj;
+    
+    ret = rozofs_fill_storage_info(ie,&args.cid,args.dist_set,args.fid);
+    if (ret < 0)
+    {
+      severe("FDL bad storage information encoding");
+      return ret;
+    }
 
  //   lbg_id = storcli_lbg_get_lbg_from_fid(f->fid);
     storcli_idx = stclbg_storcli_idx_from_fid(f->fid);
@@ -714,6 +721,13 @@ static int read_resize(void *buffer_p, ientry_t *ie)
   args.nb_proj = 0; // means resize service
   memcpy(args.dist_set, ie->attrs.sids, sizeof (sid_t) * ROZOFS_SAFE_MAX);
   memcpy(args.fid, ie->fid, sizeof (fid_t));
+
+  ret = rozofs_fill_storage_info(ie,&args.cid,args.dist_set,args.fid);
+  if (ret < 0)
+  {
+    severe("FDL bad storage information encoding");
+    return ret;
+  }
 
   /*
   ** Select STORCLI

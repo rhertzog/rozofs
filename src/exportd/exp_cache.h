@@ -50,6 +50,15 @@ rozofs_file_lock_t * lv2_cache_allocate_file_lock(ep_lock_t * lock) ;
  *
  * lv2 cache is common to several exports to take care of max fd opened.
  */
+/**
+*  mover state:
+*/
+typedef enum _rozofs_mover_state_e
+{
+   ROZOFS_MOVER_IDLE = 0,
+   ROZOFS_MOVER_IN_PRG,    /**< file move is in progress   */
+   ROZOFS_MOVER_DONE       /**< file move is done, to validate the new distribution just for for the guard timer expiration  */
+} rozofs_mover_state_e;
 
 /** lv2 entry cached */
 typedef struct lv2_entry {
@@ -64,11 +73,21 @@ typedef struct lv2_entry {
         mdir_t mdir;    ///< directory
         mslnk_t mslnk;  ///< symlink
     } container;
+    int          locked_in_cache:1;  /**< assert to 1 to lock the entry in the lv2 cache                    */
+    int          filler:31;          /**< for future usage                                                  */
+    /*
+    ** File mover
+    */
+    int           access_cpt:1;         /**< assert to 1 each time the attributes are read when time_move is not 0. */
+    int           mover_state:3;        /**< mover state.                                                           */
+    int           mover_guard_timer:28; /**< mover guard timer in seconds.                                          */
+    time_t        time_move;            /**< date of the file move start                                            */       
     /* 
     ** File locking
     */
     int            nb_locks;    ///< Number of locks on the FID
     list_t         file_lock;   ///< List of the lock on the FID
+    list_t         move_list;   ///< pending fist of the file waiting for move validation
 } lv2_entry_t;
 
 /** lv2 cache
@@ -107,7 +126,54 @@ typedef struct _export_tracking_table_t
 
 extern lv2_cache_t cache;
 
+/*
+**__________________________________________________________________
+*/
+/**
+  lock the entry in the level2 cache of the exportd. By doing so
+  the entry is not eligible to LRU removal
+  
+  @param lv2_p: entry to lock
+  
+  @retval none
+*/
+static inline void lv2_cache_lock_entry_in_cache(lv2_entry_t *lv2_p)
+{
+  lv2_p->locked_in_cache = 1;
 
+}
+/*
+**__________________________________________________________________
+*/
+/**
+  unlock the entry in the level2 cache of the exportd. By doing so
+  the entry is  eligible to LRU removal
+  
+  @param lv2_p: entry to lock
+  
+  @retval none
+*/
+static inline void lv2_cache_unlock_entry_in_cache(lv2_entry_t *lv2_p)
+{
+  lv2_p->locked_in_cache = 0;
+
+}
+/*
+**__________________________________________________________________
+*/
+/**
+  Check if the entry has been locked in the level 2 cache
+  
+  @param lv2_p: entry 
+  
+  @retval 0: not locked
+  @retval 1: locked
+*/
+static inline int lv2_cache_is_locked_entry_in_cache(lv2_entry_t *lv2_p)
+{
+  return (lv2_p->locked_in_cache == 0?0:1);
+
+}
 /*
 **__________________________________________________________________
 */
@@ -219,7 +285,7 @@ static inline void lv2_cache_update_lru(lv2_cache_t *cache, lv2_entry_t *entry) 
 
 lv2_entry_t *export_lookup_fid(export_tracking_table_t *trk_tb_p,lv2_cache_t *cache, fid_t fid);
 lv2_entry_t *export_lookup_fid_th(export_tracking_table_t *trk_tb_p,lv2_cache_t *cache, fid_t fid);
-
+lv2_entry_t *export_lookup_fid_no_invalidate_mover(export_tracking_table_t *trk_tb_p,lv2_cache_t *cache, fid_t fid);
 /*
 **__________________________________________________________________
 */

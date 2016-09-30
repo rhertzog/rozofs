@@ -423,7 +423,13 @@ int rbs_get_fid_attr(rpcclt_t * clt, const char *export_host, fid_t fid, ep_matt
 
     // Release connection
     rpcclt_release(clt);
-
+    /*
+    ** Check the case of the mover (rozo_rebalancing)
+    */
+    if (rozofs_is_storage_fid_valid((mattr_t*)attr,fid) == 0) {
+       errno = ENOENT;
+       goto out;
+    }
     status = 0;
 out:
     if (ret)

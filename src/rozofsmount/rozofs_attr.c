@@ -99,7 +99,11 @@ uint64_t rozofs_max_getattr_duplicate = 0;
     }
     /*
     ** fill up the structure that will be used for creating the xdr message
-    */    
+    */  
+    if (ino == 1)
+    {
+       severe("FDL getattr for root directory");
+    }  
     arg.arg_gw.eid = exportclt.eid;
     memcpy(arg.arg_gw.fid, ie->fid, sizeof (uuid_t));
     /*
@@ -547,6 +551,12 @@ void rozofs_ll_setattr_nb(fuse_req_t req, fuse_ino_t ino, struct stat *stbuf,
 	args.bsize = exportclt.bsize;
 	memcpy(args.dist_set, ie->attrs.sids, sizeof (sid_t) * ROZOFS_SAFE_MAX);
 	memcpy(args.fid, ie->fid, sizeof (fid_t));
+	ret = rozofs_fill_storage_info(ie,&args.cid,args.dist_set,args.fid);
+	if (ret < 0)
+	{
+	  severe("FDL bad storage information encoding");
+	  goto error;
+	}
 	args.bid      = bid;
 	args.last_seg = last_seg;
   //      lbg_id = storcli_lbg_get_lbg_from_fid(ie->fid);

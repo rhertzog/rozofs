@@ -329,6 +329,8 @@ static int myfs_opt_proc(void *data, const char *arg, int key,
 exportclt_t exportclt; 
 
 list_t inode_entries;
+list_t list_wr_block_head;  /**< pending write block list   */
+int list_wr_block_count;   /**< statistics counter of wr_block that has been queued because of exportd loss of connectivity */
 htable_t htable_inode;
 //htable_t htable_fid;
 uint64_t rozofs_ientries_count = 0;
@@ -532,6 +534,7 @@ void show_ientry(char * argv[], uint32_t tcpRef, void *bufRef) {
   }
   if (strcmp(argv[1],"count")==0) {
       pChar += sprintf(pChar, "ientry counter: %llu\n", (long long unsigned int) rozofs_ientries_count);
+      pChar += sprintf(pChar, "wr_blk retries: %d\n",  list_wr_block_count);
       uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   
       return;
   }
@@ -1654,6 +1657,10 @@ int fuseloop(struct fuse_args *args, int fg) {
     	ep_clear_client_file_lock_1(&arg, exportclt.rpcclt.client);
     }
 #endif
+    /*
+    ** init of the wr_block pending head of list
+    */
+    list_init(&list_wr_block_head);
 
     /* Initialize list and htables for inode_entries */
     list_init(&inode_entries);

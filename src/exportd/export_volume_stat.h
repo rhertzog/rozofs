@@ -59,7 +59,7 @@ typedef struct _export_vol_cluster_stat2_t
 
 typedef struct _export_vol_stat_t
 {
-   uint16_t volume_id;          /**< volume identifier              */
+   uint16_t volume_id;          /**< volume identifier                   */
    uint16_t nb_cluster;         /**< number of clusters in the volume    */
    export_vol_cluster_stat_t cluster_tab[ROZOFS_CLUSTERS_MAX];
 } export_vol_stat_t;

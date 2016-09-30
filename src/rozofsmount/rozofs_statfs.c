@@ -198,6 +198,10 @@ error:
     fuse_reply_statfs(req, &st);
     errno = 0;
     status = 0;
+    /*
+    ** check if some more write blocks are pending
+    */
+    rozofs_export_write_block_list_process();    
     goto out;
 error:
     fuse_reply_err(req, errno);

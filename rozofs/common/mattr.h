@@ -20,7 +20,7 @@
 #define _MATTR_H
 
 #include <rozofs/rozofs.h>
-
+#include <sys/stat.h>
 
 /*
 ** Constant for file resizing
@@ -64,6 +64,34 @@ static inline int rozofs_has_xattr(uint32_t mode)
     uint32_t children;              /**< number of children (excluding . and ..) */
 } mattr_t;
 
+/**
+*  the following structure is mapped on the children field of the mattr_t
+*  to address the case of the file mover
+*/
+typedef union
+{
+  uint32_t u32;
+  struct {
+  uint8_t filler1;
+  uint8_t filler2;
+  uint8_t mover_idx;   /**< index of the mover FID for storage usage   */
+  uint8_t primary_idx; /**< index of the normal FID for storage usage  */
+  } fid_st_idx;
+} rozofs_mover_children_t;
+
+/**
+*  structure used for the case of the file mover: only for regular file type:
+   That structure is intended to be mapped on the sids[] field of the mattr_t structure
+*/
+typedef union
+{
+   sid_t sids[ROZOFS_SAFE_MAX];   
+   struct {
+   sid_t primary_sids[ROZOFS_SAFE_MAX_STORCLI];
+   cid_t mover_cid;
+   sid_t mover_sids[ROZOFS_SAFE_MAX_STORCLI];
+   } dist_t;
+} rozofs_mover_sids_t;
 
 #if 0
 /**
@@ -199,4 +227,124 @@ void exp_store_fname_in_inode(rozofs_inode_fname_t *inode_fname_p,
 void exp_store_dname_in_inode(rozofs_inode_fname_t *inode_fname_p,
                               char *name,
 			      mdirent_fid_name_info_t *dentry_fname_info_p);
+
+
+#define ROZOFS_PRIMARY_FID 0
+#define ROZOFS_MOVER_FID  1
+/*
+**__________________________________________________________________
+*/
+/**
+*   Build the FID associated with a storage
+
+    @param attr_p: pointer to the attributes of the i-node
+    @param fid: output storage fid
+    @param type: fid type (either ROZOFS_PRIMARY_FID or ROZOFS_MOVER_FID)
+    
+    @retval 0 on success (fid contains the storage fid value according to type)
+    @retval < 0 error (see errno for details)
+*/    
+static inline int rozofs_build_storage_fid_from_attr(mattr_t *attr_p,fid_t fid,int type)
+{
+   rozofs_mover_children_t mover_idx; 
+   
+   mover_idx.u32 = attr_p->children;
+   /*
+   ** check the mode of the i-node
+   */
+   if (!S_ISREG(attr_p->mode))
+   {
+     errno = EINVAL;
+     return -1;
+   }
+   if ((type != ROZOFS_PRIMARY_FID) && (type != ROZOFS_MOVER_FID))
+   {
+     errno = EINVAL;
+     return -1;      
+   }
+   memcpy(fid,attr_p->fid,sizeof(fid_t));
+   if (ROZOFS_PRIMARY_FID == type)
+   {
+     rozofs_build_storage_fid(fid,mover_idx.fid_st_idx.primary_idx);   
+   }
+   else
+   {
+     if (mover_idx.fid_st_idx.primary_idx == mover_idx.fid_st_idx.mover_idx)
+     {
+        errno = EINVAL;
+	return -1;
+     }
+     rozofs_build_storage_fid(fid,mover_idx.fid_st_idx.mover_idx);   
+   }
+   return 0;
+}
+/*
+**__________________________________________________________________
+*/
+/**
+*   Fill up the information needed by storio in order to read/write a file
+
+    @param attrs_p: pointer to the inode attributes
+    @param fid_storage: pointer to the array where the fid of the file on storage is returned
+    
+    @retval 1 on success
+    @retval 0 otherwise
+*/
+static inline int rozofs_is_storage_fid_valid(mattr_t *attrs_p,fid_t fid_storage)
+{
+  rozofs_inode_t         *inode_p;
+  uint8_t                 mover_idx_fid;
+  rozofs_mover_children_t mover_idx;
+    
+  inode_p = (rozofs_inode_t*)attrs_p->fid; 
+  /*
+  ** get the current mover idx of the fid: it might designate either the primary or mover temporary file
+  */
+  mover_idx_fid = inode_p->s.mover_idx;
+  mover_idx.u32 = attrs_p->children;
+  
+  if (mover_idx.fid_st_idx.primary_idx == mover_idx_fid) return 1;
+  if (mover_idx.fid_st_idx.mover_idx == mover_idx_fid) return 1;
+  return 0;
+}
+
+/*
+**__________________________________________________________________
+*/
+/**
+*   Fill up the information needed by storio in order to read/write a file
+
+    @param ie: pointer to the inode entry that contains file information
+    @param cid: pointer to the array where the cluster_id is returned
+    @param sids_p: pointer to the array where storage id are returned
+    @param fid_storage: pointer to the array where the fid of the file on storage is returned
+    @param key: key for building the storage fid: ROZOFS_MOVER_FID or ROZOFS_PRIMARY_FID
+    
+    @retval 0 on success
+    @retval < 0 error (see errno for details)
+*/
+static inline int rozofs_fill_storage_info_from_mattr(mattr_t *attrs_p,cid_t *cid,uint8_t *sids_p,fid_t fid_storage,int key)
+{
+  int ret;
+  rozofs_mover_sids_t *dist_mv_p;
+    
+  ret = rozofs_build_storage_fid_from_attr(attrs_p,fid_storage,key);
+  if (ret < 0) return ret;
+  /*
+  ** get the cluster and the list of the sid
+  */
+  if (key == ROZOFS_MOVER_FID)
+  {
+    dist_mv_p = (rozofs_mover_sids_t*)attrs_p->sids;
+    *cid = dist_mv_p->dist_t.mover_cid;
+    memcpy(sids_p,dist_mv_p->dist_t.mover_sids,ROZOFS_SAFE_MAX_STORCLI);
+  }
+  else
+  {
+    *cid = attrs_p->cid;
+    memcpy(sids_p,attrs_p->sids,ROZOFS_SAFE_MAX_STORCLI);  
+  }
+  return 0;
+}
+
 #endif

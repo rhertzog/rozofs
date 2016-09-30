@@ -1260,10 +1260,17 @@ int rozofs_visit(void *exportd,void *inode_attr_p,void *p)
   {
      return 0;
   }
-  if (rozo_balancing_ctx.relative_path)
-    bufout = rozo_get_relative_path(exportd,inode_p,bufall,1023);
-  else
-    bufout = rozo_get_full_path(exportd,inode_p,bufall,1023);
+  switch (rozo_balancing_ctx.file_mode)
+  {
+    case REBALANCE_MODE_REL:
+    case REBALANCE_MODE_FID:
+      bufout = rozo_get_relative_path(exportd,inode_p,bufall,1023);
+      break;
+    case REBALANCE_MODE_ABS:
+      bufout = rozo_get_full_path(exportd,inode_p,bufall,1023);
+      break;
+  }
+  
   if (score > (rozo_balancing_ctx.max_cid_score - score_shrink))
   {
     scanned_current_count++;  
@@ -1295,7 +1302,15 @@ int rozofs_visit(void *exportd,void *inode_attr_p,void *p)
 	 }
 	 printf("\n");
       }
-      job->name = strdup(bufout);
+      if (rozo_balancing_ctx.file_mode != REBALANCE_MODE_FID)
+      {
+        job->name = strdup(bufout);
+      }
+      else
+      {
+	job->name = malloc(sizeof(fid_t));
+	memcpy(job->name,inode_p->s.attrs.fid,sizeof(fid_t));
+      }
       /*
       ** update the current size to move
       */
@@ -1628,7 +1643,7 @@ int rozo_bal_write_result_file()
 */
 static void usage() {
     char bufall[64];
-    printf("Usage: rozo_rebalance [OPTIONS]\n\n");
+    printf("\nUsage: rozo_rebalance [OPTIONS]\n\n");
     printf("\t-h, --help\t\tprint this message.\n\n");
     printf("\t-v,--volume <vid>\t\tvolume identifier \n");
     printf("\t-t <threshold>\t\t\tthreshold in percentage \n");
@@ -1641,7 +1656,7 @@ static void usage() {
     printf("\t--newerm <minutes>\t\texclude files that are older than delay specified\n");
     printf("\t--newer <days>\t\t\texclude files that are older than delay specified\n");
     printf("\t--cont \t\t\t\tcontinue after reaching the balanced state\n");
-    printf("\t--abs  \t\t\t\tuse full path while moving file (default is relative path)\n");
+    printf("\t--mode <rel|abs|fid>  \t\t\t\tuse relative, full path or fid while moving file (default is relative path)\n");
     printf("\t--verbose \t\t\tset the rebalancing in verbose mode\n");
     printf("\t--movecnt <count> \t\tfile count threshold before triggering file move (default:%d)\n",REBALANCE_MAX_SCANNED);
     printf("\t--movesz <value>[k|K|m|M|g|G] \tcumulated file size threshold before triggering file move (default:%s)\n",
@@ -1717,7 +1732,7 @@ int main(int argc, char *argv[]) {
     rozo_balancing_ctx.older_time_sec_config   = -1;  
     rozo_balancing_ctx.continue_on_balanced_state = 0;
     rozo_balancing_ctx.throughput = REBALANCE_DEFAULT_THROUGPUT;
-    rozo_balancing_ctx.relative_path = 1;
+    rozo_balancing_ctx.file_mode = REBALANCE_MODE_REL;
            
     static struct option long_options[] = {
         {"help", no_argument, 0, 'h'},
@@ -1736,7 +1751,7 @@ int main(int argc, char *argv[]) {
         {"movecnt", required_argument, &long_opt_cur, 6},
         {"movesz", required_argument, &long_opt_cur, 7},
         {"throughput", required_argument, &long_opt_cur, 8},
-        {"abs", no_argument, &long_opt_cur, 9},
+        {"mode", required_argument, &long_opt_cur, 9},
 
         {0, 0, 0, 0}
     };
@@ -1817,7 +1832,24 @@ int main(int argc, char *argv[]) {
         	}  
 		break;
 	      case 9:
-	        rozo_balancing_ctx.relative_path = 0;
+	        if (strcmp(optarg,"rel")== 0)
+		{
+		  rozo_balancing_ctx.file_mode = REBALANCE_MODE_REL;
+		  break;
+		}
+	        if (strcmp(optarg,"abs")== 0)
+		{
+		  rozo_balancing_ctx.file_mode = REBALANCE_MODE_ABS;
+		  break;
+		}		
+	        if (strcmp(optarg,"fid")== 0)
+		{
+		  rozo_balancing_ctx.file_mode = REBALANCE_MODE_FID;
+		  break;
+		}	
+	        printf("unsupported file_mode: %s\n",optarg);	  
+        	usage();
+        	exit(EXIT_FAILURE);	
 		break;
 	      default:
 	      break;	   
@@ -2121,10 +2153,21 @@ reloop:
       {
         if (rozo_balancing_ctx.verbose) printf("%d file to move\n",scanned_current_count);
         all_export_scanned_count +=scanned_current_count;
-	rozofs_do_move_one_export("localhost", 
-                              get_export_root_path( volume_export_table[rozo_balancing_ctx.current_eid_idx]), 
-			      rozo_balancing_ctx.throughput, 
-			      &jobs);      
+
+        if (rozo_balancing_ctx.file_mode == REBALANCE_MODE_FID)
+	{
+	  rozofs_do_move_one_export_fid_mode("localhost", 
+                        	get_export_root_path( volume_export_table[rozo_balancing_ctx.current_eid_idx]), 
+				rozo_balancing_ctx.throughput, 
+				&jobs); 
+	} 
+	else
+	{
+	  rozofs_do_move_one_export("localhost", 
+                        	get_export_root_path( volume_export_table[rozo_balancing_ctx.current_eid_idx]), 
+				rozo_balancing_ctx.throughput, 
+				&jobs); 	
+	}    
       }
       if (rozo_lib_is_scanning_stopped()== 0)
       {

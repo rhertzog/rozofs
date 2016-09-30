@@ -71,6 +71,22 @@ char *display_delay(char *pChar,int64_t delay)
 /*
 **
 */
+
+static char *get_file_mode(int file_mode)
+{
+   switch (file_mode)
+   {
+   case  REBALANCE_MODE_REL:
+     return "Relative pathname";
+   case REBALANCE_MODE_ABS:
+     return "Full pathname";
+   case REBALANCE_MODE_FID:
+     return "Fid";
+   default:
+     break;
+   }
+   return "?unknown?";
+}
 char *show_conf_with_buf(char * buf)
 {
      char *pChar = buf;
@@ -80,7 +96,7 @@ char *show_conf_with_buf(char * buf)
      
      pChar +=sprintf(pChar,"export configuration file  :  %s\n",p->configFileName);
      pChar +=sprintf(pChar,"verbose mode               :  %s\n",(p->verbose==0)?"Disabled":"Enabled");
-     pChar +=sprintf(pChar,"absolute path              :  %s\n",(p->relative_path==0)?"Enabled":"Disable");
+     pChar +=sprintf(pChar,"file mode                  :  %s\n",get_file_mode(p->file_mode));
      pChar +=sprintf(pChar,"volume identifier          :  %d\n",p->volume_id);
      pChar +=sprintf(pChar,"polling frequenccy (secs)  :  %d\n",p->rebalance_frequency);
      pChar +=sprintf(pChar,"file mover throughput      :  %d MB/s\n",p->throughput);
@@ -207,7 +223,7 @@ static char * set_balancing_help(char * pChar) {
   pChar += sprintf(pChar,"usage:\n");
   pChar += sprintf(pChar,"set_balancing threshold <value>            : set the re-balancing threshold percentage (0..100)\n");
   pChar += sprintf(pChar,"set_balancing verbose <enable|disable>     : enable or disable verbose mode\n");
-  pChar += sprintf(pChar,"set_balancing fullpath <enable|disable>    : enable or disable the full path mode\n");
+  pChar += sprintf(pChar,"set_balancing file_mode <rel|abs|fid>      : file naming: relative path/full path or fid mode\n");
   pChar += sprintf(pChar,"set_balancing frequency <value>            : set the re-balancing polling frequency (unit in seconds)\n");
   pChar += sprintf(pChar,"set_balancing trigger <value>              : set the re-balancing trigger (free percentage on storage)\n");
   pChar += sprintf(pChar,"set_balancing move_count <value>           : set the maximum of selected files before triggering a move\n");
@@ -256,7 +272,7 @@ void set_balancing(char * argv[], uint32_t tcpRef, void *bufRef)
       uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   
       return;  
     }
-    if (strcmp(argv[1],"fullpath")==0) 
+    if (strcmp(argv[1],"file_mode")==0) 
     {   
       if (argv[2] == NULL) 
       {
@@ -264,15 +280,21 @@ void set_balancing(char * argv[], uint32_t tcpRef, void *bufRef)
 	uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   
 	return;  	  
       }
-      if (strcmp(argv[2],"enable")==0){
-        p->relative_path = 0;
+      if (strcmp(argv[2],"rel")==0){
+        p->file_mode = REBALANCE_MODE_REL;
+        sprintf(pChar,"relative path mode is enabled\n");	
+        uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   
+        return;   
+      }
+      if (strcmp(argv[2],"abs")==0){
+        p->file_mode = REBALANCE_MODE_ABS;
         sprintf(pChar,"fullpath mode is enabled\n");	
         uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   
         return;   
       }
-      if (strcmp(argv[2],"disable")==0){
-        p->relative_path = 1;
-        sprintf(pChar,"fullpath mode is disabled\n");	
+      if (strcmp(argv[2],"fid")==0){
+        p->file_mode = REBALANCE_MODE_FID;
+        sprintf(pChar,"fid mode is enabled\n");	
         uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());   
         return;   
       }

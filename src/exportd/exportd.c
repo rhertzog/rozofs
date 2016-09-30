@@ -723,7 +723,8 @@ static void *export_tracking_thread(void *v) {
 	      {
         	for (type = 0;type < ROZOFS_MAXATTR; type++)
 		{
-		  if ((type == ROZOFS_TRASH)||(type == ROZOFS_DIR_FID)||(type == ROZOFS_RECYCLE))continue;
+		  if ((type == ROZOFS_TRASH)||(type == ROZOFS_DIR_FID)||(type == ROZOFS_RECYCLE)||(type == ROZOFS_REG_S_MOVER) ||
+		      (type == ROZOFS_REG_D_MOVER))continue;
         	  if (exp_trck_inode_release_poll(&entry->export, type) != 0) {
                       severe("export_tracking_thread failed (eid: %"PRIu32"): %s",
                               entry->export.eid, strerror(errno));

@@ -57,4 +57,17 @@ int rozofs_mover_init();
 int rozofs_do_move_one_export(char * exportd_hosts, char * export_path, int throughput, list_t * jobs);
 
 
+/*-----------------------------------------------------------------------------
+**
+** Move a list a file to a new location for rebalancing purpose
+**
+** @param exportd_hosts     exportd host name or addresses (from configuration file)
+** @param export_path       the export path to mount
+** @param throughput        throughput litation in MB. 0 is no limitation.
+** @param jobs              list of files along with their destination
+**
+**----------------------------------------------------------------------------
+*/
+int rozofs_do_move_one_export_fid_mode(char * exportd_hosts, char * export_path, int throughput, list_t * jobs);
+
 #endif
