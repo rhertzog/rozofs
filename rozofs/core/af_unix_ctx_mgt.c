@@ -24,7 +24,8 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
-
+#include <sys/ioctl.h>
+#include <linux/sockios.h>
 #include <rozofs/rozofs.h>
 #include <rozofs/common/log.h>
 
@@ -175,6 +176,106 @@ void af_inet_tcp_debug_show(uint32_t tcpRef, void *bufRef) {
         buffer += sprintf(buffer, " %8d |", p->tcpi_last_data_sent);
         buffer += sprintf(buffer, " %8d |\n", p->tcpi_rtt);
 
+
+    }
+    uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
+
+}
+void af_inet_tcp_short_debug_show_man(char * pt) {
+  pt += sprintf(pt,"Display system information about TCP connections.\n"); 
+  pt += sprintf(pt," - TCP connection state\n"); 
+  pt += sprintf(pt," - Max segment size (sender and receiver)\n"); 
+  pt += sprintf(pt," - Round trip time\n"); 
+  pt += sprintf(pt," - Receive and send queue size of the socket\n"); 
+}
+
+void af_tcp_display_address(char *pChar, af_unix_ctx_generic_t *sock_p,int src)
+{
+  struct sockaddr_in vSckAddr;
+  int vSckAddrLen = sizeof (struct sockaddr);
+  uint32_t ipAddr;
+  uint16_t port;
+  if (sock_p->af_family == AF_UNIX)
+  {
+    *pChar = 0;
+    return;
+  
+  }
+  if (src == 0)
+  {
+     if ((getpeername(sock_p->socketRef, (struct sockaddr *) &vSckAddr, (socklen_t*) & vSckAddrLen)) == -1) {
+          pChar += sprintf(pChar, "???.???.???.???:????");
+	  return;
+     }
+     ipAddr = (uint32_t) ntohl((uint32_t) (/*(struct sockaddr *)*/vSckAddr.sin_addr.s_addr));
+     port = ntohs((uint16_t) (vSckAddr.sin_port));
+     pChar += sprintf(pChar, "%u.%u.%u.%u:%u", (ipAddr >> 24)&0xFF, (ipAddr >> 16)&0xFF, (ipAddr >> 8)&0xFF, (ipAddr)&0xFF, port);
+     return;
+  }
+  if ((getsockname(sock_p->socketRef, (struct sockaddr *) &vSckAddr, (socklen_t*) & vSckAddrLen)) == -1) {
+      pChar += sprintf(pChar, "???.???.???.???:????");
+      return;
+  }
+  ipAddr = (uint32_t) ntohl((uint32_t) (/*(struct sockaddr *)*/vSckAddr.sin_addr.s_addr));
+  port = ntohs((uint16_t) (vSckAddr.sin_port));
+  pChar += sprintf(pChar, "%u.%u.%u.%u:%u", (ipAddr >> 24)&0xFF, (ipAddr >> 16)&0xFF, (ipAddr >> 8)&0xFF, (ipAddr)&0xFF, port);  
+}
+
+void af_inet_tcp_short_debug_show(uint32_t tcpRef, void *bufRef) {
+    char *buffer = uma_dbg_get_buffer();
+    char ipbuf[128];
+    MY_TCP_INFO_T * myp;
+    int siocinq_value;
+    int siocoutq_value;
+    struct tcp_info * p;
+    af_unix_ctx_generic_t *sock_p;
+    ruc_obj_desc_t *pnext;
+    buffer += sprintf(buffer, "  State      | Avail.|  sock  |   rto   | snd_mss | rcv_mss |   rtt   |  Recv-Q |  Send-Q |      IP:port source    |   IP:port destination  |  SNDBUF |  RCVBUF |\n");
+    buffer += sprintf(buffer, "-------------+-------+--------+---------+---------+---------+---------+---------+---------+------------------------+------------------------+---------+---------+\n");
+
+    pnext = (ruc_obj_desc_t*) NULL;
+    while ((sock_p = (af_unix_ctx_generic_t*) ruc_objGetNext((ruc_obj_desc_t*) & af_unix_context_activeListHead,
+            &pnext))
+            != (af_unix_ctx_generic_t*) NULL) {
+
+        if (sock_p->af_family == AF_UNIX) continue;
+        myp = af_inet_tcp_get_tcp_info(sock_p->socketRef);
+	p = &myp->tcp_info;
+        if (p == NULL) continue;
+
+        buffer += sprintf(buffer, " %s |", af_inet_get_tcp_state(p->tcpi_state));
+        buffer += sprintf(buffer, " %5s |", (sock_p->cnx_availability_state == AF_UNIX_CNX_AVAILABLE) ? "YES" : "NO");
+        buffer += sprintf(buffer, " %6d |", sock_p->socketRef);
+        buffer += sprintf(buffer, " %7d |", p->tcpi_rto);
+        buffer += sprintf(buffer, " %7d |", p->tcpi_snd_mss);
+        buffer += sprintf(buffer, " %7d |", p->tcpi_rcv_mss);
+        buffer += sprintf(buffer, " %7d |", p->tcpi_rtt);
+	siocinq_value = 0;
+	siocoutq_value = 0;
+	if (sock_p->socketRef)
+	{
+	  ioctl(sock_p->socketRef,SIOCINQ,&siocinq_value);
+	  ioctl(sock_p->socketRef,SIOCOUTQ,&siocoutq_value);
+	}
+	buffer += sprintf(buffer, " %7d |",  siocinq_value);
+	buffer += sprintf(buffer, " %7d |",siocoutq_value);
+	af_tcp_display_address(ipbuf,sock_p,1);
+	buffer += sprintf(buffer, " %22s |",ipbuf);
+	af_tcp_display_address(ipbuf,sock_p,0);
+	buffer += sprintf(buffer, " %22s |",ipbuf);
+	{
+	    int sendsize = 0;
+	    int rcvsize = 0;
+	    int optionsize=sizeof(sendsize);
+
+	    if (sock_p->socketRef > 0) {
+	    getsockopt(sock_p->socketRef,SOL_SOCKET,SO_SNDBUF,(char*)&sendsize,(socklen_t*)&optionsize);
+	    getsockopt(sock_p->socketRef,SOL_SOCKET,SO_RCVBUF,(char*)&rcvsize,(socklen_t*)&optionsize);
+	    }
+	    buffer += sprintf(buffer, " %7d |",sendsize);
+	    buffer += sprintf(buffer, " %7d |",rcvsize);
+	    buffer += sprintf(buffer, "\n");	
+       }
 
     }
     uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
@@ -414,6 +515,10 @@ void af_inet_tcp_debug(char * argv[], uint32_t tcpRef, void *bufRef) {
     af_inet_tcp_debug_show(tcpRef, bufRef);
 }
 
+void af_inet_tcp_short_debug(char * argv[], uint32_t tcpRef, void *bufRef) {
+    af_inet_tcp_short_debug_show(tcpRef, bufRef);
+}
+
 /*__________________________________________________________________________
   Register to the debug SWBB
   ==========================================================================
@@ -425,6 +530,7 @@ void af_unix_debug_init() {
     uma_dbg_addTopicAndMan(af_unix_DEBUG_TOPIC, af_unix_debug, af_unix_debug_man, 0);
 
     uma_dbg_addTopicAndMan("tcp_info", af_inet_tcp_debug, af_inet_tcp_debug_show_man, 0);
+    uma_dbg_addTopicAndMan("tcp_short", af_inet_tcp_short_debug, af_inet_tcp_short_debug_show_man, 0);
 
 }
 

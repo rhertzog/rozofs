@@ -24,7 +24,8 @@
 #include <sys/types.h> 
 #include <sys/socket.h>
 #include <sys/un.h>             
-
+#include <sys/ioctl.h>
+#include <linux/sockios.h>
 #include <rozofs/common/types.h>
 #include <rozofs/common/log.h>
 
@@ -133,13 +134,15 @@ void north_lbg_debug_show(char * argv[],uint32_t tcpRef, void *bufRef) {
 
 void north_lbg_entries_debug_show(uint32_t tcpRef, void *bufRef) {
     char *pChar = uma_dbg_get_buffer();
+    int siocinq_value;
+    int siocoutq_value;
+
     {
         north_lbg_ctx_t *lbg_p;
         ruc_obj_desc_t *pnext;
         int i;
-
-        pChar += sprintf(pChar, "  LBG Name                | lbg_id | idx  | sock |    state   | rdy |    Queue  | Cnx Attpts | Xmit Attpts | Recv count  |\n");
-        pChar += sprintf(pChar, "--------------------------+--------+------+------+------------+-----+-----------+------------+-------------+-------------+\n");
+        pChar += sprintf(pChar, "  LBG Name                | lbg_id | idx  | sock |    state   | rdy |    Queue  | Cnx Attpts | Xmit Attpts | Recv count  |   Recv-Q  |   Send-Q  |\n");
+        pChar += sprintf(pChar, "--------------------------+--------+------+------+------------+-----+-----------+------------+-------------+-------------+-----------+-----------+\n");
         pnext = (ruc_obj_desc_t*) NULL;
         while ((lbg_p = (north_lbg_ctx_t*) ruc_objGetNext((ruc_obj_desc_t*) & north_lbg_context_activeListHead,
                 &pnext))
@@ -177,8 +180,18 @@ void north_lbg_entries_debug_show(uint32_t tcpRef, void *bufRef) {
                 pChar += sprintf(pChar, " %s |", ruc_objIsEmptyList((ruc_obj_desc_t*) & entry_p->xmitList) ? "    EMPTY" : "NON EMPTY");
                 pChar += sprintf(pChar, " %10llu |", (unsigned long long int) entry_p->stats.totalConnectAttempts);
                 pChar += sprintf(pChar, "  %10llu |", (unsigned long long int) entry_p->stats.totalXmit);
-                pChar += sprintf(pChar, "  %10llu |\n", (unsigned long long int) entry_p->stats.totalRecv);
+                pChar += sprintf(pChar, "  %10llu |", (unsigned long long int) entry_p->stats.totalRecv);
+		siocinq_value = 0;
+		siocoutq_value = 0;
+		if (sock_p->socketRef)
+		{
+		  ioctl(sock_p->socketRef,SIOCINQ,&siocinq_value);
+		  ioctl(sock_p->socketRef,SIOCOUTQ,&siocoutq_value);
+		}
+                pChar += sprintf(pChar, "  %8d |",  siocinq_value);
+                pChar += sprintf(pChar, "  %8d |\n",siocoutq_value);
             }
+
 
         }
     }
