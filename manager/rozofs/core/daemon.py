@@ -103,11 +103,13 @@ class DaemonManager(object):
         '''
         Send the HUP signal to the underlying daemon
         '''
-        cmds = ['killall', '-HUP', self._daemon]
-        if self.status() is True :
+        with open('/var/run/%s.pid' % self._daemon, 'r') as pf:
+            pid = pf.readline().strip()
+
+        cmds = ['kill', '-HUP', pid]
+        if self.status() is True:
             with open('/dev/null', 'w') as devnull:
                 p = subprocess.Popen(cmds, stdout=devnull,
-                    stderr=subprocess.PIPE)
-                if p.wait() is not 0 :
+                                     stderr=subprocess.PIPE)
+                if p.wait() is not 0:
                     raise Exception(p.communicate()[1])
-
