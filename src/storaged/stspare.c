@@ -1453,7 +1453,9 @@ int main(int argc, char *argv[]) {
 
   // Init of the timer configuration
   rozofs_tmr_init_configuration();
-
+  
+  // Read common config
+  common_config_read(NULL);    
 
   while (1) {
 
