@@ -53,8 +53,6 @@
 #define SDEV_TOTAL      "device-total"
 #define SDEV_MAPPER     "device-mapper"
 #define SDEV_RED        "device-redundancy"
-#define SSELF_HEALING   "self-healing"
-#define SEXPORT_HOSTS   "export-hosts"
 
 int storage_config_initialize(storage_config_t *s, cid_t cid, sid_t sid,
         const char *root, int dev, int dev_mapper, int dev_red) {
