@@ -1997,6 +1997,10 @@ out:
 int rz_scan_all_inodes(void *export,int type,int read,check_inode_pf_t callback_fct,void *param,
                        check_inode_pf_t callback_trk_fct,void *param_trk)
 {
+
+   rozo_lib_current_file_id = 0;
+   rozo_lib_current_user_id = 0;
+   rozo_lib_current_inode_idx = 0;
    return  rz_scan_all_inodes_from_context(export,type,read,callback_fct,param,
                        callback_trk_fct,param_trk,NULL);
 
