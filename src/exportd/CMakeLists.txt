@@ -338,6 +338,13 @@ install(TARGETS rozo_geoRepList
     ARCHIVE DESTINATION lib
     COMPONENT rozo_geoRepList
 )
+
+install(TARGETS rozo_rebalance
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    COMPONENT rozo_rebalance
+)
 install(FILES export.conf.sample DESTINATION ${ROZOFS_CONFIG_DIR} COMPONENT export)
 install(FILES export.conf DESTINATION ${ROZOFS_CONFIG_DIR} COMPONENT export)
 install(PROGRAMS rozo_geoReplicationReinitialize.sh DESTINATION bin)

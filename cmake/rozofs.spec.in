@@ -162,6 +162,7 @@ mkdir -p %{buildroot}%{_initrddir}
 %{_bindir}/rozo_repquota
 %{_bindir}/rozo_fid2pathname
 %{_bindir}/rozo_clusterstats
+%{_bindir}/rozo_rebalance
 %{_bindir}/rozo_buildfid_list
 %{_bindir}/rozo_rbsList
 %{_bindir}/rozo_geoRepList
@@ -181,6 +182,7 @@ mkdir -p %{buildroot}%{_initrddir}
 %{_mandir}/man8/rozo_warnquota.8.gz
 %{_mandir}/man8/rozo_setquota.8.gz
 %{_mandir}/man8/rozo_repquota.8.gz
+%{_mandir}/man8/rozo_rebalance.8.gz
 
 %files storaged
 %defattr(-,root,root)
