@@ -206,16 +206,72 @@ def go_build_struct():
   print "extern common_config_t common_config;"
   #print "extern int             config_file_is_read;"
   #print "extern char            config_file_name[];"  
+
+#_______________________________________________
+def go_build_man(): 
+  print "/*____________________________________________________________________________________________"
+  print "**"
+  print "** common config man function"
+  print "**"
+  print "*/"
+  print "void man_common_config(char * pChar) {"
+  print "  pChar += rozofs_string_append(pChar,\"cconf is related to the common configuration in rozofs.conf file.\\n\");"
+  print "  pChar += rozofs_string_append(pChar,\"cconf            displays the whole rozofs.conf configuration.\\n\");"
+  print "  pChar += rozofs_string_append(pChar,\"cconf <scope>    displays only the rozofs.conf <scope> configuration part.\\n\");" 
+  print "  pChar += rozofs_string_append(pChar,\"cconf reload     reloads and then displays the rozofs.conf configuration.\\n\");"
+  print "}"
+
+#_______________________________________________
+def build_show_module(module): 
+  print "/*____________________________________________________________________________________________"
+  print "**"
+  print "** %s scope configuration elements"%(module)
+  print "**"
+  print "*/"
+  print "char * show_module_%s(char * pChar) {"%(module)
+  print ""
+  print "  pChar += rozofs_string_append(pChar,\"#\\n\");"    
+  print "  pChar += rozofs_string_append(pChar,\"# %s scope configuration elements\\n\");"%(module)   
+  print "  pChar += rozofs_string_append(pChar,\"#\\n\\n\");"    
+  for obj in objects:
+    if obj.module == module:     
+      obj.write_in_show() 
+  print "  return pChar;"
+  print "}"
 #_______________________________________________
 def go_build_show(): 
-  print "/*____________________________________________________________________________________________*/"
-  print "static inline void common_config_generated_show(char * argv[], uint32_t tcpRef, void *bufRef) {"
+
+  for module in modules:
+    build_show_module(module)
+
+  print "/*____________________________________________________________________________________________"
+  print "**"
+  print "** common config diagnostic function"
+  print "**"
+  print "*/"
+  print "void common_config_generated_show(char * argv[], uint32_t tcpRef, void *bufRef) {"
   print "char *pChar = uma_dbg_get_buffer();"
   print ""
   print "  if (argv[1] != NULL) {"
   print "    if (strcmp(argv[1],\"reload\")==0) {"  
   print "      common_config_read(NULL);"
   print "    }"
+  print "    else {"
+  first=True
+  for module in modules:
+    if first == True:
+      print "      if (strcmp(\"%s\",argv[1])==0) {"%(module)
+      first=False
+    else:
+      print "      else if (strcmp(\"%s\",argv[1])==0) {"%(module)
+    print "        pChar = show_module_%s(pChar);"%(module)
+    print "      }"
+  print "      else {"
+  print "        pChar += rozofs_string_append(pChar, \"Unexpected configuration scope\\n\");"
+  print "      }"
+  print "      uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());"
+  print "      return;"           
+  print "    }"  
   print "  }"
   print " "   
   print "  if (config_file_is_read==0) {"
@@ -226,16 +282,7 @@ def go_build_show():
   print "  pChar += rozofs_eol(pChar);"
 
   for module in modules:
-    print ""
-    print "  /*"
-    print "  ** %s scope configuration elements"%(module)
-    print "  */"
-    print "  pChar += rozofs_string_append(pChar,\"#\\n\");"    
-    print "  pChar += rozofs_string_append(pChar,\"# %s scope configuration elements\\n\");"%(module)   
-    print "  pChar += rozofs_string_append(pChar,\"#\\n\\n\");"    
-    for obj in objects:
-      if obj.module == module:     
-        obj.write_in_show() 
+    print "  pChar = show_module_%s(pChar);"%(module)
 	   
   print "" 
   print "  uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());"
@@ -244,12 +291,15 @@ def go_build_show():
 
 #_______________________________________________
 def go_build_read():   
-  print "/*____________________________________________________________________________________________*/"
+  print "/*____________________________________________________________________________________________"
+  print "**"
+  print "** Read the configuration file"
+  print "*/"
   print "static inline void common_config_generated_read(char * fname) {"
   print "  config_t          cfg; "
   print ""
   print "  if (config_file_is_read == 0) {"
-  print "    uma_dbg_addTopic(\"cconf\",show_common_config);"
+  print "    uma_dbg_addTopicAndMan(\"cconf\",show_common_config, man_common_config, 0);"
   print "    if (fname == NULL) {"
   print "      strcpy(config_file_name,ROZOFS_DEFAULT_CONFIG);"
   print "    }"
@@ -293,6 +343,7 @@ go_build_struct()
 end_file()
 
 start_file("common_config_read_show")
+go_build_man()
 go_build_show()
 go_build_read()
 end_file()
