@@ -473,7 +473,7 @@ void usage(char * fmt, ...) {
     printf("\nStorage node rebuild - RozoFS %s\n", VERSION);
     printf("Usage: storage_rebuild [OPTIONS]\n\n");
     printf("   -h, --help                \tPrint this message.\n");
-    printf("   -r, --rebuild <names>     \tlist of \'/\' separated host where exportd is running (mandatory)\n");
+    printf("   -r, --rebuild <names>     \tlist of \'/\' separated host where exportd is running (optionnal. Check rozofs.conf)\n");
     printf("   -d, --device <device>     \tDevice number to rebuild.\n");
     printf("                             \tAll devices are rebuilt when omitted.\n");
     printf("   -s, --sid <cid/sid>       \tCluster and storage identifier to rebuild.\n");
@@ -509,16 +509,16 @@ void usage(char * fmt, ...) {
     printf("                             \t(default: %s).\n",STORAGED_DEFAULT_CONFIG);
 
     printf("Rebuilding a whole storage node as fast as possible:\n");
-    printf("storage_rebuild -r 192.168.0.201/192.168.0.202 -p %d\n\n",MAXIMUM_PARALLEL_REBUILD_PER_SID);
+    printf("storage_rebuild -p %d\n\n",MAXIMUM_PARALLEL_REBUILD_PER_SID);
     printf("Rebuilding every devices of sid 2 of cluster 1:\n");
-    printf("storage_rebuild -r 192.168.0.201/192.168.0.202 -s 1/2\n\n");
+    printf("storage_rebuild -s 1/2\n\n");
     printf("Rebuilding only device 3 of sid 2 of cluster 1:\n");
-    printf("storage_rebuild -r 192.168.0.201/192.168.0.202 -s 1/2 -d 3\n\n");
+    printf("storage_rebuild -s 1/2 -d 3\n\n");
     printf("Rebuilding by relocating device 3 of sid 2 of cluster 1 on other devices:\n");
-    printf("storage_rebuild -r 192.168.0.201/192.168.0.202 -s 1/2 -d 3 --relocate\n\n");
+    printf("storage_rebuild -s 1/2 -d 3 --relocate\n\n");
     printf("Puting a device back in service when it is replaced after\n");
     printf("an automatic relocation (self healing)\n");
-    printf("storage_rebuild -r 192.168.0.201/192.168.0.202 -s 1/2 -d 3 --clear\n\n");    
+    printf("storage_rebuild -s 1/2 -d 3 --clear\n\n");    
     printf("Pause a running rebuild in order to resume it later\n");
     printf("storage_rebuild -id <id> -pause\n\n"); 
     printf("Resume a paused or failed rebuild\n");

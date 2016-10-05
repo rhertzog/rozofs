@@ -166,8 +166,6 @@ char *pChar = uma_dbg_get_buffer();
   COMMON_CONFIG_SHOW_STRING(device_automount_path,"/srv/rozofs/storages");
   pChar += rozofs_string_append(pChar,"// Device mounting options\n");
   COMMON_CONFIG_SHOW_STRING(device_automount_option,"");
-  pChar += rozofs_string_append(pChar,"// Paralellism factor for device self healing feature\n");
-  COMMON_CONFIG_SHOW_INT_OPT(device_self_healing_process,8,"1:64");
   pChar += rozofs_string_append(pChar,"// Directory to use on the storage node to build temporary files.\n");
   pChar += rozofs_string_append(pChar,"// Used for instance by the rebuild process.\n");
   COMMON_CONFIG_SHOW_STRING(storage_temporary_dir,"/tmp");
@@ -177,9 +175,17 @@ char *pChar = uma_dbg_get_buffer();
   COMMON_CONFIG_SHOW_STRING(ssh_user,"root");
   pChar += rozofs_string_append(pChar,"// Other ssh/scp parameter (such as key location) \n");
   COMMON_CONFIG_SHOW_STRING(ssh_param,"");
-  pChar += rozofs_string_append(pChar,"// Fault duration in minutes before device selfhealing starts\n");
+  pChar += rozofs_string_append(pChar,"// self healing : Paralellism factor for device self healing feature\n");
+  pChar += rozofs_string_append(pChar,"// i.e the number of process to run rebuild in //\n");
+  COMMON_CONFIG_SHOW_INT_OPT(device_self_healing_process,8,"1:64");
+  pChar += rozofs_string_append(pChar,"// self healing : Fault duration in minutes before device selfhealing starts\n");
   COMMON_CONFIG_SHOW_INT_OPT(device_selfhealing_delay,15,"0:10000");
-  pChar += rozofs_string_append(pChar,"// Allowed self healing modes\n");
+  pChar += rozofs_string_append(pChar,"// self healing :  throughput limitation in MB/s per rebuild process in //\n");
+  pChar += rozofs_string_append(pChar,"// for reading external projections. The writing on disk is only\n");
+  pChar += rozofs_string_append(pChar,"// 1/2 of that in layout 0, 1/4 in layout 1...\n");
+  pChar += rozofs_string_append(pChar,"// 0 means no limit\n");
+  COMMON_CONFIG_SHOW_INT_OPT(device_selfhealing_read_throughput,20,"0:10000");
+  pChar += rozofs_string_append(pChar,"// self healing : possible modes\n");
   pChar += rozofs_string_append(pChar,"// spareOnly  only self repair on a spare disk\n");
   pChar += rozofs_string_append(pChar,"// relocate   also repair on remaining disks when no spare available\n");
   COMMON_CONFIG_SHOW_STRING(device_selfhealing_mode,"spareOnly");
@@ -192,6 +198,7 @@ char *pChar = uma_dbg_get_buffer();
   pChar += rozofs_string_append(pChar,"// Spare file restoring : how often the process runs  \n");
   COMMON_CONFIG_SHOW_INT(spare_restore_loop_delay,120);
   pChar += rozofs_string_append(pChar,"// Spare file restoring : throughput limitation for reading and analyzing spare files in MB/s\n");
+  pChar += rozofs_string_append(pChar,"// 0 means no limit\n");
   COMMON_CONFIG_SHOW_INT(spare_restore_read_throughput,5);
 
   uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
@@ -331,8 +338,6 @@ static inline void common_config_generated_read(char * fname) {
   COMMON_CONFIG_READ_STRING(device_automount_path,"/srv/rozofs/storages");
   // Device mounting options 
   COMMON_CONFIG_READ_STRING(device_automount_option,"");
-  // Paralellism factor for device self healing feature 
-  COMMON_CONFIG_READ_INT_MINMAX(device_self_healing_process,8,1,64);
   // Directory to use on the storage node to build temporary files. 
   // Used for instance by the rebuild process. 
   COMMON_CONFIG_READ_STRING(storage_temporary_dir,"/tmp");
@@ -342,9 +347,17 @@ static inline void common_config_generated_read(char * fname) {
   COMMON_CONFIG_READ_STRING(ssh_user,"root");
   // Other ssh/scp parameter (such as key location)  
   COMMON_CONFIG_READ_STRING(ssh_param,"");
-  // Fault duration in minutes before device selfhealing starts 
+  // self healing : Paralellism factor for device self healing feature 
+  // i.e the number of process to run rebuild in // 
+  COMMON_CONFIG_READ_INT_MINMAX(device_self_healing_process,8,1,64);
+  // self healing : Fault duration in minutes before device selfhealing starts 
   COMMON_CONFIG_READ_INT_MINMAX(device_selfhealing_delay,15,0,10000);
-  // Allowed self healing modes 
+  // self healing :  throughput limitation in MB/s per rebuild process in // 
+  // for reading external projections. The writing on disk is only 
+  // 1/2 of that in layout 0, 1/4 in layout 1... 
+  // 0 means no limit 
+  COMMON_CONFIG_READ_INT_MINMAX(device_selfhealing_read_throughput,20,0,10000);
+  // self healing : possible modes 
   // spareOnly  only self repair on a spare disk 
   // relocate   also repair on remaining disks when no spare available 
   COMMON_CONFIG_READ_STRING(device_selfhealing_mode,"spareOnly");
@@ -357,6 +370,7 @@ static inline void common_config_generated_read(char * fname) {
   // Spare file restoring : how often the process runs   
   COMMON_CONFIG_READ_INT(spare_restore_loop_delay,120);
   // Spare file restoring : throughput limitation for reading and analyzing spare files in MB/s 
+  // 0 means no limit 
   COMMON_CONFIG_READ_INT(spare_restore_read_throughput,5);
  
   config_destroy(&cfg);

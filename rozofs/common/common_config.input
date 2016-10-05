@@ -94,8 +94,6 @@ BOOL	storage device_automount 		False
 STRING  storage	device_automount_path           "/srv/rozofs/storages"
 // Device mounting options
 STRING  storage device_automount_option 	""
-// Paralellism factor for device self healing feature
-INT     storage device_self_healing_process 	8 1:64
 // Time out between export and storage for remove and stat
 INT     export mproto_timeout 	10           1:60
 // Directory to use on the export to build temporary files.
@@ -120,9 +118,17 @@ STRING  storage ssh_param 	""
 BOOL	client client_fast_reconnect	        False
 // To disable synchronous write of attributes when set to True
 BOOL	export disable_sync_attributes	        False
-// Fault duration in minutes before device selfhealing starts
+// self healing : Paralellism factor for device self healing feature
+// i.e the number of process to run rebuild in //
+INT     storage device_self_healing_process 	8 1:64
+// self healing : Fault duration in minutes before device selfhealing starts
 INT     storage device_selfhealing_delay        15 0:10000
-// Allowed self healing modes
+// self healing :  throughput limitation in MB/s per rebuild process in //
+// for reading external projections. The writing on disk is only
+// 1/2 of that in layout 0, 1/4 in layout 1...
+// 0 means no limit
+INT     storage device_selfhealing_read_throughput        20 0:10000
+// self healing : possible modes
 // spareOnly  only self repair on a spare disk
 // relocate   also repair on remaining disks when no spare available
 STRING  storage device_selfhealing_mode        "spareOnly"
@@ -137,4 +143,5 @@ BOOL    storage spare_restore_enable                True
 // Spare file restoring : how often the process runs  
 INT     storage spare_restore_loop_delay            120  
 // Spare file restoring : throughput limitation for reading and analyzing spare files in MB/s
+// 0 means no limit
 INT     storage spare_restore_read_throughput       5

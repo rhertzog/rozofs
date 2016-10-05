@@ -31,7 +31,7 @@ void show_common_config(char * argv[], uint32_t tcpRef, void *bufRef);
 void common_config_read(char * fname) ;
 
 #define COMMON_CONFIG_SHOW_NAME(val) {\
-  pChar += rozofs_string_padded_append(pChar, 32, rozofs_left_alignment, #val);\
+  pChar += rozofs_string_padded_append(pChar, 50, rozofs_left_alignment, #val);\
   pChar += rozofs_string_append(pChar, " = ");\
 }
   

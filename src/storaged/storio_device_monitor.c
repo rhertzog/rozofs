@@ -103,10 +103,11 @@ void * storio_device_rebuild_thread(void *arg) {
     if (pRebuild->spare == 0) {
       pChar += rozofs_string_append(pChar," -R ");
     }   
-    pChar += rozofs_string_append(pChar," -l 6 -r ");
-    pChar += rozofs_string_append(pChar,common_config.export_hosts);
+    pChar += rozofs_string_append(pChar," -l 6 ");
     pChar += rozofs_string_append(pChar," -p ");
     pChar += rozofs_u32_append(pChar,common_config.device_self_healing_process);
+    pChar += rozofs_string_append(pChar," -t ");
+    pChar += rozofs_u32_append(pChar,common_config.device_selfhealing_read_throughput);
     pChar += rozofs_string_append(pChar," --sid ");
     pChar += rozofs_u32_append(pChar,pRebuild->st->cid);
     *pChar++ ='/';

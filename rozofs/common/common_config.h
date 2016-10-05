@@ -146,8 +146,6 @@ typedef struct _common_config_global_t {
   char *      device_automount_path;
   // Device mounting options
   char *      device_automount_option;
-  // Paralellism factor for device self healing feature
-  uint32_t    device_self_healing_process;
   // Directory to use on the storage node to build temporary files.
   // Used for instance by the rebuild process.
   char *      storage_temporary_dir;
@@ -157,9 +155,17 @@ typedef struct _common_config_global_t {
   char *      ssh_user;
   // Other ssh/scp parameter (such as key location) 
   char *      ssh_param;
-  // Fault duration in minutes before device selfhealing starts
+  // self healing : Paralellism factor for device self healing feature
+  // i.e the number of process to run rebuild in //
+  uint32_t    device_self_healing_process;
+  // self healing : Fault duration in minutes before device selfhealing starts
   uint32_t    device_selfhealing_delay;
-  // Allowed self healing modes
+  // self healing :  throughput limitation in MB/s per rebuild process in //
+  // for reading external projections. The writing on disk is only
+  // 1/2 of that in layout 0, 1/4 in layout 1...
+  // 0 means no limit
+  uint32_t    device_selfhealing_read_throughput;
+  // self healing : possible modes
   // spareOnly  only self repair on a spare disk
   // relocate   also repair on remaining disks when no spare available
   char *      device_selfhealing_mode;
@@ -172,6 +178,7 @@ typedef struct _common_config_global_t {
   // Spare file restoring : how often the process runs  
   uint32_t    spare_restore_loop_delay;
   // Spare file restoring : throughput limitation for reading and analyzing spare files in MB/s
+  // 0 means no limit
   uint32_t    spare_restore_read_throughput;
 } common_config_t;
 

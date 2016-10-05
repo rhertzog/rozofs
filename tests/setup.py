@@ -996,7 +996,7 @@ class rozofs_class:
     self.threads = 4
     self.nb_core_file = 2
     self.crc32 = True
-    self.device_selfhealing_mode  = "No"
+    self.device_selfhealing_mode  = "spareOnly"
     self.device_selfhealing_delay = 1
     self.nb_listen=1;
     self.storio_mode="multiple";
@@ -1189,7 +1189,7 @@ class rozofs_class:
     display_config_int("alloc_estimated_mb",self.alloc_mb)
     display_config_string("storaged_start_script",self.storaged_start_script)
     display_config_bool("device_automount",self.device_automount)
-    display_config_int("device_self_healing_process",6)
+    display_config_int("device_self_healing_process",2)
     display_config_int("device_selfhealing_delay",rozofs.device_selfhealing_delay)
     display_config_string("device_selfhealing_mode",rozofs.device_selfhealing_mode)
     display_config_string("export_hosts",exportd.export_host)

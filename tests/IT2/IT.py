@@ -1107,49 +1107,61 @@ def relocate_1dev() :
     cid=s.split('-')[1]
     sid=s.split('-')[2]
 
-    # Get storio mode: single or multuple
-    string="./build/src/rozodiag/rozodiag -i localhost%s -T storaged -c storio_nb"%(hid)
+
+    # Check wether automount is configured
+    string="./build/src/rozodiag/rozodiag -i localhost%s -T storio:%s -c cc | grep 'device_automount ' "%(hid,cid)
     parsed = shlex.split(string)
     cmd = subprocess.Popen(parsed, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    
-    mode = "unknown"
+    automount = False
     for line in cmd.stdout:
-      if "mode" in line:
-        words=line.split()
-	mode=words[2]
-	break;     
-
+      # No automount 
+      if "False" in line:
+  	automount = False
+	break
+      if "True" in line:
+        automount = True
+        break
+        
     # Check wether self healing is configured
-    string="./build/src/rozodiag/rozodiag -i localhost%s -T storio:%s -c enu "%(hid,cid)
+    string="./build/src/rozodiag/rozodiag -i localhost%s -T storio:%s -c cc | grep device_selfhealing_mode"%(hid,cid)
     parsed = shlex.split(string)
     cmd = subprocess.Popen(parsed, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    
+    delay       = 1
+    selfHealing ="spareOnly"
     for line in cmd.stdout:
-      if "mode" in line:
-        if "spareOnly" in line:
-  	  selfHealing="spareOnly"
-	  continue
-	if "relocate" in line:
-  	  selfHealing="relocate"  
-	  continue
-      if "delay" in line:
-        words=line.split()
-	delay=words[2]       
-
+      if "spareOnly" in line:
+  	selfHealing="spareOnly"
+	continue
+      if "relocate" in line:
+  	selfHealing="relocate"  
+	continue          
+        
     clean_rebuild_dir()
     
-    if selfHealing == "spareOnly": os.system("./setup.py spare")	      
-     
-    # No self healing configured. Ask for a rebuild with relocation	      
-    if selfHealing == "No":
-      status="IS"
-      syslog.syslog("No self healing => call relocate")	      
-      ret = cmd_returncode("./setup.py sid %s %s rebuild -fg -d 0 -o reloc_cid%s_sid%s_dev0 "%(cid,sid,cid,sid))
-      if ret != 0:
-	return ret
+    
+    # Create a spare device in automount mode
+    if automount == True:
+      syslog.syslog("automount %s and selHealing %s : Wait rebuild on spare"%(automount,selfHealing))	          
+      os.system("./setup.py spare")
+      waitRebuild = True
+      	      
+    else :
+
+      # No automount and spare only          
+      if selfHealing == "spareOnly":
+        syslog.syslog("automount %s and selHealing %s : call relocate"%(automount,selfHealing))	          
+        ret = cmd_returncode("./setup.py sid %s %s rebuild -fg -d 0 -R -o reloc_cid%s_sid%s_dev0 "%(cid,sid,cid,sid))
+        if ret != 0: return ret
+        waitRebuild = False
+        status="IS"
+        
+      # No automount but relocate enabled	      
+      if selfHealing == "relocate":
+        syslog.syslog("automount %s and selHealing %s : Wait relocate"%(automount,selfHealing))	          
+        waitRebuild = True
 	
-    # Self healing is configured. Remove device and wait for automatic relocation	
-    else:
+    # Wait for selhealing	
+    if waitRebuild == True:
     
       ret = os.system("./setup.py sid %s %s device-delete 0"%(cid,sid))
       if ret != 0:
@@ -1172,8 +1184,7 @@ def relocate_1dev() :
         time.sleep(10)
 	
         # Check The status of the device
-        if mode == "multiple": string="./build/src/rozodiag/rozodiag -i localhost%s -T storio:%s -c device "%(hid,cid)
-	else                 : string="./build/src/rozodiag/rozodiag -i localhost%s -T storio:0 -c device "%(hid)
+        string="./build/src/rozodiag/rozodiag -i localhost%s -T storio:%s -c device "%(hid,cid)
 	parsed = shlex.split(string)
 	cmd = subprocess.Popen(parsed, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	curcid=0
