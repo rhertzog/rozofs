@@ -28,26 +28,23 @@
 #include <unistd.h>
 #include <inttypes.h>
 #include <sys/types.h>
-/*____________________________________________________________________________________________*/
-static inline void common_config_generated_show(char * argv[], uint32_t tcpRef, void *bufRef) {
-char *pChar = uma_dbg_get_buffer();
+/*____________________________________________________________________________________________
+**
+** common config man function
+**
+*/
+void man_common_config(char * pChar) {
+  pChar += rozofs_string_append(pChar,"cconf            displays the whole rozofs.conf configuration.\n");
+  pChar += rozofs_string_append(pChar,"cconf <scope>    displays only the rozofs.conf <scope> configuration part.\n");
+  pChar += rozofs_string_append(pChar,"cconf reload     reloads and then displays the rozofs.conf configuration.\n");
+}
+/*____________________________________________________________________________________________
+**
+** global scope configuration elements
+**
+*/
+char * show_module_global(char * pChar) {
 
-  if (argv[1] != NULL) {
-    if (strcmp(argv[1],"reload")==0) {
-      common_config_read(NULL);
-    }
-  }
- 
-  if (config_file_is_read==0) {
-    pChar += rozofs_string_append(pChar,"Can not read configuration file ");
-  }
-  pChar += rozofs_string_append(pChar,config_file_name);
-  pChar += rozofs_eol(pChar);
-  pChar += rozofs_eol(pChar);
-
-  /*
-  ** global scope configuration elements
-  */
   pChar += rozofs_string_append(pChar,"#\n");
   pChar += rozofs_string_append(pChar,"# global scope configuration elements\n");
   pChar += rozofs_string_append(pChar,"#\n\n");
@@ -71,10 +68,15 @@ char *pChar = uma_dbg_get_buffer();
   COMMON_CONFIG_SHOW_INT_OPT(storio_dscp,46,"0:46");
   pChar += rozofs_string_append(pChar,"// DSCP for exchanges from/to the EXPORTD.\n");
   COMMON_CONFIG_SHOW_INT_OPT(export_dscp,34,"0:34");
+  return pChar;
+}
+/*____________________________________________________________________________________________
+**
+** export scope configuration elements
+**
+*/
+char * show_module_export(char * pChar) {
 
-  /*
-  ** export scope configuration elements
-  */
   pChar += rozofs_string_append(pChar,"#\n");
   pChar += rozofs_string_append(pChar,"# export scope configuration elements\n");
   pChar += rozofs_string_append(pChar,"#\n\n");
@@ -112,10 +114,15 @@ char *pChar = uma_dbg_get_buffer();
   COMMON_CONFIG_SHOW_BOOL(disable_sync_attributes,False);
   pChar += rozofs_string_append(pChar,"// Minimum delay between the deletion request and the effective projections deletion\n");
   COMMON_CONFIG_SHOW_INT(deletion_delay,0);
+  return pChar;
+}
+/*____________________________________________________________________________________________
+**
+** client scope configuration elements
+**
+*/
+char * show_module_client(char * pChar) {
 
-  /*
-  ** client scope configuration elements
-  */
   pChar += rozofs_string_append(pChar,"#\n");
   pChar += rozofs_string_append(pChar,"# client scope configuration elements\n");
   pChar += rozofs_string_append(pChar,"#\n\n");
@@ -125,10 +132,15 @@ char *pChar = uma_dbg_get_buffer();
   COMMON_CONFIG_SHOW_BOOL(rozofsmount_fuse_reply_thread,False);
   pChar += rozofs_string_append(pChar,"// To activate fast reconnect from client to exportd\n");
   COMMON_CONFIG_SHOW_BOOL(client_fast_reconnect,False);
+  return pChar;
+}
+/*____________________________________________________________________________________________
+**
+** storage scope configuration elements
+**
+*/
+char * show_module_storage(char * pChar) {
 
-  /*
-  ** storage scope configuration elements
-  */
   pChar += rozofs_string_append(pChar,"#\n");
   pChar += rozofs_string_append(pChar,"# storage scope configuration elements\n");
   pChar += rozofs_string_append(pChar,"#\n\n");
@@ -200,16 +212,64 @@ char *pChar = uma_dbg_get_buffer();
   pChar += rozofs_string_append(pChar,"// Spare file restoring : throughput limitation for reading and analyzing spare files in MB/s\n");
   pChar += rozofs_string_append(pChar,"// 0 means no limit\n");
   COMMON_CONFIG_SHOW_INT(spare_restore_read_throughput,5);
+  return pChar;
+}
+/*____________________________________________________________________________________________
+**
+** common config diagnostic function
+**
+*/
+void common_config_generated_show(char * argv[], uint32_t tcpRef, void *bufRef) {
+char *pChar = uma_dbg_get_buffer();
+
+  if (argv[1] != NULL) {
+    if (strcmp(argv[1],"reload")==0) {
+      common_config_read(NULL);
+    }
+    else {
+      if (strcmp("global",argv[1])==0) {
+        pChar = show_module_global(pChar);
+      }
+      else if (strcmp("export",argv[1])==0) {
+        pChar = show_module_export(pChar);
+      }
+      else if (strcmp("client",argv[1])==0) {
+        pChar = show_module_client(pChar);
+      }
+      else if (strcmp("storage",argv[1])==0) {
+        pChar = show_module_storage(pChar);
+      }
+      else {
+        pChar += rozofs_string_append(pChar, "Unexpected configuration scope\n");
+      }
+      uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
+      return;
+    }
+  }
+ 
+  if (config_file_is_read==0) {
+    pChar += rozofs_string_append(pChar,"Can not read configuration file ");
+  }
+  pChar += rozofs_string_append(pChar,config_file_name);
+  pChar += rozofs_eol(pChar);
+  pChar += rozofs_eol(pChar);
+  pChar = show_module_global(pChar);
+  pChar = show_module_export(pChar);
+  pChar = show_module_client(pChar);
+  pChar = show_module_storage(pChar);
 
   uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
   return;
 }
-/*____________________________________________________________________________________________*/
+/*____________________________________________________________________________________________
+**
+** Read the configuration file
+*/
 static inline void common_config_generated_read(char * fname) {
   config_t          cfg; 
 
   if (config_file_is_read == 0) {
-    uma_dbg_addTopic("cconf",show_common_config);
+    uma_dbg_addTopicAndMan("cconf",show_common_config, man_common_config, 0);
     if (fname == NULL) {
       strcpy(config_file_name,ROZOFS_DEFAULT_CONFIG);
     }
