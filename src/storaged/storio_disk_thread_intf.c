@@ -75,7 +75,23 @@ static inline void storio_update_read_counter(uint32_t t, uint64_t count) {
 static inline void storio_update_write_counter(uint32_t t, uint64_t count) {
   rozofs_thr_cnt_update_with_time(storio_cnts[STORIO_WR_CNT], count, t);
 }
-
+/*_______________________________________________________________________
+* throughput manual
+*
+* @param pChar    Where to format the ouput
+*/
+static inline void man_throughput (char * pChar) {
+  pChar += rozofs_string_append(pChar,"Display storio throughput statistics of the last minute.\n");
+  pChar += rozofs_string_append(pChar,"  throughput enable     to enable throughput measurements.\n");
+  pChar += rozofs_string_append(pChar,"  throughput disable    to disable throughput measurements.\n");
+  pChar += rozofs_string_append(pChar,"  throughput [read|write] [col <#col>] [avg]\n");
+  pChar += rozofs_string_append(pChar,"    [read|write]\n");
+  pChar += rozofs_string_append(pChar,"       set read to only get read counters.\n");
+  pChar += rozofs_string_append(pChar,"       set write to only get write counters.\n");
+  pChar += rozofs_string_append(pChar,"       when neither read nor write are set all counters are displayed.\n");
+  pChar += rozofs_string_append(pChar,"    [col <#col>] request the display on <#col> columns.\n");
+  pChar += rozofs_string_append(pChar,"    [avg] to display an average per column.\n");    
+}
 /*_______________________________________________________________________
 * Display throughput counters
 *
@@ -190,7 +206,7 @@ void storio_throughput_counter_init(void) {
   /*
   ** Register the diagnostic function
   */
-  uma_dbg_addTopic("throughput", display_throughput); 
+  uma_dbg_addTopicAndMan("throughput", display_throughput,man_throughput,0); 
 }
 
 /*__________________________________________________________________________

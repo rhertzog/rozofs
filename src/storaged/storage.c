@@ -191,7 +191,21 @@ void storio_device_error_log_reset() {
   pthread_rwlock_unlock(&storio_device_error_log.lock);  
 }
 
-
+/*_______________________________________________________________________
+* Display the error log
+*/
+void storio_device_error_log_man (char * pChar) {
+  pChar += rozofs_string_append(pChar,"log         : Display a internal log of encountered errors.\n");
+  pChar += rozofs_string_append(pChar,"For each error logged is displayed:\n"); 
+  pChar += rozofs_string_append(pChar," - the FID,\n");
+  pChar += rozofs_string_append(pChar," - the line in storage.c where the error was detected,\n");
+  pChar += rozofs_string_append(pChar," - the device,\n");
+  pChar += rozofs_string_append(pChar," - the chunk,\n");
+  pChar += rozofs_string_append(pChar," - the block identifier,\n");
+  pChar += rozofs_string_append(pChar," - the number of blocks of the request,\n");
+  pChar += rozofs_string_append(pChar," - the date\n");
+  pChar += rozofs_string_append(pChar,"\nlog reset : reset the log buffer\n");  
+}
 /*_______________________________________________________________________
 * Display the error log
 */
@@ -300,7 +314,7 @@ void storio_device_error_log_init(void) {
     severe("pthread_rwlock_init %s",strerror(errno));
   }
   
-  uma_dbg_addTopic("log", storio_device_error_log_display);
+  uma_dbg_addTopicAndMan("log", storio_device_error_log_display,storio_device_error_log_man,0);
   
   storio_error_log_initialized = 1;
 }

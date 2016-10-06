@@ -292,7 +292,12 @@ void storage_device_error_reset(void) {
   */
   storio_device_error_log_reset();
 }  
-
+void storage_device_man(char * pChar) {
+  pChar += rozofs_string_append(pChar,"device reset : clears error counters on every device.\n");  
+  pChar += rozofs_string_append(pChar,"device       : display the storio devices status.\n");  
+  pChar += rozofs_string_append(pChar,"It first displays some configuration information, and then displays for each device\n");  
+  pChar += rozofs_string_append(pChar,"some specific informations.\n");  
+}
 void storage_device_debug(char * argv[], uint32_t tcpRef, void *bufRef) {
   char                         * pChar=uma_dbg_get_buffer();
   int                            idx,threadNb; 
@@ -659,7 +664,7 @@ uint32_t storio_device_mapping_init()
   /*
   ** Add a debug topic
   */
-  uma_dbg_addTopic("device", storage_device_debug); 
+  uma_dbg_addTopicAndMan("device", storage_device_debug, storage_device_man, 0); 
   uma_dbg_addTopic("fid", storage_fid_debug); 
   uma_dbg_addTopic_option("rebuild", storage_rebuild_debug, UMA_DBG_OPTION_RESET); 
   return 0;

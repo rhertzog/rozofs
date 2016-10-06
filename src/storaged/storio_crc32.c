@@ -685,6 +685,17 @@ int  storio_check_crc32_vect(struct iovec * vector,
 /*
 **__________________________________________________________________
 */
+void man_data_integrity(char * pChar) {  
+  pChar += rozofs_string_append(pChar,"data_integrity display CRC32 error detection statistics.\n");
+  pChar += rozofs_string_append(pChar,"  crc32c generation      Tells whether CRC32 is generated.\n");
+  pChar += rozofs_string_append(pChar,"  crc32c control         Tells whether CRC32 is checked.\n");
+  pChar += rozofs_string_append(pChar,"  crc32c computing mode  Tells the CRC32 computation mode.\n");
+  pChar += rozofs_string_append(pChar,"  crc32c computing mode  Tells the CRC32 computation mode.\n");
+  pChar += rozofs_string_append(pChar,"  crc32c error counter   Tells the number of CRC32 errors detected.\n");
+}
+/*
+**__________________________________________________________________
+*/
 char * show_data_integrity_syntax(char * pChar)
 {  
   pChar += rozofs_string_append(pChar,"syntax: data_integrity [reset]\n");
@@ -780,5 +791,5 @@ void crc32c_init(int generate_enable,int check_enable,int hw_forced)
     {
       crc32c_check_enable = check_enable;    
     }
-    uma_dbg_addTopic_option("data_integrity", show_data_integrity, UMA_DBG_OPTION_RESET);
+    uma_dbg_addTopicAndMan("data_integrity", show_data_integrity, man_data_integrity, UMA_DBG_OPTION_RESET);
 }
