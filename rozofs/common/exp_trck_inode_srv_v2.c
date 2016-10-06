@@ -1012,7 +1012,7 @@ int exp_metadata_write_attributes(exp_trck_top_header_t *top_hdr_p,rozofs_inode_
    /*
    ** take care of the tracking
    */
-   expt_set_bit(top_hdr_p->trck_inode_p,inode->s.usr_id,inode->s.file_id);
+//   expt_set_bit(top_hdr_p->trck_inode_p,inode->s.usr_id,inode->s.file_id);
    
    return exp_trck_rw_attributes(main_trck_p->root_path,inode,attr_p,attr_sz,main_trck_p->max_attributes_sz,0,sync);
 }
@@ -1053,7 +1053,7 @@ int exp_metadata_create_attributes_burst(exp_trck_top_header_t *top_hdr_p,rozofs
    /*
    ** take care of the tracking
    */
-   expt_set_bit(top_hdr_p->trck_inode_p,inode->s.usr_id,inode->s.file_id);
+//   expt_set_bit(top_hdr_p->trck_inode_p,inode->s.usr_id,inode->s.file_id);
     /*
     ** build the pathname of the tracking file
     */
@@ -1486,6 +1486,7 @@ exp_trck_top_header_t *exp_trck_top_allocate(char *name,char *root_path,uint16_t
    top_hdr_p->max_attributes_sz = max_attributes_sz;
    top_hdr_p->create_flag = create_flag;
    
+#if 0
    if (create_flag)
    {
      /*
@@ -1494,6 +1495,7 @@ exp_trck_top_header_t *exp_trck_top_allocate(char *name,char *root_path,uint16_t
      sprintf(full_path,"%s/%s",root_path,name);
      top_hdr_p->trck_inode_p = expt_alloc_context(root_path);
    }
+#endif
    return top_hdr_p; 
 }
 

@@ -1172,10 +1172,32 @@ export_tracking_table_t *exp_create_attributes_tracking_context(uint16_t eid, ch
    if (export_tracking_table[eid]!= NULL)
    {
       /*
-      ** the context is already allocated: nothing more to done:
-      **  note: it is not foreseen the change the root path of an exportd !!
-      */
-      return export_tracking_table[eid];
+      ** check if there is a change in the root path--> in that case the memory should be released
+      ** the test is done by read the root path found in the reg_attr
+      */      
+       export_tracking_table_t *p = export_tracking_table[eid];
+       exp_trck_top_header_t *top_hdr_p = p->tracking_table[ROZOFS_REG];
+
+       if (top_hdr_p == NULL)
+       {
+	  fatal("no memory structure for reg_attr of eid %d path %s",eid,root_path);
+       }
+       if (strcmp(root_path,top_hdr_p->root_path) == 0)
+       {
+	  /*
+	  ** the context is already allocated: nothing more to done:
+	  **  note: it is not foreseen the change the root path of an exportd !!
+	  */
+	  return export_tracking_table[eid];	 
+       }
+       else
+       {
+	  /*
+	  ** release the context
+	  */
+	  exp_release_attributes_tracking_context(export_tracking_table[eid]);
+	  export_tracking_table[eid] = NULL;	 
+       }
    }
    
    tab_p = malloc(sizeof(export_tracking_table_t));
