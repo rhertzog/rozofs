@@ -2,13 +2,6 @@
 # rozofs storage daemon configuration file.
 #
 
-#  threads (optional)
-#       Specifies number of threads that can process the disk requests. (default: 2)
-#
-#   nbcores (optional)
-#       Maximum number of core files to keep (default: 2). The older core files are kept while the newest 
-#       ones are removed.
-#
 #   listen (mandatory)
 #       Specifies list of IP(s) (or hostname(s)) and port(s) the storio process must listen to for receiving 
 #       write and read requests from clients.
@@ -18,41 +11,6 @@
 #                   - if "*" is specified storio will listen on any of the interfaces.
 #
 #           port: (TCP port number (in decimal) to use for storio process)
-#
-#   storio (optional)
-#       Specifies if storaged starts one or multiple storio process(es). (default: "single")
-#              Valid values are :
-#                  - "single"
-#                    only storio instance 0 is started. It takes care of every storage instance configured in 
-#                    this file by listening to the addresses and ports defined by listen.
-#                  - "multiple"
-#                    one storio is started for each cluster declared in this configuration file. 
-#                    The storio instance is the cluster number. 
-#                    The storio listens on the addresses defined by listen and adds the cluster number to ports in listen
-#
-#   self-healing (optional)
-#       Gives the delay in minutes before starting an automatic rebuild of a broken device by relocating the data on 
-#       the remaining devices. The lowest possible value is 1. When self-healing is configured, the export-hosts
-#       parameter must be configured too.
-#
-#   export-hosts
-#       This parameter is only needed when self healing is configured. It gives the list of addresses (or dns names) 
-#       where exportd daemon is running. When securing the exportd thanks to virtual IP address only the virtual
-#       IP address is declared (i.e "192.168.10.1"). When no virtual IP address is used the list of "physical" IP addresses 
-#        of each host securing the exportd must be given (i.e "192.168.10.1/192.168.20.1").
-#
-#   crc32c_check (optional)
-#       Boolean (true or false) indicating if a check (thanks to CRC error detecting code) will be used for detect accidental 
-#       changes to raw data.
-#
-#   crc32c_generate (optional)
-#       Boolean (true or false) indicating if a checksum must be generated (thanks to CRC error detecting code) for each
-#       write request.
-#
-#   crc32c_hw_forced (optional)
-#       That  boolean (true or false) can be asserted if the information reported by cpuid does not indicates that hardware CRC
-#       is supported whilst the current CPU supports it.
-#       This might be the case with VirtualBox.
 #
 #   storages (mandatory)
 #       It's the list of local storage managed by this storaged.  Each storage is identified by the cluster to which
@@ -86,16 +44,6 @@
 #                   - must be lower than or equal to device-mapper.
 #                   - must not be decreased.
 #
-threads = 4;
-nbcores = 2;
-storio  = "multiple";
-self-healing = 10;
-export-hosts = "192.168.0.1/192.168.0.2";
-
-# Activate CRC32 generation and control in hardware mode
-crc32c_check     = True;
-crc32c_generate  = True;
-crc32c_hw_forced = True;
 
 listen = (
     {addr = "192.168.1.1"; port = 41001; },
