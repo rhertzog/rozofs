@@ -203,14 +203,14 @@ def main(argv=None):  # IGNORE:C0111
 
         action_export_create_parser = action_export_subparsers.add_parser('create', add_help=False, help='create an export')
         action_export_create_parser.add_argument('-n', '--name', default=None, help='Name of this export.')
-        action_export_create_parser.add_argument('-p', '--passwd', default=None, help='password to set.')
+        # action_export_create_parser.add_argument('-p', '--passwd', default=None, help='password to set.')
         action_export_create_parser.add_argument('-s', '--squota', default="", help='soft quota to set.')
         action_export_create_parser.add_argument('-a', '--hquota', default="", help='hard quota to set.')
         action_export_create_parser.add_argument('vid', nargs=1, type=int, help='vid of an existing volume.')
 
         action_export_update_parser = action_export_subparsers.add_parser('update', add_help=False, help='update an export')
-        action_export_update_parser.add_argument('-c', '--current', default=None, help='current password.')
-        action_export_update_parser.add_argument('-p', '--passwd', default=None, help='password to set.')
+        # action_export_update_parser.add_argument('-c', '--current', default=None, help='current password.')
+        # action_export_update_parser.add_argument('-p', '--passwd', default=None, help='password to set.')
         action_export_update_parser.add_argument('-s', '--squota', default=None, help='soft quota to set.')
         action_export_update_parser.add_argument('-a', '--hquota', default=None, help='hard quota to set.')
         action_export_update_parser.add_argument('eid', nargs=1, type=int, help='eid of an existing export.')
@@ -342,11 +342,11 @@ def main(argv=None):  # IGNORE:C0111
 
         ## start
         #action_storaged_rebuild_start_parser = action_storaged_rebuild_subparser.add_parser('start', add_help=False, help='start to rebuild one storaged node', parents=[topic_storaged_parser])
-        action_storaged_rebuild_start_parser = action_storaged_rebuild_subparser.add_parser('start', add_help=False, help='start to rebuild one storaged node')
-        action_storaged_rebuild_start_parser.add_argument('-c', '--cid', type=int, help='cluster identifier to rebuild. If not set all storages are rebuilt.')
-        action_storaged_rebuild_start_parser.add_argument('-s', '--sid', type=int, help='storage identifier to rebuild. If not set all storages are rebuilt.')
-        action_storaged_rebuild_start_parser.add_argument('--device', type=int, help='device number to rebuild. If not set all devices are rebuilt.')
-        action_storaged_rebuild_start_parser.add_argument('node', nargs=1, metavar='NODE', help='storaged node to rebuild.')
+        # action_storaged_rebuild_start_parser = action_storaged_rebuild_subparser.add_parser('start', add_help=False, help='start to rebuild one storaged node')
+        # action_storaged_rebuild_start_parser.add_argument('-c', '--cid', type=int, help='cluster identifier to rebuild. If not set all storages are rebuilt.')
+        # action_storaged_rebuild_start_parser.add_argument('-s', '--sid', type=int, help='storage identifier to rebuild. If not set all storages are rebuilt.')
+        # action_storaged_rebuild_start_parser.add_argument('--device', type=int, help='device number to rebuild. If not set all devices are rebuilt.')
+        # action_storaged_rebuild_start_parser.add_argument('node', nargs=1, metavar='NODE', help='storaged node to rebuild.')
 
         #
         # Parsing

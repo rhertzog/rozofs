@@ -1,7 +1,7 @@
 .\" Process this file with
 .\" groff -man -Tascii rozo.1
 .\"
-.TH ROZO 1 "April 2015" RozoFS "User Manuals"
+.TH ROZO 1 "October 2016" RozoFS "User Manuals"
 .SH NAME
 rozo \- RozoFS management tool
 .SH SYNOPSIS
@@ -352,7 +352,7 @@ the list of "physical" IP addresses of each host securing the
 exportd must be given.
 
 .SS create
-.B rozo export create \fIvid\fP \fB\-E\fP | \fB--exportd\fP \fIhost\fP... [\fB\-n\fP | \fP\-\-name\fP\fI name\fP] [\fB\-p\fP | \fB--passwd\fP\fI password\fP] [\fB\-s\fP | \fB--squota\fP\fI squota\fP] [\fB\-a\fP | \fB--hquota\fP\fI hquota\fP]
+.B rozo export create \fIvid\fP \fB\-E\fP | \fB--exportd\fP \fIhost\fP... [\fB\-n\fP | \fP\-\-name\fP\fI name\fP] [\fB\-s\fP | \fB--squota\fP\fI squota\fP] [\fB\-a\fP | \fB--hquota\fP\fI hquota\fP]
 .TP
 Export a new filesystem on the given volume by \fIvid\fP.
 .TP
@@ -365,9 +365,6 @@ exportd must be given.
 \fB\-n\fP, \fB\-\-name \fP\fIname
 The name to give to the new export. If not set a name will be generated (export_x).
 .TP
-\fB\-p\fP, \fB\-\-passwd \fP\fIpasswd
-Password to set.
-.TP
 \fB\-s\fP, \fB\-\-squota \fP\fIsquota
 Soft quota to set. (value [K | M | G | T]) 
 .TP
@@ -375,7 +372,7 @@ Soft quota to set. (value [K | M | G | T])
 Hard quota to set. (value [K | M | G | T]) 
 
 .SS update
-.B rozo export update \fIeid\fP \fB\-E\fP | \fB--exportd\fP \fIhost\fP... [\fB\-c\fP | \fB--current\fP\fI password\fP] [\fB\-p\fP | \fB--passwd\fP\fI password\fP] [\fB\-s\fP | \fB--squota\fP\fI squota\fP] [\fB\-a\fP | \fB--hquota\fP\fI hquota\fP]
+.B rozo export update \fIeid\fP \fB\-E\fP | \fB--exportd\fP \fIhost\fP... [\fB\-s\fP | \fB--squota\fP\fI squota\fP] [\fB\-a\fP | \fB--hquota\fP\fI hquota\fP]
 .TP
 Update an export according to \fIeid\fP.
 .TP
@@ -384,12 +381,6 @@ List of running exportd hostname(s). When securing the exportd thanks to a
 virtual IP address only the VIP address is declared and when no VIP is used,
 the list of "physical" IP addresses of each host securing the
 exportd must be given.
-.TP
-\fB\-c\fP, \fB\-\-current \fP\fIpasswd
-Current password (needed with \fB-p\fP).
-.TP
-\fB\-p\fP, \fB\-\-passwd \fP\fIpasswd
-Password to set.
 .TP
 \fB\-s\fP, \fB\-\-squota \fP\fIsquota
 Soft quota to set. (value [K | M | G | T]) 
@@ -583,31 +574,31 @@ exportd must be given.
 .PP
 
 .\" rozo storaged rebuild subcommand
-.RS -4
-.B STORAGED REBUILD SUBCOMMAND:
-.RI
-
-.\" rozo storaged rebuild start
-.SS rebuild start
-.B rozo storaged rebuild start \fP[\fB\-c\fP | \fB\-\-cid\fP \fIcid\fP] [\fB\-s\fP | \fB\-\-sid\fP \fIsid\fP] [\fB\-d\fP | \fB\-\-device\fP \fIdevice\fP] \fInode\fP \fB\-E | \-\-exportd\fP \fIhost\fP 
-.TP 
-Start process for rebuild data of one storaged \fInode\fP.
-.TP
-\fB\-c\fP, \fB\-\-cid\fP \fIcid
-Cluster identifier to rebuild. If not set all storages are rebuilt.
-.TP
-\fB\-s\fP, \fB\-\-sid\fP \fIsid
-Storage identifier to rebuild. If not set all storages are rebuilt.
-.TP
-\fB\-d\fP, \fB\-\-device\fP \fIdevice
-Device number to rebuild. If not set all devices are rebuilt.
-.TP
-\fB\-E\fP, \fB--exportd \fP\fIhost\fP...
-List of running exportd hostname(s). When securing the exportd thanks to a
-virtual IP address only the VIP address is declared and when no VIP is used,
-the list of "physical" IP addresses of each host securing the
-exportd must be given.
-.PP
+.\" .RS -4
+.\" .B STORAGED REBUILD SUBCOMMAND:
+.\" .RI
+.\" 
+.\" .\" rozo storaged rebuild start
+.\" .SS rebuild start
+.\" .B rozo storaged rebuild start \fP[\fB\-c\fP | \fB\-\-cid\fP \fIcid\fP] [\fB\-s\fP | \fB\-\-sid\fP \fIsid\fP] [\fB\-d\fP | \fB\-\-device\fP \fIdevice\fP] \fInode\fP \fB\-E | \-\-exportd\fP \fIhost\fP 
+.\" .TP 
+.\" Start process for rebuild data of one storaged \fInode\fP.
+.\" .TP
+.\" \fB\-c\fP, \fB\-\-cid\fP \fIcid
+.\" Cluster identifier to rebuild. If not set all storages are rebuilt.
+.\" .TP
+.\" \fB\-s\fP, \fB\-\-sid\fP \fIsid
+.\" Storage identifier to rebuild. If not set all storages are rebuilt.
+.\" .TP
+.\" \fB\-d\fP, \fB\-\-device\fP \fIdevice
+.\" Device number to rebuild. If not set all devices are rebuilt.
+.\" .TP
+.\" \fB\-E\fP, \fB--exportd \fP\fIhost\fP...
+.\" List of running exportd hostname(s). When securing the exportd thanks to a
+.\" virtual IP address only the VIP address is declared and when no VIP is used,
+.\" the list of "physical" IP addresses of each host securing the
+.\" exportd must be given.
+.\" .PP
 
 .SH "ENVIRONMENT VARIABLE"
 .TP

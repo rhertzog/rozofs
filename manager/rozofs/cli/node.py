@@ -18,7 +18,6 @@
 
 
 from rozofs.core.platform import Platform, Role
-from rozofs.core.agent import ServiceStatus
 from rozofs.core.constants import STORAGED_MANAGER, EXPORTD_MANAGER, \
     ROZOFSMOUNT_MANAGER
 from rozofs.cli.output import ordered_puts
@@ -244,12 +243,20 @@ def config(platform, args):
                 exportd_l.append({'VOLUME': volume_l})
                 if len(config.exports) != 0:
                     for e in config.exports.values():
-                        export_l = OrderedDict([
-                            ('vid', e.vid),
-                            ('root', e.root),
-                            ('md5', e.md5),
-                            ('squota', e.squota),
-                            ('hquota', e.hquota)])
+                        # export_l = OrderedDict([
+                        #     ('vid', e.vid),
+                        #     ('root', e.root),
+                        #     ('md5', e.md5),
+                        #     ('squota', e.squota),
+                        #     ('hquota', e.hquota)])
+                        export_l = OrderedDict()
+                        export_l['vid'] = e.vid
+                        export_l['root'] = e.root
+                        if e.md5 != '':
+                            export_l['md5'] = e.md5
+                        export_l['squota'] = e.squota
+                        export_l['hquota'] = e.hquota
+
                         exportd_l.append({'EXPORT': export_l})
                 role_l.append({'EXPORTD': exportd_l})
 

@@ -181,12 +181,15 @@ class ExportdConfigurationParser(ConfigurationParser):
             config_setting_set_int(vid_setting, int(export.vid))
             root_setting = config_setting_add(export_setting, EXPORT_ROOT, CONFIG_TYPE_STRING)
             config_setting_set_string(root_setting, str(export.root))
-            md5_setting = config_setting_add(export_setting, EXPORT_MD5, CONFIG_TYPE_STRING)
-            config_setting_set_string(md5_setting, str(export.md5))
-            sqt_setting = config_setting_add(export_setting, EXPORT_SQUOTA, CONFIG_TYPE_STRING)
-            config_setting_set_string(sqt_setting, str(export.squota))
-            hqt_setting = config_setting_add(export_setting, EXPORT_HQUOTA, CONFIG_TYPE_STRING)
-            config_setting_set_string(hqt_setting, str(export.hquota))
+            if export.md5 != '':
+                md5_setting = config_setting_add(export_setting, EXPORT_MD5, CONFIG_TYPE_STRING)
+                config_setting_set_string(md5_setting, str(export.md5))
+            if export.squota != '':
+                sqt_setting = config_setting_add(export_setting, EXPORT_SQUOTA, CONFIG_TYPE_STRING)
+                config_setting_set_string(sqt_setting, str(export.squota))
+            if export.hquota != '':
+                hqt_setting = config_setting_add(export_setting, EXPORT_HQUOTA, CONFIG_TYPE_STRING)
+                config_setting_set_string(hqt_setting, str(export.hquota))
 
     def unparse(self, config, configuration):
 
@@ -199,7 +202,6 @@ class ExportdConfigurationParser(ConfigurationParser):
             configuration.layout = config_setting_get_int(layout_setting)
         else:
             raise SyntaxError("can't lookup key '%s'" % LAYOUT)
-
 
         volumes_setting = config_lookup(config, VOLUMES)
 
@@ -308,22 +310,19 @@ class ExportdConfigurationParser(ConfigurationParser):
                 if md5_setting is not None:
                     md5 = config_setting_get_string(md5_setting)
                 else:
-                    raise SyntaxError("can't lookup key '%s' in export idx: %d"
-                                       % (EXPORT_MD5, i))
+                    md5 = ''
 
                 sqt_setting = config_setting_get_member(export_setting, EXPORT_SQUOTA)
                 if sqt_setting is not None:
                     sqt = config_setting_get_string(sqt_setting)
                 else:
-                    raise SyntaxError("can't lookup key '%s' in export idx: %d"
-                                       % (EXPORT_SQUOTA, i))
+                    sqt = ''
 
                 hqt_setting = config_setting_get_member(export_setting, EXPORT_HQUOTA)
                 if hqt_setting is not None:
                     hqt = config_setting_get_string(hqt_setting)
                 else:
-                    raise SyntaxError("can't lookup key '%s' in export idx: %d"
-                                       % (EXPORT_HQUOTA, i))
+                    hqt = ''
 
                 configuration.exports[eid] = ExportConfig(eid, vid, root,
                                                           md5, sqt, hqt)
@@ -348,27 +347,31 @@ class ExportdAgent(Agent):
             sid = 0
             for line in input:
 
-                if line.startswith("bsize"):
+                if line.startswith("  bsize"):
                     vstat.bsize = int(line.split(':')[-1])
-                if line.startswith("bfree"):
+                if line.startswith("  bfree"):
                     vstat.bfree = int(line.split(':')[-1])
-                if line.startswith("blocks"):
+                if line.startswith("  blocks"):
                     vstat.blocks = int(line.split(':')[-1])
-                if line.startswith("cluster"):
+                if line.startswith("    cluster"):
                     cid = int(line.split(':')[-1])
                     vstat.cstats[cid] = ClusterStat()
+                if line.startswith("      size:"):
+                    vstat.cstats[cid].size = int(line.split(':')[-1])
+                if line.startswith("      free:"):
+                    vstat.cstats[cid].free = int(line.split(':')[-1])
                     # vstat.cstats[cid].sstats.clear()
-                if line.startswith("storage"):
+                if line.startswith("          storage"):
                     sid = int(line.split(':')[-1])
                     vstat.cstats[cid].sstats[sid] = StorageStat()
-                if line.startswith("host"):
+                if line.startswith("            host:"):
                     vstat.cstats[cid].sstats[sid].host = line.split(':')[-1].rstrip()
-                if line.startswith("size"):
+                if line.startswith("            size:"):
                     if len(vstat.cstats[cid].sstats.keys()) == 0:
                         vstat.cstats[cid].size = int(line.split(':')[-1])
                     else:
                         vstat.cstats[cid].sstats[sid].size = int(line.split(':')[-1])
-                if line.startswith("free"):
+                if line.startswith("            free:"):
                     if len(vstat.cstats[cid].sstats.keys()) == 0:
                         vstat.cstats[cid].free = int(line.split(':')[-1])
                     else:
@@ -376,19 +379,21 @@ class ExportdAgent(Agent):
         # return vstat
 
     def _get_export_stat(self, eid, estat):
-        with open('/var/run/exportd/export_%d' % eid, 'r') as input:
-            for line in input:
-                if line.startswith("bsize"):
-                    estat.bsize = int(line.split(':')[-1])
-                if line.startswith("blocks"):
-                    estat.blocks = int(line.split(':')[-1])
-                if line.startswith("bfree"):
-                    estat.bfree = int(line.split(':')[-1])
-                if line.startswith("files"):
-                    estat.files = int(line.split(':')[-1])
-                if line.startswith("ffree"):
-                    estat.ffree = int(line.split(':')[-1])
-        # return estat
+        try:
+            with open('/var/run/exportd/export_%d' % eid, 'r') as input:
+                for line in input:
+                    if line.startswith("bsize"):
+                        estat.bsize = int(line.split(':')[-1])
+                    if line.startswith("blocks"):
+                        estat.blocks = int(line.split(':')[-1])
+                    if line.startswith("bfree"):
+                        estat.bfree = int(line.split(':')[-1])
+                    if line.startswith("files"):
+                        estat.files = int(line.split(':')[-1])
+                    if line.startswith("ffree"):
+                        estat.ffree = int(line.split(':')[-1])
+        except:
+            pass
 
     def get_service_config(self):
         configuration = ExportdConfig()
@@ -485,5 +490,3 @@ class ExportdPacemakerAgent(ExportdAgent):
         if status == ServiceStatus.STOPPED:
             changes = self._stop()
         return changes
-
-

@@ -16,21 +16,15 @@
 # along with this program.  If not, see
 # <http://www.gnu.org/licenses/>.
 
-import sys
 from rozofs.core.platform import Platform, Role
-from rozofs.core.agent import ServiceStatus
 from rozofs.cli.output import ordered_puts
-from rozofs.cli.output import puts
-from collections import OrderedDict
 
 
 def create(platform, args):
-    platform.create_export(args.vid[0], args.name, args.passwd, args.squota, args.hquota)
-
+    platform.create_export(args.vid[0], args.name, None, args.squota, args.hquota)
 
 def update(platform, args):
-    platform.update_export(args.eid[0], args.current, args.passwd, args.squota, args.hquota)
-
+    platform.update_export(args.eid[0], None, None, args.squota, args.hquota)
 
 def remove(platform, args):
     if not args.eids:
@@ -64,13 +58,15 @@ def get(platform, args):
 
         econfig = configuration.exports[eid]
         export_l = []
-        export_l.append({'vid':econfig.vid})
-        export_l.append({'root':econfig.root})
-        export_l.append({'md5':econfig.md5})
-        export_l.append({'squota':econfig.squota})
-        export_l.append({'hquota':econfig.hquota})
+        export_l.append({'vid': econfig.vid})
+        export_l.append({'root': econfig.root})
+        if econfig.md5 != '':
+            export_l.append({'md5': econfig.md5})
+        export_l.append({'squota': econfig.squota})
+        export_l.append({'hquota': econfig.hquota})
 
-        exports_l.append({'EXPORT '+ str(eid):export_l})
+        exports_l.append({'EXPORT ' + str(eid): export_l})
+
     list_l.update({'EXPORTS': exports_l})
     ordered_puts(list_l)
 
