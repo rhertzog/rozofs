@@ -1611,7 +1611,11 @@ int fuseloop(struct fuse_args *args, int fg) {
                     conf.max_retry,
                     timeout_mproto) == 0) break;
         }
-	
+        if (errno == EPERM) {
+          retry_count = 0;
+          break;
+        } 
+        
 	/* Connected to one of the given addresses */
 	if (pHost != NULL) break;
 	

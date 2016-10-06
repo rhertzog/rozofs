@@ -32,10 +32,12 @@
 #include <rozofs/rpc/eproto.h>
 #include "eproto_nb.h"
 #include <rozofs/rpc/sproto.h>
+#include <rozofs/core/af_unix_socket_generic.h>
 
 #include "export.h"
 #include "volume.h"
 #include "exportd.h"
+#include "rozofs_ip4_flt.h"
 
 DECLARE_PROFILING(epp_profiler_t);
 
@@ -447,12 +449,26 @@ void ep_mount_1_svc_nb(void * pt, rozorpc_srv_ctx_t *req_ctx_p) {
         
     START_PROFILING(ep_mount);
     if (!eid) goto error;
-
+      
     requested_site = arg->hdr.gateway_rank;
     
     if (!(exp = exports_lookup_export(*eid)))
         goto error;
 
+    /*
+    ** Check whether this client is allowed
+    */
+    uint32_t ip = af_unix_get_remote_ip(req_ctx_p->socketRef);
+    if (rozofs_ip4_filter_check(exp->filter_tree, ip)) {
+      info("%u.%u.%u.%u mounting export %d on path %s : allowed",IP2FOURU8(ip), *eid, arg->path);
+    }
+    else {
+      warning("%u.%u.%u.%u mounting export %d on path %s : forbiden !!!",IP2FOURU8(ip), *eid, arg->path);
+      errno = EPERM;
+      goto error;
+    }
+    
+    
     /* Get lock on config */
     if ((errno = pthread_rwlock_rdlock(&config_lock)) != 0) {
         goto error;
@@ -600,7 +616,20 @@ void ep_mount_msite_1_svc_nb(void * pt, rozorpc_srv_ctx_t *req_ctx_p) {
     
     if (!(exp = exports_lookup_export(*eid)))
         goto error;
-
+    
+    /*
+    ** Check whether this client is allowed
+    */
+    uint32_t ip = af_unix_get_remote_ip(req_ctx_p->socketRef);
+    if (rozofs_ip4_filter_check(exp->filter_tree, ip)) {
+      info("%u.%u.%u.%u mounting export %d on path %s : allowed",IP2FOURU8(ip), *eid, arg->path);
+    }
+    else {
+      warning("%u.%u.%u.%u mounting export %d on path %s : forbiden !!!",IP2FOURU8(ip), *eid, arg->path);
+      errno = EPERM;
+      goto error;
+    }
+    
     /* Get lock on config */
     if ((errno = pthread_rwlock_rdlock(&config_lock)) != 0) {
         goto error;

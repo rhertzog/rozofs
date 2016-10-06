@@ -27,6 +27,7 @@
 #include <rozofs/rozofs_srv.h>
 #include <rozofs/common/log.h>
 #include <rozofs/common/xmalloc.h>
+#include "rozofs_ip4_flt.h"
 #include "export.h"
 #include "econfig.h"
 
@@ -51,6 +52,15 @@
 #define EGEOREP     "georep"
 #define ESITE0     "site0"
 #define ESITE1     "site1"
+
+#define EFILTERS    "filters"
+#define EFILTER     "filter"
+#define ERULE       "rule"
+#define EALLOW      "allow"
+#define EFORBID     "forbid"
+#define EIP4SUBNET  "ip4subnet"
+#define ESUBNETS    "subnets"
+
 /*
 ** constant for exportd gateways
 */
@@ -58,6 +68,9 @@
 #define EDAEMONID     "daemon_id"
 #define EGWIDS     "gwids"
 #define EGWID     "gwid"
+
+
+econfig_t exportd_config;
 
 int storage_node_config_initialize(storage_node_config_t *s, uint8_t sid,
         const char *host, uint8_t siteNum) {
@@ -191,7 +204,7 @@ void expgw_config_release(expgw_config_t *c) {
 
 
 int export_config_initialize(export_config_t *e, eid_t eid, vid_t vid, uint8_t layout, uint32_t bsize,
-        const char *root, const char *md5, uint64_t squota, uint64_t hquota) {
+        const char *root, const char *md5, uint64_t squota, uint64_t hquota, const char *filter_name) {
     DEBUG_FUNCTION;
 
     e->eid = eid;
@@ -202,20 +215,38 @@ int export_config_initialize(export_config_t *e, eid_t eid, vid_t vid, uint8_t l
     strncpy(e->md5, md5, MD5_LEN);
     e->squota = squota;
     e->hquota = hquota;
+    if (filter_name == NULL) {
+      e->filter_name = NULL;
+    }  
+    else {  
+      e->filter_name = xstrdup(filter_name);
+    }  
     list_init(&e->list);
     return 0;
 }
 
 void export_config_release(export_config_t *s) {
+    if (s->filter_name) {
+      xfree(s->filter_name);
+      s->filter_name = NULL;
+    }  
     return;
 }
 
+void filter_config_release(filter_config_t *s) {
+    xfree(s->name);
+    s->name = NULL;
+    rozofs_ip4_filter_tree_release(s->filter_tree);
+    s->filter_tree = NULL; 
+    return;
+}
 int econfig_initialize(econfig_t *ec) {
     DEBUG_FUNCTION;
 
     list_init(&ec->volumes);
     list_init(&ec->exports);
     list_init(&ec->expgw);
+    list_init(&ec->filters);    
     return 0;
 }
 static void econfig_number_storages_per_cluster(volume_config_t *config) {
@@ -296,6 +327,12 @@ void econfig_release(econfig_t *config) {
         list_remove(p);
         free(entry);
     }
+    list_for_each_forward_safe(p, q, &config->filters) {
+        filter_config_t *entry = list_entry(p, filter_config_t, list);
+        filter_config_release(entry);
+        list_remove(p);
+        xfree(entry);
+    }    
 }
 
 static int load_volumes_conf(econfig_t *ec, struct config_t *config, int elayout) {
@@ -716,7 +753,139 @@ static int load_expgw_conf(econfig_t *ec, struct config_t *config) {
 out:
     return status;
 }
+static int load_filters_conf(econfig_t *ec, struct config_t *config) {
+    int status = -1, i, s;
+    struct config_setting_t *filter_set = NULL;
+    rozofs_ip4_subnet_t * filter_tree;
+    filter_config_t     * efilter
+    DEBUG_FUNCTION;
 
+    // Get the filters settings
+    if ((filter_set = config_lookup(config, EFILTERS)) == NULL) {
+        return 0;
+    }
+
+    // For each filter
+    for (i = 0; i < config_setting_length(filter_set); i++) {
+        struct config_setting_t * filter_setting = NULL;
+        const char              * filter_name;
+        const char              * filter_rule;
+        int                       rule;
+        struct config_setting_t * subnet_set = NULL;
+        
+        if ((filter_setting = config_setting_get_elem(filter_set, i)) == NULL) {
+            errno = ENOKEY;
+            severe("can't get filter idx: %d.", i);
+            goto out;
+        }
+
+        if (config_setting_lookup_string(filter_setting, EFILTER, &filter_name) == CONFIG_FALSE) {
+            errno = ENOKEY;
+            severe("can't look up filter name for filter idx: %d", i);
+            goto out;
+        }
+
+        if (config_setting_lookup_string(filter_setting, ERULE, &filter_rule) == CONFIG_FALSE) {
+          rule = ROZOFS_IP4_FORBID;
+        }
+        else {
+          if      (strcasecmp(filter_rule,EALLOW)==0)  rule = ROZOFS_IP4_ALLOW;
+          else if (strcasecmp(filter_rule,EFORBID)==0) rule = ROZOFS_IP4_FORBID;
+          else {
+            errno = ENOKEY;
+            severe("Unexpected rule \"%s\" for filter %s", filter_rule, filter_name);
+            goto out;      
+          }      
+        }
+        
+        // Get subnets in the filter
+        if ((subnet_set = config_setting_get_member(filter_setting, ESUBNETS)) == NULL) {
+          severe("can't lookup subnets in filter %s", filter_name);
+          continue;
+        }
+        
+        /*
+        ** Create the filter tree
+        */
+        filter_tree = rozofs_ip4_filter_tree_allocate(rule,config_setting_length(subnet_set));
+
+        // For each subnet 
+        for (s = 0; s < config_setting_length(subnet_set); s++) {
+            struct config_setting_t * subnet_setting;
+            const char              * subnet_name;
+            uint32_t                  scanip[4];
+            uint32_t                  ip;
+            uint32_t                  subnetLen;
+            int                       ret;
+            int                       idx;
+
+            // Get settings for this subnet
+            if ((subnet_setting = config_setting_get_elem(subnet_set, s)) == NULL) {
+                errno = ENOKEY;
+                severe("can't get subnet setting %d for filter %s", s, filter_name);
+                rozofs_ip4_filter_tree_release(filter_tree);
+                goto out;
+            }
+
+            if (config_setting_lookup_string(subnet_setting, ERULE, &filter_rule) == CONFIG_FALSE) {
+                errno = ENOKEY;
+                severe("can't get subnet rule for subnet %d for filter %s", s, filter_name);
+                goto out;
+            }
+            if      (strcasecmp(filter_rule,EALLOW)==0)  rule = ROZOFS_IP4_ALLOW;
+            else if (strcasecmp(filter_rule,EFORBID)==0) rule = ROZOFS_IP4_FORBID;
+            else {
+              errno = ENOKEY;
+              severe("Unexpected rule \"%s\" for subnet %d for filter %s", filter_rule, s, filter_name);
+              goto out;      
+            }      
+        
+            // Lookup IPv4 subnet
+            if (config_setting_lookup_string(subnet_setting, EIP4SUBNET, &subnet_name) == CONFIG_FALSE) {
+                errno = ENOKEY;
+                severe("can't look up IPv4 subnet in subnet %d of filter %s", s, filter_name);
+                rozofs_ip4_filter_tree_release(filter_tree);
+                goto out;
+            }
+            ret = sscanf(subnet_name,"%u.%u.%u.%u/%u", &scanip[0], &scanip[1], &scanip[2], &scanip[3],&subnetLen);
+            if (ret != 5) {
+              severe("Expecting an IPv4 subnet and got \"%s\" in subnet %d of filter %s", subnet_name, s, filter_name);
+              rozofs_ip4_filter_tree_release(filter_tree);
+              goto out;
+            }
+            for (idx=0; idx<4; idx++) {
+              if ((scanip[idx]<0)||(scanip[idx]>255)) {
+                severe("Bad IPv4 subnet \"%s\" in subnet %d of filter %s", subnet_name, s, filter_name);
+                rozofs_ip4_filter_tree_release(filter_tree);
+                goto out;
+              }
+            }
+            ip = (scanip[0]<<24) + (scanip[1]<<16) + (scanip[2]<<8) + scanip[3];
+            if (subnetLen>32) {
+              severe("Bad IPv4 subnet len \"%s\" in subnet %d of filter %s", subnet_name, s, filter_name);
+              rozofs_ip4_filter_tree_release(filter_tree);
+              goto out;
+            }
+            
+            if (rozofs_ip4_filter_add_subnet(filter_tree, ip, subnetLen, rule)<0) {
+              severe("Can not add subnet %s of filter %s", subnet_name, filter_name);
+              rozofs_ip4_filter_tree_release(filter_tree);
+              goto out;
+            }            
+
+        } // End subnet loop      
+
+        efilter = xmalloc(sizeof (filter_config_t));
+        efilter->name        = xstrdup(filter_name);
+        efilter->filter_tree = filter_tree;
+        list_init(&efilter->list);
+        list_push_back(&ec->filters, &efilter->list);
+
+    }
+    status = 0;
+out:
+    return status;
+}
 
 
 static int strquota_to_nbblocks(const char *str, uint64_t *blocks, ROZOFS_BSIZE_E bsize) {
@@ -763,6 +932,16 @@ static int load_exports_conf(econfig_t *ec, struct config_t *config) {
     int status = -1, i;
     struct config_setting_t *export_set = NULL;
 
+    /*
+    ** Prior to read the export configuration, we need
+    ** to parse the filter configuration that will be used 
+    ** by the exports
+    */
+    if (load_filters_conf(ec, config) != 0) {
+        severe("can't load filters config.");
+        goto out;
+    }
+
     DEBUG_FUNCTION;
 
     // Get the exports settings
@@ -794,7 +973,8 @@ static int load_exports_conf(econfig_t *ec, struct config_t *config) {
         uint64_t squota;
         uint64_t hquota;
         export_config_t *econfig = NULL;
-
+        const char * filter_name;
+        
         if ((mfs_setting = config_setting_get_elem(export_set, i)) == NULL) {
             errno = ENOKEY;
             severe("can't get export idx: %d.", i);
@@ -895,10 +1075,26 @@ static int load_exports_conf(econfig_t *ec, struct config_t *config) {
         if (config_setting_lookup_int(mfs_setting, ELAYOUT, &layout) == CONFIG_FALSE) {
 	  layout = -1;           
         }
+        
+        /*
+        IPv4 filtering
+        */
+        if (config_setting_lookup_string(mfs_setting, EFILTER, &filter_name) == CONFIG_FALSE) {
+          filter_name = NULL;
+        }
+        else {
+          /*
+          ** Check filter exists 
+          */
+          rozofs_ip4_subnet_t * tree = rozofs_ip4_flt_get_tree(filter_name);
+          if (tree == NULL) {
+            fatal("No such IPv4 filter \"%s\" defined for export %d.",filter_name, (int)eid);
+          }  
+        }
 	
         econfig = xmalloc(sizeof (export_config_t));
         if (export_config_initialize(econfig, (eid_t) eid, (vid_t) vid, layout, bsize, root,
-                md5, squota, hquota) != 0) {
+                md5, squota, hquota, filter_name) != 0) {
             severe("can't initialize export config.");
         }
         // Initialize export
@@ -975,7 +1171,7 @@ int econfig_read(econfig_t *config, const char *fname) {
         severe("can't load export expgw config.");
         goto out;
     }
-
+    
     if (load_exports_conf(config, &cfg) != 0) {
         severe("can't load exports config.");
         goto out;

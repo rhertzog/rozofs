@@ -183,6 +183,7 @@ typedef struct export {
     // of files to delete for each bucket trash
     pthread_t load_trash_thread; ///< pthread for load the list of trash and recycle files
     // to delete when we start or reload this export
+    rozofs_ip4_subnet_t * filter_tree;
 } export_t;
 
 extern uint32_t export_configuration_file_hash;  /**< hash value of the configuration file */
@@ -274,12 +275,12 @@ int export_create(const char *root,export_t * e,lv2_cache_t *lv2_cache);
  * @param md5: password
  * @param squota: soft quotas
  * @param: hard quotas
- *
+ * @param: IPv4 filter name
  * @return 0 on success -1 otherwise (errno is set)
  */
 int export_initialize(export_t * e, volume_t *volume, uint8_t layout, ROZOFS_BSIZE_E bsize,
         lv2_cache_t *lv2_cache, eid_t eid, const char *root, const char *md5,
-        uint64_t squota, uint64_t hquota);
+        uint64_t squota, uint64_t hquota, char * filter_name);
 
 /** initialize an export.
  *

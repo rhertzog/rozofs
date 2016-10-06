@@ -1251,7 +1251,7 @@ static void *load_trash_dir_thread(void *v) {
 
 int export_initialize(export_t * e, volume_t *volume, uint8_t layout, ROZOFS_BSIZE_E bsize,
         lv2_cache_t *lv2_cache, uint32_t eid, const char *root, const char *md5,
-        uint64_t squota, uint64_t hquota) {
+        uint64_t squota, uint64_t hquota, char * filter_name) {
 
     char fstat_path[PATH_MAX];
     char const_path[PATH_MAX];
@@ -1289,6 +1289,12 @@ int export_initialize(export_t * e, volume_t *volume, uint8_t layout, ROZOFS_BSI
     else {
       e->layout = volume->layout; // Layout used for this volume
     }  
+    /*
+    ** Retrieve filter tree to use for this export from its name
+    ** when name does not exist tree is NULL and IP is allowed.
+    */
+    e->filter_tree = rozofs_ip4_flt_get_tree(filter_name);   
+    
     e->load_trash_thread = 0;
     /*
     ** init of the replication context
