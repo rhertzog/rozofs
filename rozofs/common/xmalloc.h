@@ -86,7 +86,7 @@ static inline void xmalloc_stats_release(int n)
 void *xmalloc_internal(char * file, int line, size_t n);
 
 #define xstrdup(str) xstrdup_internal(__FILE__,__LINE__,(size_t)strlen(str),str)
-void *xstrdup_internal(char * file, int line, size_t n, char * src); 
+void *xstrdup_internal(char * file, int line, size_t n, const char * src); 
 
 void xfree(void * p);
 

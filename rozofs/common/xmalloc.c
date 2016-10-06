@@ -87,7 +87,7 @@ void *xmalloc_internal(char * file, int line, size_t n) {
 }
 /*__________________________________________________________________________
 */
-void *xstrdup_internal(char * file, int line, size_t n, char * src) {
+void *xstrdup_internal(char * file, int line, size_t n, const char * src) {
     void *p = 0;
     if (xmalloc_size_table_p == NULL)
     {
