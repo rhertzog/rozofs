@@ -868,13 +868,37 @@ class exportd_class:
       print "    );"
       print "  }"
     print ");"
+    print "filters ="
+    print "("
+    nexte=" "
+    for v in volumes:
+      for e in v.eid: 
+        print " %s{"%(nexte)
+	nexte=","                   
+        print "    filter = \"flt_%d\","%(e.eid)
+        print "    rule   = \"forbid\","
+        print "    subnets ="
+        print "    ("
+        print "      { ip4subnet=\"127.0.0.0/24\",     rule=\"allow\"},"
+        print "      { ip4subnet=\"127.0.0.0/28\",     rule=\"forbid\"},"
+        print "      { ip4subnet=\"127.0.0.16/28\",    rule=\"forbid\"},"
+        print "      { ip4subnet=\"127.0.0.1/32\",     rule=\"allow\"},"
+        print "      { ip4subnet=\"127.0.0.17/32\",    rule=\"allow\"}"
+        print "    );"
+        print "  }"
+    print ");"
+    
     print "exports ="
     print "("
     nexte=" "
     for v in volumes:
       for e in v.eid:
         root_path=e.get_root_path()
-	print "  %s{eid=%s; bsize=\"%s\"; root=\"%s\"; md5=\"\"; squota=\"%s\"; hquota=\"%s\"; vid=%s; layout=%s}"%(nexte,e.eid,rozofs.bsize(e.bsize),root_path,e.squota,e.hquota,v.vid,rozofs.layout2int(e.layout))
+        if e.squota == "": squota=""
+        else             : squota="squota=\"%s\";"%(e.squota)
+        if e.hquota == "": hquota=""
+        else             : hquota="hquota=\"%s\";"%(e.hquota)
+	print "  %s{eid=%s; bsize=\"%s\"; root=\"%s\"; filter=\"flt_%d\"; %s%s vid=%s; layout=%s}"%(nexte,e.eid,rozofs.bsize(e.bsize),root_path,e.eid,hquota,squota,v.vid,rozofs.layout2int(e.layout))
 	nexte=","	
     print ");"
 
@@ -996,7 +1020,7 @@ class rozofs_class:
     self.threads = 4
     self.nb_core_file = 2
     self.crc32 = True
-    self.device_selfhealing_mode  = "spareOnly"
+    self.device_selfhealing_mode  = "relocate"
     self.device_selfhealing_delay = 1
     self.nb_listen=1;
     self.storio_mode="multiple";
@@ -1021,7 +1045,9 @@ class rozofs_class:
     self.deletion_delay = None
 
   def set_site_number(self,number): self.site_number = number      
-  def set_device_automount(self): self.device_automount = True
+  def set_device_automount(self): 
+    self.device_automount = True
+    self.device_selfhealing_mode = "spareOnly"
   def set_storaged_start_script(self,storaged_start_script):
     self.storaged_start_script = storaged_start_script
   def set_alloc_mb(self,alloc_mb): self.alloc_mb = alloc_mb    
@@ -1473,7 +1499,7 @@ def check_build ():
   if sucess==False: sys.exit(-1)
 #_____________________________________________  
 def syntax_export() :
-  print  "./setup.py \tgeomgr  \t{start|stop|reset|pid|modify|delete}"    
+  print  "./setup.py \texportd  \t{start|stop|reset|pid|reload}"    
 
 #_____________________________________________  
 def syntax_geomgr() :
@@ -1838,7 +1864,8 @@ try:
       os.environ["PATH"] += (os.pathsep+dir)
 except: pass
 
-os.system("cp -f %s/build/src/exportd/rozo_rbsList /usr/bin"%(os.getcwd()))
+FILE="%s/build/src/exportd/rozo_rbsList"%(os.getcwd())
+os.system("if [ -f %s ]; then cp -f %s /usr/bin;fi"%(FILE,FILE))
 
 if len(sys.argv) < int(2): syntax()
 command = sys.argv[1]

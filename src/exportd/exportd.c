@@ -70,7 +70,7 @@
 /* Maximum open file descriptor number for exportd daemon */
 #define EXPORTD_MAX_OPEN_FILES 5000
 
-econfig_t exportd_config;
+extern econfig_t exportd_config;
 pthread_rwlock_t config_lock;
 export_reload_conf_status_t export_reload_conf_status;
 int export_instance_id;    /**< instance id of the export  : 0 is the master   */
@@ -1221,7 +1221,7 @@ static int load_exports_conf() {
         // Initialize export
         if (export_initialize(&entry->export, volume, econfig->layout, econfig->bsize,
                 &cache, econfig->eid, econfig->root, econfig->md5,
-                econfig->squota, econfig->hquota) != 0) {
+                econfig->squota, econfig->hquota, econfig->filter_name) != 0) {
             severe("can't initialize export with path %s: %s\n",
                     econfig->root, strerror(errno));
             goto out;
@@ -1363,6 +1363,11 @@ static void on_start() {
     export_profiler_allocate(0);
     geo_profiler_allocate(0);
 
+    /*
+    ** IPv4 filtering initialization
+    */
+    rozofs_ip4_ftl_init();
+
 
     uma_dbg_thread_add_self("Blocking");
 
@@ -1388,7 +1393,7 @@ static void on_start() {
 
     if (exportd_initialize() != 0) {
         fatal("can't initialize exportd.");
-    }
+    }    
     
     /*
     ** Configuration has been processes and data structures have been set up

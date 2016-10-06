@@ -238,7 +238,11 @@ int exportclt_initialize(exportclt_t * clt, const char *host, char *root,int sit
 	*/
 	status = exportclt_msite_initialize(clt, host, root,site_number,passwd, 
 	                                  bufsize, min_read_size,retries, timeout);		
-	if (status == 0) goto out;									
+	if (status == 0) goto out;
+        if (errno == EPERM) {
+          xerrno = errno;
+          goto error;
+        }  									
 
     /*
 	** Multi site mount failed. Let's try the old mount.

@@ -75,6 +75,31 @@ grammar.
    - Modifying or removing sid of storage can (will) lead to DATA LOSS !!!
    - Modifying or removing cid can (will) lead to DATA LOSS !!!
 
+.SS filters
+   This section describes some IPv4 filtering rules. It is a list of filters.
+   Each filter has a name that enable the exports to reference it (see 
+.B exports
+section).
+   A filter is a list of IPv4 subnets (IP address and mask length) with a 
+.B allow
+   or 
+.B forbid 
+rule. Incoming IP addresses for a given export are checked against the
+   filter referenced by the export. The longuest prefix match subnet gives the
+   rule to apply to the incoming client.
+   
+        filter: The name of a filter
+        
+        rule: allow or forbid (default is forbid)
+        
+        subnets: list of IPv4 subnets defining the filter behaviour.        
+                A subnet contains the following parameters
+                ip4subnet: is an IPv4 subnet in the format <ipv4>/<len>        
+                           where <IPv4> is an IPv4 address in dot notation
+                           and <len> is the subnet mask length from 1 to 32.
+                rule: is the rule to apply to this subnet within {allow, forbid}           
+
+ 
 .SS exports
    It's the list of rozo file system exported by the exportd daemon. Each
    exported file system is identified by its eid. root is the directory path
@@ -98,6 +123,10 @@ grammar.
                - must be an existing directory.
                - must be unique for each filesystem managed by this exportd.
 
+       filter: (IPv4 filter to apply to this export)
+               - is optionnal (every IP is allowed when ommitted).
+               - must be a string defined in the filter section.
+       
        squota: (soft quota)
                - squota stands for soft quota which are non blocking quotas
                  i.e write operations will succeeded but exceeded quotas will
@@ -206,22 +235,43 @@ volumes =   # List of volumes
             }
         );
     }
-)
-;
+);
+
+filters =
+(
+  {
+    # Only 2 subnets are allowed 
+    filter = "vol1",
+    subnets =
+    (
+      { ip4subnet="10.10.0.0/24",     rule="allow"},
+      { ip4subnet="10.20.0.0/24",     rule="allow"}
+    );
+  }
+ ,{
+    # Only one subnet is allowed except one forbiden IP address
+    filter = "vol3",
+    subnets =
+    (
+      { ip4subnet="192.168.0.0/24",   rule="allow"},
+      { ip4subnet="192.168.0.22/32",  rule="forbid"}
+    );
+  }
+);
 
 exports = ( # List of exported filesystem
 
     # exported file systems on volume 1
-    {eid = 1; bsize="4K"; root = "/path/to/foo1"; squota="128G"; hquota="256G"; vid=1;},
-    {eid = 2; bsize="4K"; root = "/path/to/foo2"; squota="256G"; hquota="512G"; vid=1;},
-    {eid = 3; bsize="4K"; root = "/path/to/foo3"; vid=1;},
+    {eid = 1; bsize="4K"; root = "/path/to/foo1"; filter="vol1", squota="128G"; hquota="256G"; vid=1;},
+    {eid = 2; bsize="4K"; root = "/path/to/foo2"; filter="vol1", squota="256G"; hquota="512G"; vid=1;},
+    {eid = 3; bsize="4K"; root = "/path/to/foo3"; filter="vol1", vid=1;},
 
     # exported file systems on volume 2
     {eid = 4; root = "/path/to/bar1"; vid=2;}
     {eid = 5; root = "/path/to/bar2"; vid=2;}
     
     # exported file systems on volume 3
-    {eid = 6; root = "/path/to/geo"; vid=3;}
+    {eid = 6; root = "/path/to/geo"; filter="vol3", vid=3;}
 
     # ...
 );
