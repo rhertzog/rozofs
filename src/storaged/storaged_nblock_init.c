@@ -162,7 +162,12 @@ static void show_profile_storaged_master_display(char * argv[], uint32_t tcpRef,
     }
     uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
 }
-
+static void man_storio_nb(char * pChar) {
+  pChar += rozofs_string_append(pChar, "Display some information related to the storio(s) of this storaged\n");
+  pChar += rozofs_string_append(pChar, "  storio_nb     the number of storio it manages.\n");
+  pChar += rozofs_string_append(pChar, "  mode          multiple(1 storio per cluster)/single(1 storio for every cluster).\n");
+  pChar += rozofs_string_append(pChar, "  cids          list of cluster identifiers present on this storage node..\n");
+}
 static void show_storio_nb(char * argv[], uint32_t tcpRef, void *bufRef) {
     char *pChar = uma_dbg_get_buffer();
     uint64_t  bitmask[4] = {0};
@@ -200,6 +205,23 @@ static void show_storio_nb(char * argv[], uint32_t tcpRef, void *bufRef) {
     pChar += rozofs_eol(pChar);
    
     uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
+}
+static void man_storage_device_status(char * pChar) {    
+  pChar += rozofs_string_append(pChar, "Display the list of devices. One array per logical storage (cid/sid).\nFor each device is displayed the follwonig columns:\n");
+  pChar += rozofs_string_append(pChar, "  cid         the cluster identifier the device belongs to.\n");
+  pChar += rozofs_string_append(pChar, "  sid         the logical storage identifier within the cluster the device belongs to.\n");
+  pChar += rozofs_string_append(pChar, "  dev         the device number within the logical storage.\n");
+  pChar += rozofs_string_append(pChar, "  status      the device status IS(In Service)/FAILED/DEG(DEGraded)/OOS-(Out Of Service).\n");
+  pChar += rozofs_string_append(pChar, "  free size   the free size available on the device.\n");
+  pChar += rozofs_string_append(pChar, "  max size    the total size of the device.\n");
+  pChar += rozofs_string_append(pChar, "  free %      the percent of free size remaining on the device.\n");
+  pChar += rozofs_string_append(pChar, "  dev name    the device name under /dev.\n");
+  pChar += rozofs_string_append(pChar, "  busy %      the % of usage of the device (check iostat).\n");
+  pChar += rozofs_string_append(pChar, "  rd/s        the number of read per second (check iostat).\n");
+  pChar += rozofs_string_append(pChar, "  Avg rd usec the average delay for a read (check iostat).\n");
+  pChar += rozofs_string_append(pChar, "  rw/s        the number of write per second (check iostat).\n");
+  pChar += rozofs_string_append(pChar, "  Avg rd usec the average delay for a write (check iostat).\n");
+  pChar += rozofs_string_append(pChar, "  last access the delay since the last access to the disk.\n");
 }
 static void show_storage_device_status(char * argv[], uint32_t tcpRef, void *bufRef) {
     char                * pChar = uma_dbg_get_buffer();
@@ -349,6 +371,16 @@ static void show_storage_device_status(char * argv[], uint32_t tcpRef, void *buf
       pChar += rozofs_string_append(pChar,"                     |________|________|____|\n"); 
     }  
     uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
+}
+static void man_storage_json_device_status(char * pChar) {    
+  pChar += rozofs_string_append(pChar, "Display the list of devices. For each device is displayed:\n");
+  pChar += rozofs_string_append(pChar, "  cid     the cluster identifier the device belongs to.\n");
+  pChar += rozofs_string_append(pChar, "  sid     the logical storage identifier within the cluster the device belongs to.\n");
+  pChar += rozofs_string_append(pChar, "  device  the device number within the logical storage.\n");
+  pChar += rozofs_string_append(pChar, "  name    the device name under /dev.\n");
+  pChar += rozofs_string_append(pChar, "  status  the device status IS(In Service)/FAILED/DEG(DEGraded)/OOS-(Out Of Service).\n");
+  pChar += rozofs_string_append(pChar, "  free    the free size in bytes available on the device.\n");
+  pChar += rozofs_string_append(pChar, "  total   the total size in bytes of the device.\n");
 }
 static void show_storage_json_device_status(char * argv[], uint32_t tcpRef, void *bufRef) {
     char                * pChar = uma_dbg_get_buffer();
@@ -595,9 +627,9 @@ int storaged_start_nb_th(void *args) {
     uma_dbg_addTopic_option("profiler", show_profile_storaged_master_display,UMA_DBG_OPTION_RESET);
     
     storio_nb = args_p->nb_storio;
-    uma_dbg_addTopic("storio_nb", show_storio_nb);
-    uma_dbg_addTopic("device",show_storage_device_status);
-    uma_dbg_addTopic("dstatus",show_storage_json_device_status);
+    uma_dbg_addTopicAndMan("storio_nb", show_storio_nb,man_storio_nb,0);
+    uma_dbg_addTopicAndMan("device",show_storage_device_status,man_storage_device_status,0);
+    uma_dbg_addTopicAndMan("dstatus",show_storage_json_device_status,man_storage_json_device_status,0);
     
     if (pHostArray[0] != NULL) {
         info("storaged non-blocking thread started (host: %s, dbg port: %d).",

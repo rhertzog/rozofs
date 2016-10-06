@@ -30,7 +30,12 @@
 xmalloc_stats_t *xmalloc_size_table_p = NULL;
 uint32_t         xmalloc_entries = 0;
 static int       traced_idx=-1;
-
+/*__________________________________________________________________________
+*/
+void man_xmalloc(char * pChar) {
+  pChar += rozofs_string_append(pChar,"Track memory allocated using xmalloc()/xfree() services.\n");
+  pChar += rozofs_string_append(pChar,"Each line displays an allocation size along with its allocation count.\n");
+}
 /*__________________________________________________________________________
 */
 void show_xmalloc(char * argv[], uint32_t tcpRef, void *bufRef) {
@@ -39,7 +44,7 @@ void show_xmalloc(char * argv[], uint32_t tcpRef, void *bufRef) {
     xmalloc_stats_t *p = xmalloc_size_table_p;
 
     if (xmalloc_size_table_p == NULL) {
-        pChar += sprintf(pChar, "xmalloc stats not available\n");
+        pChar += rozofs_string_append(pChar, "xmalloc stats not available\n");
         uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
         return;
     }
@@ -74,7 +79,7 @@ void *xmalloc_internal(char * file, int line, size_t n) {
     {
       xmalloc_size_table_p = memalign(32,sizeof(xmalloc_stats_t)*XMALLOC_MAX_SIZE);
       memset(xmalloc_size_table_p,0,sizeof(xmalloc_stats_t)*XMALLOC_MAX_SIZE);   
-      uma_dbg_addTopic("xmalloc", show_xmalloc); 
+      uma_dbg_addTopicAndMan("xmalloc", show_xmalloc,man_xmalloc,0); 
     }
 
     p = memalign(32,n);
@@ -93,7 +98,7 @@ void *xstrdup_internal(char * file, int line, size_t n, const char * src) {
     {
       xmalloc_size_table_p = memalign(32,sizeof(xmalloc_stats_t)*XMALLOC_MAX_SIZE);
       memset(xmalloc_size_table_p,0,sizeof(xmalloc_stats_t)*XMALLOC_MAX_SIZE);   
-      uma_dbg_addTopic("xmalloc", show_xmalloc); 
+      uma_dbg_addTopicAndMan("xmalloc", show_xmalloc,man_xmalloc,0); 
     }
 
     p = memalign(32,n+1);
