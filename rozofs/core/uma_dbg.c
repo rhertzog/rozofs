@@ -240,39 +240,46 @@ char * uma_dbg_thread_get_name(pthread_t tid){
   return NULL;
 }  
 /*__________________________________________________________________________
- */
-/**
-*  Display whether some syslog exists
+**
+**  Display whether some syslog exists
 */
+#define UMA_DBG_DEFAULT_SYSLOG_LINES 40
 void show_uma_dbg_syslog_man(char * pt) {
   pt += sprintf(pt,"Check for syslog of this module family of a given severity in\n");
-  pt += sprintf(pt,"/var/log/syslog or /var/log/messages.\n");
-  pt += sprintf(pt,"syslog fatal [nblines]\nsyslog severe [nblines]\nsyslog warning [nblines]\nsyslog info [nblines]\n"); 
+  pt += sprintf(pt,"/var/log/syslog or /var/log/messages.\n");  
+  pt += sprintf(pt,"usage : syslog [fatal|severe|warning|info] [nblines]\n");
+  pt += sprintf(pt,"  fatal   displays only fatal logs.\n");
+  pt += sprintf(pt,"  severe  displays only fatal & severe logs.\n");
+  pt += sprintf(pt,"  warning displays only fatal & severe & warning logs.\n");
+  pt += sprintf(pt,"  info    displays all logs.\n");
+  pt += sprintf(pt,"Default severity is severe.\n");
+  pt += sprintf(pt,"nbLines is the number of lines to be display (default is %d).\n",UMA_DBG_DEFAULT_SYSLOG_LINES);
+   
 }
+/*__________________________________________________________________________
+**
+**  Scan argument looking for number of lines
+*/
+int show_uma_dbg_syslog_scan_lines(char * argv) {
+  uint32_t  lines=UMA_DBG_DEFAULT_SYSLOG_LINES;
+  /*
+  ** When no argument get default value
+  */  
+  if (argv == NULL) return UMA_DBG_DEFAULT_SYSLOG_LINES;
+  
+  sscanf(argv,"%u",&lines);
+  /* Limit the number of lines to 100 */
+  if (lines>100) lines = 100;
+  return lines;
+}
+/*__________________________________________________________________________
+**
+**  Syslog diagnostic
+*/  
 void show_uma_dbg_syslog(char * argv[], uint32_t tcpRef, void *bufRef) {
   int       len;
   char      *p = uma_dbg_get_buffer();
-  uint32_t  lines=40;
-
-
-  if(argv[1] == NULL) {  
-    /*
-    ** Display syntax 
-    */
-syntax:  
-    rozofs_string_append(uma_dbg_get_buffer(),"syslog fatal [nblines]\nsyslog severe [nblines]\nsyslog warning [nblines]\nsyslog info [nblines]\n");
-    uma_dbg_send(tcpRef, bufRef, TRUE, uma_dbg_get_buffer());
-    return; 
-  }
-  
-  /*
-  ** When argv[2] is set, it is the number of lines to display 
-  */  
-  if (argv[2] != NULL) {
-    sscanf(argv[2],"%u",&lines);
-    /* Limit the number of lines to 100 */
-    if (lines>100) lines = 100;
-  }
+  uint32_t  lines=UMA_DBG_DEFAULT_SYSLOG_LINES;
 
   p += rozofs_string_append(p,"grep \'");
   p += rozofs_string_append(p,uma_dbg_syslog_name);
@@ -280,21 +287,37 @@ syntax:
   /* 
   ** Check the requested level given as 1rst argument
   */  
-  if ((strcmp(argv[1],"info")) == 0) {
-    p += rozofs_string_append(p,"\\[[0-9]*\\]: .*\\(fatal\\|severe\\|warning\\|info\\):\' ");
-  }
-  else if ((strcmp(argv[1],"warning")) == 0) {
-    p += rozofs_string_append(p,"\\[[0-9]*\\]: .*\\(fatal\\|severe\\|warning\\):\' ");
-  }  \
-  else if ((strcmp(argv[1],"severe")) == 0) {
+  if (argv[1] == NULL) {
     p += rozofs_string_append(p,"\\[[0-9]*\\]: .*\\(fatal\\|severe\\):\' ");
   }
-  else if ((strcmp(argv[1],"fatal")) == 0) {
-    p += rozofs_string_append(p,"\\[[0-9]*\\]: .*fatal:\' ");
-  }
   else {
-    goto syntax;
-  }    
+    if ((strcmp(argv[1],"info")) == 0) {
+      p += rozofs_string_append(p,"\\[[0-9]*\\]: .*\\(fatal\\|severe\\|warning\\|info\\):\' ");
+    }
+    else if ((strcmp(argv[1],"warning")) == 0) {
+      p += rozofs_string_append(p,"\\[[0-9]*\\]: .*\\(fatal\\|severe\\|warning\\):\' ");
+    }  \
+    else if ((strcmp(argv[1],"severe")) == 0) {
+      p += rozofs_string_append(p,"\\[[0-9]*\\]: .*\\(fatal\\|severe\\):\' ");
+    }
+    else if ((strcmp(argv[1],"fatal")) == 0) {
+      p += rozofs_string_append(p,"\\[[0-9]*\\]: .*fatal:\' ");
+    }
+    else {
+      /*
+      ** Default is severe. argv[1] shoudl be a number of line
+      */
+      p += rozofs_string_append(p,"\\[[0-9]*\\]: .*\\(fatal\\|severe\\):\' ");
+      lines = show_uma_dbg_syslog_scan_lines(argv[1]);      
+    } 
+    
+    /*
+    ** When argv[2] is set, it should be the number of lines to display 
+    */  
+    if (argv[2] != NULL) {
+      lines = show_uma_dbg_syslog_scan_lines(argv[2]);
+    }
+  }  
   
   if (access("/var/log/syslog",R_OK)==0) {
     p += rozofs_string_append(p,"/var/log/syslog | tail -");
