@@ -1088,7 +1088,7 @@ static int load_exports_conf(econfig_t *ec, struct config_t *config) {
           */
           rozofs_ip4_subnet_t * tree = rozofs_ip4_flt_get_tree(filter_name);
           if (tree == NULL) {
-            fatal("No such IPv4 filter \"%s\" defined for export %d.",filter_name, eid);
+            fatal("No such IPv4 filter \"%s\" defined for export %d.",filter_name, (int)eid);
           }  
         }
 	
