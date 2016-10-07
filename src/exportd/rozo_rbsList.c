@@ -36,24 +36,51 @@ int    parallel=0;
 char * configFileName = EXPORTD_DEFAULT_CONFIG;
 int    rebuildRef=0;
 
+/*
+** Information related to one job list
+*/
+typedef struct _job_list_info_t {
+  // File descriptor of the job list
+  int          fd;
+  // Sum of the size of the files in the job list
+  uint64_t     size;
+} job_list_info_t;
+
+/*
+** Information related to one logical storage
+** and one type of file within nominal/spare
+*/
 typedef struct _sid_one_info_t {  
   // Count of FID that match
   uint64_t     count;
-  // total size of FID that match
+  // Sum of the size of the files in all job list
   uint64_t     size;
-  // Next job file to write
-  int          fd_idx;
-  // One file descriptor opened per job file
-  int          fd[MAXIMUM_PARALLEL_REBUILD_PER_SID];
+  /*
+  ** For each job list
+  */
+  job_list_info_t   job[MAXIMUM_PARALLEL_REBUILD_PER_SID];
 } sid_one_info_t;
-
+/*
+** Information related to one logical storage
+** i.e the nominal + the spare information
+*/
 typedef struct _sid_info_t {
   sid_one_info_t nominal;
   sid_one_info_t spare;
 } sid_info_t;
 
+/*
+** Array of pointers toward logical storage information
+** within a given cluster. It is index by the sid number minus 1.
+*/
 typedef sid_info_t * sid_tbl_t[SID_MAX];
+
+/*
+** Array index by the cluster id minus one, pointing to
+** an array of pointer toward logical sorage information
+*/
 sid_tbl_t          * cid_tbl[ROZOFS_CLUSTERS_MAX] = {0};
+
 
 lv2_cache_t  cache;
 uint8_t rozofs_safe = -1;
@@ -127,7 +154,33 @@ void clean_dir(char * name) {
   rmdir(name);
   return;
 }
-
+/*
+**_______________________________________________________________________
+**
+** Choose the job file to write the next file to rebuild in.
+** This must be the job file that has the less total size to rebuild
+**
+** @param  p    pointer to job list descriptor 
+**
+** @retval   The index to choose
+**
+*/
+static int get_job_list_index(sid_one_info_t * p) {
+  int      job;
+  int      bestIdx=-1;
+  uint64_t size=0xFFFFFFFFFFFFFFFF;
+ 
+  
+  for (job=0; job<parallel; job++) {
+  
+    if (p->job[job].size >= size) continue;
+    
+    bestIdx = job;
+    size    = p->job[job].size;
+  }
+  
+  return bestIdx;
+}
 /*
 **_______________________________________________________________________
 */
@@ -148,7 +201,7 @@ int rozofs_visit(void *exportd,void *inode_attr_p,void *p) {
   int i;
   ext_mattr_t *inode_p = inode_attr_p;
   int sid;
-  int idx;
+  int job;
   sid_tbl_t   * pCid;
   sid_info_t  * pSid;
   char          name[64];
@@ -211,17 +264,20 @@ int rozofs_visit(void *exportd,void *inode_attr_p,void *p) {
 	pOne = &pSid->spare;    
       }  
 
-      idx = pOne->fd_idx;	
-      if (write(pOne->fd[idx],&entry,entry_size) < entry_size) {
-	severe("write(cid %d sid %d job %d) %s\n", cid+1, sid+1, idx, strerror(errno));
+      /*
+      ** Get Job list index to write in
+      */
+      job = get_job_list_index(pOne);	
+      
+      if (write(pOne->job[job].fd,&entry,entry_size) < entry_size) {
+	severe("write(cid %d sid %d job %d) %s\n", cid+1, sid+1, job, strerror(errno));
       }
       else {
-	TRACE("-> added size %d to cid %d sid %d job %d : %s\n",entry_size, cid+1,sid+1,idx,name);
+	TRACE("-> added size %d to cid %d sid %d job %d : %s\n",entry_size, cid+1,sid+1,job,name);
+        pOne->job[job].size += inode_p->s.attrs.size;
       }  
-      idx++;
-      if (idx>=parallel) idx = 0;
-      pOne->fd_idx = idx;
       pOne->count++;
+      pOne->size += inode_p->s.attrs.size;
       total++;
     }  
   }
@@ -263,15 +319,37 @@ int get_cid_sid_volume(cid_t cid, sid_t sid) {
 }
 /*
 **_______________________________________________________________________
-*/
-/**
-*   
-    @param line: inout line to parse
-    @param p: pointer to the cid/sid list represenation in memory
-    @param buffer : pointer to the error buffer
-    
-    @retval 0  on success
-    @retval -1 on error
+**
+**  Parse input cid/sid and prepare the working structure
+**   
+**  @param line: inout line to parse
+**  @param p: pointer to the cid/sid list represenation in memory
+**  @param buffer : pointer to the error buffer
+**  
+**  @retval 0  on success
+**  @retval -1 on error
+**
+**        cid_tbl
+**       +--------+
+**       |        |
+**       |  NULL  |
+**       +--------+
+**       |        |
+**       |    o-------> 
+**       +--------+
+**          ...
+**       +--------+       sid_tbl
+**       |        |     +--------+
+**       |     o------->|  NULL  |
+**       +--------+     |        |
+**       |        |     +--------+
+**       |  NULL  |     |        |      sid_info_t
+**       +--------+     |    o--------->+---------+ 
+**          ...         +--------+      | nominal |
+**                      |  NULL  |      | spare   |
+**                      |        |      +---------+
+**                      +--------+
+**                         ...
 */
 int parse_cidsid_list(char *line,int rebuildRef, int parallel)
 {
@@ -341,8 +419,8 @@ int parse_cidsid_list(char *line,int rebuildRef, int parallel)
 
 	for (i=0; i< parallel; i++) {
 	  sprintf(fName,"%scid%d_sid%d_%d/job%d",pDir,cid+1,sid+1,rbs_file_type_nominal,i);
-	  pSid->nominal.fd[i] = open(fName, O_CREAT | O_TRUNC | O_APPEND | O_WRONLY,0755);
-	  if (pSid->nominal.fd[i] == -1) {
+	  pSid->nominal.job[i].fd = open(fName, O_CREAT | O_TRUNC | O_APPEND | O_WRONLY,0755);
+	  if (pSid->nominal.job[i].fd == -1) {
 	    severe("open(%s) %s\n",fName,strerror(errno));
 	  }
 	  TRACE("%s opened\n",fName);
@@ -357,8 +435,8 @@ int parse_cidsid_list(char *line,int rebuildRef, int parallel)
 
 	for (i=0; i< parallel; i++) {
 	  sprintf(fName,"%scid%d_sid%d_%d/job%d",pDir,cid+1,sid+1,rbs_file_type_spare,i);
-	  pSid->spare.fd[i] = open(fName, O_CREAT | O_TRUNC | O_APPEND | O_WRONLY,0755);
-	  if (pSid->spare.fd[i] == -1) {
+	  pSid->spare.job[i].fd = open(fName, O_CREAT | O_TRUNC | O_APPEND | O_WRONLY,0755);
+	  if (pSid->spare.job[i].fd == -1) {
 	    severe("open(%s) %s\n",fName,strerror(errno));
 	  }
 	  TRACE("%s opened\n",fName);
@@ -374,9 +452,7 @@ int parse_cidsid_list(char *line,int rebuildRef, int parallel)
 }
 /*
 **_______________________________________________________________________
-*/
-/** Close every job file
-*   
+** Close every job file  
 */
 void close_all() {
   int              cid, sid, job;
@@ -399,15 +475,15 @@ void close_all() {
 
       for (job=0; job<parallel; job++) {
         if (file_type != rbs_file_type_spare) {
-	  if (pSid->nominal.fd[job]>0) {
-	    close(pSid->nominal.fd[job]);
-	    pSid->nominal.fd[job] = 0;
+	  if (pSid->nominal.job[job].fd>0) {
+	    close(pSid->nominal.job[job].fd);
+	    pSid->nominal.job[job].fd = 0;
 	  }
 	}
         if (file_type != rbs_file_type_nominal) {      	 
-	  if (pSid->spare.fd[job]>0) {
-	    close(pSid->spare.fd[job]);
-	    pSid->spare.fd[job] = 0;
+	  if (pSid->spare.job[job].fd>0) {
+	    close(pSid->spare.job[job].fd);
+	    pSid->spare.job[job].fd = 0;
 	  }	
 	}  
       }
