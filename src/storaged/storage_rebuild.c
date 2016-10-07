@@ -839,9 +839,6 @@ int is_command_resume(int argc, char *argv[]) {
   if (strcmp(localPar.storaged_config_file,STORAGED_DEFAULT_CONFIG)!=0) {
     usage("-resume and --config options are incompatibles.");
   }
-  if (localPar.rbs_export_hostname[0] != 0) {
-    usage("-resume and --rebuild options are incompatibles.");
-  }
   if ((localPar.cid!=-1)||(localPar.sid!=-1)) {
     usage("-resume and --sid options are incompatibles.");
   } 
