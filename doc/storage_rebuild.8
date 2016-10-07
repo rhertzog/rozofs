@@ -179,27 +179,27 @@ Print help.
 
 Rebuilding a whole storage node as fast as possible:
 .RE
-.B storage_rebuild --rebuild 192.168.0.201/192.168.0.202 --parallel 64
+.B storage_rebuild --parallel 64
 .RE 
 
 Rebuilding every device of storage instance 2 of cluster 1:
 .RE
-.B storage_rebuild --rebuild 192.168.0.201/192.168.0.202 --sid 1/2
+.B storage_rebuild --sid 1/2
 .RE
 
 Rebuilding only device 3 of storage instance 2 of cluster 1:
 .RE
-.B storage_rebuild --rebuild 192.168.0.201/192.168.0.202 --sid 1/2 --device 3
+.B storage_rebuild --sid 1/2 --device 3
 .RE 
 
 Rebuilding by relocating device 3 of sid 2 of cluster 1 on other devices:
 .RE
-.B storage_rebuild --rebuild 192.168.0.201/192.168.0.202 --sid 1/2 --device 3 --relocate
+.B storage_rebuild --sid 1/2 --device 3 --relocate
 .RE 
 
 Putting device 3 of storage instance 2 of cluster 1 back in service when it has been set out of service by an automatic rebuild with relocation (self healing)
 .RE
-.B storage_rebuild --rebuild 192.168.0.201/192.168.0.202 --sid 1/2 --device 3 --clear
+.B storage_rebuild --sid 1/2 --device 3 --clear
 .RE
 .SH FILES
 .I /etc/rozofs/storage.conf (/usr/local/etc/rozofs/storage.conf)
