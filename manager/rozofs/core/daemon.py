@@ -19,6 +19,7 @@
 import subprocess
 import os
 import time
+import syslog
 
 class DaemonManager(object):
     """ Manage rozofs daemons """
@@ -58,8 +59,11 @@ class DaemonManager(object):
         # Not already started
         if self.status() is False :
             with open('/dev/null', 'w') as devnull:
+
+                syslog.syslog("starting %s" % self._daemon)
+
                 # TO CHANGE
-                if self._daemon  == 'storaged':
+                if self._daemon == 'storaged':
                     p = subprocess.Popen(cmds, stdin=None, stdout=None, stderr=None, close_fds=True)
                 else:
                     p = subprocess.Popen(cmds, stdout=devnull,
@@ -75,13 +79,18 @@ class DaemonManager(object):
         Stop the underlying daemon
         @return: True if not stopped before and False if already stopped
         '''
+
+
         cmds = ['killall', '-TERM', self._daemon]
 
         # TO CHANGE
         if self._daemon  == 'storaged':
             cmds = ['rozolauncher', 'stop', '/var/run/launcher_storaged.pid']
 
-        if self.status() is True :
+        if self.status() is True:
+
+            syslog.syslog("stopping %s" % self._daemon)
+
             with open('/dev/null', 'w') as devnull:
                 p = subprocess.Popen(cmds, stdout=devnull,
                     stderr=subprocess.PIPE)
@@ -95,6 +104,7 @@ class DaemonManager(object):
         '''
         Restart the underlying daemon
         '''
+        syslog.syslog("restarting %s" % self._daemon)
         self.stop()
         time.sleep(self._wait)
         self.start(add_args)
@@ -103,11 +113,21 @@ class DaemonManager(object):
         '''
         Send the HUP signal to the underlying daemon
         '''
-        with open('/var/run/%s.pid' % self._daemon, 'r') as pf:
-            pid = pf.readline().strip()
-
-        cmds = ['kill', '-HUP', pid]
         if self.status() is True:
+
+            process_name = os.path.basename(self._daemon)
+            pidfile = '/var/run/%s.pid' % process_name
+
+            if not os.path.exists(pidfile):
+                syslog.syslog("reloading failed: %s doesn't exist" % pidfile)
+
+            with open('/var/run/exportd.pid', 'r') as pf:
+                pid = pf.readline().strip()
+
+            syslog.syslog("reloading %s (PID: %s)" % (process_name, pid))
+
+            cmds = ['kill', '-HUP', pid]
+
             with open('/dev/null', 'w') as devnull:
                 p = subprocess.Popen(cmds, stdout=devnull,
                                      stderr=subprocess.PIPE)

@@ -142,13 +142,13 @@ def main(argv=None):  # IGNORE:C0111
         action_agent_status_parser = action_agent_subparsers.add_parser('status', add_help=False, help='get agent status')
 
         action_agent_start_parser = action_agent_subparsers.add_parser('start', add_help=False, help='start agent')
-        action_agent_start_parser.add_argument('-p', '--pacemaker', nargs='?', const='exportd_rozofs', help='exportd cluster resource name when exportd is managed thru pacemaker (default: exportd_rozofs).')
+        action_agent_start_parser.add_argument('-p', '--pacemaker', nargs='?', const='exportd-rozofs', help='exportd cluster resource name when exportd is managed thru pacemaker (default: exportd-rozofs).')
         action_agent_start_parser.add_argument('-l', '--listeners', nargs='*', choices=[[], EXPORTD_MANAGER, STORAGED_MANAGER, ROZOFSMOUNT_MANAGER], default=[], help='list of listeners.')
 
         action_agent_stop_parser = action_agent_subparsers.add_parser('stop', add_help=False, help='stop agent')
 
         action_agent_restart_parser = action_agent_subparsers.add_parser('restart', add_help=False, help='restart agent')
-        action_agent_restart_parser.add_argument('-p', '--pacemaker', nargs='?', const='exportd_rozofs', help='exportd cluster resource name when exportd is managed thru pacemaker (default: exportd_rozofs).')
+        action_agent_restart_parser.add_argument('-p', '--pacemaker', nargs='?', const='exportd-rozofs', help='exportd cluster resource name when exportd is managed thru pacemaker (default: exportd-rozofs).')
         action_agent_restart_parser.add_argument('-l', '--listeners', nargs='*', choices=[[], EXPORTD_MANAGER, STORAGED_MANAGER, ROZOFSMOUNT_MANAGER], default=[], help='list of listeners.')
 
         # Node

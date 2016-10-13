@@ -31,6 +31,7 @@ from rozofs.core.daemon import DaemonManager
 from rozofs import __sysconfdir__
 import os
 from rozofs.core.agent import Agent, ServiceStatus
+import syslog
 import subprocess
 import shutil
 
@@ -457,7 +458,8 @@ class ExportdPacemakerAgent(ExportdAgent):
 
     def _start(self):
         cmds = ['crm', 'resource', 'start', self._resource]
-        if self._daemon_manager.status() is False :
+        if self._daemon_manager.status() is False:
+            syslog.syslog("starting resource %s" % self._resource)
             with open('/dev/null', 'w') as devnull:
                 p = subprocess.Popen(cmds, stdout=devnull,
                     stderr=subprocess.PIPE)
@@ -469,7 +471,8 @@ class ExportdPacemakerAgent(ExportdAgent):
 
     def _stop(self):
         cmds = ['crm', 'resource', 'stop', self._resource]
-        if self._daemon_manager.status() is True :
+        if self._daemon_manager.status() is True:
+            syslog.syslog("stopping resource %s" % self._resource)
             with open('/dev/null', 'w') as devnull:
                 p = subprocess.Popen(cmds, stdout=devnull,
                     stderr=subprocess.PIPE)
