@@ -95,7 +95,7 @@ typedef struct rozofsmnt_conf {
     */
     unsigned onlyWriter;  
     /*
-    ** Whether to favor local storage on read to save network bandwith
+    ** Whether to favor local storage on read to save network bandwidth
     ** in case of poor network connection
     */
     unsigned localPreference;    
@@ -127,14 +127,14 @@ typedef struct ientry {
     list_t list;
     /** This is the address of the latest file_t structure on which there is some data
      ** pending in the buffer that have not been flushed to disk. Only one file_t at a time
-     ** can be in this case for all the open that have occured on this file. Writing into
+     ** can be in this case for all the open that have occurred on this file. Writing into
      ** a file_t buffer automaticaly triggers the flush to disk of the previous pending write.
      */ 
     file_t    * write_pending;
     /**
      ** This counter is used for a reader to know whether the data in its buffer can be
      ** used safely or if they must be thrown away and a re-read from the disk is required
-     ** because some write has occured since the last read.
+     ** because some write has occurred since the last read.
      */
     uint64_t    read_consistency;
     uint64_t    timestamp;

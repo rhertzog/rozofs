@@ -474,7 +474,7 @@ class rozofs_module:
      return True
 
   def check_tcp_info(self):
-     """Check whether some TCP miss functionning have occured
+     """Check whether some TCP miss functionning have occurred
      """    
      res = self.rozodiag("tcp_info")
      if res == None: return False
@@ -523,7 +523,7 @@ class rozofs_module:
     return	     
      
   def check_trx(self):
-    """Check whether some tansaction error have occured
+    """Check whether some tansaction error have occurred
        on who at address addr
     """    
     TOCHECK=['SEND_ERR','TX_TIMEOUT',]
@@ -571,7 +571,7 @@ class storio(rozofs_module):
       if "nb log" not in line: continue
       val=line.split(':')[1].split('/')[0]
       if int(val) != int(0):
-	self.WARNING("%s disk errors occured"%(val),"log")
+	self.WARNING("%s disk errors occurred"%(val),"log")
 	return False
     return True  
 

@@ -168,7 +168,7 @@ int read_hdr_file(char * root, int devices, int slice, rozofs_stor_bins_file_hdr
       if (hdr->v0.version>0) {
         printf("%15s : %d/%d\n","cid/sid",hdr->v1.cid,hdr->v1.sid); 	 
       }
-      printf("%15s : %d","distibution",hdr->v0.dist_set_current[0]);
+      printf("%15s : %d","distribution",hdr->v0.dist_set_current[0]);
       safe    = rozofs_get_rozofs_safe(hdr->v0.layout);
       int i;
       for (i=1; i< safe; i++) {

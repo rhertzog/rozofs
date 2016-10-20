@@ -301,7 +301,7 @@ int rbs_empty_dir(char * dirname) {
     return -1;
   } 	  
   /*
-  ** Loop on distibution sub directories
+  ** Loop on distibrution sub directories
   */
   while ((file = readdir(dir)) != NULL) {  
     if (strcmp(file->d_name,".")==0)  continue;

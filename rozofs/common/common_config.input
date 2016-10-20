@@ -12,7 +12,7 @@
 # <scope>   is any thing but should be choosen within global,export,storage,client
 # <name>    is any name
 # <default> is the default value. (STRING must be quoted).
-# [option] is an optionnal parameter dependant on the <type>
+# [option] is an optional parameter dependant on the <type>
 #   . INT : 
 #     min:max : minimum and maximum (included) of the integer
 #_______________________________________________________________________________________
@@ -46,7 +46,7 @@ INT	export 	trashed_file_per_run		7 0:5000
 INT	export 	trash_high_threshold            1000 0:1000000
 // Whether FID recycling feature is activated.
 BOOL	export 	fid_recycle                     False
-// Whether STORCLI acknowleges write request on inverse or forward STORIO responses.
+// Whether STORCLI acknowledges write request on inverse or forward STORIO responses.
 BOOL	client 	wr_ack_on_inverse		False
 INT	export 	export_buf_cnt			128 32:1024
 // Number of disk threads in the STORIO.
@@ -61,7 +61,7 @@ BOOL	storage crc32c_generate			True
 // Whether CRC32 MUST be absolutly hardware computed by STORIO.
 BOOL	storage crc32c_hw_forced  		False
 // Whether STORIO device monitoring should avoid reading from 
-// devices when no access have occured for read or write. This
+// devices when no access have occurred for read or write. This
 // enables disk spin down to occur.
 BOOL	storage allow_disk_spin_down		False
 // Over which device usage threashold should the STORIO log the event. 
@@ -94,7 +94,7 @@ BOOL	storage device_automount 		False
 STRING  storage	device_automount_path           "/srv/rozofs/storages"
 // Device mounting options
 STRING  storage device_automount_option 	""
-// Paralellism factor for device self healing feature
+// Parallelism factor for device self healing feature
 INT     storage device_self_healing_process 	8 1:64
 // Time out between export and storage for remove and stat
 INT     export mproto_timeout 	10           1:60

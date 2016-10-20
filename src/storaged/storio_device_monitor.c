@@ -746,7 +746,7 @@ void storio_device_monitor(uint32_t allow_disk_spin_down) {
 	*/  
         case storage_device_status_is:	
 	  /*
-	  ** When some errors have occured the device goes to degraded
+	  ** When some errors have occurred the device goes to degraded
 	  ** which is equivallent to IS but with some errors
 	  */
 	  if (st->device_errors.total[dev] != 0 ) {
@@ -755,7 +755,7 @@ void storio_device_monitor(uint32_t allow_disk_spin_down) {
 
 	  /*
 	  ** When disk spin down is allowed, do not try to access the disks
-	  ** to update the status if no access has occured on the disk.
+	  ** to update the status if no access has occurred on the disk.
 	  */
 	  if (allow_disk_spin_down) {
 	    if (activity==0) {
@@ -775,7 +775,7 @@ void storio_device_monitor(uint32_t allow_disk_spin_down) {
 	case storage_device_status_degraded:
 
 	  /*
-	  ** When some errors have occured the device goes to degraded
+	  ** When some errors have occurred the device goes to degraded
 	  ** which is equivallent to IS but with some errors
 	  */
 	  if (st->device_errors.total[dev] == 0 ) {
@@ -784,7 +784,7 @@ void storio_device_monitor(uint32_t allow_disk_spin_down) {
 	  
 	  /*
 	  ** When disk spin down is allowed, do not try to access the disks
-	  ** to update the status if no access has occured on the disk.
+	  ** to update the status if no access has occurred on the disk.
 	  */
 	  if (allow_disk_spin_down) {
 	    if (activity==0) {

@@ -95,7 +95,7 @@ void clean_dir(char * name) {
     return;
   } 	  
   /*
-  ** Loop on distibution sub directories
+  ** Loop on distibrution sub directories
   */
   while ((file = readdir(dir)) != NULL) {
   
@@ -397,8 +397,8 @@ static void usage() {
     printf("\t-i,--input      <cid/sid>    mandatory list <cid>:<sid>,<sid>,<sid>.... \n");
     printf("\t-p,--parallel   <parallel>   mandatory rebuild parallelism number.\n");
     printf("\t-r,--rebuildRef <rebuildRef> mandatory rebuild reference\n");
-    printf("\t-E,--expDir     <cfgFile>    optionnal result directory.\n");
-    printf("\t-c,--config     <cfgFile>    optionnal configuration file name.\n");
+    printf("\t-E,--expDir     <cfgFile>    optional result directory.\n");
+    printf("\t-c,--config     <cfgFile>    optional configuration file name.\n");
     printf("\t-d,--debug                   display debugging information.\n");
 
 };

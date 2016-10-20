@@ -271,20 +271,20 @@ def syntax(string) :
   print "      FSMOUNT <host> <instance id>"
   print "    Default configuration file name is %s"%(DEFAULT_CFG_NAME)
   print " -t <period> "
-  print "    This optionnal parameter gives the periodicity in minutes of the RozoFS polling."
+  print "    This optional parameter gives the periodicity in minutes of the RozoFS polling."
   print "    Default value is %s minute"%(DEFAULT_PERIOD)
   print "    A value of 0 means a one shot call."
   print " -p <nagios plugins path> "
-  print "    This optionnal parameter gives the path where to find the nagios pluggins."
+  print "    This optional parameter gives the path where to find the nagios pluggins."
   print "    Default value is \"%s\"."%(DEFAULT_PLUGIN_PATH)
   print " -s <smtp server> "
-  print "    This optionnal parameter gives the name of the SMTP server when needed."
+  print "    This optional parameter gives the name of the SMTP server when needed."
   print "    Default value is \"%s\"."%(DEFAULT_SMTP_SERVER)
   print " -e <email1@>,<email2@>,<email3@>,...,<emailN@> "
-  print "    This optionnal parameter is a comma separated value without blanks giving the email"
+  print "    This optional parameter is a comma separated value without blanks giving the email"
   print "    addresses to send status change events to."
   print " -x "
-  print "    This optionnal parameter prevents periodic display."  
+  print "    This optional parameter prevents periodic display."
   exit(-1) 
          
     

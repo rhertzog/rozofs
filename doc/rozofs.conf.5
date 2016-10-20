@@ -107,7 +107,7 @@ Boolean (True or False). When set, this flag indicates that any deleted object (
 .B @rozofs-del@ 
 pseudo directory of the parent directory (default false).
 .SS device_automount
-Boolean (True or False). Default value is False. When set, the RozoFS devices are automatically mounted on the rigth directories provided that they have the destination mark file on them; the destination mark file is a file named storage_c<cluster>_s<storage>_<device> that tells what this RozoFS device is intended for. No mount instruction should be set in the fstab file for these devices.
+Boolean (True or False). Default value is False. When set, the RozoFS devices are automatically mounted on the right directories provided that they have the destination mark file on them; the destination mark file is a file named storage_c<cluster>_s<storage>_<device> that tells what this RozoFS device is intended for. No mount instruction should be set in the fstab file for these devices.
 
 when device_automount is True, the following configuration parameters become effective.
 .TP 
@@ -116,10 +116,10 @@ This parameter gives the path where the devices have to be mounted. The default 
 .B root 
 parameter in the 
 .B storage.conf 
-file is ignored and can even be omitted. All the pathes are automatically created when needed. 
+file is ignored and can even be omitted. All the paths are automatically created when needed.
 .TP
 .SS device_automount_option
-This parameter provides an optionnal mount option that should be supported by the lowlevel file system.
+This parameter provides an optional mount option that should be supported by the lowlevel file system.
 .SS device_self_healing_process
 This parameter sets the number of rebuilder processes that run in parallel in case of an automatic rebuild for selfhealing purpose. This is also the default number of rebuilder processes for operator rebuild commands.
 .SS mkdir_ok_instead_of_eexist

@@ -77,7 +77,7 @@ typedef struct _exp_cache_dirty_ctx_t
 {
    uint32_t level0_sz;                            /**< size of the level 0 associated remote cache (in power of 2)  */
    uint32_t nb_cache_servers;                      /**< number of cache server        */
-   uint32_t total_update_count;                   /**< number of time a change occured */
+   uint32_t total_update_count;                   /**< number of time a change occurred */
    exp_cache_srv_front_end_t   *srv_rank[EXP_MAX_CACHE_SRV];
 } exp_cache_dirty_ctx_t;
 

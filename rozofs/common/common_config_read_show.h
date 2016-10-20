@@ -115,7 +115,7 @@ char *pChar = uma_dbg_get_buffer();
   pChar += rozofs_string_append(pChar,"#\n");
   pChar += rozofs_string_append(pChar,"# client scope configuration elements\n");
   pChar += rozofs_string_append(pChar,"#\n\n");
-  pChar += rozofs_string_append(pChar,"// Whether STORCLI acknowleges write request on inverse or forward STORIO responses.\n");
+  pChar += rozofs_string_append(pChar,"// Whether STORCLI acknowledges write request on inverse or forward STORIO responses.\n");
   COMMON_CONFIG_SHOW_BOOL(wr_ack_on_inverse,False);
   pChar += rozofs_string_append(pChar,"// To activate rozofsmount reply fuse threads.\n");
   COMMON_CONFIG_SHOW_BOOL(rozofsmount_fuse_reply_thread,False);
@@ -140,14 +140,14 @@ char *pChar = uma_dbg_get_buffer();
   pChar += rozofs_string_append(pChar,"// Whether CRC32 MUST be absolutly hardware computed by STORIO.\n");
   COMMON_CONFIG_SHOW_BOOL(crc32c_hw_forced,False);
   pChar += rozofs_string_append(pChar,"// Whether STORIO device monitoring should avoid reading from \n");
-  pChar += rozofs_string_append(pChar,"// devices when no access have occured for read or write. This\n");
+  pChar += rozofs_string_append(pChar,"// devices when no access have occurred for read or write. This\n");
   pChar += rozofs_string_append(pChar,"// enables disk spin down to occur.\n");
   COMMON_CONFIG_SHOW_BOOL(allow_disk_spin_down,False);
-  pChar += rozofs_string_append(pChar,"// Over which device usage threashold should the STORIO log the event. \n");
+  pChar += rozofs_string_append(pChar,"// Over which device usage threshold should the STORIO log the event. \n");
   COMMON_CONFIG_SHOW_INT_OPT(disk_usage_threshold,0,"0:100");
-  pChar += rozofs_string_append(pChar,"// Over which device read delay threashold should the STORIO log the event. \n");
+  pChar += rozofs_string_append(pChar,"// Over which device read delay threshold should the STORIO log the event. \n");
   COMMON_CONFIG_SHOW_INT(disk_read_threshold,0);
-  pChar += rozofs_string_append(pChar,"// Over which device write delay threashold should the STORIO log the event. \n");
+  pChar += rozofs_string_append(pChar,"// Over which device write delay threshold should the STORIO log the event. \n");
   COMMON_CONFIG_SHOW_INT(disk_write_threshold,0);
   pChar += rozofs_string_append(pChar,"// Number of STORIO receive buffer.\n");
   COMMON_CONFIG_SHOW_INT_OPT(storio_buf_cnt,128,"64:1024");
@@ -162,7 +162,7 @@ char *pChar = uma_dbg_get_buffer();
   COMMON_CONFIG_SHOW_STRING(device_automount_path,"/srv/rozofs/storages");
   pChar += rozofs_string_append(pChar,"// Device mounting options\n");
   COMMON_CONFIG_SHOW_STRING(device_automount_option,"");
-  pChar += rozofs_string_append(pChar,"// Paralellism factor for device self healing feature\n");
+  pChar += rozofs_string_append(pChar,"// Parallelism factor for device self healing feature\n");
   COMMON_CONFIG_SHOW_INT_OPT(device_self_healing_process,8,"1:64");
   pChar += rozofs_string_append(pChar,"// Directory to use on the storage node to build temporary files.\n");
   pChar += rozofs_string_append(pChar,"// Used for instance by the rebuild process.\n");
@@ -258,7 +258,7 @@ static inline void common_config_generated_read(char * fname) {
   /*
   ** client scope configuration elements
   */
-  // Whether STORCLI acknowleges write request on inverse or forward STORIO responses. 
+  // Whether STORCLI acknowledges write request on inverse or forward STORIO responses.
   COMMON_CONFIG_READ_BOOL(wr_ack_on_inverse,False);
   // To activate rozofsmount reply fuse threads. 
   COMMON_CONFIG_READ_BOOL(rozofsmount_fuse_reply_thread,False);
@@ -279,14 +279,14 @@ static inline void common_config_generated_read(char * fname) {
   // Whether CRC32 MUST be absolutly hardware computed by STORIO. 
   COMMON_CONFIG_READ_BOOL(crc32c_hw_forced,False);
   // Whether STORIO device monitoring should avoid reading from  
-  // devices when no access have occured for read or write. This 
+  // devices when no access have occurred for read or write. This
   // enables disk spin down to occur. 
   COMMON_CONFIG_READ_BOOL(allow_disk_spin_down,False);
-  // Over which device usage threashold should the STORIO log the event.  
+  // Over which device usage threshold should the STORIO log the event.
   COMMON_CONFIG_READ_INT_MINMAX(disk_usage_threshold,0,0,100);
-  // Over which device read delay threashold should the STORIO log the event.  
+  // Over which device read delay threshold should the STORIO log the event.
   COMMON_CONFIG_READ_INT(disk_read_threshold,0);
-  // Over which device write delay threashold should the STORIO log the event.  
+  // Over which device write delay threshold should the STORIO log the event.
   COMMON_CONFIG_READ_INT(disk_write_threshold,0);
   // Number of STORIO receive buffer. 
   COMMON_CONFIG_READ_INT_MINMAX(storio_buf_cnt,128,64,1024);
@@ -301,7 +301,7 @@ static inline void common_config_generated_read(char * fname) {
   COMMON_CONFIG_READ_STRING(device_automount_path,"/srv/rozofs/storages");
   // Device mounting options 
   COMMON_CONFIG_READ_STRING(device_automount_option,"");
-  // Paralellism factor for device self healing feature 
+  // Parallelism factor for device self healing feature
   COMMON_CONFIG_READ_INT_MINMAX(device_self_healing_process,8,1,64);
   // Directory to use on the storage node to build temporary files. 
   // Used for instance by the rebuild process. 

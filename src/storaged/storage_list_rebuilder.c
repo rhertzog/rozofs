@@ -939,7 +939,7 @@ int storaged_rebuild_list(char * fid_list, char * statFilename) {
       severe("Null entry");
       continue;
     }
-    // Padd end of distibution with 0. Just in case...
+    // Padd end of distribution with 0. Just in case...
     memset(&file_entry.dist_set_current[rozofs_safe],0,ROZOFS_SAFE_MAX-rozofs_safe); 
     memcpy(&file_entry_saved,&file_entry,entry_size);
 
@@ -1151,7 +1151,7 @@ void usage() {
     printf("   -h, --help\t\t\tprint this message.\n");
 	printf("   -c, --cid\tcid to rebuild.\n");
 	printf("   -s, --sid\tsid to rebuild.\n");
-	printf("   -r, --ref\trebuild refence.\n");
+	printf("   -r, --ref\trebuild reference.\n");
 	printf("   -i, --instance\trebuild instance number.\n");    
     printf("   -q, --quiet \tDo not print.\n");    
 }

@@ -1445,7 +1445,7 @@ error:
 
     /*
     ** Update the exportd with the written filesize if some succesfull write 
-    ** have occured previously.
+    ** have occurred previously.
     */ 
     export_write_block_error_nb(param,file);
     //rozofs_fuse_release_saved_context(param);

@@ -479,7 +479,7 @@ void volume_balance(volume_t *volume) {
     /*
     ** Use this new list as the next cluster distribution list,
     ** --> exception: in stict round robin mode, keep the the distribution list as it is
-    **     --> exception: on the 1rst call, the cluster distibution list has to be initialized
+    **     --> exception: on the 1rst call, the cluster distribution list has to be initialized
     */    
     if  (volume->balanced == 0) goto swap;
     switch(common_config.file_distribution_rule) {
@@ -586,7 +586,7 @@ static int do_cluster_distribute_strict_round_robin(uint8_t layout,int site_idx,
       if (multi_site) location_bit = vs->siteNum;
       else            location_bit = vs->host_rank;
       if (ROZOFS_BITMAP64_TEST1(location_bit, locationBitMap)) {
-		DISTTRACE("sid%d location collision %x  weigth %d", vs->sid, location_bit, vs->inverseCounter);
+		DISTTRACE("sid%d location collision %x  weight %d", vs->sid, location_bit, vs->inverseCounter);
 		location_collision++;	    
 		continue;
       }
@@ -600,7 +600,7 @@ static int do_cluster_distribute_strict_round_robin(uint8_t layout,int site_idx,
       vs->forwardCounter++;	
       sids[nb_selected++] = sid;
 
-      DISTTRACE("sid%d is #%d selected with location bit %x weigth %d", vs->sid, nb_selected, location_bit, vs->inverseCounter);
+      DISTTRACE("sid%d is #%d selected with location bit %x weight %d", vs->sid, nb_selected, location_bit, vs->inverseCounter);
 
       /* Enough sid found */
       if (rozofs_inverse==nb_selected) {
@@ -650,7 +650,7 @@ forward:
       if (multi_site) location_bit = vs->siteNum;
       else            location_bit = vs->host_rank;
       if (ROZOFS_BITMAP64_TEST1(location_bit, locationBitMap)) {
-		DISTTRACE("sid%d location collision %x weigth %d", vs->sid, location_bit, vs->forwardCounter);
+		DISTTRACE("sid%d location collision %x weight %d", vs->sid, location_bit, vs->forwardCounter);
 		location_collision++;	    
 		continue;
       }
@@ -663,7 +663,7 @@ forward:
       vs->forwardCounter++;	
       sids[nb_selected++] = sid;
 
-      DISTTRACE("sid%d is #%d selected with location bit %x weigth %d", vs->sid, nb_selected, location_bit, vs->forwardCounter);
+      DISTTRACE("sid%d is #%d selected with location bit %x weight %d", vs->sid, nb_selected, location_bit, vs->forwardCounter);
 
       /* Enough sid found */
       if (rozofs_forward==nb_selected) {
@@ -713,7 +713,7 @@ spare:
       if (multi_site) location_bit = vs->siteNum;
       else            location_bit = vs->host_rank;
       if (ROZOFS_BITMAP64_TEST1(location_bit, locationBitMap)) {
-		DISTTRACE("sid%d location collision %x weigth %d", vs->sid, location_bit, vs->spareCounter);
+		DISTTRACE("sid%d location collision %x weight %d", vs->sid, location_bit, vs->spareCounter);
 		location_collision++;	    
 		continue;
       }
@@ -835,7 +835,7 @@ success:
   
   
   /* 
-  ** In weigthed round robin and in size equalizing decrease the estimated size 
+  ** In weighted round robin and in size equalizing decrease the estimated size
   ** of the storages and re-order them in the cluster
   */
   decrease_size = common_config.alloc_estimated_mb*(1024*1024);
@@ -1005,7 +1005,7 @@ success:
 
   
   /* 
-  ** In weigthed round robin and in size equalizing decrease the estimated size 
+  ** In weighted round robin and in size equalizing decrease the estimated size
   ** of the storages and re-order them in the cluster
   */
   decrease_size = common_config.alloc_estimated_mb*(1024*1024);

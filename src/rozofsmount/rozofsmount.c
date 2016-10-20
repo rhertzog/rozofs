@@ -209,7 +209,7 @@ static void usage() {
     fprintf(stderr, "    -o mojThreadWrite=0|1\t\t\tdisable|enable Mojette threads use for write in storcli\n");
     fprintf(stderr, "    -o mojThreadRead=0|1\t\t\tdisable|enable Mojette threads use for read in storcli\n");
     fprintf(stderr, "    -o mojThreadThreshold=<bytes>\t\t\tset the byte threshold to use Mojette threads in storcli\n");
-    fprintf(stderr, "    -o localPreference\t\t\tFavor local storage on read to save network bandwith in case of poor network connection\n");
+    fprintf(stderr, "    -o localPreference\t\t\tFavor local storage on read to save network bandwidth in case of poor network connection\n");
     fprintf(stderr, "    -o noReadFaultTolerant\t\t\tGive back blocks with 0 on read for corrupted block instead of EIO\n");
 
 

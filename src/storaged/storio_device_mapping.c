@@ -246,7 +246,7 @@ void storage_fid_debug(char * argv[], uint32_t tcpRef, void *bufRef) {
 	}
 	pRebuild = storio_rebuild_ctx_retrieve(storio_rebuild_ref, (char*)key.fid);
 	if (pRebuild == 0) {
-          pChar += rozofs_string_append(pChar,"Context reallocated to an other FID\n");  
+          pChar += rozofs_string_append(pChar,"Context reallocated to another FID\n");
           continue;
 	}
 	pChar += rozofs_string_append(pChar,"start ");

@@ -1219,7 +1219,7 @@ export_tracking_table_t *exp_create_attributes_tracking_context(uint16_t eid, ch
       /*
       ** eid value is out of range
       */
-      severe("failed to create ressource: eid %d is out of range max is %d",eid,EXPGW_EID_MAX_IDX);
+      severe("failed to create resource: eid %d is out of range max is %d",eid,EXPGW_EID_MAX_IDX);
       return NULL;
    }
    if (export_tracking_table[eid]!= NULL)

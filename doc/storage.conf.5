@@ -42,7 +42,7 @@ and by it's identifier in the cluster (sid). Each pair (cid,sid) must be
 unique. The root is the path where data will be stored for this storage.
 Under this path stands the logical devices (numbered from 0) on which the
 storage will spread the data. The storage writes a new data file on the 
-less occupied device. A mapping file stores the choosen device for each
+less occupied device. A mapping file stores the chosen device for each
 file. The device holding the mapping file is computed from a hash. Although
 the number of devices can be increased to scale the storage up, the number
 of mapping devices can not change (because of the hash). The mapping files 

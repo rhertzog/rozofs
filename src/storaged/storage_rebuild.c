@@ -1810,7 +1810,7 @@ int rbs_do_list_rebuild(int cid, int sid) {
   success = 0;
   	  
   /*
-  ** Loop on distibution sub directories
+  ** Loop on distribution sub directories
   */
   for (instance=0; instance<parameter.parallel; instance++) {
 
@@ -2248,7 +2248,7 @@ void clean_dir(char * name) {
     return;
   } 	  
   /*
-  ** Loop on distibution sub directories
+  ** Loop on distribution sub directories
   */
   while ((file = readdir(dir)) != NULL) {
   
@@ -2360,7 +2360,7 @@ void rbs_list_remaining_fid(void) {
     return;
   } 	  
   /*
-  ** Loop on distibution sub directories
+  ** Loop on distribution sub directories
   */
   while ((file0 = readdir(dir0)) != NULL) {
   
@@ -2391,7 +2391,7 @@ void rbs_list_remaining_fid(void) {
 	}
 	
     /*
-    ** Loop on distibution sub directories
+    ** Loop on distribution sub directories
     */
     while ((file1 = readdir(dir1)) != NULL) {
 
@@ -3022,7 +3022,7 @@ static inline int rbs_rebuild_resume() {
     return status;
   } 	  
   /*
-  ** Loop on distibution sub directories
+  ** Loop on distribution sub directories
   */
   while ((file0 = readdir(dir0)) != NULL) {
   

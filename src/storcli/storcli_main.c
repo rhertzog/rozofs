@@ -1300,7 +1300,7 @@ void usage() {
     printf("\t-m,--mojThreadThreshold value\t\tThe number of bytes from which the storage threads are called\n");
     printf("\t-L,--layout <0|1|2>\t\tredundancy level supported by the process\n");
     printf("\t-B,--bsize <0|1|2>\t\tfile system block size (0:4K/1:8K/2:16K\n");
-    printf("\t-f,--localPreference\t\tfavor local storage on read to save network bandwith in case of poor network connection\n");
+    printf("\t-f,--localPreference\t\tfavor local storage on read to save network bandwidth in case of poor network connection\n");
     printf("\t-F,--noReadFaultTolerant\t\tReturn EIO on block corruption detection.\n");
 
 }

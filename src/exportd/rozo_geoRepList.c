@@ -173,7 +173,7 @@ static void usage() {
     printf("\t-e,--export     <eid>        mandatory export id to replicate.\n");
     printf("\t-p,--path       <path>       mandatory path where to create the result files.\n");
     printf("\t-n,--nb         <nbEntries>  mandatory number of entries per file.\n");
-    printf("\t-c,--config     <cfgFile>    optionnal configuration file name.\n");
+    printf("\t-c,--config     <cfgFile>    optional configuration file name.\n");
     printf("\t-d,--debug                   display debugging information.\n");
 };
 

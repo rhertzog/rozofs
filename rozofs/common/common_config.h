@@ -97,7 +97,7 @@ typedef struct _common_config_global_t {
   ** client scope configuration elements
   */
 
-  // Whether STORCLI acknowleges write request on inverse or forward STORIO responses.
+  // Whether STORCLI acknowledges write request on inverse or forward STORIO responses.
   uint32_t    wr_ack_on_inverse;
   // To activate rozofsmount reply fuse threads.
   uint32_t    rozofsmount_fuse_reply_thread;
@@ -120,7 +120,7 @@ typedef struct _common_config_global_t {
   // Whether CRC32 MUST be absolutly hardware computed by STORIO.
   uint32_t    crc32c_hw_forced;
   // Whether STORIO device monitoring should avoid reading from 
-  // devices when no access have occured for read or write. This
+  // devices when no access have occurred for read or write. This
   // enables disk spin down to occur.
   uint32_t    allow_disk_spin_down;
   // Over which device usage threashold should the STORIO log the event. 
@@ -142,7 +142,7 @@ typedef struct _common_config_global_t {
   char *      device_automount_path;
   // Device mounting options
   char *      device_automount_option;
-  // Paralellism factor for device self healing feature
+  // Parallelism factor for device self healing feature
   uint32_t    device_self_healing_process;
   // Directory to use on the storage node to build temporary files.
   // Used for instance by the rebuild process.

@@ -94,10 +94,10 @@ storio_device_error_log_t storio_device_error_log;
 *
 * @param fid        The FID tha has encountered an error
 * @param line       The line where the error is called
-* @param device     The device on which the error occured
-* @param chunk      The chunk of the FID on which the   error occured
-* @param bid        The block where the error occured
-* @param nb_blocks  The block of the chunk where the error occured
+* @param device     The device on which the error occurred
+* @param chunk      The chunk of the FID on which the   error occurred
+* @param bid        The block where the error occurred
+* @param nb_blocks  The block of the chunk where the error occurred
 * @param error      The errno
 * @param string     A string
 *
@@ -2434,7 +2434,7 @@ int storage_rm_chunk(storage_t * st, uint8_t * device,
     }
     
     /*
-    ** Re-write distibution
+    ** Re-write distribution
     */
     memcpy(file_hdr.v0.device,device,sizeof(file_hdr.v0.device));
     storage_write_all_header_files(st, fid, spare, &file_hdr);        
